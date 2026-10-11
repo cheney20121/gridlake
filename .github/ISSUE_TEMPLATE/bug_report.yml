@@ -1,0 +1,53 @@
+name: Bug 报告
+description: 功能不符合预期、报错或崩溃
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        提交前请先搜索已有 Issue。**安全漏洞请不要在这里提**，见 SECURITY.md。
+  - type: input
+    id: version
+    attributes:
+      label: 版本
+      description: 页面右下角或启动日志里的版本号，或 commit
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: deploy
+    attributes:
+      label: 部署方式
+      options: [Docker, 安装包 + systemd, 源码运行, 其他]
+    validations:
+      required: true
+  - type: dropdown
+    id: auth
+    attributes:
+      label: 登录模式（LEDGER_AUTH_MODE）
+      options: [off, local, gateway, proxy]
+  - type: textarea
+    id: what
+    attributes:
+      label: 发生了什么
+      description: 期望的结果与实际结果
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 数据集规模、用到的功能、操作顺序；能给出最小示例（脱敏后的数据 / SQL / 公式）最好
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志与截图
+      description: 服务日志（`docker logs webexcel`）、浏览器控制台报错。请先去掉密码、令牌等敏感信息
+      render: shell
+  - type: input
+    id: env
+    attributes:
+      label: 环境
+      description: 操作系统、CPU / 内存、浏览器及版本

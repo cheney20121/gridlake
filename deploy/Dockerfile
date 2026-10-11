@@ -34,6 +34,7 @@ RUN apt-get update \
  && mkdir -p /data && chown webexcel:webexcel /data
 COPY --from=server /src/target/release/ledger-server /app/bin/ledger-server
 COPY --from=web /out/web /app/web
+COPY LICENSE NOTICE THIRD_PARTY_LICENSES.md /app/licenses/
 ENV TZ=Asia/Shanghai \
     LEDGER_ADDR=0.0.0.0:8787 \
     LEDGER_DB=/data/ledger.duckdb \

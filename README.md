@@ -2,7 +2,13 @@
 
 **开源、可私有部署的亿级数据表格**：像 Excel 一样用公式和透视表分析上亿行数据。表格界面基于 [Univer](https://github.com/dream-num/univer)，数据放在服务端的 [DuckDB](https://github.com/duckdb/duckdb) 里，浏览器只取看到的那一屏。
 
-> An open-source, self-hosted spreadsheet for 100M-row datasets — Excel-style formulas and pivot tables on top of DuckDB. The UI is Chinese-only for now.
+> An open-source, self-hosted spreadsheet for 100M-row datasets — Excel-style formulas and pivot tables on top of DuckDB. The UI is Chinese-only for now. **English overview: [README.en.md](README.en.md)**
+
+![200 万行订单数据集：打开整张表只要几毫秒，筛选 / 排序 / 搜索都在服务端完成](docs/images/big-grid.png)
+
+![对 200 万行订单做透视（渠道 × 状态 × 金额合计），结果写成普通工作表，可继续写公式、做图表](docs/images/pivot.png)
+
+<sub>截图：200 万行合成订单数据（由 `scripts/seed-demo.py` 生成），本机开发版服务。</sub>
 
 ## 为什么
 
@@ -43,16 +49,29 @@ WebExcel 的做法是：**界面是 Excel 式的表格，大数据集在服务�
 
 ## 快速开始
 
-### Docker
+### 一分钟体验（Docker）
 
 ```bash
-docker build -f deploy/Dockerfile -t webexcel:0.1.0 .
+git clone <本仓库地址> && cd webexcel
 mkdir -p data && sudo chown -R 10001:10001 data
 docker compose -f deploy/docker-compose.yml up -d
 docker logs webexcel 2>&1 | grep 初始密码      # 首次启动随机生成的管理员密码
 ```
 
-浏览器打开 `http://localhost:8787/excel`，用 `admin` 和上面的密码登录，然后在首页「自动化 → 账号管理」里给同事建账号。
+浏览器打开 `http://localhost:8787/excel`，用 `admin` 和上面的密码登录。想先看看效果，导入一份示例数据（合成的订单，默认 100 万行，用 Docker 部署时在本机执行）：
+
+```bash
+# 先登录取令牌（把 <密码> 换成上面日志里的初始密码），再导入
+TOKEN=$(curl -s -X POST http://localhost:8787/api/ledger/auth/login -H 'Content-Type: application/json' \
+        -d '{"username":"admin","password":"<密码>"}' | python3 -c 'import sys,json; print(json.load(sys.stdin)["data"]["token"])')
+scripts/seed-demo.py --url http://localhost:8787 --token "$TOKEN" --rows 2000000
+```
+
+然后在页面里：新建工作簿 → 左侧「数据」面板点开「订单」→ 工具栏「透视分析」。同事的账号在首页「自动化 → 账号管理」里创建。
+
+> 镜像默认从 GitHub Container Registry 拉取发布版（`deploy/docker-compose.yml`）。想用本地源码构建：
+> `docker build -f deploy/Dockerfile -t webexcel:local . && WEBEXCEL_IMAGE=webexcel:local docker compose -f deploy/docker-compose.yml up -d`。
+> 发布到 GitHub 后用 `scripts/set-repo.sh 用户名/仓库名` 把文档里的占位符 `OWNER` 换成真实地址。
 
 ### 从源码运行（开发）
 
@@ -76,8 +95,8 @@ macOS 上如果编译 DuckDB 报 `'memory' file not found`，加上：`export CX
 
 | `LEDGER_AUTH_MODE` | 说明 |
 |---|---|
-| `off`（默认） | 不登录，任何能访问页面的人都可以使用全部功能。只适合本机或内网试用 |
-| `local` | 内置账号：管理员在页面里建账号；密码 PBKDF2-SHA256 保存，失败次数限制，登录记入审计 |
+| `off`（默认） | 不登录，任何能访问页面的人都可以使用全部功能。**只适合本机试用**：监听非本机地址（或 `LEDGER_CORS=*`）时服务会拒绝启动，确认已有其他保护才可用 `LEDGER_ALLOW_NO_AUTH=1` 放行 |
+| `local`（推荐） | 内置账号：管理员在页面里建账号；密码 PBKDF2-SHA256 保存，失败次数限制（重启不清零），登录记入审计；会话令牌放在 HttpOnly cookie 里，页面脚本读不到 |
 | `gateway` | 对接已有的统一登录：浏览器带的令牌由服务端转给网关校验 |
 | `proxy` | 由反向代理（nginx `auth_request`、OAuth2 Proxy 等）传入身份，可接 OIDC / LDAP |
 
@@ -88,6 +107,8 @@ macOS 上如果编译 DuckDB 报 `'memory' file not found`，加上：`export CX
 | `ledger-server/` | 后端：Rust + axum + DuckDB（数据集、透视、公式下推、SQL、AI、协作、权限、审批） |
 | `demo-web-vue3/` | 前端：Vue 3 + Univer + Element Plus |
 | `deploy/` | Dockerfile、docker-compose、安装脚本、部署手册 |
+| `scripts/` | 敏感内容检查、示例数据导入（`seed-demo.py`）、版本 / 许可证检查 |
+| `docs/` | 文档与截图（路线图见 [ROADMAP.md](ROADMAP.md)） |
 
 ## 测试
 
@@ -97,6 +118,8 @@ cd ledger-server && tests/e2e/run.sh                 # 后端端到端测试（�
 cd demo-web-vue3 && pnpm test:unit                   # 前端单元测试
 cd demo-web-vue3 && pnpm test:ui                     # 界面测试（需要本机 Chrome）
 scripts/check-forbidden.sh                           # 敏感内容检查：私钥、内网地址、非官方 npm 源
+scripts/check-version.sh                             # 后端与前端版本号一致
+python3 -I scripts/gen-third-party.py --check        # 依赖的许可证都在允许清单里
 git config core.hooksPath .githooks                  # 提交前自动做上面的检查
 ```
 
@@ -107,6 +130,10 @@ git config core.hooksPath .githooks                  # 提交前自动做上面�
 - AI 助手的效果取决于接入的模型，还没有系统评测
 - 还没有在 Linux 生产环境长期运行过；欢迎反馈问题
 
+## 参与
+
+欢迎提 Issue 和 PR：先读 [CONTRIBUTING.md](CONTRIBUTING.md)；后续计划见 [ROADMAP.md](ROADMAP.md)，版本变化见 [CHANGELOG.md](CHANGELOG.md)。发现安全问题请按 [SECURITY.md](SECURITY.md) 私下报告，不要公开提 Issue。参与即同意遵守[行为准则](CODE_OF_CONDUCT.md)。
+
 ## 许可证
 
-[Apache-2.0](LICENSE)。依赖的 Univer（Apache-2.0）、DuckDB（MIT）等各自的许可证见对应项目。
+[Apache-2.0](LICENSE)。依赖的 Univer（Apache-2.0）、DuckDB（MIT）等各自的许可证见 [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md)，归属声明见 [NOTICE](NOTICE)。

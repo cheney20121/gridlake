@@ -139,10 +139,10 @@ export function aiDecideApi(id: string, status: 'applied' | 'dismissed' | 'undon
  * 读取 SSE 事件流：逐个回调事件，流结束后 resolve。
  * axios 不支持读取流，这里用 fetch；与 request.ts 一致按 { code, msg } 信封解析错误
  */
-/** fetch 不经过 request.ts 的拦截器，登录令牌需要自己带上 */
+/** fetch 不经过 request.ts 的拦截器：自己带上登录令牌（网关 / 跨域部署）和防跨站伪造用的 x-requested-with（会话 cookie 登录） */
 function authHeaders(): Record<string, string> {
   const token = getToken()
-  return token ? { 'x-user-token': token } : {}
+  return { 'x-requested-with': 'XMLHttpRequest', ...(token ? { 'x-user-token': token } : {}) }
 }
 
 async function readEvents(resp: Response, onEvent: (e: AiEvent) => void) {

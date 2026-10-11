@@ -120,6 +120,9 @@ async fn serve(config: config::Config) -> anyhow::Result<()> {
     let addr = config.addr.clone();
     let max_upload_mb = config.max_upload_mb;
     tracing::info!("ledger-server {} 配置：{}", admin::VERSION, config.summary());
+    for w in config.exposure_check().map_err(|e| anyhow::anyhow!(e))? {
+        tracing::warn!("安全提醒：{w}");
+    }
 
     let state: routes::AppState = Arc::new(db::Db::open(&config)?);
     // 内置账号：还没有任何账号时建管理员（没设置 LEDGER_ADMIN_PASSWORD 时随机生成，只在这里打印一次）
@@ -337,7 +340,9 @@ async fn serve(config: config::Config) -> anyhow::Result<()> {
 fn cors_layer(origins: Option<&[String]>) -> Option<CorsLayer> {
     let origins = origins?;
     if origins.iter().any(|o| o == "*") {
-        return Some(CorsLayer::very_permissive());
+        // 任意来源，但不带凭据：接口靠 x-user-token 请求头鉴权，不依赖浏览器自动携带的 cookie / 认证信息，
+        // 不用 very_permissive（它会回显请求来源并允许携带凭据）
+        return Some(CorsLayer::new().allow_origin(Any).allow_methods(Any).allow_headers(Any).expose_headers(Any));
     }
     let list = origins.iter().filter_map(|o| o.parse().ok()).collect::<Vec<axum::http::HeaderValue>>();
     Some(CorsLayer::new().allow_origin(AllowOrigin::list(list)).allow_methods(Any).allow_headers(Any).expose_headers(Any))

@@ -1,8 +1,10 @@
 import Cookies from 'js-cookie'
 
 /**
- * 登录令牌：放在 cookie 里（同源的 WebSocket / 下载链接也能带上），请求时作为 x-user-token 请求头发给表格服务。
- * 内置账号模式由登录页写入；网关模式由统一登录入口写入同名 cookie（cookie 名可在运行时配置 tokenCookie 里改）
+ * 页面可读的登录令牌，请求时作为 x-user-token 请求头发给表格服务。只用于两种情况：
+ * - 网关模式：由统一登录入口写入同名 cookie（cookie 名可在运行时配置 tokenCookie 里改）；
+ * - 内置账号 + 前后端跨域部署：由登录页写入。
+ * 内置账号 + 同源部署（默认）不走这里：服务端登录时写 HttpOnly 会话 cookie，页面读不到，也不需要读
  */
 const TOKEN_KEY = (window.__webexcel_config?.tokenCookie as string | undefined) || 'webexcel-token'
 

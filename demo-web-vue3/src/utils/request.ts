@@ -29,6 +29,8 @@ export const instance = axios.create({
   headers: {
     'Content-Type': 'application/json;charset=UTF-8',
     'Accept': 'application/json',
+    // 会话 cookie 登录时，服务端要求写请求带这个头（防跨站请求伪造）
+    'x-requested-with': 'XMLHttpRequest',
   },
   responseType: 'json',
 }) as AxiosInstanceCustom

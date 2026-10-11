@@ -2,7 +2,7 @@
   "name": "webexcel-web",
   "title": "WebExcel",
   "type": "module",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "engines": {
     "node": "^20.19.0 || >=22.12.0"

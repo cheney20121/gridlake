@@ -34,6 +34,7 @@ cp "$SERVER/target/release/ledger-server" "$OUT/bin/"
 strip "$OUT/bin/ledger-server" 2>/dev/null || true
 
 cp "$ROOT/deploy/ledger.env.example" "$ROOT/deploy/webexcel.service" "$ROOT/deploy/install.sh" "$ROOT/deploy/部署手册.md" "$OUT/"
+cp "$ROOT/LICENSE" "$ROOT/NOTICE" "$ROOT/THIRD_PARTY_LICENSES.md" "$OUT/"
 # 验收用的端到端测试（用临时数据库 + 模拟网关，不碰生产数据）：安装后 cd /opt/webexcel && tests/e2e/run.sh
 mkdir -p "$OUT/tests" && cp -r "$SERVER/tests/e2e" "$OUT/tests/" && rm -rf "$OUT/tests/e2e/__pycache__"
 chmod +x "$OUT/install.sh" "$OUT/bin/ledger-server" "$OUT/tests/e2e/run.sh"

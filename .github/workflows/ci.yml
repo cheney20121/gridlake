@@ -22,6 +22,31 @@ jobs:
           # 敏感词清单放在仓库 Secret 里（每行一个正则）；来自 fork 的 PR 拿不到 Secret，只做通用检查
           FORBIDDEN_PATTERNS: ${{ secrets.FORBIDDEN_PATTERNS }}
         run: scripts/check-forbidden.sh
+      - name: 版本号一致性（后端与前端）
+        run: scripts/check-version.sh
+
+  licenses:
+    name: 第三方许可证检查
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: demo-web-vue3/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: demo-web-vue3
+      - name: 依赖的许可证都在允许清单里（后端 + 前端）
+        run: python3 -I scripts/gen-third-party.py --check
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          manifest-path: ledger-server/Cargo.toml
+          command: check licenses sources
 
   backend:
     name: 后端（单元 + 端到端）

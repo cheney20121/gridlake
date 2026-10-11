@@ -460,7 +460,7 @@ fn is_public(path: &str) -> bool {
 
 /// 内置账号：按请求头 x-user-token 查会话（结果缓存 30 秒；账号变动时 clear_cache 立即作废）
 async fn local_user(db: &AppState, headers: &HeaderMap) -> AppResult<CurrentUser> {
-    let token = headers.get("x-user-token").and_then(|v| v.to_str().ok()).map(str::trim).unwrap_or("").to_string();
+    let token = crate::account::token_of(headers);
     if token.is_empty() {
         return Err(AppError::Unauthorized("请先登录".into()));
     }
@@ -601,6 +601,11 @@ pub async fn guard(State(db): State<AppState>, ConnectInfo(peer): ConnectInfo<So
     if req.method() == Method::OPTIONS {
         return next.run(req).await;
     }
+    // 防跨站请求伪造：会话 cookie 登录的写请求必须带 x-requested-with（/mcp、/admin 用自己的令牌，不看 cookie）
+    let raw_path = normalize(req.uri().path());
+    if auth.mode == AuthMode::Local && raw_path != "/mcp" && !raw_path.starts_with("/admin/") && crate::account::csrf_blocked(req.method(), req.headers()) {
+        return AppError::Forbidden("缺少 x-requested-with 请求头：用会话 cookie 登录时，写操作必须带上它（防跨站请求伪造）；脚本调用请改用 x-user-token 请求头".into()).into_response();
+    }
     let started = Instant::now();
     let method = req.method().clone();
     let path = normalize(req.uri().path()).to_string();
@@ -662,8 +667,8 @@ pub async fn guard(State(db): State<AppState>, ConnectInfo(peer): ConnectInfo<So
         }
     }
 
-    // 数据范围受限的用户：会绕过过滤的操作（导入、建视图、定时推送、台账明细…）一律不可用
-    if scope.restricted && needs_full(&method, &path) {
+    // 数据范围受限的用户：只能调用 RESTRICTED_OK 里登记的接口；会绕过过滤的操作（导入、建视图、定时推送、台账明细…）和新增的未登记接口一律不可用
+    if scope.restricted && !restricted_ok(&method, &path) {
         let e = AppError::Forbidden(format!("这项操作需要完整的数据权限。{}", crate::scope::restriction_note(&scope).unwrap_or_default()));
         record(&db, &user, &ip, &method, &path, &label, None, id_param, e.status(), started);
         return e.into_response();
@@ -716,7 +721,33 @@ async fn resolve_scope(db: &AppState, user: &CurrentUser) -> AppResult<Arc<Scope
     Ok(Arc::new(run(db, move |c| db2.scope.resolve(c, &u)).await?))
 }
 
-/// 数据范围受限的用户不能做的操作：会绕过过滤写入 / 读出全部数据的功能（方法，路径模板）
+/// 数据范围受限的用户可以调用的接口（方法，路径模板）。**白名单**：不在表里的接口一律拒绝，
+/// 所以新增接口默认对受限用户关闭，要开放必须在这里登记（`routes_are_all_classified` 测试会提醒）。
+/// 只放确认过「读写都经过数据范围过滤」的接口；会绕过过滤读出 / 写入全部数据的功能放进下面的 `FULL_ONLY`。
+/// 仅管理员的接口（ROUTES 里是 Admin）不用列：管理员不受数据范围限制，也就不存在「受限的管理员」
+const RESTRICTED_OK: &[(&str, &str)] = &[
+    ("GET", "/ledger/shops"),
+    ("GET", "/ledger/periods"),
+    ("GET", "/ledger/close"), ("POST", "/ledger/close"), ("GET", "/ledger/close/logs"), ("GET", "/ledger/close/locks"),
+    ("GET", "/ledger/datasets"), ("POST", "/ledger/datasets/{id}/writeback"), ("GET", "/ledger/datasets/{id}/anomalies"), ("POST", "/ledger/datasets/{id}/cursor"), ("GET", "/ledger/datasets/{id}/rows"), ("POST", "/ledger/datasets/{id}/stats"), ("POST", "/ledger/datasets/{id}/distinct"), ("GET", "/ledger/datasets/{id}/export"), ("POST", "/ledger/datasets/{id}/aggregate"), ("POST", "/ledger/datasets/{id}/pivot"), ("POST", "/ledger/datasets/{id}/calc/preview"),
+    ("POST", "/ledger/recons/preview"), ("POST", "/ledger/recons"), ("GET", "/ledger/recons/{id}"), ("PUT", "/ledger/recons/{id}"), ("GET", "/ledger/recons/{id}/summary"), ("GET", "/ledger/recons/{id}/items"), ("GET", "/ledger/recons/{id}/groups"), ("POST", "/ledger/recons/{id}/auto"), ("POST", "/ledger/recons/{id}/match"), ("POST", "/ledger/recons/{id}/unmatch"),
+    ("GET", "/ledger/workbooks"), ("POST", "/ledger/workbooks"), ("GET", "/ledger/workbooks/trash"), ("POST", "/ledger/workbooks/move"), ("POST", "/ledger/workbooks/ranges"), ("GET", "/ledger/workbooks/{id}"), ("PUT", "/ledger/workbooks/{id}"), ("DELETE", "/ledger/workbooks/{id}"), ("POST", "/ledger/workbooks/{id}/untrash"), ("DELETE", "/ledger/workbooks/{id}/purge"), ("PUT", "/ledger/workbooks/{id}/star"), ("GET", "/ledger/workbooks/{id}/content"), ("PUT", "/ledger/workbooks/{id}/content"), ("POST", "/ledger/workbooks/{id}/duplicate"), ("GET", "/ledger/workbooks/{id}/versions"), ("GET", "/ledger/workbooks/{id}/versions/{version}/content"), ("POST", "/ledger/workbooks/{id}/restore"), ("GET", "/ledger/workbooks/{id}/comments"), ("POST", "/ledger/workbooks/{id}/comments"), ("PUT", "/ledger/workbooks/{id}/share"),
+    ("GET", "/ledger/folders"), ("POST", "/ledger/folders"), ("PUT", "/ledger/folders/{id}"), ("DELETE", "/ledger/folders/{id}"),
+    ("GET", "/ledger/reports/sheets"),
+    ("POST", "/ledger/sql/run"),
+    ("GET", "/ledger/ai/status"), ("GET", "/ledger/ai/threads"), ("POST", "/ledger/ai/threads"), ("GET", "/ledger/ai/threads/{id}"), ("DELETE", "/ledger/ai/threads/{id}"), ("PUT", "/ledger/ai/threads/{id}/summary"), ("POST", "/ledger/ai/threads/{id}/chat"), ("GET", "/ledger/ai/threads/{id}/events"), ("POST", "/ledger/ai/threads/{id}/stop"), ("POST", "/ledger/ai/actions/{id}"),
+    ("GET", "/ledger/templates"), ("POST", "/ledger/templates/{id}/use"), ("GET", "/ledger/templates/{id}/uses"),
+    ("POST", "/ledger/auth/logout"), ("POST", "/ledger/auth/password"),
+    ("GET", "/ledger/users"),
+    ("PUT", "/ledger/comments/{id}"), ("DELETE", "/ledger/comments/{id}"), ("POST", "/ledger/comments/{id}/resolve"),
+    ("GET", "/ledger/collab/{id}/events"), ("POST", "/ledger/collab/{id}/send"),
+    ("GET", "/ledger/notifications"), ("POST", "/ledger/notifications/read"),
+    ("GET", "/ledger/approvals"), ("POST", "/ledger/approvals"), ("GET", "/ledger/approvals/count"), ("GET", "/ledger/approvals/{id}"), ("POST", "/ledger/approvals/{id}/decide"), ("POST", "/ledger/approvals/{id}/cancel"),
+];
+
+/// 数据范围受限的用户**明确不能**做的操作：会绕过过滤写入 / 读出全部数据的功能（方法，路径模板）。
+/// 运行时不靠它拒绝（默认拒绝，见 `RESTRICTED_OK`），它记录「评估过、确认要关闭」的接口，测试要求每个接口二选一
+#[cfg_attr(not(test), allow(dead_code))] // 只供测试核对分类，运行时靠 RESTRICTED_OK 默认拒绝
 const FULL_ONLY: &[(&str, &str)] = &[
     // 台账明细与月结以外的台账功能
     ("GET", "/ledger/imports"), ("POST", "/ledger/imports"), ("POST", "/ledger/imports/preview"), ("POST", "/ledger/imports/commit"),
@@ -745,8 +776,10 @@ const FULL_ONLY: &[(&str, &str)] = &[
     ("GET", "/ledger/data-scope"),
 ];
 
-fn needs_full(method: &Method, path: &str) -> bool {
-    FULL_ONLY.iter().any(|(m, t)| *m == method.as_str() && match_template(t, path).is_some())
+/// 受限用户能不能调用：只有登记在 `RESTRICTED_OK` 里的才行（HEAD 按 GET 算）
+fn restricted_ok(method: &Method, path: &str) -> bool {
+    let m = if method == Method::HEAD { "GET" } else { method.as_str() };
+    RESTRICTED_OK.iter().any(|(rm, t)| *rm == m && match_template(t, path).is_some())
 }
 
 /// 把登录用户登记到用户目录（最多每 10 分钟写一次，名字或权限变了立即更新）
@@ -1090,38 +1123,95 @@ mod tests {
         }
     }
 
+    /// 从 main.rs 的路由注册里取出全部（方法，路径模板）
+    fn registered_routes() -> Vec<(String, String)> {
+        let main = include_str!("main.rs");
+        let body = &main[main.find(".route(").unwrap()..main.find(".fallback(routes::api_not_found)").unwrap()];
+        let mut out = Vec::new();
+        for chunk in body.split(".route(").skip(1) {
+            let (path, handlers) = chunk.trim_start().strip_prefix('"').unwrap().split_once('"').unwrap();
+            for m in ["get", "post", "put", "delete"] {
+                for (i, _) in handlers.match_indices(&format!("{m}(")) {
+                    // 排除 xxx_get( 之类的标识符，只认 get( 本身（含 routing::get( 写法）
+                    if handlers[..i].chars().last().is_none_or(|c| !(c.is_alphanumeric() || c == '_')) {
+                        out.push((m.to_uppercase(), path.to_string()));
+                    }
+                }
+            }
+        }
+        out
+    }
+
     /// 权限表与限制表里的路径必须是真实注册的路由：写错一个字，对应的限制就会悄悄失效
     #[test]
     fn tables_only_name_registered_routes() {
-        let main = include_str!("main.rs");
-        let registered = |t: &str| main.contains(&format!("\"{t}\""));
+        let reg = registered_routes();
+        assert!(reg.len() > 100, "路由解析异常：只找到 {} 条", reg.len());
+        let has = |m: &str, t: &str| reg.iter().any(|(rm, rt)| rm == m && rt == t);
         for (m, t, _, _) in ROUTES {
-            assert!(registered(t), "ROUTES 里的路径没有注册：{m} {t}");
+            assert!(has(m, t), "ROUTES 里的路径没有注册：{m} {t}");
         }
         for (m, t) in FULL_ONLY {
-            assert!(registered(t), "FULL_ONLY 里的路径没有注册：{m} {t}");
+            assert!(has(m, t), "FULL_ONLY 里的路径没有注册：{m} {t}");
         }
+        for (m, t) in RESTRICTED_OK {
+            assert!(has(m, t), "RESTRICTED_OK 里的路径没有注册：{m} {t}");
+        }
+    }
+
+    /// 新增接口必须明确它对「数据范围受限的用户」开放还是关闭：
+    /// 在 RESTRICTED_OK（开放）、FULL_ONLY（关闭）或 ROUTES 里标为 Admin 三者之一登记，否则这个测试失败。
+    /// 运行时未登记的接口本来就默认拒绝，这个测试是提醒开发者别漏掉
+    #[test]
+    fn routes_are_all_classified() {
+        let listed = |tbl: &[(&str, &str)], m: &str, t: &str| tbl.iter().any(|(a, b)| *a == m && *b == t);
+        let admin = |m: &str, t: &str| ROUTES.iter().any(|(a, b, r, _)| *a == m && *b == t && *r == Admin);
+        let mut missing = Vec::new();
+        for (m, t) in registered_routes() {
+            if is_public(&t) {
+                continue;
+            }
+            let (ok, full, adm) = (listed(RESTRICTED_OK, &m, &t), listed(FULL_ONLY, &m, &t), admin(&m, &t));
+            assert!(!(ok && full), "同时出现在 RESTRICTED_OK 和 FULL_ONLY：{m} {t}");
+            assert!(!(ok && adm), "仅管理员的接口不该对受限用户开放：{m} {t}");
+            if !(ok || full || adm) {
+                missing.push(format!("{m} {t}"));
+            }
+        }
+        assert!(missing.is_empty(), "这些接口还没有决定是否对数据范围受限的用户开放，请登记到 auth.rs 的 RESTRICTED_OK 或 FULL_ONLY：{missing:?}");
+    }
+
+    /// 默认拒绝：没登记的接口（包括将来新增的）受限用户调不了
+    #[test]
+    fn unlisted_routes_are_denied_for_restricted_users() {
+        assert!(!restricted_ok(&Method::POST, "/ledger/brand/new"));
+        assert!(!restricted_ok(&Method::GET, "/ledger/datasets/ds_1/something-new"));
+        // 方法也要对得上：只登记了 GET 的路径，PUT 不行
+        assert!(restricted_ok(&Method::GET, "/ledger/datasets/ds_1/rows"));
+        assert!(!restricted_ok(&Method::PUT, "/ledger/datasets/ds_1/rows"));
+        // HEAD 按 GET 算
+        assert!(restricted_ok(&Method::HEAD, "/ledger/datasets/ds_1/rows"));
     }
 
     #[test]
     fn restricted_users_are_kept_off_bypassing_operations() {
-        assert!(needs_full(&Method::POST, "/ledger/datasets/import/commit"));
-        assert!(needs_full(&Method::PUT, "/ledger/datasets/ds_1"));
+        assert!(!restricted_ok(&Method::POST, "/ledger/datasets/import/commit"));
+        assert!(!restricted_ok(&Method::PUT, "/ledger/datasets/ds_1"));
         // 填报：受限用户可以填自己范围内的行（服务端按范围列检查），撤销与提交记录仍需完整权限
-        assert!(!needs_full(&Method::POST, "/ledger/datasets/ds_1/writeback"));
-        assert!(needs_full(&Method::POST, "/ledger/writebacks/wb_1/undo"));
-        assert!(needs_full(&Method::GET, "/ledger/balances"));
+        assert!(restricted_ok(&Method::POST, "/ledger/datasets/ds_1/writeback"));
+        assert!(!restricted_ok(&Method::POST, "/ledger/writebacks/wb_1/undo"));
+        assert!(!restricted_ok(&Method::GET, "/ledger/balances"));
         // 读取数据集、月结、工作簿、审批、AI、SQL 查询不受影响
-        assert!(!needs_full(&Method::POST, "/ledger/datasets/ds_1/cursor"));
-        assert!(!needs_full(&Method::GET, "/ledger/datasets/ds_1/rows"));
-        assert!(!needs_full(&Method::POST, "/ledger/datasets/ds_1/pivot"));
-        assert!(!needs_full(&Method::POST, "/ledger/sql/run"));
-        assert!(!needs_full(&Method::GET, "/ledger/close"));
-        assert!(!needs_full(&Method::POST, "/ledger/close"));
-        assert!(!needs_full(&Method::GET, "/ledger/shops"));
-        assert!(!needs_full(&Method::GET, "/ledger/workbooks"));
-        assert!(!needs_full(&Method::POST, "/ledger/approvals"));
-        assert!(!needs_full(&Method::POST, "/ledger/ai/threads/t1/chat"));
+        assert!(restricted_ok(&Method::POST, "/ledger/datasets/ds_1/cursor"));
+        assert!(restricted_ok(&Method::GET, "/ledger/datasets/ds_1/rows"));
+        assert!(restricted_ok(&Method::POST, "/ledger/datasets/ds_1/pivot"));
+        assert!(restricted_ok(&Method::POST, "/ledger/sql/run"));
+        assert!(restricted_ok(&Method::GET, "/ledger/close"));
+        assert!(restricted_ok(&Method::POST, "/ledger/close"));
+        assert!(restricted_ok(&Method::GET, "/ledger/shops"));
+        assert!(restricted_ok(&Method::GET, "/ledger/workbooks"));
+        assert!(restricted_ok(&Method::POST, "/ledger/approvals"));
+        assert!(restricted_ok(&Method::POST, "/ledger/ai/threads/t1/chat"));
     }
 
     /// 网关用内部 CA 签发证书时，管理员通过 LEDGER_AUTH_CA_FILE 提供根证书：配错要在启动时就报错，而不是等到所有人登录失败

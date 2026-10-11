@@ -6,9 +6,8 @@
 //! - 首次启动没有任何账号时，按 LEDGER_ADMIN_USER / LEDGER_ADMIN_PASSWORD 建一个管理员（没设密码就随机生成并打印在日志里）
 //! - 登录后的「当前用户」与网关模式同构（id 为用户名），审计、行级权限、审批等不需要区分登录方式
 
-use std::collections::HashMap;
 use std::net::SocketAddr;
-use std::sync::{Mutex, OnceLock};
+use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
 use aes_gcm::aead::OsRng;
@@ -17,6 +16,7 @@ use axum::Json;
 use axum::body::Bytes;
 use axum::extract::{ConnectInfo, Extension, Path, State};
 use axum::http::HeaderMap;
+use axum::response::{IntoResponse, Response};
 use base64::Engine;
 use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use duckdb::{Connection, OptionalExt, params};
@@ -243,30 +243,33 @@ pub fn bootstrap(conn: &Connection, username: &str, password: Option<&str>) -> A
 
 // ── 登录与会话 ────────────────────────────────────────
 
-fn failures() -> &'static Mutex<HashMap<String, (u32, Instant)>> {
-    static F: OnceLock<Mutex<HashMap<String, (u32, Instant)>>> = OnceLock::new();
-    F.get_or_init(|| Mutex::new(HashMap::new()))
+/// 登录失败计数存在数据库里（重启服务不会清零，攻击者不能靠让服务重启来重置次数）。
+/// 同一用户名连续失败 MAX_FAILURES 次后锁定 LOCK_WINDOW；时间用 Unix 秒
+fn unix_now() -> i64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64)
 }
 
-fn locked(key: &str) -> bool {
-    failures().lock().ok().and_then(|m| m.get(key).copied()).is_some_and(|(n, at)| n >= MAX_FAILURES && at.elapsed() < LOCK_WINDOW)
+fn locked(conn: &Connection, key: &str) -> AppResult<bool> {
+    let row: Option<(i64, i64)> = conn.query_row("SELECT failures, last_at FROM ledger_login_failure WHERE key = ?", params![key], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
+    Ok(row.is_some_and(|(n, at)| n >= i64::from(MAX_FAILURES) && unix_now() - at < LOCK_WINDOW.as_secs() as i64))
 }
 
-fn note_failure(key: &str) {
-    if let Ok(mut m) = failures().lock() {
-        let e = m.entry(key.to_string()).or_insert((0, Instant::now()));
-        if e.1.elapsed() >= LOCK_WINDOW {
-            *e = (0, Instant::now());
-        }
-        e.0 += 1;
-        e.1 = Instant::now();
-    }
+fn note_failure(conn: &Connection, key: &str) -> AppResult<()> {
+    let now = unix_now();
+    let window = LOCK_WINDOW.as_secs() as i64;
+    // 过期的记录顺手清掉，表不会一直增长
+    conn.execute("DELETE FROM ledger_login_failure WHERE last_at < ?", params![now - window])?;
+    conn.execute(
+        "INSERT INTO ledger_login_failure (key, failures, last_at) VALUES (?, 1, ?)
+         ON CONFLICT (key) DO UPDATE SET failures = ledger_login_failure.failures + 1, last_at = excluded.last_at",
+        params![key, now],
+    )?;
+    Ok(())
 }
 
-fn clear_failures(key: &str) {
-    if let Ok(mut m) = failures().lock() {
-        m.remove(key);
-    }
+fn clear_failures(conn: &Connection, key: &str) -> AppResult<()> {
+    conn.execute("DELETE FROM ledger_login_failure WHERE key = ?", params![key])?;
+    Ok(())
 }
 
 #[derive(Serialize)]
@@ -282,7 +285,7 @@ pub fn login(conn: &Connection, username: &str, password: &str, days: i64) -> Ap
     if key.is_empty() || password.is_empty() {
         return Err(AppError::bad("请输入用户名和密码"));
     }
-    if locked(&key) {
+    if locked(conn, &key)? {
         return Err(AppError::bad("登录失败次数过多，请 10 分钟后再试"));
     }
     let row: Option<(String, String, bool)> = conn
@@ -294,14 +297,14 @@ pub fn login(conn: &Connection, username: &str, password: &str, days: i64) -> Ap
     let (id, disabled) = match row {
         Some((id, _, disabled)) if valid => (id, disabled),
         _ => {
-            note_failure(&key);
+            note_failure(conn, &key)?;
             return Err(AppError::bad("用户名或密码不正确"));
         }
     };
     if disabled {
         return Err(AppError::bad("账号已停用，请联系管理员"));
     }
-    clear_failures(&key);
+    clear_failures(conn, &key)?;
     let token = URL_SAFE_NO_PAD.encode(random_bytes::<32>());
     let now = now_local();
     conn.execute("DELETE FROM ledger_session WHERE expires_at < CAST(? AS TIMESTAMP)", params![now])?;
@@ -371,8 +374,51 @@ pub fn cli_reset_password(config: &crate::config::Config, username: &str, make_a
 
 // ── 接口 ──────────────────────────────────────────────
 
-fn token_of(headers: &HeaderMap) -> String {
+/// 会话 cookie 的名字：登录时由服务端以 HttpOnly 写入，页面脚本读不到（XSS 偷不走令牌）
+pub const SESSION_COOKIE: &str = "webexcel_session";
+
+fn header_token(headers: &HeaderMap) -> String {
     headers.get("x-user-token").and_then(|v| v.to_str().ok()).map(str::trim).unwrap_or("").to_string()
+}
+
+fn cookie_token(headers: &HeaderMap) -> String {
+    headers
+        .get_all(axum::http::header::COOKIE)
+        .iter()
+        .filter_map(|v| v.to_str().ok())
+        .flat_map(|v| v.split(';'))
+        .filter_map(|kv| kv.trim().split_once('='))
+        .find(|(k, _)| *k == SESSION_COOKIE)
+        .map(|(_, v)| v.trim().to_string())
+        .unwrap_or_default()
+}
+
+/// 请求带的登录令牌：优先 `x-user-token` 请求头（脚本调用、前后端分开部署），其次会话 cookie（浏览器）
+pub fn token_of(headers: &HeaderMap) -> String {
+    let t = header_token(headers);
+    if t.is_empty() { cookie_token(headers) } else { t }
+}
+
+/// 防跨站请求伪造：令牌只来自 cookie（浏览器会自动携带）的写请求，必须带 `x-requested-with` 请求头。
+/// 跨站的页面发不出自定义请求头（要先过 CORS 预检，而本服务不会放行陌生来源），再加上 cookie 是 SameSite=Lax
+pub fn csrf_blocked(method: &axum::http::Method, headers: &HeaderMap) -> bool {
+    use axum::http::Method;
+    let safe = matches!(*method, Method::GET | Method::HEAD | Method::OPTIONS);
+    !safe && header_token(headers).is_empty() && !cookie_token(headers).is_empty() && !headers.contains_key("x-requested-with")
+}
+
+/// 会话 cookie 要不要加 Secure：LEDGER_COOKIE_SECURE=1/0 强制；默认看可信反向代理传来的 X-Forwarded-Proto
+fn cookie_secure(db: &AppState, headers: &HeaderMap, peer: std::net::IpAddr) -> bool {
+    match std::env::var("LEDGER_COOKIE_SECURE").ok().as_deref().map(str::trim) {
+        Some("1" | "true" | "yes") => true,
+        Some("0" | "false" | "no") => false,
+        _ => db.config.trusted_proxies.contains(&peer) && headers.get("x-forwarded-proto").and_then(|v| v.to_str().ok()).is_some_and(|v| v.trim().eq_ignore_ascii_case("https")),
+    }
+}
+
+/// Set-Cookie 的值；max_age_secs 为 0 表示清除
+fn session_cookie(token: &str, max_age_secs: i64, secure: bool) -> String {
+    format!("{SESSION_COOKIE}={token}; Path=/; Max-Age={max_age_secs}; HttpOnly; SameSite=Lax{}", if secure { "; Secure" } else { "" })
 }
 
 fn require_local(db: &AppState) -> AppResult<()> {
@@ -391,8 +437,9 @@ pub struct LoginBody {
     pub password: String,
 }
 
-/// POST /api/ledger/auth/login  { username, password } → { token, days, user }
-pub async fn login_route(State(db): State<AppState>, ConnectInfo(peer): ConnectInfo<SocketAddr>, headers: HeaderMap, body: Bytes) -> AppResult<Json<Envelope<LoginResult>>> {
+/// POST /api/ledger/auth/login  { username, password } → { token, days, user }，同时用 Set-Cookie 写入 HttpOnly 会话 cookie。
+/// 响应里的 token 供脚本 / 前后端分开部署时放进 x-user-token 请求头；浏览器页面不需要保存它
+pub async fn login_route(State(db): State<AppState>, ConnectInfo(peer): ConnectInfo<SocketAddr>, headers: HeaderMap, body: Bytes) -> AppResult<Response> {
     require_local(&db)?;
     let started = Instant::now();
     let b: LoginBody = parse_json(&body)?;
@@ -400,16 +447,19 @@ pub async fn login_route(State(db): State<AppState>, ConnectInfo(peer): ConnectI
     let username = b.username.trim().to_string();
     let r = run(&db, move |c| login(c, &b.username, &b.password, days)).await;
     crate::auth::audit_login(&db, &headers, peer.ip(), &username, if r.is_ok() { 200 } else { 400 }, started);
-    Ok(ok(r?))
+    let r = r?;
+    let cookie = session_cookie(&r.token, days * 86400, cookie_secure(&db, &headers, peer.ip()));
+    Ok(([(axum::http::header::SET_COOKIE, cookie)], ok(r)).into_response())
 }
 
-/// POST /api/ledger/auth/logout  作废当前令牌
-pub async fn logout_route(State(db): State<AppState>, headers: HeaderMap) -> AppResult<Json<Envelope<bool>>> {
+/// POST /api/ledger/auth/logout  作废当前令牌，并清除会话 cookie
+pub async fn logout_route(State(db): State<AppState>, ConnectInfo(peer): ConnectInfo<SocketAddr>, headers: HeaderMap) -> AppResult<Response> {
     require_local(&db)?;
     let token = token_of(&headers);
     run(&db, move |c| logout(c, &token)).await?;
     db.auth.clear_cache();
-    Ok(ok(true))
+    let cookie = session_cookie("", 0, cookie_secure(&db, &headers, peer.ip()));
+    Ok(([(axum::http::header::SET_COOKIE, cookie)], ok(true)).into_response())
 }
 
 #[derive(Deserialize)]
@@ -478,6 +528,77 @@ mod tests {
         assert_ne!(h, hash_password("correct horse"), "每次加不同的盐");
         assert!(!verify_password("x", "not-a-hash"));
         assert!(!verify_password("x", "pbkdf2_sha256$0$AAAA$AAAA"));
+    }
+
+    /// 登录失败计数在数据库里：重启（新连接）后仍然有效，成功登录或过期后清零
+    #[test]
+    fn login_lockout_survives_restart_and_expires() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("l.duckdb");
+        {
+            let conn = Connection::open(&path).unwrap();
+            conn.execute_batch(&crate::schema::create_tables_sql()).unwrap();
+            assert!(!locked(&conn, "alice").unwrap());
+            for _ in 0..MAX_FAILURES - 1 {
+                note_failure(&conn, "alice").unwrap();
+            }
+            assert!(!locked(&conn, "alice").unwrap(), "还差一次");
+            note_failure(&conn, "alice").unwrap();
+            assert!(locked(&conn, "alice").unwrap());
+            assert!(!locked(&conn, "bob").unwrap(), "按用户名分开计数");
+        }
+        // 模拟服务重启：重新打开同一个数据文件
+        let conn = Connection::open(&path).unwrap();
+        assert!(locked(&conn, "alice").unwrap(), "重启后仍然锁定");
+        clear_failures(&conn, "alice").unwrap();
+        assert!(!locked(&conn, "alice").unwrap());
+        // 过了锁定窗口自动解除，并在下一次记录失败时清掉过期记录
+        let old = unix_now() - LOCK_WINDOW.as_secs() as i64 - 1;
+        conn.execute("INSERT INTO ledger_login_failure VALUES ('carol', 99, ?)", params![old]).unwrap();
+        assert!(!locked(&conn, "carol").unwrap());
+        note_failure(&conn, "dave").unwrap();
+        let n: i64 = conn.query_row("SELECT count(*) FROM ledger_login_failure WHERE key = 'carol'", [], |r| r.get(0)).unwrap();
+        assert_eq!(n, 0);
+    }
+
+    #[test]
+    fn session_token_from_header_or_cookie() {
+        let mut h = HeaderMap::new();
+        assert_eq!(token_of(&h), "");
+        h.insert("cookie", "a=1; webexcel_session=abc123; b=2".parse().unwrap());
+        assert_eq!(token_of(&h), "abc123");
+        h.insert("x-user-token", " hdr ".parse().unwrap());
+        assert_eq!(token_of(&h), "hdr", "请求头优先");
+        // 名字只是前缀相同的 cookie 不算
+        let mut h2 = HeaderMap::new();
+        h2.insert("cookie", "xwebexcel_session=nope".parse().unwrap());
+        assert_eq!(token_of(&h2), "");
+    }
+
+    #[test]
+    fn csrf_only_guards_cookie_authenticated_writes() {
+        use axum::http::Method;
+        let mut cookie_only = HeaderMap::new();
+        cookie_only.insert("cookie", "webexcel_session=abc".parse().unwrap());
+        assert!(csrf_blocked(&Method::POST, &cookie_only));
+        assert!(csrf_blocked(&Method::DELETE, &cookie_only));
+        assert!(!csrf_blocked(&Method::GET, &cookie_only), "读请求不拦");
+        let mut with_xrw = cookie_only.clone();
+        with_xrw.insert("x-requested-with", "XMLHttpRequest".parse().unwrap());
+        assert!(!csrf_blocked(&Method::POST, &with_xrw));
+        // 令牌来自请求头（浏览器不会自动携带）：不需要额外的头；没有任何凭据也不归这里管
+        let mut hdr = HeaderMap::new();
+        hdr.insert("x-user-token", "abc".parse().unwrap());
+        assert!(!csrf_blocked(&Method::POST, &hdr));
+        assert!(!csrf_blocked(&Method::POST, &HeaderMap::new()));
+    }
+
+    #[test]
+    fn cookie_attributes() {
+        let c = session_cookie("tok", 604800, false);
+        assert_eq!(c, "webexcel_session=tok; Path=/; Max-Age=604800; HttpOnly; SameSite=Lax");
+        assert!(session_cookie("tok", 604800, true).ends_with("; Secure"));
+        assert!(session_cookie("", 0, false).contains("Max-Age=0"));
     }
 
     #[test]

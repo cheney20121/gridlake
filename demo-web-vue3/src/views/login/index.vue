@@ -3,6 +3,7 @@ import type { LedgerMe } from '@/api/auth'
 import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getLedgerMeApi, loginApi } from '@/api/auth'
+import { LEDGER_SAME_ORIGIN } from '@/api/ledger-base'
 import { useLedgerUserStore } from '@/stores/ledger-user'
 import { setToken } from '@/utils/auth'
 
@@ -57,7 +58,10 @@ async function submit() {
   submitting.value = true
   try {
     const r = await loginApi(form.username.trim(), form.password)
-    setToken(r.token, r.days)
+    // 同源部署：服务端已写入 HttpOnly 会话 cookie，页面不保存令牌（脚本读不到，XSS 偷不走）；
+    // 跨域部署：浏览器不会向另一个来源带 cookie，只能把令牌放在 cookie / 请求头里自己带
+    if (!LEDGER_SAME_ORIGIN)
+      setToken(r.token, r.days)
     userStore.reset()
     router.replace(redirect())
   }

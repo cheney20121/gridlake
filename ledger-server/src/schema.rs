@@ -324,6 +324,12 @@ CREATE TABLE IF NOT EXISTS ledger_account (
   updated_at TIMESTAMP,
   last_login_at TIMESTAMP
 );
+-- 登录失败计数（按用户名；连续失败后临时锁定，重启不清零）
+CREATE TABLE IF NOT EXISTS ledger_login_failure (
+  key VARCHAR PRIMARY KEY,
+  failures BIGINT NOT NULL,
+  last_at BIGINT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS ledger_session (
   token_hash VARCHAR PRIMARY KEY,
   account_id VARCHAR NOT NULL,

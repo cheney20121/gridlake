@@ -40,7 +40,7 @@ export class CollabRefused extends Error {}
 export async function connectCollab(workbookId: string, client: string, version: number, name: string, onEvent: (e: CollabEvent) => void, signal: AbortSignal) {
   const token = getToken()
   const q = new URLSearchParams({ client, version: String(version), name })
-  const resp = await fetch(`${url(workbookId, 'events')}?${q}`, { headers: { Accept: 'text/event-stream', ...(token ? { 'x-user-token': token } : {}) }, signal })
+  const resp = await fetch(`${url(workbookId, 'events')}?${q}`, { headers: { 'Accept': 'text/event-stream', 'x-requested-with': 'XMLHttpRequest', ...(token ? { 'x-user-token': token } : {}) }, signal })
   if (!resp.ok || !resp.body) {
     let msg = `连接失败（${resp.status}）`
     try {

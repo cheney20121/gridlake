@@ -52,6 +52,32 @@ def call(method, path, tok=None, body=None, raw=None, ctype=None, headers=None, 
             return e.code, text
 
 
+def call_full(method, path, headers=None, body=None):
+    """像 call，但返回 (状态码, 响应头 dict(小写键，多个 Set-Cookie 用 | 连接), 解析后的 JSON)。用于检查 cookie 等响应头。"""
+    h = dict(headers or {})
+    data = None
+    if body is not None:
+        data = json.dumps(body).encode()
+        h["Content-Type"] = "application/json"
+    req = urllib.request.Request(BASE + path, data=data, method=method, headers=h)
+
+    def pack(resp, code):
+        text = resp.read()
+        hdrs = {}
+        for k, v in resp.headers.items():
+            hdrs[k.lower()] = hdrs[k.lower()] + "|" + v if k.lower() in hdrs else v
+        try:
+            return code, hdrs, json.loads(text)
+        except Exception:
+            return code, hdrs, text
+
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return pack(resp, resp.status)
+    except urllib.error.HTTPError as e:
+        return pack(e, e.code)
+
+
 def msg(r):
     """接口返回里给用户看的说明（r 为 call 的返回值）。"""
     return r[1].get("msg") if isinstance(r[1], dict) else str(r[1])

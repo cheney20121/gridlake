@@ -60,6 +60,8 @@ pub struct Config {
     pub session_days: i64,
     /// 操作审计保留天数
     pub audit_days: i64,
+    /// 明确允许「不登录 + 对外暴露」（监听非本机地址或开放跨域）。默认不允许：见 `Config::exposure_check`
+    pub allow_no_auth: bool,
     /// 允许自己审批自己提交的单据（小团队一个人兼任提交与审批时使用）；默认不允许
     pub allow_self_approve: bool,
 }
@@ -200,6 +202,7 @@ impl Config {
             admin_user: env("LEDGER_ADMIN_USER").unwrap_or_else(|| "admin".into()),
             admin_password: env("LEDGER_ADMIN_PASSWORD"),
             session_days: env("LEDGER_SESSION_DAYS").map(|v| v.parse().context("LEDGER_SESSION_DAYS 应为整数")).transpose()?.unwrap_or(7).clamp(1, 365),
+            allow_no_auth: matches!(env("LEDGER_ALLOW_NO_AUTH").as_deref().map(str::to_lowercase).as_deref(), Some("1" | "true" | "yes")),
             allow_self_approve: matches!(env("LEDGER_ALLOW_SELF_APPROVE").as_deref().map(str::to_lowercase).as_deref(), Some("1" | "true" | "yes")),
             audit_days: env("LEDGER_AUDIT_DAYS").map(|v| v.parse().context("LEDGER_AUDIT_DAYS 应为整数")).transpose()?.unwrap_or(365).max(1),
             connector_max_rows: env("LEDGER_CONNECTOR_MAX_ROWS").map(|v| v.parse().context("LEDGER_CONNECTOR_MAX_ROWS 应为整数")).transpose()?.unwrap_or(20_000_000),
@@ -211,6 +214,42 @@ impl Config {
             }
             Ok(c)
         })
+    }
+
+    /// 启动前的安全检查：返回要提醒的警告；配置本身不安全时返回错误，拒绝启动。
+    ///
+    /// - 不登录（`off`）却监听非本机地址：网络上任何能访问到的人都能读写全部数据 → 拒绝（`LEDGER_ALLOW_NO_AUTH=1` 可明确放行）
+    /// - 不登录又开放任意来源跨域（`LEDGER_CORS=*`）：本机上打开的任何网页都能调用接口 → 同样拒绝
+    /// - 登录开启但跨域为 `*`：不会泄露（令牌不在 cookie 里自动携带），但没有必要，给出警告
+    pub fn exposure_check(&self) -> Result<Vec<String>, String> {
+        use std::net::ToSocketAddrs;
+        let mut warnings = Vec::new();
+        let cors_any = self.cors.as_ref().is_some_and(|c| c.iter().any(|o| o == "*"));
+        let exposed = match self.addr.to_socket_addrs() {
+            Ok(mut it) => it.any(|a| !a.ip().is_loopback()),
+            // 解析不了的地址让后面的 bind 去报错
+            Err(_) => false,
+        };
+        if self.auth_mode == AuthMode::Off && (exposed || cors_any) {
+            let why = if exposed { format!("监听地址 {} 不是本机地址", self.addr) } else { "LEDGER_CORS=* 允许任意网站调用接口".to_string() };
+            if !self.allow_no_auth {
+                return Err(format!(
+                    "拒绝启动：没有开启登录（LEDGER_AUTH_MODE 未设置或为 off），但{why}，网络上任何能访问到的人都可以读取、修改、删除全部数据。\n\
+                     请选一种处理方式：\n\
+                     \u{20}\u{20}1. 开启登录：设置 LEDGER_AUTH_MODE=local（内置账号，推荐）、gateway 或 proxy；\n\
+                     \u{20}\u{20}2. 只在本机使用：把 LEDGER_ADDR 设为 127.0.0.1:8787，并去掉 LEDGER_CORS=*；\n\
+                     \u{20}\u{20}3. 确认已有其他手段保护（例如内网隔离 + 反向代理鉴权）：设置 LEDGER_ALLOW_NO_AUTH=1 明确放行。"
+                ));
+            }
+            warnings.push(format!("没有开启登录，且{why}：任何能访问到的人都能读写全部数据（已通过 LEDGER_ALLOW_NO_AUTH 放行）"));
+        }
+        if cors_any && self.auth_mode != AuthMode::Off {
+            warnings.push("LEDGER_CORS=* 允许任意网站调用接口；前后端分开部署时请改成前端的具体地址".to_string());
+        }
+        if self.admin_token.is_none() && exposed {
+            warnings.push("未设置 LEDGER_ADMIN_TOKEN：运维接口 /api/admin/* 只允许服务器本机访问；需要远程调用备份等接口时再设置".to_string());
+        }
+        Ok(warnings)
     }
 
     /// 启动时打印的生效配置（不含令牌）
@@ -245,7 +284,43 @@ impl Config {
 
 #[cfg(test)]
 mod tests {
-    use super::{auto_memory_limit, default_heavy, memory_bytes, parse_meminfo, parse_memory};
+    use super::{AuthMode, Config, auto_memory_limit, default_heavy, memory_bytes, parse_meminfo, parse_memory};
+
+    fn cfg(addr: &str, auth: AuthMode, cors: Option<&str>, allow: bool) -> Config {
+        let mut c = Config::from_env().unwrap();
+        c.addr = addr.into();
+        c.auth_mode = auth;
+        c.cors = cors.map(|v| vec![v.to_string()]);
+        c.allow_no_auth = allow;
+        c.admin_token = Some("t".into());
+        c
+    }
+
+    #[test]
+    fn refuses_to_expose_without_login() {
+        // 本机 + 不登录：开发 / 试用的默认方式，放行
+        assert!(cfg("127.0.0.1:8787", AuthMode::Off, None, false).exposure_check().unwrap().is_empty());
+        assert!(cfg("[::1]:8787", AuthMode::Off, None, false).exposure_check().unwrap().is_empty());
+        assert!(cfg("localhost:8787", AuthMode::Off, None, false).exposure_check().unwrap().is_empty());
+        // 对外监听 + 不登录：拒绝，提示里写明怎么处理
+        let err = cfg("0.0.0.0:8787", AuthMode::Off, None, false).exposure_check().unwrap_err();
+        assert!(err.contains("LEDGER_AUTH_MODE=local") && err.contains("LEDGER_ALLOW_NO_AUTH"), "{err}");
+        assert!(cfg("192.168.1.5:8787", AuthMode::Off, None, false).exposure_check().is_err());
+        assert!(cfg("[::]:8787", AuthMode::Off, None, false).exposure_check().is_err());
+        // 不登录 + 任意来源跨域：本机也不行
+        assert!(cfg("127.0.0.1:8787", AuthMode::Off, Some("*"), false).exposure_check().is_err());
+        // 明确放行：可以启动，但有警告
+        let w = cfg("0.0.0.0:8787", AuthMode::Off, None, true).exposure_check().unwrap();
+        assert!(w.iter().any(|m| m.contains("没有开启登录")), "{w:?}");
+        // 开了登录：对外监听没问题；跨域 * 只警告
+        assert!(cfg("0.0.0.0:8787", AuthMode::Local, None, false).exposure_check().unwrap().is_empty());
+        let w = cfg("0.0.0.0:8787", AuthMode::Local, Some("*"), false).exposure_check().unwrap();
+        assert!(w.iter().any(|m| m.contains("LEDGER_CORS=*")), "{w:?}");
+        // 对外监听却没设运维令牌：提醒
+        let mut c = cfg("0.0.0.0:8787", AuthMode::Local, None, false);
+        c.admin_token = None;
+        assert!(c.exposure_check().unwrap().iter().any(|m| m.contains("LEDGER_ADMIN_TOKEN")));
+    }
 
     #[test]
     fn memory_limit_format() {

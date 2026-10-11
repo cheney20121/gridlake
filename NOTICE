@@ -1,0 +1,16 @@
+WebExcel
+Copyright 2026 WebExcel contributors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This product includes software developed by third parties, each under its own
+license. The main components are:
+
+  - Univer (https://github.com/dream-num/univer) — Apache License 2.0
+    The spreadsheet user interface.
+  - DuckDB (https://github.com/duckdb/duckdb) — MIT License
+    The embedded analytical database engine, bundled into the server binary.
+  - Vue, Element Plus, ECharts, axum, tokio and others.
+
+The complete list of third-party packages and their licenses is in
+THIRD_PARTY_LICENSES.md.

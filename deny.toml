@@ -1,0 +1,35 @@
+# cargo-deny 配置：检查后端依赖的许可证、来源和重复版本。用法（在 ledger-server 目录）：
+#   cargo deny --manifest-path ledger-server/Cargo.toml check licenses sources
+# 前端依赖用 scripts/gen-third-party.py --check 检查。
+
+[graph]
+all-features = false
+
+[licenses]
+# 允许的许可证：全部是宽松许可证。出现清单外的（尤其 GPL / AGPL / SSPL）会让检查失败，评估后再决定是否加入
+allow = [
+    "MIT",
+    "MIT-0",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "Unlicense",
+    "0BSD",
+    "CC0-1.0",
+    "Unicode-3.0",
+    "BSL-1.0",
+    "CDLA-Permissive-2.0",
+    "MPL-2.0",
+]
+confidence-threshold = 0.9
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+
+[bans]
+multiple-versions = "allow"

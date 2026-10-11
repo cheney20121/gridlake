@@ -88,6 +88,29 @@ check("有两个管理员时可以撤掉其中一个", s == 200 and not r["data"
 s, r = call("GET", "/ledger/accounts", ADMIN)
 check("admin 不再是管理员后立即失去管理权限", s == 403, s)
 
+# ── 会话 cookie（浏览器登录）：HttpOnly，写操作要防跨站伪造 ──
+s, h, r = call_full("POST", "/ledger/auth/login", body={"username": "bob", "password": "bob-pass-1"})
+cookie = h.get("set-cookie", "")
+check("登录时下发会话 cookie：HttpOnly、SameSite=Lax、整站有效、有效期与 days 一致", s == 200 and "webexcel_session=" in cookie and "HttpOnly" in cookie and "SameSite=Lax" in cookie
+      and "Path=/" in cookie and f"Max-Age={r['data']['days'] * 86400}" in cookie, (s, h))
+check("本机直连（没有 https 代理）时不加 Secure", "Secure" not in cookie, cookie)
+check("cookie 里就是返回的令牌", cookie.split(";")[0] == "webexcel_session=" + r["data"]["token"], cookie)
+CK = {"Cookie": cookie.split(";")[0]}
+s, r = call("GET", "/ledger/me", headers=CK)
+check("只带 cookie：读接口可以用", s == 200 and r["data"]["user"] and r["data"]["user"]["id"] == "bob", (s, r))
+s, r = call("POST", "/ledger/folders", headers=CK, body={"name": "cookie 文件夹"})
+check("只带 cookie 的写请求：缺 x-requested-with 被拒绝（防跨站请求伪造）", s == 403 and "x-requested-with" in msg((s, r)), (s, r))
+s, r = call("POST", "/ledger/folders", headers={**CK, "x-requested-with": "XMLHttpRequest"}, body={"name": "cookie 文件夹"})
+check("带上 x-requested-with 后写请求正常", s == 200, (s, r))
+s, r = call("POST", "/ledger/folders", BOB, body={"name": "令牌文件夹"})
+check("用 x-user-token 请求头（脚本调用）的写请求不受影响", s == 200, (s, r))
+s, h, r = call_full("POST", "/ledger/auth/login", headers={"X-Forwarded-Proto": "https"}, body={"username": "bob", "password": "bob-pass-1"})
+check("经 https 反向代理登录：cookie 加 Secure", s == 200 and "Secure" in h.get("set-cookie", ""), h)
+s, h, r = call_full("POST", "/ledger/auth/logout", headers={**CK, "x-requested-with": "XMLHttpRequest"})
+check("退出：清除会话 cookie", s == 200 and "webexcel_session=;" in h.get("set-cookie", "") and "Max-Age=0" in h.get("set-cookie", ""), (s, h))
+s, r = call("GET", "/ledger/me", headers=CK)
+check("退出后同一个 cookie 已失效", s == 200 and r["data"]["user"] is None, (s, r))
+
 # ── 防暴力尝试 ──
 for _ in range(5):
     login("alice", "guess-guess")
