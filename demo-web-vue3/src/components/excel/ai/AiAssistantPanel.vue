@@ -377,7 +377,7 @@ async function apply(a: AiAction) {
     return
   applying.value = a.id
   try {
-    const { message, undo: undoInfo } = await applyAction(api, a, () => emit('datasetsChanged'))
+    const { message, undo: undoInfo } = await applyAction(api, a, () => emit('datasetsChanged'), props.operator)
     await aiDecideApi(a.id, 'applied', message, props.operator, undoInfo)
     actions.value[a.id] = { ...a, status: 'applied', result: message, undo: undoInfo, decidedBy: props.operator ?? null, decidedAt: new Date().toLocaleString() }
     emit('changed')
@@ -405,7 +405,7 @@ async function undo(a: AiAction) {
     return
   applying.value = a.id
   try {
-    const note = await undoApplied(api, a.undo as UndoStep, () => emit('datasetsChanged'))
+    const note = await undoApplied(api, a.undo as UndoStep, () => emit('datasetsChanged'), props.operator)
     await aiDecideApi(a.id, 'undone', note, props.operator)
     actions.value[a.id] = { ...a, status: 'undone', result: note }
     emit('changed')

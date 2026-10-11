@@ -239,6 +239,30 @@ pub fn run_scoped(conn: &Connection, sql: &str, limit: usize, scope: Option<&Has
     Ok(RunResult { columns, rows, truncated, elapsed_ms: start.elapsed().as_millis() as i64, datasets: used.into_iter().map(|d| d.name).collect() })
 }
 
+/// 另存为数据集之前的检查结果
+pub struct SaveCheck {
+    pub columns: Vec<ResultColumn>,
+    /// 前几行
+    pub rows: Vec<Vec<Json>>,
+    /// 结果总行数
+    pub total: i64,
+    /// 用到的数据集
+    pub datasets: Vec<String>,
+}
+
+/// 另存为数据集前的检查（不写入任何东西）：SQL 能不能执行、结果的列是否合规（空 / 重复 / 保留列名），以及总行数与前几行。
+/// 给 AI 生成"另存为数据集"建议时核对用：用户确认之前不会产生任何数据
+pub fn check_for_save(conn: &Connection, sql: &str, preview_rows: usize, scope: Option<&HashSet<String>>) -> AppResult<SaveCheck> {
+    let r = run_scoped(conn, sql, preview_rows, scope)?;
+    let (checked, used) = prepare_scoped(conn, sql, scope)?;
+    let total = with_timeout(conn, || {
+        let desc = describe(conn, &checked.sql)?;
+        plan_columns(&desc, &used, &HashMap::new())?;
+        Ok(conn.query_row(&format!("SELECT count(*) FROM (\n{}\n) q", checked.sql), [], |row| row.get::<_, i64>(0))?)
+    })?;
+    Ok(SaveCheck { columns: r.columns, rows: r.rows, total, datasets: r.datasets })
+}
+
 // ── 另存为数据集 ──────────────────────────────────────
 
 /// 结果列的最终定义与写入表达式

@@ -685,6 +685,29 @@ fn order_clause(def: &DatasetDef, spec: &QuerySpec, contribution: Option<&str>) 
     Ok(parts.join(", "))
 }
 
+/// 预览：符合条件的行数与前 limit 行（只取 columns 这几列，按 spec 排序）。不建游标，
+/// 给 AI 工具生成"视图建议"时核对用——命中多少行、前几行长什么样
+pub fn preview_rows(conn: &Connection, def: &DatasetDef, spec: &QuerySpec, columns: &[&ColumnDef], limit: i64) -> AppResult<(i64, Vec<Vec<Json>>)> {
+    let (where_sql, args) = where_clause(def, spec, None, None)?;
+    let matched: i64 = conn.query_row(&format!("SELECT count(*) FROM {} WHERE {where_sql}", def.table), params_from_iter(args.iter()), |r| r.get(0))?;
+    if matched == 0 || columns.is_empty() {
+        return Ok((matched, vec![]));
+    }
+    let cols: Vec<String> = columns.iter().map(|c| format!("({})", column_sql(c))).collect();
+    let sql = format!("SELECT {} FROM {} WHERE {where_sql} ORDER BY {} LIMIT {}", cols.join(", "), def.table, order_clause(def, spec, None)?, limit.clamp(1, 50));
+    let mut stmt = conn.prepare(&sql)?;
+    let n = cols.len();
+    let rows = stmt
+        .query_map(params_from_iter(args.iter()), |r| (0..n).map(|i| Ok(to_json(r.get_ref(i)?))).collect::<duckdb::Result<Vec<_>>>())?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok((matched, rows))
+}
+
+/// 数据集的总行数
+pub fn total_rows(conn: &Connection, def: &DatasetDef) -> AppResult<i64> {
+    Ok(conn.query_row(&format!("SELECT count(*) FROM {}", def.table), [], |r| r.get(0))?)
+}
+
 // ── 游标缓存 ──────────────────────────────────────────
 
 struct CursorEntry {

@@ -1,4 +1,6 @@
 import type { FUniver } from '@univerjs/core/facade'
+import type { DatasetSavePayload, DatasetSaveUndo } from './workbook-dataset'
+import type { ColumnFormatPayload, ColumnFormatUndo, TableCreatePayload, TableCreateUndo, TableViewPayload, TableViewUndo } from './workbook-table'
 import type { AiAction, AiContext } from '@/api/ai'
 import type { DatasetColumnKind } from '@/api/dataset'
 import type { ChartSpec } from '@/features/excel/chart/types'
@@ -7,12 +9,14 @@ import { addCalcApi, removeCalcApi } from '@/api/dataset'
 import { colName } from '@/features/excel/chart/chart-defaults'
 import { insertChart, newChartId, removeChart } from '@/features/excel/chart/chart-manager'
 import { createPivotSheet, getPivotSpec, refreshPivot } from '@/features/excel/pivot/pivot-sheet'
+import { applyDatasetSave, undoDatasetSave } from './workbook-dataset'
+import { applyColumnFormat, applyTableCreate, applyTableView, collectTableContext, undoColumnFormat, undoTableCreate, undoTableView } from './workbook-table'
 
 /**
  * AI 助手与工作簿的连接：
- * - 提问时附带界面上下文（当前工作表、选区内容、透视表定义）
- * - 用户确认后执行 AI 的建议（新建透视表、插入图表、写公式、加计算列），或一张方案卡里的多个步骤（全部成功或全部撤回）
- * - 应用时记下撤销信息（新建的页签 / 图表 / 被覆盖的单元格原值 / 新建的计算列），之后可以一次撤销
+ * - 提问时附带界面上下文（当前工作表、选区内容、透视表定义、工作簿里的数据表）
+ * - 用户确认后执行 AI 的建议（新建透视表、插入图表、写公式、加计算列、调整数据表视图），或一张方案卡里的多个步骤（全部成功或全部撤回）
+ * - 应用时记下撤销信息（新建的页签 / 图表 / 被覆盖的单元格原值 / 新建的计算列 / 数据表原来的视图），之后可以一次撤销
  */
 
 const MAX_ROWS = 20
@@ -23,6 +27,9 @@ export function collectContext(api: FUniver | null | undefined): AiContext {
   if (!sheet)
     return {}
   const ctx: AiContext = { sheetName: sheet.getSheetName() }
+  const tables = collectTableContext(api)
+  if (tables.length)
+    ctx.tables = tables
   const pivot = getPivotSpec(sheet)
   if (pivot)
     ctx.pivot = { datasetName: pivot.datasetName, request: pivot.request }
@@ -60,6 +67,10 @@ export type UndoStep
     | { kind: 'chart', chartId: string, sheetId: string, title: string }
     | { kind: 'formula', sheetId: string, cell: string, written: string, oldFormula: string | null, oldValue: unknown }
     | { kind: 'calc', datasetId: string, name: string }
+    | TableViewUndo
+    | ColumnFormatUndo
+    | TableCreateUndo
+    | DatasetSaveUndo
     | { kind: 'plan', steps: UndoStep[] }
 
 export interface Applied {
@@ -68,9 +79,9 @@ export interface Applied {
   undo: UndoStep
 }
 
-const KIND_NAME: Record<string, string> = { pivot: '透视表', chart: '图表', formula: '公式', calc: '计算列' }
+const KIND_NAME: Record<string, string> = { pivot: '透视表', chart: '图表', formula: '公式', calc: '计算列', table_view: '数据表视图', column_format: '列样式', table_create: '新建数据表', dataset_save: '另存数据集' }
 
-async function applyOne(api: FUniver, kind: string, p: Record<string, any>, onDatasetsChanged: () => void): Promise<Applied> {
+async function applyOne(api: FUniver, kind: string, p: Record<string, any>, onDatasetsChanged: () => void, operator?: string): Promise<Applied> {
   switch (kind) {
     case 'pivot': {
       const spec: PivotSpec = { version: 1, datasetId: p.datasetId, datasetName: p.datasetName, request: p.request }
@@ -109,26 +120,39 @@ async function applyOne(api: FUniver, kind: string, p: Record<string, any>, onDa
       onDatasetsChanged()
       return { message: `已给「${p.datasetName}」添加计算列「${p.name}」`, undo: { kind: 'calc', datasetId: p.datasetId, name: p.name } }
     }
+    case 'table_view':
+      return applyTableView(api, p as TableViewPayload)
+    case 'column_format':
+      return applyColumnFormat(api, p as ColumnFormatPayload)
+    case 'table_create':
+      return applyTableCreate(api, p as TableCreatePayload)
+    case 'dataset_save':
+      return applyDatasetSave(p as DatasetSavePayload, onDatasetsChanged, operator)
   }
   throw new Error(`不支持的建议类型：${kind}`)
 }
 
 /** 执行建议或方案卡；方案里任何一步失败（或用户取消覆盖）都会撤回已完成的步骤，工作簿回到应用前的样子 */
-export async function applyAction(api: FUniver, action: AiAction, onDatasetsChanged: () => void): Promise<Applied> {
+export async function applyAction(api: FUniver, action: AiAction, onDatasetsChanged: () => void, operator?: string): Promise<Applied> {
   if (action.kind !== 'plan')
-    return applyOne(api, action.kind, action.payload, onDatasetsChanged)
+    return applyOne(api, action.kind, action.payload, onDatasetsChanged, operator)
   const steps: Record<string, any>[] = action.payload.steps ?? []
   const done: UndoStep[] = []
   const messages: string[] = []
+  // 本方案新建的数据表：请求的表名（小写）→ 实际用的表名（重名时会自动加序号），后面的步骤按请求的表名引用它
+  const created = new Map<string, string>()
   for (const [i, step] of steps.entries()) {
     try {
-      const r = await applyOne(api, step.kind, step, onDatasetsChanged)
+      const actual = typeof step.table === 'string' ? created.get(step.table.trim().toLowerCase()) : undefined
+      const r = await applyOne(api, step.kind, actual ? { ...step, table: actual } : step, onDatasetsChanged, operator)
+      if (step.kind === 'table_create' && r.undo.kind === 'table_create')
+        created.set((step.name?.trim() || `${step.datasetName}表`).toLowerCase(), r.undo.name)
       done.push(r.undo)
       messages.push(r.message)
     }
     catch (e) {
       const reason = e instanceof Error ? e.message : String(e)
-      await undoApplied(api, { kind: 'plan', steps: done }, onDatasetsChanged)
+      await undoApplied(api, { kind: 'plan', steps: done }, onDatasetsChanged, operator)
       if (reason === '已取消')
         throw new Error('已取消')
       throw new Error(`第 ${i + 1} 步（${KIND_NAME[step.kind] ?? step.kind}）失败：${reason}${done.length ? `；已撤回前面 ${done.length} 步` : ''}`)
@@ -142,12 +166,12 @@ function sheetById(api: FUniver, id: string) {
 }
 
 /** 撤销应用；返回说明。对象已被用户改动 / 删除时保留或跳过，并在说明里写明 */
-export async function undoApplied(api: FUniver, undo: UndoStep, onDatasetsChanged: () => void): Promise<string> {
+export async function undoApplied(api: FUniver, undo: UndoStep, onDatasetsChanged: () => void, operator?: string): Promise<string> {
   switch (undo.kind) {
     case 'plan': {
       const notes: string[] = []
       for (const step of [...undo.steps].reverse())
-        notes.push(await undoApplied(api, step, onDatasetsChanged))
+        notes.push(await undoApplied(api, step, onDatasetsChanged, operator))
       return notes.join('；')
     }
     case 'pivot': {
@@ -183,5 +207,13 @@ export async function undoApplied(api: FUniver, undo: UndoStep, onDatasetsChange
       onDatasetsChanged()
       return `已删除计算列「${undo.name}」`
     }
+    case 'table_view':
+      return undoTableView(api, undo)
+    case 'column_format':
+      return undoColumnFormat(api, undo)
+    case 'table_create':
+      return undoTableCreate(api, undo)
+    case 'dataset_save':
+      return undoDatasetSave(undo, onDatasetsChanged, operator)
   }
 }

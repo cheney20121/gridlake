@@ -6,6 +6,7 @@ import type { DataTableSpec } from '@/features/excel/datatable/types'
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { openCursorApi } from '@/api/dataset'
 import BigGrid from '@/components/excel/big-grid/BigGrid.vue'
+import { compileRules } from '@/components/excel/big-grid/column-style'
 import { chartBus, findFloat, updateFloat } from '@/features/excel/chart/chart-manager'
 import { datasetById } from '@/features/excel/dashboard/slicer'
 import { tableColumns, tableQuery, tableSheetId } from '@/features/excel/datatable/types'
@@ -36,6 +37,8 @@ const columns = computed<GridColumn[]>(() => tableColumns(spec.value, dataset.va
   title: c.title,
   kind: c.kind,
   width: spec.value.widths?.[c.title] ?? c.width,
+  numFmt: spec.value.columnStyles?.[c.title]?.numFmt,
+  style: compileRules(spec.value.columnStyles?.[c.title]?.rules),
 })))
 const fields = computed(() => columns.value.map(c => c.key))
 /** 列变了要换一个表格实例（行数据按列取） */

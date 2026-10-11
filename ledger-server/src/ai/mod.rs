@@ -489,6 +489,62 @@ pub struct Context {
     pub selection_values: Option<Vec<Vec<Json>>>,
     /// 当前工作表是透视表时的定义
     pub pivot: Option<Json>,
+    /// 工作簿里的数据表（set_table_view 的对象）
+    pub tables: Vec<TableCtx>,
+}
+
+/// 工作簿里一张数据表当前的视图
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TableCtx {
+    pub name: String,
+    #[serde(default)]
+    pub dataset_name: String,
+    /// float（浮动表格）/ cells（铺到单元格）
+    #[serde(default)]
+    pub mode: String,
+    #[serde(default)]
+    pub fields: Vec<String>,
+    #[serde(default)]
+    pub filters: Vec<crate::dataset::Filter>,
+    #[serde(default)]
+    pub sort: Vec<crate::dataset::SortSpec>,
+    #[serde(default)]
+    pub keyword: Option<String>,
+    /// 列样式（列名 → { numFmt, rules }）：set_column_format 的规则是整体替换，助手要知道现有的
+    #[serde(default)]
+    pub column_styles: std::collections::BTreeMap<String, Json>,
+}
+
+/// 上下文里最多列出的数据表数
+const MAX_CTX_TABLES: usize = 12;
+
+fn table_ctx_text(t: &TableCtx) -> String {
+    let mut s = format!("「{}」（数据集「{}」{}", t.name, t.dataset_name, if t.mode == "cells" { "，单元格模式" } else { "" });
+    s.push_str(&if t.fields.is_empty() { "，显示全部列".to_string() } else { format!("，显示列：{}", t.fields.join("、")) });
+    if !t.filters.is_empty() {
+        s.push_str(&format!("，筛选：{}", tools::filters_desc(&t.filters)));
+    }
+    if !t.sort.is_empty() {
+        s.push_str(&format!("，排序：{}", t.sort.iter().map(|x| format!("{}{}", x.column, if x.desc { "降序" } else { "升序" })).collect::<Vec<_>>().join("、")));
+    }
+    if let Some(k) = t.keyword.as_deref().filter(|k| !k.is_empty()) {
+        s.push_str(&format!("，搜索「{k}」"));
+    }
+    for (col, st) in &t.column_styles {
+        let mut bits = Vec::new();
+        if let Some(f) = st.get("numFmt").and_then(Json::as_str).filter(|f| *f != "default") {
+            bits.push(format!("数字格式 {f}"));
+        }
+        for r in st.get("rules").and_then(Json::as_array).into_iter().flatten() {
+            bits.push(tools::rule_label(col, r));
+        }
+        if !bits.is_empty() {
+            s.push_str(&format!("，「{col}」列样式：{}", bits.join("；")));
+        }
+    }
+    s.push('）');
+    s
 }
 
 #[derive(Deserialize)]
@@ -519,6 +575,10 @@ fn context_text(c: &Context) -> String {
         }
         parts.push(s);
     }
+    if !c.tables.is_empty() {
+        let list: Vec<String> = c.tables.iter().take(MAX_CTX_TABLES).map(table_ctx_text).collect();
+        parts.push(format!("工作簿里的数据表：{}", list.join("；")));
+    }
     if parts.is_empty() { String::new() } else { format!("【界面上下文】{}\n【问题】", parts.join("；")) }
 }
 
@@ -538,10 +598,14 @@ fn system_prompt(conn: &Connection) -> AppResult<String> {
 2. 不确定列名或筛选值的写法时，先用 describe_dataset / column_values 确认，筛选值必须与数据中的写法完全一致。
 3. 「本月」「上月」「今年」等按今天推算出具体日期范围。同比 = 与上年同期比，环比 = 与上一期比。注意数据的实际起止日期：本期数据不完整（如月中）时要提醒，不要直接与完整月份比较下结论。
 4. 回答用简洁的中文：先给结论（含关键数字），再列依据（数据集、筛选条件、口径）。金额保留两位小数，可写成「x.xx 万」。
-5. 用户需要一张表、想保留或继续分析结果时，用 create_pivot 生成透视表建议；需要看趋势、对比时用 create_chart 生成图表建议；用户要求写公式、加列时用 write_formula / add_calc_column。跨数据集关联、排名、累计等 query_data 做不到的计算用 run_sql（只读，先汇总再取数）。建议需要用户确认后才会创建，一次回答中最多提 3 个建议，并在回答里说明建议的内容。需求要同时产出多个东西（如「做月度销售透视表并配趋势图」）时，用 propose_plan 合成一张方案卡（2~5 步，用户预览后一次应用、一次撤销），不要拆成多张零散的建议；方案里的步骤互相独立，不能引用前面步骤才会新建的计算列。
+5. 用户需要一张表、想保留或继续分析结果时，用 create_pivot 生成透视表建议；需要看趋势、对比时用 create_chart 生成图表建议；用户要求写公式、加列时用 write_formula / add_calc_column。跨数据集关联、排名、累计等 query_data 做不到的计算用 run_sql（只读，先汇总再取数）。建议需要用户确认后才会创建，一次回答中最多提 3 个建议，并在回答里说明建议的内容。需求要同时产出多个东西（如「做月度销售透视表并配趋势图」）时，用 propose_plan 合成一张方案卡（2~8 步，用户预览后一次应用、一次撤销），不要拆成多张零散的建议；方案里的步骤不能引用前面步骤才会新建的计算列，但可以调整本方案前面新建的数据表（如「把退款订单放成一张表，金额用万元显示」= create_data_table + set_column_format，表名要一致）。save_query_as_dataset 会在服务端创建数据，不能放进方案。
 6. 解释「为什么下降 / 上升」时用 compare_periods，选 1~3 个最相关的维度归因，说明贡献最大的几项。
 7. 用户问「有什么异常 / 哪里不对劲 / 最近有没有问题」时先用 find_anomalies 扫描，再对其中最重要的 1~3 项用 query_data / compare_periods 核实原因；扫描结果里的数字可以直接引用，并说明比较的是最近 7 天与此前 28 天。
-8. 数据不足以回答时直接说明缺少什么数据，不要猜测。不要在回答里输出工具调用的 JSON。",
+8. 数据不足以回答时直接说明缺少什么数据，不要猜测。不要在回答里输出工具调用的 JSON。
+9. 用户想「只看…」「按…排序」「隐藏某些列」「搜索某个词」，并且界面上下文里有对应的数据表时，用 set_table_view 调整那张数据表的视图（数据表里千万行也只取可视区域），不要把明细行贴进回答。filters / sort / fields / keyword 给了就整体替换该项：要在现有筛选上追加，把界面上下文里列出的现有条件和新条件一起写进 filters；筛选值先用 column_values 确认写法。
+10. 用户想让某一列「用万元显示」「显示成百分比」「超过某个值标红」「含某个词加粗」时，用 set_column_format（只改显示、不改数据）。rules 给了就整体替换该列的全部规则：要在现有规则上追加，把界面上下文里列出的现有规则一并写进去。阈值必须来自用户或查询结果；不确定时先用 query_data 看一下分布再定。条件格式只对浮动表格有效，界面上下文里标了「单元格模式」的数据表只能设数字格式（万元也不行）。
+11. 用户想「把…放成一张表」「在表格里看…的明细」，而界面上下文里没有合适的数据表时，用 create_data_table 新建（可直接带上筛选、排序、显示列）；已经有对应的数据表就用 set_table_view 调整它，不要重复新建。默认用浮动表格（mode=float）：命中行数很多也只取可视区域；只有用户明确要把数据铺进单元格（如要用 A:A 区域引用或做公式）且命中不超过 1 万行时才用 cells。要汇总用 create_pivot，不要用数据表。
+12. 用户想把一条查询的结果「存成数据集」「保存下来以后反复用」时：先用 run_sql 确认结果对、列名各不相同，再用 save_query_as_dataset（用户确认后才会创建）。名称不能与已有数据集重名。只是看一眼汇总、不需要长期保留时不要存，用 create_pivot。",
         today = {
             use chrono::Datelike;
             let now = chrono::Local::now();
@@ -848,8 +912,24 @@ mod tests {
         let h = history(&stored);
         assert_eq!(h.first().unwrap().role, "user");
         assert_eq!(h.iter().filter(|x| x.role == "user").count(), HISTORY_TURNS);
-        let ctx = Context { sheet_name: Some("透视表1".into()), selection: Some("B2:C3".into()), selection_values: Some(vec![vec![json!("店铺"), json!(12.5)]]), pivot: None };
+        let ctx = Context { sheet_name: Some("透视表1".into()), selection: Some("B2:C3".into()), selection_values: Some(vec![vec![json!("店铺"), json!(12.5)]]), pivot: None, tables: vec![] };
         assert!(context_text(&ctx).contains("店铺\t12.5"));
+        let ctx = Context {
+            tables: vec![TableCtx {
+                name: "订单表".into(),
+                dataset_name: "订单".into(),
+                mode: "float".into(),
+                fields: vec!["店铺".into(), "金额".into()],
+                filters: vec![crate::dataset::Filter::In { column: "店铺".into(), values: vec!["A".into(), "B".into()] }],
+                sort: vec![crate::dataset::SortSpec { column: "金额".into(), desc: true }],
+                keyword: Some("退款".into()),
+                column_styles: Default::default(),
+            }],
+            ..Default::default()
+        };
+        let t = context_text(&ctx);
+        assert!(t.contains("工作簿里的数据表：「订单表」（数据集「订单」，显示列：店铺、金额，筛选：店铺=A/B，排序：金额降序，搜索「退款」）"), "{t}");
+        assert!(context_text(&Context { tables: vec![TableCtx { name: "x".into(), dataset_name: "y".into(), mode: "cells".into(), fields: vec![], filters: vec![], sort: vec![], keyword: None, column_styles: Default::default() }], ..Default::default() }).contains("单元格模式，显示全部列"));
     }
 
     fn db() -> Connection {

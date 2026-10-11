@@ -106,8 +106,8 @@ def bad(label, plan_steps, expect, title="坏方案"):
     check(label, expect in msg and len(detail()["actions"]) == n, msg[:200])
 
 bad("第 2 步引用不存在的列", [{"tool": "create_pivot", "args": PIVOT}, {"tool": "create_chart", "args": {**CHART, "x": {"column": "不存在的列"}}}], "第 2 步")
-bad("只有 1 步不是方案", [{"tool": "create_pivot", "args": PIVOT}], "2~5 步")
-bad("超过 5 步", [{"tool": "create_pivot", "args": PIVOT}] * 6, "2~5 步")
+bad("只有 1 步不是方案", [{"tool": "create_pivot", "args": PIVOT}], "2~8 步")
+bad("超过 8 步", [{"tool": "create_pivot", "args": PIVOT}] * 9, "2~8 步")
 bad("方案里不能嵌套别的工具", [{"tool": "create_pivot", "args": PIVOT}, {"tool": "run_sql", "args": {"sql": "select 1"}}], "只能是 create_pivot")
 bad("两步写同一个单元格", [{"tool": "write_formula", "args": FORMULA}, {"tool": "write_formula", "args": {**FORMULA, "formula": "=1"}}], "同一个位置")
 bad("两步建同名计算列", [{"tool": "add_calc_column", "args": CALC}, {"tool": "add_calc_column", "args": CALC}], "同名计算列")

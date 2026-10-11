@@ -82,11 +82,17 @@ export function drawGrid(ctx: CanvasRenderingContext2D, st: DrawState) {
         continue
       }
       const v = row[c]
+      // 条件格式：只对屏幕上的格子求值，先铺底色（网格线、选区稍后画在上面）
+      const hit = col.style?.(v) ?? null
+      if (hit?.bg) {
+        ctx.fillStyle = hit.bg
+        ctx.fillRect(x, y, col.width, ROW_H)
+      }
       const text = formatCell(v ?? null, col)
       if (!text)
         continue
-      ctx.fillStyle = typeof v === 'number' && v < 0 ? COLORS.negative : COLORS.text
-      ctx.font = col.emphasis ? `600 ${FONT}` : FONT
+      ctx.fillStyle = hit?.color ?? (typeof v === 'number' && v < 0 ? COLORS.negative : COLORS.text)
+      ctx.font = col.emphasis || hit?.bold ? `600 ${FONT}` : FONT
       ctx.fillText(text, right ? x + col.width - 6 : x + 6, y + ROW_H / 2 + 1)
     }
     ctx.restore()
@@ -129,10 +135,11 @@ export function drawGrid(ctx: CanvasRenderingContext2D, st: DrawState) {
         ctx.rect(st.numW, st.headH, st.width, st.height)
         ctx.clip()
         ctx.clearRect(fx + 1, fy + 1, st.columns[f.col]!.width - 1, ROW_H - 1)
-        ctx.fillStyle = '#FFFFFF'
-        ctx.fillRect(fx + 1, fy + 1, st.columns[f.col]!.width - 1, ROW_H - 1)
         const v = st.cell(f.row)?.[f.col]
         const col = st.columns[f.col]!
+        const hit = col.style?.(v) ?? null
+        ctx.fillStyle = hit?.bg ?? '#FFFFFF'
+        ctx.fillRect(fx + 1, fy + 1, st.columns[f.col]!.width - 1, ROW_H - 1)
         const text = formatCell(v ?? null, col)
         if (text) {
           ctx.beginPath()
@@ -140,8 +147,8 @@ export function drawGrid(ctx: CanvasRenderingContext2D, st: DrawState) {
           ctx.clip()
           const right = col.kind === 'money' || col.kind === 'number'
           ctx.textAlign = right ? 'right' : 'left'
-          ctx.fillStyle = typeof v === 'number' && v < 0 ? COLORS.negative : COLORS.text
-          ctx.font = col.emphasis ? `600 ${FONT}` : FONT
+          ctx.fillStyle = hit?.color ?? (typeof v === 'number' && v < 0 ? COLORS.negative : COLORS.text)
+          ctx.font = col.emphasis || hit?.bold ? `600 ${FONT}` : FONT
           ctx.fillText(text, right ? fx + col.width - 6 : fx + 6, fy + ROW_H / 2 + 1)
         }
         ctx.restore()

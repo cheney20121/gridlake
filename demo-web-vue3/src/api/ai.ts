@@ -1,3 +1,5 @@
+import type { DatasetFilter, DatasetSort } from '@/api/dataset'
+import type { ColumnStyle } from '@/components/excel/big-grid/column-style'
 import { LEDGER_BASE } from '@/api/ledger-base'
 import { getToken } from '@/utils/auth'
 import request from '@/utils/request'
@@ -36,7 +38,7 @@ export interface AiPreview {
   note: string
 }
 
-export type AiActionKind = 'pivot' | 'chart' | 'formula' | 'calc' | 'plan'
+export type AiActionKind = 'pivot' | 'chart' | 'formula' | 'calc' | 'table_view' | 'column_format' | 'table_create' | 'dataset_save' | 'plan'
 
 export interface AiAction {
   id: string
@@ -65,11 +67,26 @@ export interface AiThreadDetail {
   interrupted: boolean
 }
 
+/** 工作簿里一张数据表当前的视图（让助手知道有哪些表、现在筛了什么） */
+export interface AiTableContext {
+  name: string
+  datasetName: string
+  /** float 浮动表格 / cells 铺到单元格 */
+  mode: 'float' | 'cells'
+  fields: string[]
+  filters: DatasetFilter[]
+  sort: DatasetSort[]
+  keyword?: string
+  /** 列样式（数字格式、条件格式），列名 → 样式 */
+  columnStyles?: Record<string, ColumnStyle>
+}
+
 export interface AiContext {
   sheetName?: string
   selection?: string
   selectionValues?: unknown[][]
   pivot?: unknown
+  tables?: AiTableContext[]
 }
 
 export type AiEvent

@@ -805,11 +805,13 @@ describe('在线表格编辑器（界面）', { skip }, () => {
   })
 
   /** 在 AI 面板里提问（模型按 llm 脚本回答），等回答结束 */
-  async function askAi(page, text) {
-    await page.click('.tool.ai')
+  async function askAi(page, text, { wbId = wb.alice, done = '方案已生成' } = {}) {
+    // 同一个页面里连续提问时面板已经开着，再点按钮会把它关掉
+    if (!await page.eval(`!!document.querySelector('.side-panel .panel-title')?.innerText.includes('AI 分析助手')`))
+      await page.click('.tool.ai')
     await page.waitFor(`document.querySelector('.side-panel .panel-title')?.innerText.includes('AI 分析助手')`, { what: 'AI 面板' })
     // 每次从新对话开始，避免读到上一个测试留下的方案卡
-    const count = async () => (await api.call('GET', `/ledger/ai/threads?workbookId=${wb.alice}`, TOKEN.alice)).data.length
+    const count = async () => (await api.call('GET', `/ledger/ai/threads?workbookId=${wbId}`, TOKEN.alice)).data.length
     const n = await count()
     // 已有对话时等面板把它加载出来再点「新对话」（没加载完点会被当成「当前对话还是空的」而复用）
     if (n > 0)
@@ -819,7 +821,7 @@ describe('在线表格编辑器（界面）', { skip }, () => {
     await page.waitFor(`document.querySelectorAll('.ai .card').length === 0`, { what: '新对话是空的' })
     await page.fill('.ai textarea', text)
     await page.click('.ai button', '发送')
-    await page.waitFor(`[...document.querySelectorAll('.ai .answer')].some(a => a.innerText.includes('方案已生成'))`, { what: 'AI 回答结束', timeout: 30_000 })
+    await page.waitFor(`[...document.querySelectorAll('.ai .answer')].some(a => a.innerText.includes(${JSON.stringify(done)}))`, { what: 'AI 回答结束', timeout: 30_000 })
   }
 
   const PIVOT_STEP = { tool: 'create_pivot', args: { dataset: '订单', rows: [{ column: '店铺' }], values: [{ agg: 'sum', column: '金额' }] } }
@@ -880,6 +882,271 @@ describe('在线表格编辑器（界面）', { skip }, () => {
       for (let i = 0; i < 50 && await hasCalc(); i++) await new Promise(r => setTimeout(r, 200))
       assert.equal(await hasCalc(), false, '取消后计算列被撤回')
       assert.equal(await page.eval(`window.__univerAPI.getActiveWorkbook().getActiveSheet().getRange('A1').getValue()`), '订单号', 'A1 没有被覆盖')
+    })
+  })
+
+  it('AI 数据表视图：只看甲店、按金额降序 → 预览命中行数 → 应用后数据表刷新 → 撤销恢复原视图', async () => {
+    const made = await api.call('POST', '/ledger/datasets/input', TOKEN.alice, { body: { name: 'UI视图明细', columns: [{ title: '订单号', kind: 'text' }, { title: '店铺', kind: 'text' }, { title: '金额', kind: 'money' }], primaryKey: ['订单号'] } })
+    const dsId = made.data
+    await api.call('POST', `/ledger/datasets/${dsId}/writeback`, TOKEN.alice, { body: { mode: 'upsert', columns: ['订单号', '店铺', '金额'], rows: [['A1', '甲', 100], ['A2', '乙', 200], ['A3', '甲', 300]] } })
+    const spec = { v: 1, id: 'view1', kind: 'datatable', name: '视图表', datasetId: dsId, fields: [], filters: [], sort: [], followSlicers: false, row: 0, col: 0 }
+    const json = { id: 'wb', name: '视图', sheetOrder: ['s1'], sheets: { s1: { id: 's1', name: '视图', cellData: {}, rowCount: 100, columnCount: 20, custom: { celltables: [spec] } } } }
+    const zlib = await import('node:zlib')
+    const created = await api.call('POST', `/ledger/workbooks?name=${encodeURIComponent('视图')}`, TOKEN.alice, { raw: zlib.gzipSync(Buffer.from(JSON.stringify(json))) })
+    const id = created.data.id
+    const grid = page => page.eval(`(() => { const s = window.__univerAPI.getActiveWorkbook().getActiveSheet(); return s.getRange(0, 0, 5, 3).getValues().map(r => r.join('|').replace(/,/g, '').replace(/\\.00(?=\\||$)/g, '')).filter(r => r !== '||') })()`)
+    const original = ['订单号|店铺|金额', 'A1|甲|100', 'A2|乙|200', 'A3|甲|300']
+    llm.reset()
+    llm.say({ calls: [{ name: 'set_table_view', args: { table: '视图表', dataset: 'UI视图明细', filters: [{ op: 'in', column: '店铺', values: ['甲'] }], sort: [{ column: '金额', desc: true }] } }] })
+    llm.say({ text: '视图已生成：只看甲店并按金额降序。' })
+    await withPage('ai-table-view', 'alice', `/excel?wb=${id}`, async (page) => {
+      await editorReady(page)
+      await page.waitFor(`window.__univerAPI.getActiveWorkbook().getActiveSheet().getRange(3, 0).getValue() === 'A3'`, { what: '数据表按数据集写入', timeout: 30_000 })
+      assert.deepEqual(await grid(page), original)
+      await askAi(page, '只看甲店，按金额降序', { wbId: id, done: '视图已生成' })
+      await page.waitFor(`document.querySelector('.ai .card')?.innerText.includes('命中 2 行 / 共 3 行')`, { what: '建议卡显示命中行数' })
+      const card = await page.eval(`document.querySelector('.ai .card').innerText`)
+      assert.match(card, /视图表/)
+      assert.equal(await page.eval(`!!document.querySelector('.ai .card .preview table')`), true, '带前几行预览')
+      assert.deepEqual(await grid(page), original, '应用前数据表不变')
+      // 发给模型的提问里带着工作簿里的数据表
+      const asked = JSON.stringify(llm.requests[0].messages.at(-1))
+      assert.match(asked, /工作簿里的数据表：「视图表」（数据集「UI视图明细」/)
+      await page.click('.ai .card button', '应用')
+      await page.waitFor(`document.querySelector('.ai .card')?.innerText.includes('已调整数据表「视图表」')`, { what: '建议已应用', timeout: 30_000 })
+      await page.waitFor(`window.__univerAPI.getActiveWorkbook().getActiveSheet().getRange(1, 0).getValue() === 'A3' && !window.__univerAPI.getActiveWorkbook().getActiveSheet().getRange(3, 0).getValue()`, { what: '数据表只剩甲店两行、按金额降序', timeout: 30_000 })
+      assert.deepEqual(await grid(page), ['订单号|店铺|金额', 'A3|甲|300', 'A1|甲|100'])
+      // 撤销：恢复原来的视图，被筛掉的行回来
+      await page.click('.ai .card button', '撤销')
+      await page.waitFor(`document.querySelector('.ai .card')?.innerText.includes('已撤销')`, { what: '建议已撤销', timeout: 30_000 })
+      await page.waitFor(`window.__univerAPI.getActiveWorkbook().getActiveSheet().getRange(3, 0).getValue() === 'A3'`, { what: '数据表恢复三行', timeout: 30_000 })
+      assert.deepEqual(await grid(page), original)
+    })
+  })
+
+  it('AI 列样式：浮动数据表金额列「超过 150 标红」→ 预览各规则命中行数 → 应用后画布出现底色 → 撤销恢复；单元格模式的表不支持条件格式', async () => {
+    const made = await api.call('POST', '/ledger/datasets/input', TOKEN.alice, { body: { name: 'UI样式明细', columns: [{ title: '订单号', kind: 'text' }, { title: '店铺', kind: 'text' }, { title: '金额', kind: 'money' }], primaryKey: ['订单号'] } })
+    const dsId = made.data
+    await api.call('POST', `/ledger/datasets/${dsId}/writeback`, TOKEN.alice, { body: { mode: 'upsert', columns: ['订单号', '店铺', '金额'], rows: [['A1', '甲', 100], ['A2', '乙', 200], ['A3', '甲', 300]] } })
+    const cellSpec = { v: 1, id: 'cell1', kind: 'datatable', name: '单元格表', datasetId: dsId, fields: [], filters: [], sort: [], followSlicers: false, row: 10, col: 0 }
+    const json = { id: 'wb', name: '样式', sheetOrder: ['s1'], sheets: { s1: { id: 's1', name: '样式', cellData: {}, rowCount: 100, columnCount: 20, custom: { celltables: [cellSpec] } } } }
+    const zlib = await import('node:zlib')
+    const created = await api.call('POST', `/ledger/workbooks?name=${encodeURIComponent('样式')}`, TOKEN.alice, { raw: zlib.gzipSync(Buffer.from(JSON.stringify(json))) })
+    const id = created.data.id
+    const floatSpec = { v: 1, id: 'float1', kind: 'datatable', name: '样式表', datasetId: dsId, fields: [], filters: [], sort: [], followSlicers: false }
+    // 画布上与规则底色 #FDE8E8（253, 232, 232）完全相同的像素数：规则命中的格子会铺这个底色
+    const tinted = page => page.eval(`(() => { const c = document.querySelector('.body canvas'); if (!c) return -1; const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i] === 253 && d[i + 1] === 232 && d[i + 2] === 232) n++; return n })()`)
+    const styles = page => page.eval(`(() => { const s = window.__univerAPI.getActiveWorkbook().getActiveSheet(); const f = s.getAllFloatDoms().find(d => d.data?.id === 'float1'); return JSON.stringify(f?.data?.columnStyles ?? null) })()`)
+    llm.reset()
+    llm.say({ calls: [{ name: 'set_column_format', args: { table: '样式表', dataset: 'UI样式明细', column: '金额', numFmt: 'wan', rules: [{ op: '>', value: 150, style: { color: '#C00000', bg: '#FDE8E8', bold: true } }] } }] })
+    llm.say({ text: '列样式已生成：金额用万元显示，超过 150 标红。' })
+    llm.say({ calls: [{ name: 'set_column_format', args: { table: '单元格表', dataset: 'UI样式明细', column: '金额', rules: [{ op: '>', value: 150, style: { bg: '#FDE8E8' } }] } }] })
+    llm.say({ text: '单元格表的列样式已生成。' })
+    await withPage('ai-column-format', 'alice', `/excel?wb=${id}`, async (page) => {
+      await editorReady(page)
+      await page.eval(`window.__univerAPI.getActiveWorkbook().getActiveSheet().addFloatDomToPosition({ componentKey: 'webexcel-datatable', initPosition: { startX: 20, endX: 740, startY: 20, endY: 380 }, data: ${JSON.stringify(floatSpec)}, allowTransform: true })`)
+      await page.waitFor(`!!document.querySelector('.body canvas')`, { what: '浮动数据表画布出现', timeout: 30_000 })
+      await page.waitFor(`document.body.innerText.includes('3 行') || !!document.querySelector('.body canvas')`, { what: '数据表打开' })
+      assert.equal(await tinted(page), 0, '没设规则时没有底色')
+      await askAi(page, '样式表的金额用万元显示，超过 150 的标红', { wbId: id, done: '列样式已生成' })
+      await page.waitFor(`document.querySelector('.ai .card')?.innerText.includes('样式表')`, { what: '建议卡出现' })
+      const card = await page.eval(`document.querySelector('.ai .card').innerText`)
+      assert.match(card, /数字格式 万元/)
+      assert.match(card, /金额 > 150/, '预览列出规则')
+      assert.match(card, /66\.67%/, '预览给出命中行数占比（3 行里命中 2 行）')
+      assert.equal(await styles(page), 'null', '应用前不变')
+      await page.click('.ai .card button', '应用')
+      await page.waitFor(`document.querySelector('.ai .card')?.innerText.includes('已设置数据表「样式表」金额列')`, { what: '建议已应用', timeout: 30_000 })
+      assert.deepEqual(JSON.parse(await styles(page)), { 金额: { numFmt: 'wan', rules: [{ op: '>', value: 150, style: { color: '#C00000', bg: '#FDE8E8', bold: true } }] } })
+      for (let i = 0; i < 50 && await tinted(page) === 0; i++) await new Promise(r => setTimeout(r, 200))
+      assert.ok(await tinted(page) > 500, '命中规则的格子在画布上铺了底色')
+      await page.screenshot(path.join(ARTIFACTS, 'ai-column-format-applied.png')).catch(() => {})
+      // 撤销：样式记录被删掉，底色消失
+      await page.click('.ai .card button', '撤销')
+      await page.waitFor(`document.querySelector('.ai .card')?.innerText.includes('已撤销')`, { what: '建议已撤销', timeout: 30_000 })
+      assert.equal(await styles(page), 'null')
+      for (let i = 0; i < 50 && await tinted(page) > 0; i++) await new Promise(r => setTimeout(r, 200))
+      assert.equal(await tinted(page), 0, '撤销后底色消失')
+      // 单元格模式的数据表：条件格式不支持，应用时给出明确提示，不改表
+      await askAi(page, '单元格表的金额超过 150 标红', { wbId: id, done: '单元格表的列样式已生成' })
+      await page.click('.ai .card button', '应用')
+      await page.waitFor(`[...document.querySelectorAll('.ec-message')].some(m => m.innerText.includes('单元格模式的数据表，不支持条件格式'))`, { what: '单元格模式的提示', timeout: 30_000 })
+      assert.match(await page.eval(`document.querySelector('.ai .card button')?.innerText ?? ''`), /应用/, '建议仍是待应用状态')
+    })
+  })
+
+  it('AI 新建数据表：浮动表格带筛选排序 → 应用后出现在工作表 → 撤销删除；铺到单元格 → 写入单元格 → 撤销清掉；重名自动加序号', async () => {
+    const made = await api.call('POST', '/ledger/datasets/input', TOKEN.alice, { body: { name: 'UI新建明细', columns: [{ title: '订单号', kind: 'text' }, { title: '店铺', kind: 'text' }, { title: '金额', kind: 'money' }], primaryKey: ['订单号'] } })
+    const dsId = made.data
+    await api.call('POST', `/ledger/datasets/${dsId}/writeback`, TOKEN.alice, { body: { mode: 'upsert', columns: ['订单号', '店铺', '金额'], rows: [['A1', '甲', 100], ['A2', '乙', 200], ['A3', '甲', 300]] } })
+    const json = { id: 'wb', name: '新建', sheetOrder: ['s1'], sheets: { s1: { id: 's1', name: '新建', cellData: {}, rowCount: 100, columnCount: 20 } } }
+    const zlib = await import('node:zlib')
+    const created = await api.call('POST', `/ledger/workbooks?name=${encodeURIComponent('新建')}`, TOKEN.alice, { raw: zlib.gzipSync(Buffer.from(JSON.stringify(json))) })
+    const id = created.data.id
+    const floats = page => page.eval(`JSON.stringify(window.__univerAPI.getActiveWorkbook().getActiveSheet().getAllFloatDoms().filter(d => d.data?.kind === 'datatable').map(d => ({ name: d.data.name, filters: d.data.filters, sort: d.data.sort })))`)
+    const cellTables = page => page.eval(`JSON.stringify((window.__univerAPI.getActiveWorkbook().getActiveSheet().getCustomMetadata()?.celltables ?? []).map(t => ({ name: t.name, row: t.row, col: t.col })))`)
+    const grid = page => page.eval(`(() => { const s = window.__univerAPI.getActiveWorkbook().getActiveSheet(); return s.getRange(0, 0, 5, 3).getValues().map(r => r.join('|').replace(/,/g, '').replace(/\\.00(?=\\||$)/g, '')).filter(r => r !== '||') })()`)
+    llm.reset()
+    llm.say({ calls: [{ name: 'create_data_table', args: { dataset: 'UI新建明细', name: '甲店明细', filters: [{ op: 'in', column: '店铺', values: ['甲'] }], sort: [{ column: '金额', desc: true }] } }] })
+    llm.say({ text: '新建数据表已生成：甲店明细。' })
+    llm.say({ calls: [{ name: 'create_data_table', args: { dataset: 'UI新建明细', name: '甲店明细' } }] })
+    llm.say({ text: '再建一张同名数据表已生成。' })
+    llm.say({ calls: [{ name: 'create_data_table', args: { dataset: 'UI新建明细', name: '甲店明细', mode: 'cells', sort: [{ column: '金额', desc: true }] } }] })
+    llm.say({ text: '铺到单元格的数据表已生成。' })
+    await withPage('ai-table-create', 'alice', `/excel?wb=${id}`, async (page) => {
+      await editorReady(page)
+      assert.equal(await floats(page), '[]')
+      // 浮动表格
+      await askAi(page, '把甲店的订单放成一张表，按金额降序', { wbId: id, done: '新建数据表已生成' })
+      await page.waitFor(`document.querySelector('.ai .card')?.innerText.includes('命中 2 行 / 共 3 行')`, { what: '建议卡显示命中行数' })
+      const card = await page.eval(`document.querySelector('.ai .card').innerText`)
+      assert.match(card, /新建数据表/)
+      assert.match(card, /浮动表格/)
+      assert.equal(await page.eval(`!!document.querySelector('.ai .card .preview table')`), true, '带前几行预览')
+      assert.equal(await floats(page), '[]', '应用前工作表不变')
+      await page.click('.ai .card button', '应用')
+      await page.waitFor(`document.querySelector('.ai .card')?.innerText.includes('已在当前工作表插入数据表「甲店明细」')`, { what: '建议已应用', timeout: 30_000 })
+      const made1 = JSON.parse(await floats(page))
+      assert.equal(made1.length, 1)
+      assert.equal(made1[0].name, '甲店明细')
+      assert.equal(made1[0].filters[0].values[0], '甲')
+      assert.equal(made1[0].sort[0].desc, true)
+      await page.waitFor(`!!document.querySelector('.body canvas')`, { what: '浮动数据表画布出现', timeout: 30_000 })
+      // 撤销：浮动表格删除
+      await page.click('.ai .card button', '撤销')
+      await page.waitFor(`document.querySelector('.ai .card')?.innerText.includes('已撤销')`, { what: '建议已撤销', timeout: 30_000 })
+      assert.equal(await floats(page), '[]', '撤销后浮动表格删除')
+      // 再建一张同名的浮动表格（上一张已删除，不冲突），留在工作表里
+      await askAi(page, '再放一张订单表', { wbId: id, done: '再建一张同名数据表已生成' })
+      await page.click('.ai .card button', '应用')
+      await page.waitFor(`document.querySelector('.ai .card')?.innerText.includes('已在当前工作表插入数据表「甲店明细」')`, { what: '同名表应用', timeout: 30_000 })
+      assert.equal(JSON.parse(await floats(page)).length, 1)
+      // 铺到单元格：「甲店明细」已被占用，自动改名为「甲店明细2」；写入 A1 起
+      await askAi(page, '把全部订单铺到单元格，按金额降序', { wbId: id, done: '铺到单元格的数据表已生成' })
+      await page.click('.ai .card button', '应用')
+      await page.waitFor(`document.querySelector('.ai .card')?.innerText.includes('已在当前工作表插入数据表「甲店明细2」')`, { what: '重名自动加序号', timeout: 30_000 })
+      await page.waitFor(`window.__univerAPI.getActiveWorkbook().getActiveSheet().getRange(1, 0).getValue() === 'A3'`, { what: '数据写进单元格', timeout: 30_000 })
+      assert.deepEqual(await grid(page), ['订单号|店铺|金额', 'A3|甲|300', 'A2|乙|200', 'A1|甲|100'])
+      assert.deepEqual(JSON.parse(await cellTables(page)), [{ name: '甲店明细2', row: 0, col: 0 }])
+      // 撤销：清掉写入的单元格与定义
+      await page.click('.ai .card button', '撤销')
+      await page.waitFor(`document.querySelector('.ai .card')?.innerText.includes('已撤销')`, { what: '铺到单元格已撤销', timeout: 30_000 })
+      await page.waitFor(`!window.__univerAPI.getActiveWorkbook().getActiveSheet().getRange(1, 0).getValue()`, { what: '单元格被清掉', timeout: 30_000 })
+      assert.deepEqual(await grid(page), [])
+      assert.equal(await cellTables(page), '[]')
+      assert.equal(JSON.parse(await floats(page)).length, 1, '撤销铺到单元格的表不影响另一张浮动表格')
+    })
+  })
+
+  it('AI 另存为数据集：预览 SQL 与结果 → 应用后数据集与查询创建 → 撤销移入回收站；数据集已被引用时撤销保留不动', async () => {
+    const SQL = 'SELECT 店铺, SUM(金额) AS 销售额 FROM 订单 GROUP BY 店铺'
+    const datasetNames = async () => (await api.call('GET', '/ledger/datasets', TOKEN.alice)).data.map(d => d.name)
+    const queries = async () => (await api.call('GET', '/ledger/sql/queries', TOKEN.alice)).data
+    llm.reset()
+    llm.say({ calls: [{ name: 'save_query_as_dataset', args: { sql: SQL, name: 'UI店铺汇总', purpose: '各店铺销售额' } }] })
+    llm.say({ text: '数据集建议已生成：UI店铺汇总。' })
+    llm.say({ calls: [{ name: 'save_query_as_dataset', args: { sql: SQL, name: 'UI店铺汇总2' } }] })
+    llm.say({ text: '第二个数据集建议已生成。' })
+    await withPage('ai-dataset-save', 'alice', `/excel?wb=${wb.alice}`, async (page) => {
+      await editorReady(page)
+      await askAi(page, '把各店铺销售额存成数据集', { done: '数据集建议已生成' })
+      await page.waitFor(`document.querySelector('.ai .card')?.innerText.includes('另存为数据集「UI店铺汇总」')`, { what: '建议卡出现' })
+      const card = await page.eval(`document.querySelector('.ai .card').innerText`)
+      assert.match(card, /SELECT 店铺, SUM\(金额\) AS 销售额 FROM 订单 GROUP BY 店铺/, '卡片展示 SQL')
+      assert.match(card, /各店铺销售额/, '展示用途')
+      assert.match(card, /共 \d+ 行 × 2 列/)
+      assert.equal(await page.eval(`!!document.querySelector('.ai .card .preview table')`), true, '带前几行预览')
+      assert.ok(!(await datasetNames()).includes('UI店铺汇总'), '确认之前不创建数据集')
+      await page.click('.ai .card button', '应用')
+      await page.waitFor(`document.querySelector('.ai .card')?.innerText.includes('已另存为数据集「UI店铺汇总」')`, { what: '已另存', timeout: 60_000 })
+      assert.ok((await datasetNames()).includes('UI店铺汇总'), '数据集创建了')
+      const q = (await queries()).find(x => x.name === 'UI店铺汇总')
+      assert.ok(q?.datasetId, '生成了关联数据集的查询')
+      assert.equal(q.schedule.kind, 'manual')
+      // 撤销：查询删除，数据集进回收站
+      await page.click('.ai .card button', '撤销')
+      await page.waitFor(`document.querySelector('.ai .card')?.innerText.includes('已撤销')`, { what: '已撤销', timeout: 60_000 })
+      assert.ok(!(await datasetNames()).includes('UI店铺汇总'), '数据集不在列表里了')
+      assert.ok(!(await queries()).some(x => x.name === 'UI店铺汇总'), '查询删除了')
+      const trash = await api.call('GET', '/ledger/datasets/trash', TOKEN.alice)
+      assert.ok(JSON.stringify(trash.data).includes('UI店铺汇总'), '数据集在回收站里，可恢复')
+      // 数据集被别的查询引用：撤销时保留不动
+      await askAi(page, '再存一个', { done: '第二个数据集建议已生成' })
+      await page.click('.ai .card button', '应用')
+      await page.waitFor(`document.querySelector('.ai .card')?.innerText.includes('已另存为数据集「UI店铺汇总2」')`, { what: '第二个已另存', timeout: 60_000 })
+      const other = await api.call('POST', '/ledger/sql/queries', TOKEN.alice, { body: { name: '引用汇总2', sql: 'SELECT * FROM UI店铺汇总2', schedule: { kind: 'manual' } } })
+      assert.equal(other.code ?? 0, 0, JSON.stringify(other))
+      await page.click('.ai .card button', '撤销')
+      await page.waitFor(`document.querySelector('.ai .card')?.innerText.includes('已被') && document.querySelector('.ai .card')?.innerText.includes('保留不动')`, { what: '被引用时保留的说明', timeout: 60_000 })
+      assert.ok((await datasetNames()).includes('UI店铺汇总2'), '被引用的数据集还在')
+    })
+  })
+
+  it('AI 方案卡里的数据表工具：新建数据表 + 设列样式一次应用、一次撤销；重名时后一步跟着新表走；中途失败整体撤回', async () => {
+    const made = await api.call('POST', '/ledger/datasets/input', TOKEN.alice, { body: { name: 'UI方案明细', columns: [{ title: '订单号', kind: 'text' }, { title: '店铺', kind: 'text' }, { title: '金额', kind: 'money' }], primaryKey: ['订单号'] } })
+    const dsId = made.data
+    await api.call('POST', `/ledger/datasets/${dsId}/writeback`, TOKEN.alice, { body: { mode: 'upsert', columns: ['订单号', '店铺', '金额'], rows: [['A1', '甲', 100], ['A2', '乙', 200], ['A3', '甲', 300]] } })
+    const json = { id: 'wb', name: '方案', sheetOrder: ['s1'], sheets: { s1: { id: 's1', name: '方案', cellData: {}, rowCount: 100, columnCount: 20 } } }
+    const zlib = await import('node:zlib')
+    const created = await api.call('POST', `/ledger/workbooks?name=${encodeURIComponent('方案数据表')}`, TOKEN.alice, { raw: zlib.gzipSync(Buffer.from(JSON.stringify(json))) })
+    const id = created.data.id
+    const floats = page => page.eval(`JSON.stringify(window.__univerAPI.getActiveWorkbook().getActiveSheet().getAllFloatDoms().filter(d => d.data?.kind === 'datatable').map(d => ({ name: d.data.name, styles: d.data.columnStyles ?? null, sort: d.data.sort, filters: d.data.filters })))`)
+    // 所有数据表画布上与规则底色 #FDE8E8 完全相同的像素数
+    const tinted = page => page.eval(`(() => { let n = 0; for (const c of document.querySelectorAll('.body canvas')) { const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; for (let i = 0; i < d.length; i += 4) if (d[i] === 253 && d[i + 1] === 232 && d[i + 2] === 232) n++ } return n })()`)
+    const planArgs = (title, steps) => ({ title, steps })
+    const CREATE = { tool: 'create_data_table', args: { dataset: 'UI方案明细', name: '甲店明细', filters: [{ op: 'in', column: '店铺', values: ['甲'] }] } }
+    const FMT = { tool: 'set_column_format', args: { table: '甲店明细', dataset: 'UI方案明细', column: '金额', numFmt: 'wan', rules: [{ op: '>', value: 150, style: { color: '#C00000', bg: '#FDE8E8', bold: true } }] } }
+    llm.reset()
+    llm.say({ calls: [{ name: 'propose_plan', args: planArgs('甲店明细', [CREATE, FMT]) }] })
+    llm.say({ text: '方案一已生成。' })
+    llm.say({ calls: [{ name: 'propose_plan', args: planArgs('甲店明细（重名）', [CREATE, FMT]) }] })
+    llm.say({ text: '方案二已生成。' })
+    llm.say({ calls: [{ name: 'propose_plan', args: planArgs('先改视图再铺单元格', [{ tool: 'set_table_view', args: { table: '甲店明细', dataset: 'UI方案明细', sort: [{ column: '金额', desc: true }] } }, { tool: 'create_data_table', args: { dataset: 'UI方案明细', name: '铺开表', mode: 'cells' } }]) }] })
+    llm.say({ text: '方案三已生成。' })
+    await withPage('ai-plan-tables', 'alice', `/excel?wb=${id}`, async (page) => {
+      await editorReady(page)
+      // 方案一：新建 + 设样式，一次应用
+      await askAi(page, '甲店订单放成一张表，金额万元显示超过 150 标红', { wbId: id, done: '方案一已生成' })
+      await page.waitFor(`document.querySelectorAll('.ai .plan-steps li').length === 2`, { what: '方案卡两步' })
+      const card = await page.eval(`document.querySelector('.ai .card').innerText`)
+      assert.match(card, /新建数据表/)
+      assert.match(card, /列样式/)
+      assert.equal(await floats(page), '[]', '应用前不变')
+      await page.click('.ai .card button', '应用方案')
+      await page.waitFor(`document.querySelector('.ai .card')?.innerText.includes('已应用方案')`, { what: '方案已应用', timeout: 30_000 })
+      let list = JSON.parse(await floats(page))
+      assert.equal(list.length, 1)
+      assert.equal(list[0].name, '甲店明细')
+      assert.equal(list[0].styles['金额'].numFmt, 'wan')
+      assert.equal(list[0].filters[0].values[0], '甲')
+      for (let i = 0; i < 50 && await tinted(page) === 0; i++) await new Promise(r => setTimeout(r, 200))
+      assert.ok(await tinted(page) > 200, '命中规则的格子铺了底色')
+      // 一次撤销：表连同样式一起没了
+      await page.click('.ai .card button', '撤销')
+      await page.waitFor(`document.querySelector('.ai .card')?.innerText.includes('已撤销')`, { what: '方案已撤销', timeout: 30_000 })
+      assert.equal(await floats(page), '[]')
+      // 方案二：先放一张同名的老表（没有样式），再应用方案：新表自动叫「甲店明细2」，样式只落在新表上
+      await page.eval(`(() => { window.__univerAPI.getActiveWorkbook().getActiveSheet().addFloatDomToPosition({ componentKey: 'webexcel-datatable', initPosition: { startX: 20, endX: 500, startY: 20, endY: 200 }, data: ${JSON.stringify({ v: 1, id: 'old1', kind: 'datatable', name: '甲店明细', datasetId: dsId, fields: [], filters: [], sort: [], followSlicers: false })}, allowTransform: true }) })()`)
+      await askAi(page, '再来一遍', { wbId: id, done: '方案二已生成' })
+      await page.click('.ai .card button', '应用方案')
+      await page.waitFor(`document.querySelector('.ai .card')?.innerText.includes('已应用方案')`, { what: '方案二已应用', timeout: 30_000 })
+      list = JSON.parse(await floats(page))
+      const old = list.find(t => t.name === '甲店明细')
+      const fresh = list.find(t => t.name === '甲店明细2')
+      assert.ok(old && fresh, `应有新旧两张表：${JSON.stringify(list.map(t => t.name))}`)
+      assert.equal(old.styles, null, '老表没被改')
+      assert.equal(fresh.styles['金额'].numFmt, 'wan', '样式落在新表上')
+      await page.click('.ai .card button', '撤销')
+      await page.waitFor(`document.querySelector('.ai .card')?.innerText.includes('已撤销')`, { what: '方案二已撤销', timeout: 30_000 })
+      list = JSON.parse(await floats(page))
+      assert.deepEqual(list.map(t => t.name), ['甲店明细'], '只剩老表')
+      // 方案三：第 1 步改视图成功，第 2 步铺单元格被 A1 的内容挡住 → 整体撤回，老表的排序恢复
+      await page.eval(`(() => { window.__univerAPI.getActiveWorkbook().getActiveSheet().getRange('A1').setValue('占位') })()`)
+      await askAi(page, '改视图再铺到单元格', { wbId: id, done: '方案三已生成' })
+      await page.click('.ai .card button', '应用方案')
+      await page.waitFor(`[...document.querySelectorAll('.ec-message')].some(m => m.innerText.includes('第 2 步') && m.innerText.includes('已撤回前面 1 步'))`, { what: '第 2 步失败、撤回前面 1 步', timeout: 30_000 })
+      assert.deepEqual(JSON.parse(await floats(page))[0].sort, [], '第 1 步的排序被撤回')
+      assert.match(await page.eval(`document.querySelector('.ai .card button')?.innerText ?? ''`), /应用方案/, '方案仍是待应用状态')
     })
   })
 

@@ -2,14 +2,15 @@ import type { FUniver } from '@univerjs/core/facade'
 import type { FWorksheet } from '@univerjs/sheets/facade'
 import type { EditValue } from './edits'
 import type { CellTableSpec, DataTableSpec } from './types'
-import type { CellValue } from '@/api/dataset'
+import type { CellValue, DatasetFilter, DatasetSort } from '@/api/dataset'
 import type { FloatLocation } from '@/features/excel/chart/chart-manager'
 import { getRowsApi, openCursorApi } from '@/api/dataset'
+import { excelPattern } from '@/components/excel/big-grid/column-style'
 import { chartBus, insertFloat, removeFloat, sheetHeaderSize } from '@/features/excel/chart/chart-manager'
 import { datasetById } from '@/features/excel/dashboard/slicer'
 import { cellName } from '@/features/excel/writeback/input-table'
 import { applyEdits, editCount, recordEdit, rowKey } from './edits'
-import { cellPixel, cellTableArea, DATA_TABLE_KEY, DEFAULT_TABLE_SIZE, findCellTable, getCellTables, listCellTables, MAX_CELL_ROWS, saveCellTables, tableColumns, tableQuery } from './types'
+import { cellPixel, cellTableArea, DATA_TABLE_KEY, DEFAULT_TABLE_SIZE, findCellTable, getCellTables, listCellTables, MAX_CELL_ROWS, newDataTableId, saveCellTables, tableColumns, tableQuery, uniqueTableName } from './types'
 
 /**
  * 单元格模式数据表的写入、刷新与模式切换。
@@ -113,8 +114,12 @@ export async function renderCellTable(api: FUniver, sheet: FWorksheet, spec: Cel
     header.setBackgroundColor(HEADER_BG)
     if (rows.length) {
       cols.forEach((c, i) => {
-        if (c.kind === 'money')
-          sheet.getRange(spec.row + 1, spec.col + i, rows.length, 1).setNumberFormat('#,##0.00')
+        // 设置过列样式的列（哪怕只剩空记录）每次刷新都按样式写数字格式，撤销后才能回到默认；其余只给金额列加千分位
+        const style = spec.columnStyles?.[c.title]
+        const custom = style?.numFmt ? excelPattern(style.numFmt) : null
+        const pattern = custom ?? (c.kind === 'money' ? '#,##0.00' : style ? 'General' : null)
+        if (pattern)
+          sheet.getRange(spec.row + 1, spec.col + i, rows.length, 1).setNumberFormat(pattern)
       })
     }
   }
@@ -129,6 +134,32 @@ export async function renderCellTable(api: FUniver, sheet: FWorksheet, spec: Cel
 function upsertSpec(sheet: FWorksheet, spec: CellTableSpec) {
   const list = getCellTables(sheet)
   saveCellTables(sheet, list.some(s => s.id === spec.id) ? list.map(s => (s.id === spec.id ? spec : s)) : [...list, spec])
+}
+
+/** 在当前工作表的选中单元格处新建单元格模式数据表并写入；挡住时抛 CellTableBlockedError，不做任何改动 */
+export async function insertCellTable(api: FUniver, init: { datasetId: string, datasetName: string, name?: string, fields?: string[], filters?: DatasetFilter[], sort?: DatasetSort[], keyword?: string }) {
+  const sheet = api.getActiveWorkbook()?.getActiveSheet()
+  if (!sheet)
+    throw new Error('没有打开的工作表')
+  const cell = sheet.getSelection()?.getActiveRange()
+  const spec: CellTableSpec = {
+    v: 1,
+    id: newDataTableId(),
+    kind: 'datatable',
+    name: init.name ?? uniqueTableName(api, init.datasetName),
+    datasetId: init.datasetId,
+    fields: init.fields ?? [],
+    filters: init.filters ?? [],
+    sort: init.sort ?? [],
+    keyword: init.keyword || undefined,
+    followSlicers: true,
+    row: cell?.getRow() ?? 0,
+    col: cell?.getColumn() ?? 0,
+  }
+  const next = await renderCellTable(api, sheet, spec)
+  upsertSpec(sheet, next)
+  chartBus.emit('cell-table', next.id)
+  return next
 }
 
 /** 修改定义并重新写入（表名、列、筛选、排序等） */

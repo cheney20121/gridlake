@@ -26,6 +26,14 @@ const detail = computed(() => {
       return p.explanation || ''
     case 'calc':
       return `数据集「${p.datasetName}」· ${p.preview?.totalRows?.toLocaleString?.() ?? ''} 行中 ${p.preview?.nullRows ?? 0} 行结果为空`
+    case 'table_view':
+      return `数据表「${p.table}」· ${p.preview?.note ?? ''}`
+    case 'column_format':
+      return `数据表「${p.table}」${p.column}列 · ${p.preview?.note ?? ''}`
+    case 'table_create':
+      return `数据集「${p.datasetName}」· ${p.preview?.note ?? ''}`
+    case 'dataset_save':
+      return [p.purpose, p.preview?.note].filter(Boolean).join(' · ')
   }
   return ''
 })
@@ -33,8 +41,8 @@ const detail = computed(() => {
 
 <template>
   <div>
-    <div v-if="kind === 'formula' || kind === 'calc'" class="formula">
-      {{ payload.formula }}
+    <div v-if="kind === 'formula' || kind === 'calc' || kind === 'dataset_save'" class="formula">
+      {{ kind === 'dataset_save' ? payload.sql : payload.formula }}
     </div>
     <div v-if="detail" class="mt-1 text-xs text-gray-500">
       {{ detail }}

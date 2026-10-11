@@ -31,12 +31,15 @@ const sleep = ms => new Promise(r => setTimeout(r, ms))
  */
 export const llm = {
   script: [],
+  /** 收到的带工具的请求体（检查发给模型的提示与界面上下文） */
+  requests: [],
   /** 下一轮：调用工具 [{ name, args }]，或直接回答文字 */
   say({ text = '', calls = [] }) {
     this.script.push({ text, calls })
   },
   reset() {
     this.script.length = 0
+    this.requests.length = 0
   },
 }
 
@@ -46,6 +49,8 @@ function startMockLlm() {
     req.on('data', d => (raw += d))
     req.on('end', () => {
       const body = JSON.parse(raw || '{}')
+      if (body.tools)
+        llm.requests.push(body)
       const step = body.tools ? (llm.script.shift() ?? { text: '（脚本用完）', calls: [] }) : { text: '摘要', calls: [] }
       const message = { role: 'assistant', content: step.text }
       if (step.calls.length)

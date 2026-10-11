@@ -2,6 +2,7 @@ import type { FUniver } from '@univerjs/core/facade'
 import type { FWorksheet } from '@univerjs/sheets/facade'
 import type { TableEdits } from './edits'
 import type { DatasetFilter, DatasetInfo, DatasetQuery, DatasetSort } from '@/api/dataset'
+import type { ColumnStyle } from '@/components/excel/big-grid/column-style'
 import type { FloatLocation } from '@/features/excel/chart/chart-manager'
 import { insertFloat, listFloats, sheetHeaderSize } from '@/features/excel/chart/chart-manager'
 import { datasetById, slicerFiltersFor } from '@/features/excel/dashboard/slicer'
@@ -26,6 +27,8 @@ export interface DataTableSpec {
   fields: string[]
   /** 列宽（列名 → px） */
   widths?: Record<string, number>
+  /** 列样式：数字格式与条件格式（列名 → 样式）；只改显示，不改数据。单元格模式只支持数字格式 */
+  columnStyles?: Record<string, ColumnStyle>
   filters: DatasetFilter[]
   sort: DatasetSort[]
   keyword?: string
@@ -183,7 +186,7 @@ export function searchable(datasetId: string) {
 }
 
 /** 在当前工作表的选中单元格处插入数据表 */
-export function insertDataTable(api: FUniver, init: { datasetId: string, datasetName: string, filters?: DatasetFilter[], sort?: DatasetSort[], keyword?: string }) {
+export function insertDataTable(api: FUniver, init: { datasetId: string, datasetName: string, name?: string, fields?: string[], filters?: DatasetFilter[], sort?: DatasetSort[], keyword?: string }) {
   const sheet = api.getActiveWorkbook()?.getActiveSheet()
   if (!sheet)
     throw new Error('没有打开的工作表')
@@ -193,9 +196,9 @@ export function insertDataTable(api: FUniver, init: { datasetId: string, dataset
     v: 1,
     id: newDataTableId(),
     kind: 'datatable',
-    name: uniqueTableName(api, init.datasetName),
+    name: init.name ?? uniqueTableName(api, init.datasetName),
     datasetId: init.datasetId,
-    fields: [],
+    fields: init.fields ?? [],
     filters: init.filters ?? [],
     sort: init.sort ?? [],
     keyword: init.keyword || undefined,
