@@ -405,6 +405,15 @@ fn log(conn: &Connection, shop: &str, period: &str, action: &str, operator: &str
     Ok(())
 }
 
+/// 月结的通知：只在开启登录校验时发（收件人用用户 id 认）
+fn notify(conn: &Connection, user: &CurrentUser, to: &str, kind: &str, a: &CloseAction, from: &str, text: &str) -> AppResult<()> {
+    if !user.enforced {
+        return Ok(());
+    }
+    let ref_id = format!("close:{}|{}", a.shop, a.period);
+    crate::comment::push(conn, crate::comment::Notice { to, kind, workbook_id: "", workbook_name: "", from, text, ref_id: &ref_id }, &user.id)
+}
+
 pub fn act(conn: &Connection, a: &CloseAction, user: &CurrentUser, allow_self: bool) -> AppResult<()> {
     balance::prev_period(&a.period)?;
     let operator = a.operator.trim();
@@ -457,7 +466,8 @@ pub fn act(conn: &Connection, a: &CloseAction, user: &CurrentUser, allow_self: b
                     params![a.shop, a.period, operator, now_local(), approver, comment, serde_json::to_string(&report)?, user.id, approver_id],
                 )?;
                 let note = if fails.is_empty() { comment.to_string() } else { format!("[带差异提交：{}] {comment}", fails.join("、")) };
-                log(conn, &a.shop, &a.period, "submit", operator, &format!("审批人：{approver}；{note}"))
+                log(conn, &a.shop, &a.period, "submit", operator, &format!("审批人：{approver}；{note}"))?;
+                notify(conn, user, &approver_id, "close_request", a, operator, &format!("{} {} 月结待审批{}", a.shop, a.period, if note.is_empty() { String::new() } else { format!("：{note}") }))
             }
             "approve" | "reject" => {
                 expect("pending", "审批")?;
@@ -474,7 +484,10 @@ pub fn act(conn: &Connection, a: &CloseAction, user: &CurrentUser, allow_self: b
                     params![if approve { "locked" } else { "rejected" }, operator, now_local(), comment, a.shop, a.period],
                 )?;
                 let proxied = user.enforced && existing.as_ref().is_some_and(|r| !is_approver(user, r));
-                log(conn, &a.shop, &a.period, &a.action, operator, &if proxied { format!("（管理员代为处理）{comment}") } else { comment.to_string() })
+                log(conn, &a.shop, &a.period, &a.action, operator, &if proxied { format!("（管理员代为处理）{comment}") } else { comment.to_string() })?;
+                let to = existing.as_ref().and_then(|r| r.submitted_by_id.clone()).unwrap_or_default();
+                let text = if approve { format!("{} {} 月结已通过并锁账{}", a.shop, a.period, if comment.is_empty() { String::new() } else { format!("：{comment}") }) } else { format!("{} {} 月结被驳回：{comment}", a.shop, a.period) };
+                notify(conn, user, &to, if approve { "close_locked" } else { "close_rejected" }, a, operator, &text)
             }
             "cancel" => {
                 expect("pending", "撤回")?;
@@ -482,7 +495,9 @@ pub fn act(conn: &Connection, a: &CloseAction, user: &CurrentUser, allow_self: b
                     return Err(AppError::Forbidden("只有提交人（或管理员）可以撤回".into()));
                 }
                 conn.execute("UPDATE ledger_period_close SET status = 'open' WHERE shop = ? AND period = ?", params![a.shop, a.period])?;
-                log(conn, &a.shop, &a.period, "cancel", operator, comment)
+                log(conn, &a.shop, &a.period, "cancel", operator, comment)?;
+                let to = existing.as_ref().and_then(|r| r.approver_id.clone()).unwrap_or_default();
+                notify(conn, user, &to, "close_cancelled", a, operator, &format!("{} {} 月结提交人撤回了审批", a.shop, a.period))
             }
             "reopen" => {
                 expect("locked", "反结账")?;
@@ -493,7 +508,9 @@ pub fn act(conn: &Connection, a: &CloseAction, user: &CurrentUser, allow_self: b
                     return Err(AppError::bad("反结账必须填写原因"));
                 }
                 conn.execute("UPDATE ledger_period_close SET status = 'open' WHERE shop = ? AND period = ?", params![a.shop, a.period])?;
-                log(conn, &a.shop, &a.period, "reopen", operator, comment)
+                log(conn, &a.shop, &a.period, "reopen", operator, comment)?;
+                let to = existing.as_ref().and_then(|r| r.submitted_by_id.clone()).unwrap_or_default();
+                notify(conn, user, &to, "close_reopened", a, operator, &format!("{} {} 已反结账：{comment}", a.shop, a.period))
             }
             other => Err(AppError::bad(format!("未知操作：{other}"))),
         }

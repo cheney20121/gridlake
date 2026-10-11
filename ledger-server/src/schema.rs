@@ -89,6 +89,7 @@ pub fn migrate_sql() -> String {
         "ALTER TABLE ledger_detail ADD COLUMN IF NOT EXISTS search_text VARCHAR;
          UPDATE ledger_detail SET search_text = {} WHERE search_text IS NULL;
          ALTER TABLE ledger_ai_action ADD COLUMN IF NOT EXISTS undo VARCHAR;
+         ALTER TABLE ledger_notification ADD COLUMN IF NOT EXISTS ref_id VARCHAR;
          ALTER TABLE ledger_import ADD COLUMN IF NOT EXISTS file_hash VARCHAR;
          ALTER TABLE ledger_import ADD COLUMN IF NOT EXISTS mode VARCHAR;
          ALTER TABLE ledger_import ADD COLUMN IF NOT EXISTS inserted_rows BIGINT;

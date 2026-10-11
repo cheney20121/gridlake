@@ -68,13 +68,14 @@ fn view_sources(r: &Row) -> Option<[String; 2]> {
     match r.kind.as_str() {
         "view" => r.definition.as_deref().and_then(|d| serde_json::from_str::<ViewDef>(d).ok()).map(|v| [v.left, v.right]),
         "recon" => r.definition.as_deref().and_then(crate::recon::sources),
+        "summary" => r.definition.as_deref().and_then(crate::summary::source_of).map(|s| [s.clone(), s]),
         _ => None,
     }
 }
 
 /// 视图类（关联视图、对账）：数据库里是 VIEW，没有自己的行数
 fn is_view_kind(kind: &str) -> bool {
-    matches!(kind, "view" | "recon")
+    matches!(kind, "view" | "recon" | "summary")
 }
 
 /// 关联视图 / 对账现在能否恢复：引用的两个数据集都要在

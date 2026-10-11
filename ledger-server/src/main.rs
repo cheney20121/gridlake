@@ -41,6 +41,7 @@ mod pivot;
 mod pivot_calc;
 mod query;
 mod recon;
+mod summary;
 mod report;
 mod routes;
 mod schema;
@@ -205,6 +206,7 @@ async fn serve(config: config::Config) -> anyhow::Result<()> {
         .route("/ledger/datasets/{id}/pivot", post(routes::dataset_pivot))
         .route("/ledger/recons/preview", post(routes::recon_preview))
         .route("/ledger/recons", post(routes::create_recon))
+        .route("/ledger/datasets/summaries", post(routes::create_summary))
         .route("/ledger/recons/{id}", get(routes::get_recon).put(routes::update_recon))
         .route("/ledger/recons/{id}/summary", get(routes::recon_summary))
         .route("/ledger/recons/{id}/items", get(routes::recon_items))

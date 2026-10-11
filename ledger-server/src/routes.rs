@@ -1830,6 +1830,28 @@ pub async fn create_recon(State(db): State<AppState>, Extension(user): Extension
     Ok(ok(id))
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SummaryBody {
+    pub name: String,
+    pub def: crate::summary::SummaryDef,
+}
+
+/// POST /api/ledger/datasets/summaries  { name, def: { source, rows, values, filters?, keyword? } }  透视表转为数据表：新建汇总数据集，返回数据集 id
+pub async fn create_summary(State(db): State<AppState>, Extension(user): Extension<CurrentUser>, body: axum::body::Bytes) -> AppResult<Json<Envelope<String>>> {
+    let req: SummaryBody = parse_json(&body)?;
+    let _guard = db.import_lock.lock().await;
+    let id = blocking(&db, move |conn| {
+        let id = crate::summary::create(conn, &req.name, &req.def)?;
+        dataset::set_owner(conn, &id, &user)?;
+        Ok(id)
+    })
+    .await?;
+    db.cursors.invalidate();
+    db.checkpoint();
+    Ok(ok(id))
+}
+
 /// GET /api/ledger/recons/{id}  对账的定义
 pub async fn get_recon(State(db): State<AppState>, Path(id): Path<String>) -> AppResult<Json<Envelope<crate::recon::Info>>> {
     Ok(ok(blocking_read(&db, move |conn| crate::recon::info(conn, &id)).await?))

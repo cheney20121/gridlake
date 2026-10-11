@@ -85,6 +85,9 @@ pub struct DatasetDef {
     /// 关联视图的定义（前端展示「由哪两个数据集关联而来」）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub view: Option<crate::views::ViewDef>,
+    /// 汇总数据集（透视表转为数据表）的定义
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<crate::summary::SummaryDef>,
 }
 
 /// 用户导入的数据集在登记表中保存的列定义
@@ -156,6 +159,10 @@ pub fn delete(conn: &Connection, id: &str, operator: &str) -> AppResult<i64> {
     if !recons.is_empty() {
         return Err(AppError::bad(format!("对账「{}」引用了这个数据集，请先删除这些对账", recons.join("」「"))));
     }
+    let sums = crate::summary::dependents(conn, id)?;
+    if !sums.is_empty() {
+        return Err(AppError::bad(format!("汇总数据集「{}」由这个数据集汇总而来，请先删除它们", sums.join("」「"))));
+    }
     let rows: i64 = conn.query_row(&format!("SELECT count(*) FROM {}", def.table), [], |r| r.get(0)).unwrap_or(0);
     conn.execute(
         "UPDATE ledger_dataset SET deleted_at = CAST(? AS TIMESTAMP), deleted_by = ? WHERE id = ? AND deleted_at IS NULL",
@@ -213,6 +220,7 @@ fn ledger_detail_def() -> DatasetDef {
         kind: "builtin".into(),
         scope_sig: String::new(),
         view: None,
+        summary: None,
     }
 }
 
@@ -241,7 +249,15 @@ pub fn load(conn: &Connection) -> AppResult<(Vec<DatasetDef>, Vec<String>)> {
         })?
         .collect::<Result<Vec<_>, _>>()?;
     let mut views: Vec<(String, String, crate::views::ViewDef)> = Vec::new();
+    let mut summaries: Vec<(String, String, crate::summary::SummaryDef)> = Vec::new();
     for (id, name, cols, pk, kind, definition) in rows {
+        if kind.as_deref() == Some("summary") {
+            match definition.as_deref().and_then(|d| serde_json::from_str(d).ok()) {
+                Some(v) => summaries.push((id, name, v)),
+                None => problems.push(format!("汇总数据集「{name}」的定义损坏")),
+            }
+            continue;
+        }
         if kind.as_deref() == Some("recon") {
             out.push(crate::recon::dataset_def(id, name));
             continue;
@@ -270,6 +286,7 @@ pub fn load(conn: &Connection) -> AppResult<(Vec<DatasetDef>, Vec<String>)> {
             kind: "table".into(),
             scope_sig: String::new(),
             view: None,
+            summary: None,
         });
     }
     for def in out.iter_mut() {
@@ -322,6 +339,7 @@ pub fn load(conn: &Connection) -> AppResult<(Vec<DatasetDef>, Vec<String>)> {
                 kind: "view".into(),
                 scope_sig: String::new(),
                 view: Some(v),
+                summary: None,
             };
             apply_calcs(&mut def, &calcs, &mut problems);
             out.push(def);
@@ -333,6 +351,30 @@ pub fn load(conn: &Connection) -> AppResult<(Vec<DatasetDef>, Vec<String>)> {
     }
     for (_, name, _) in &views {
         problems.push(format!("关联视图「{name}」引用的数据集不存在"));
+    }
+    // 汇总数据集（透视表转为数据表）：源数据集就绪后生成（源可以是视图或另一个汇总数据集）
+    for _ in 0..4 {
+        let mut pending = Vec::new();
+        for (id, name, s) in summaries {
+            let Some(source) = out.iter().find(|d| d.id == s.source).cloned() else {
+                pending.push((id, name, s));
+                continue;
+            };
+            match crate::summary::dataset_def(id, name.clone(), s, &source) {
+                Ok(mut def) => {
+                    apply_calcs(&mut def, &calcs, &mut problems);
+                    out.push(def);
+                }
+                Err(e) => problems.push(format!("汇总数据集「{name}」：{}", e.message())),
+            }
+        }
+        summaries = pending;
+        if summaries.is_empty() {
+            break;
+        }
+    }
+    for (_, name, _) in &summaries {
+        problems.push(format!("汇总数据集「{name}」的源数据集不存在"));
     }
     Ok((out, problems))
 }
@@ -650,6 +692,11 @@ fn where_clause(def: &DatasetDef, spec: &QuerySpec, contribution: Option<&str>, 
 
 /// 只含筛选与关键字的 WHERE（透视表等聚合查询使用）
 pub fn filter_sql(_conn: &Connection, def: &DatasetDef, spec: &QuerySpec) -> AppResult<(String, Vec<Value>)> {
+    where_clause(def, spec, None, None)
+}
+
+/// 同 filter_sql，不需要连接（汇总数据集加载时生成数据来源用）
+pub fn filter_sql_for(def: &DatasetDef, spec: &QuerySpec) -> AppResult<(String, Vec<Value>)> {
     where_clause(def, spec, None, None)
 }
 

@@ -10,7 +10,7 @@ import { chartBus, listFloats } from '@/features/excel/chart/chart-manager'
 import { CHART_COMPONENT_KEY } from '@/features/excel/chart/types'
 import { restoreCrossFilters, setCrossFilterPersistGuard } from '@/features/excel/dashboard/cross-filter'
 import { guardPresenting } from '@/features/excel/dashboard/present-guard'
-import { hideGridlinesForPresent } from '@/features/excel/dashboard/present-view'
+import { hideGridlinesForPresent, hideHeadersForPresent } from '@/features/excel/dashboard/present-view'
 import { createCellButton, createDrillHint } from '@/features/excel/data/drill-hint'
 import { CellTableBlockedError, refreshCellTables, watchCellTables } from '@/features/excel/datatable/cell-table'
 import { cellTableArea, cellTableAt, insertDataTable, listCellTables } from '@/features/excel/datatable/types'
@@ -111,6 +111,29 @@ export function useAnalysis(options: {
     }
   }
 
+  /** 透视表转为数据表之后：在新工作表里放入汇总数据集的数据表（数据集列表需已刷新） */
+  function insertSummaryTable(datasetId: string) {
+    const api = univerAPI.value
+    const ds = datasets.value.find(d => d.id === datasetId)
+    const wb = api?.getActiveWorkbook()
+    if (!api || !wb || !ds)
+      return
+    const taken = new Set(wb.getSheets().map(s => s.getSheetName()))
+    let name = ds.name.slice(0, 28)
+    for (let i = 2; taken.has(name); i++)
+      name = `${ds.name.slice(0, 26)}${i}`
+    const sheet = wb.insertSheet(name)
+    wb.setActiveSheet(sheet)
+    try {
+      const spec = insertDataTable(api, { datasetId, datasetName: ds.name })
+      persistenceManager.markDirty()
+      ElMessage.success(`已转为数据表「${spec.name}」：表头可按值筛选、排序；在数据面板里可给「${ds.name}」加计算列`)
+    }
+    catch (e) {
+      ElMessage.error(e instanceof Error ? e.message : String(e))
+    }
+  }
+
   function openDashboardPanel() {
     if (uiStore.activePanel === 'dashboard') {
       uiStore.closePanel()
@@ -151,8 +174,13 @@ export function useAnalysis(options: {
     const fullscreen = document.querySelector('.excel-workspace')?.requestFullscreen?.().catch(() => {})
     if (univerAPI.value) {
       const api = univerAPI.value
-      // 网格线是工作表数据：演示期间临时隐藏，退出恢复；两次改动都不算用户修改
-      restoreGridlines = await persistenceManager.withoutTracking(() => hideGridlinesForPresent(api))
+      // 网格线是工作表数据：演示期间临时隐藏，退出恢复；两次改动都不算用户修改。行号列标用 CSS 挪出可见区域，不改数据
+      const restoreGrid = await persistenceManager.withoutTracking(() => hideGridlinesForPresent(api))
+      const restoreHeaders = hideHeadersForPresent(api, document.getElementById('univer-container'))
+      restoreGridlines = async () => {
+        restoreHeaders()
+        await restoreGrid()
+      }
       // 等待期间已退出演示（Esc）：立刻恢复
       if (!presenting.value)
         await restoreNow()
@@ -301,6 +329,7 @@ export function useAnalysis(options: {
     enterPresent,
     exitPresent,
     createPivotFromDataset,
+    insertSummaryTable,
     ensurePivotFresh,
     refreshCellTablesAfterOpen,
     attachWidgets,

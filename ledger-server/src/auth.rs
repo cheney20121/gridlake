@@ -730,7 +730,7 @@ const FULL_ONLY: &[(&str, &str)] = &[
     ("GET", "/ledger/analysis/breakdown"), ("GET", "/ledger/analysis/cross-period"), ("GET", "/ledger/analysis/qianchuan"), ("PUT", "/ledger/analysis/qianchuan"),
     // 数据集：导入、建视图、新建填报数据集、改结构、回收站、使用情况（填报本身对受限用户开放，见 writeback::submit）
     ("POST", "/ledger/datasets/import/preview"), ("POST", "/ledger/datasets/import/preview-url"), ("POST", "/ledger/datasets/import/commit"),
-    ("POST", "/ledger/datasets/views/preview"), ("POST", "/ledger/datasets/views"), ("PUT", "/ledger/datasets/views/{id}"),
+    ("POST", "/ledger/datasets/views/preview"), ("POST", "/ledger/datasets/views"), ("POST", "/ledger/datasets/summaries"), ("PUT", "/ledger/datasets/views/{id}"),
     ("POST", "/ledger/datasets/input"), ("GET", "/ledger/writebacks"), ("POST", "/ledger/writebacks/{id}/undo"),
     ("GET", "/ledger/datasets/trash"), ("DELETE", "/ledger/datasets/trash"), ("POST", "/ledger/datasets/{id}/untrash"), ("DELETE", "/ledger/datasets/{id}/purge"),
     ("PUT", "/ledger/datasets/{id}"), ("DELETE", "/ledger/datasets/{id}"),

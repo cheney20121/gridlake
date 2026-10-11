@@ -2,13 +2,14 @@
 import type { FUniver } from '@univerjs/core/facade'
 import type { FWorksheet } from '@univerjs/sheets/facade'
 import type { Area, Item } from './constants'
-import type { DatasetColumn, DatasetFilter, DatasetInfo, PivotRequest, PivotResult, PivotShow } from '@/api/dataset'
+import type { DatasetColumn, DatasetFilter, DatasetInfo, PivotRequest, PivotResult, PivotShow, SummaryDef } from '@/api/dataset'
 import type { GridColumn } from '@/components/excel/big-grid/types'
 import type { PivotDisplay, PivotSpec } from '@/features/excel/pivot/pivot-sheet'
 import { useDebounceFn } from '@vueuse/core'
 import { isCancel } from 'axios'
 import { computed, onBeforeUnmount, reactive, ref, shallowRef, watch } from 'vue'
 import draggable from 'vuedraggable'
+import { createSummaryApi } from '@/api/dataset'
 import FilterMenu from '@/components/excel/big-grid/FilterMenu.vue'
 import BusyInline from '@/components/excel/common/BusyInline.vue'
 import { createPivotSheet, getPivotSpec, onPivotChanged, pivotGroupPrefixes, refreshPivot, setPivotDisplay } from '@/features/excel/pivot/pivot-sheet'
@@ -30,6 +31,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   /** 透视表内容变化（需要保存工作簿） */
   (e: 'changed'): void
+  /** 已转为数据表（新建了汇总数据集）：页面刷新数据集并把它放进新工作表 */
+  (e: 'converted', datasetId: string): void
 }>()
 
 const sheet = shallowRef<FWorksheet | null>(null)
@@ -182,6 +185,63 @@ function currentRequest(): PivotRequest {
     ...(Object.keys(kept).length ? { aliases: kept } : {}),
     // 只保留所在字段仍在行 / 列里的计算项
     ...(calcItems.value.some(c => inUse.has(c.field)) ? { calcItems: calcItems.value.filter(c => inUse.has(c.field)).map(c => ({ ...c })) } : {}),
+  }
+}
+
+// ── 转为数据表：透视结果按行展平成一个汇总数据集（随源数据实时变化），之后可按值筛选、加计算列 ──
+
+const canConvert = computed(() => !!dataset.value && (areas.rows.length + areas.columns.length) > 0 && areas.values.length > 0)
+const converting = ref(false)
+
+/** 不会带入数据表的设置（展平后没有意义），转换前告诉用户 */
+function convertDrops(req: PivotRequest): string[] {
+  const out: string[] = []
+  const shown = req.values.filter(v => v.show && v.show !== 'raw')
+  if (shown.length)
+    out.push(`值的显示方式（${shown.map(v => SHOW_OPTIONS.find(o => o.value === v.show)?.label ?? v.show).join('、')}）——按行展平后没有可比的总计或上一期，这些值按原值带入`)
+  if (req.calcItems?.length)
+    out.push('计算项')
+  if (req.top)
+    out.push(`「前 ${req.top} 项」——数据表里可以按值排序后自行筛选`)
+  if (req.subtotals || req.grandTotals)
+    out.push('小计 / 总计行')
+  return out
+}
+
+async function convertToTable() {
+  const ds = dataset.value
+  if (!ds || !canConvert.value)
+    return
+  const req = currentRequest()
+  const drops = convertDrops(req)
+  let name: string
+  try {
+    const r = await ElMessageBox.prompt(
+      `行字段、列字段成为分组列，汇总值与计算值成为数值列；之后可以在数据表里按值筛选、排序、加计算列，源数据变化时自动更新。${drops.length ? `<br><br><span style="color:#92400E">不带入：${drops.join('；')}</span>` : ''}`,
+      '转为数据表',
+      { inputValue: `${ds.name}汇总`, inputPlaceholder: '汇总数据集的名称', confirmButtonText: '转换', dangerouslyUseHTMLString: true, inputValidator: v => !!v.trim() || '请填写名称' },
+    )
+    name = r.value.trim()
+  }
+  catch {
+    return
+  }
+  const def: SummaryDef = {
+    source: ds.id,
+    rows: [...req.rows, ...req.columns],
+    values: req.values.map(({ show: _show, ...v }) => v),
+    filters: req.filters ?? [],
+  }
+  converting.value = true
+  try {
+    const id = await createSummaryApi(name, def)
+    emit('converted', id)
+  }
+  catch (e) {
+    error.value = errorText(e)
+  }
+  finally {
+    converting.value = false
   }
 }
 
@@ -546,6 +606,9 @@ function filterSummary(f: DatasetFilter | null | undefined) {
         </span>
         <el-button size="small" link type="primary" class="ml-auto" :disabled="loading" @click="apply">
           刷新
+        </el-button>
+        <el-button size="small" link type="primary" :disabled="!canConvert || loading" :loading="converting" title="把透视结果按行展平成一个数据集：可按值筛选、排序、加计算列，随源数据自动更新" data-testid="pivot-to-table" @click="convertToTable">
+          转为数据表
         </el-button>
       </div>
       <div class="text-xs text-gray-400 leading-5">

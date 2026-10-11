@@ -34,6 +34,8 @@ const emit = defineEmits<{
   (e: 'editChart', chartId: string): void
   (e: 'present'): void
   (e: 'schedule'): void
+  /** 透视表转为数据表：新建了汇总数据集 */
+  (e: 'pivotConverted', datasetId: string): void
 }>()
 
 /** 正在编辑的仪表盘部件（切片器 / 指标卡 / 表格卡片 / 数据表）；为空时面板为新建 */
@@ -86,7 +88,7 @@ const uiStore = useExcelUIStore()
         <FormulaPanel v-else-if="uiStore.activePanel === 'formula'" :univer-api="univerApi" />
         <CollaborationPanel v-else-if="uiStore.activePanel === 'collaboration'" />
         <SnapshotPanel v-else-if="uiStore.activePanel === 'snapshots'" :univer-api="univerApi" />
-        <PivotPanel v-else-if="uiStore.activePanel === 'pivot'" :univer-api="univerApi" :datasets="datasets" @changed="persistenceManager.markDirty()" />
+        <PivotPanel v-else-if="uiStore.activePanel === 'pivot'" :univer-api="univerApi" :datasets="datasets" @changed="persistenceManager.markDirty()" @converted="(id: string) => emit('pivotConverted', id)" />
         <WritebackPanel
           v-else-if="uiStore.activePanel === 'writeback'"
           :univer-api="univerApi"

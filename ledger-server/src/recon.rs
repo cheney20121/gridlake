@@ -112,6 +112,7 @@ pub fn dataset_def(id: String, name: String) -> DatasetDef {
         kind: "recon".into(),
         scope_sig: String::new(),
         view: None,
+        summary: None,
     }
 }
 

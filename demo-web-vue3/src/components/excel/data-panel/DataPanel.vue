@@ -40,7 +40,7 @@ const collapsed = ref(localStorage.getItem(STORAGE_KEY) === '1')
 watch(collapsed, v => localStorage.setItem(STORAGE_KEY, v ? '1' : '0'))
 
 const keyword = ref('')
-const KIND_ORDER: Record<DatasetInfo['kind'], number> = { builtin: 0, table: 1, view: 2, recon: 3 }
+const KIND_ORDER: Record<DatasetInfo['kind'], number> = { builtin: 0, table: 1, view: 2, summary: 3, recon: 4 }
 const groups = computed(() => {
   const k = keyword.value.trim().toLowerCase()
   const list = k
@@ -50,6 +50,7 @@ const groups = computed(() => {
   return [
     { key: 'table', title: '数据集', items: sorted.filter(d => d.kind === 'builtin' || d.kind === 'table') },
     { key: 'view', title: '关联视图', items: sorted.filter(d => d.kind === 'view') },
+    { key: 'summary', title: '汇总（透视转成）', items: sorted.filter(d => d.kind === 'summary') },
     { key: 'recon', title: '对账', items: sorted.filter(d => d.kind === 'recon') },
   ].filter(g => g.items.length)
 })
@@ -102,6 +103,7 @@ const rows = formatRowCount
         >
           <span v-if="d.kind === 'view'" class="w-3.5 shrink-0 text-center text-xs text-[#3b7dd8]">⟕</span>
           <span v-else-if="d.kind === 'recon'" class="w-3.5 shrink-0 text-center text-xs text-[#107C41]">⇄</span>
+          <span v-else-if="d.kind === 'summary'" class="w-3.5 shrink-0 text-center text-xs text-[#7c3aed]" title="由透视表转成的汇总数据集，随源数据实时变化">Σ</span>
           <svg v-else viewBox="0 0 16 16" width="14" height="14" class="shrink-0" :class="d.kind === 'builtin' ? 'text-[#107C41]' : 'text-gray-500'" fill="none" stroke="currentColor" stroke-width="1.3"><ellipse cx="8" cy="4" rx="5" ry="2" /><path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2" /></svg>
           <span class="min-w-0 flex-1 truncate">{{ d.name }}</span>
           <span class="shrink-0 text-[11px] text-gray-400 tabular-nums" :class="{ 'group-hover:hidden': !ledgerUser.restricted }">{{ rows(d.rowCount) }}</span>

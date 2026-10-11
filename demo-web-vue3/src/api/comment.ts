@@ -39,8 +39,9 @@ export interface CommentAdded {
 
 export interface NotificationItem {
   id: string
-  /** mention：被 @；reply：你的评论有了回复 */
-  kind: 'mention' | 'reply'
+  /** mention：被 @；reply：你的评论有了回复；approval_*：文件审批；close_*：月结 */
+  kind: 'mention' | 'reply' | 'approval_request' | 'approval_approved' | 'approval_rejected' | 'approval_cancelled'
+    | 'close_request' | 'close_locked' | 'close_rejected' | 'close_cancelled' | 'close_reopened'
   workbookId: string
   workbookName: string
   sheetId: string
@@ -51,6 +52,8 @@ export interface NotificationItem {
   text: string
   createdAt: string
   read: boolean
+  /** 审批单 id，或月结的 `close:店铺|月份`（评论通知为空） */
+  refId: string
 }
 
 export interface Inbox {

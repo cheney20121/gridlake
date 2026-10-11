@@ -2,6 +2,7 @@
 // 页面装配了多组组合式函数，回调里引用的函数在文件后面才定义（运行到回调时早已定义好），这里按调用顺序组织代码，不按定义顺序
 /* eslint-disable ts/no-use-before-define */
 import type { FUniver } from '@univerjs/core/facade'
+import type { NotificationItem } from '@/api/comment'
 import type { AnomalyFinding } from '@/api/dataset'
 import type { WorkbookMeta } from '@/api/workbook'
 import type { PaletteCommand } from '@/components/excel/command-palette/CommandPalette.vue'
@@ -335,6 +336,7 @@ const {
   enterPresent,
   exitPresent,
   createPivotFromDataset,
+  insertSummaryTable,
   ensurePivotFresh,
   refreshCellTablesAfterOpen,
   attachWidgets,
@@ -352,7 +354,17 @@ function openCommentsAt(sheetId: string, row: number, col: number) {
 }
 
 /** 点铃铛里的通知：同一个工作簿直接定位；别的工作簿整页跳转（带上位置，打开后自动定位） */
-function onOpenNotification(n: { workbookId: string, sheetId: string, row: number, col: number }) {
+function onOpenNotification(n: NotificationItem) {
+  // 审批：待我审批 / 我发起的（结果）/ 已处理（被撤回的）；月结：打开月结中心
+  if (n.kind.startsWith('approval_')) {
+    approvalStore.drawerTab = n.kind === 'approval_request' ? 'todo' : n.kind === 'approval_cancelled' ? 'done' : 'started'
+    approvalStore.toggleDrawer(true)
+    return
+  }
+  if (n.kind.startsWith('close_')) {
+    monthCloseVisible.value = true
+    return
+  }
   if (n.workbookId === currentWorkbookId.value) {
     reloadComments(n.workbookId)
     openCommentsAt(n.sheetId, n.row, n.col)
@@ -733,6 +745,7 @@ let dataLoaded = false
         @edit-chart="(id: string) => { chartInitialDataset = null; chartEditId = id; uiStore.openPanel('chart') }"
         @present="enterPresent"
         @schedule="openReports(true)"
+        @pivot-converted="async (id: string) => { await onDatasetsChanged(); insertSummaryTable(id) }"
       />
     </div>
 
@@ -879,6 +892,14 @@ let dataLoaded = false
     width: 100%;
     height: 100%;
   }
+}
+
+/* 演示模式隐藏行号列标：画布整体向左上挪出标题的宽高，由外层裁掉（浮动部件跟着一起挪，不会错位），见 present-view.ts */
+.univer-container.hide-headers :deep(> div) {
+  margin-left: calc(-1 * var(--present-hx, 0px));
+  margin-top: calc(-1 * var(--present-hy, 0px));
+  width: calc(100% + var(--present-hx, 0px));
+  height: calc(100% + var(--present-hy, 0px));
 }
 
 /* Error */

@@ -32,9 +32,10 @@ export interface DatasetInfo {
   /** 内置数据集（如资金流水）由专门的导入流程维护，不能改名 / 删除 */
   builtin: boolean
   primaryKey: string[]
-  /** builtin / table / view（关联视图）/ recon（对账结果） */
-  kind: 'builtin' | 'table' | 'view' | 'recon'
+  /** builtin / table / view（关联视图）/ recon（对账结果）/ summary（透视表转成的汇总数据集） */
+  kind: 'builtin' | 'table' | 'view' | 'recon' | 'summary'
   view?: ViewDef
+  summary?: SummaryDef
   rowCount: number
   /** 所有者（内置与登录校验启用前创建的没有所有者，只有管理员能改名 / 删除 / 改结构） */
   ownerId?: string | null
@@ -216,7 +217,7 @@ export function deleteDatasetApi(id: string, operator: string) {
 export interface TrashedDataset {
   id: string
   name: string
-  kind: 'table' | 'view' | 'recon'
+  kind: 'table' | 'view' | 'recon' | 'summary'
   /** 行数（关联视图、对账为空） */
   rowCount: number | null
   deletedAt: string
@@ -357,6 +358,18 @@ export interface JoinPreview {
 
 export function previewJoinApi(def: ViewDef) {
   return request<JoinPreview>({ url: url('/views/preview'), method: 'post', data: def, timeout: 5 * 60 * 1000 })
+}
+
+/** 汇总数据集：透视表「转为数据表」，行 / 列字段成为分组列，汇总值与计算值成为数值列，随源数据实时变化 */
+export interface SummaryDef {
+  source: string
+  rows: PivotField[]
+  values: PivotValue[]
+  filters?: DatasetFilter[]
+}
+
+export function createSummaryApi(name: string, def: SummaryDef) {
+  return request<string>({ url: url('/summaries'), method: 'post', data: { name, def } })
 }
 
 export function createViewApi(name: string, def: ViewDef) {

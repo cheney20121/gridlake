@@ -188,6 +188,11 @@ fn stored_bindings(conn: &Connection) -> AppResult<HashMap<String, (Option<Strin
 fn effective(defs: &[DatasetDef], stored: &HashMap<String, (Option<String>, bool)>) -> HashMap<String, Binding> {
     let mut out: HashMap<String, Binding> = HashMap::new();
     for d in defs {
+        // 汇总数据集沿用源数据集的范围（数据来源在 apply 里按受限后的源重建）
+        if let Some(src) = d.summary.as_ref().and_then(|s| out.get(&s.source)).cloned() {
+            out.insert(d.id.clone(), src);
+            continue;
+        }
         let (col, open) = if d.builtin { (Some("shop".to_string()), false) } else { stored.get(&d.id).cloned().unwrap_or((None, false)) };
         let b = if let Some(c) = col.filter(|c| d.columns.iter().any(|x| &x.key == c)) {
             Binding::Column(c)
@@ -210,8 +215,20 @@ pub fn apply(conn: &Connection, defs: Vec<DatasetDef>, scope: &Scope) -> AppResu
     let bindings = effective(&defs, &stored);
     let sig = scope.sig();
     let list = scope.shops.iter().map(|s| literal(s)).collect::<Vec<_>>().join(", ");
-    let mut out = Vec::new();
+    let mut out: Vec<DatasetDef> = Vec::new();
     for mut d in defs {
+        // 汇总数据集：源数据集对他可见才可见，数据来源按受限后的源重建（汇总的是他能看到的行）
+        if let Some(src) = d.summary.as_ref().map(|s| s.source.clone()) {
+            let Some(source) = out.iter().find(|x| x.id == src).cloned() else { continue };
+            if !source.scope_sig.is_empty() {
+                if crate::summary::rescope(&mut d, &source).is_err() {
+                    continue;
+                }
+                d.scope_sig = sig.clone();
+            }
+            out.push(d);
+            continue;
+        }
         match bindings.get(&d.id) {
             Some(Binding::Open) => out.push(d),
             Some(Binding::Column(key)) => {

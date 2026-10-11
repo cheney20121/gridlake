@@ -159,6 +159,31 @@ fn notify(conn: &Connection, to: &str, kind: &str, c: &Comment, from: &str) -> A
     Ok(())
 }
 
+/// 评论之外的通知（审批、月结）：发给谁、类型、关联的工作簿（可空）、关联对象（审批单 id、`close:店铺|月份`）
+pub struct Notice<'a> {
+    pub to: &'a str,
+    pub kind: &'a str,
+    pub workbook_id: &'a str,
+    pub workbook_name: &'a str,
+    pub from: &'a str,
+    pub text: &'a str,
+    pub ref_id: &'a str,
+}
+
+/// 发一条通知（收件人为空、或就是操作人自己时不发）；与业务操作在同一个事务里写入
+pub fn push(conn: &Connection, n: Notice, actor_id: &str) -> AppResult<()> {
+    if n.to.is_empty() || n.to == actor_id {
+        return Ok(());
+    }
+    let text: String = n.text.chars().take(120).collect();
+    conn.execute(
+        "INSERT INTO ledger_notification (id, user_id, kind, workbook_id, workbook_name, sheet_id, row_idx, col_idx, comment_id, from_name, text, created_at, ref_id)
+         VALUES (?, ?, ?, ?, ?, '', 0, 0, '', ?, ?, CAST(? AS TIMESTAMP), ?)",
+        params![new_id("nt"), n.to, n.kind, n.workbook_id, n.workbook_name, n.from, text, now_local(), n.ref_id],
+    )?;
+    Ok(())
+}
+
 /// 给被 @ 的人发通知；返回没有通知到的人（不能查看工作簿 / 不在用户目录里）
 fn notify_mentions(conn: &Connection, c: &Comment, ids: &[String], author: &CurrentUser, already: &[String]) -> AppResult<Vec<String>> {
     let mut missed = Vec::new();
@@ -300,7 +325,9 @@ pub fn purge_workbook(conn: &Connection, workbook_id: &str) -> AppResult<()> {
 #[serde(rename_all = "camelCase")]
 pub struct Notification {
     pub id: String,
-    /// mention：被 @；reply：你的评论有了回复
+    /// mention：被 @；reply：你的评论有了回复；
+    /// approval_request / approval_approved / approval_rejected / approval_cancelled：文件审批；
+    /// close_request / close_locked / close_rejected / close_cancelled / close_reopened：月结
     pub kind: String,
     pub workbook_id: String,
     pub workbook_name: String,
@@ -312,6 +339,8 @@ pub struct Notification {
     pub text: String,
     pub created_at: String,
     pub read: bool,
+    /// 审批单 id，或月结的 `close:店铺|月份`（评论通知为空）
+    pub ref_id: String,
 }
 
 #[derive(Serialize)]
@@ -326,7 +355,7 @@ pub fn inbox(conn: &Connection, user: &CurrentUser, limit: i64) -> AppResult<Inb
         return Ok(Inbox { items: Vec::new(), unread: 0 });
     }
     let mut stmt = conn.prepare(
-        "SELECT id, kind, workbook_id, COALESCE(workbook_name, ''), sheet_id, row_idx, col_idx, comment_id, COALESCE(from_name, ''), COALESCE(text, ''), strftime(created_at, '%Y-%m-%d %H:%M:%S'), read_at IS NOT NULL
+        "SELECT id, kind, workbook_id, COALESCE(workbook_name, ''), sheet_id, row_idx, col_idx, comment_id, COALESCE(from_name, ''), COALESCE(text, ''), strftime(created_at, '%Y-%m-%d %H:%M:%S'), read_at IS NOT NULL, COALESCE(ref_id, '')
          FROM ledger_notification WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT ?",
     )?;
     let items = stmt
@@ -344,6 +373,7 @@ pub fn inbox(conn: &Connection, user: &CurrentUser, limit: i64) -> AppResult<Inb
                 text: r.get(9)?,
                 created_at: r.get::<_, Option<String>>(10)?.unwrap_or_default(),
                 read: r.get(11)?,
+                ref_id: r.get(12)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;

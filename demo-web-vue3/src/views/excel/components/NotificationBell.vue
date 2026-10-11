@@ -5,7 +5,10 @@ import { readNotificationsApi } from '@/api/comment'
 import { inbox, refreshInbox } from '@/features/excel/comments/state'
 import { cellName } from '@/features/excel/writeback/input-table'
 
-/** 顶栏铃铛：别人 @ 了你、回复了你的评论时显示未读数，点一条跳到那个格子；每分钟查一次 */
+/**
+ * 顶栏铃铛：别人 @ 了你、回复了你的评论，以及审批 / 月结需要你处理或有了结果时显示未读数；
+ * 点评论通知跳到那个格子，点审批 / 月结通知打开审批中心 / 月结中心；每分钟查一次
+ */
 const emit = defineEmits<{ (e: 'open', n: NotificationItem): void }>()
 
 const visible = ref(false)
@@ -32,25 +35,46 @@ async function readAll() {
   await refreshInbox()
 }
 
-const KIND: Record<string, string> = { mention: '@ 了你', reply: '回复了你的评论' }
+const KIND: Record<string, string> = {
+  mention: '@ 了你',
+  reply: '回复了你的评论',
+  approval_request: '请你审批',
+  approval_approved: '通过了你的审批',
+  approval_rejected: '驳回了你的审批',
+  approval_cancelled: '撤回了审批',
+  close_request: '提交了月结审批',
+  close_locked: '通过了月结（已锁账）',
+  close_rejected: '驳回了月结',
+  close_cancelled: '撤回了月结审批',
+  close_reopened: '反结账',
+}
+
+/** 通知下面一行：评论在哪个格子、审批是哪个工作簿 */
+function where(n: NotificationItem) {
+  if (n.kind.startsWith('close_'))
+    return '月结中心'
+  if (n.kind.startsWith('approval_'))
+    return `${n.workbookName} · 文件审批`
+  return `${n.workbookName} · ${cellName(n.row, n.col)}`
+}
 </script>
 
 <template>
   <el-popover v-model:visible="visible" trigger="click" placement="bottom-end" :width="360" @show="refreshInbox">
     <template #reference>
-      <button type="button" class="bell" title="评论通知" data-bell>
+      <button type="button" class="bell" title="通知" data-bell>
         <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.2a3.8 3.8 0 0 0-3.8 3.8v2.2L3 10.2v.8h10v-.8l-1.2-2V6A3.8 3.8 0 0 0 8 2.2ZM6.5 12.6a1.6 1.6 0 0 0 3 0" /></svg>
         <span v-if="inbox.unread" class="badge" data-unread>{{ inbox.unread > 99 ? '99+' : inbox.unread }}</span>
       </button>
     </template>
     <div class="flex items-center justify-between pb-2 text-[13px]">
-      <b>评论通知</b>
+      <b>通知</b>
       <el-button v-if="inbox.unread" link size="small" type="primary" @click="readAll">
         全部标为已读
       </el-button>
     </div>
     <div v-if="!inbox.items.length" class="py-6 text-center text-xs text-gray-400">
-      还没有人 @ 你或回复你的评论
+      还没有通知：别人 @ 你、回复你的评论，或审批 / 月结需要你处理时会出现在这里
     </div>
     <div class="max-h-[50vh] overflow-y-auto">
       <button v-for="n in inbox.items" :key="n.id" type="button" class="item" :class="{ unread: !n.read }" data-notification @click="open(n)">
@@ -62,7 +86,7 @@ const KIND: Record<string, string> = { mention: '@ 了你', reply: '回复了你
           {{ n.text }}
         </div>
         <div class="mt-0.5 text-xs text-gray-400">
-          {{ n.workbookName }} · {{ cellName(n.row, n.col) }}
+          {{ where(n) }}
         </div>
       </button>
     </div>

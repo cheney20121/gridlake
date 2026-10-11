@@ -50,7 +50,7 @@ async function restore(t: TrashedDataset) {
 }
 
 async function purge(t: TrashedDataset) {
-  const dependents = items.value.filter(x => (x.kind === 'view' || x.kind === 'recon') && x.blocked?.includes(`「${t.name}」`))
+  const dependents = items.value.filter(x => (x.kind === 'view' || x.kind === 'recon' || x.kind === 'summary') && x.blocked?.includes(`「${t.name}」`))
   const extra = dependents.length ? `回收站里基于它的关联视图「${dependents.map(x => x.name).join('」「')}」也会一并删除。` : ''
   if (!(await confirm(`彻底删除「${t.name}」${t.rowCount != null ? `及其 ${t.rowCount.toLocaleString()} 行数据` : ''}，删除后不可恢复。${extra}`, '彻底删除', '彻底删除')))
     return
@@ -82,8 +82,8 @@ async function emptyAll() {
       <el-table-column label="名称" min-width="180">
         <template #default="{ row }">
           <span>{{ row.name }}</span>
-          <el-tag v-if="row.kind === 'view' || row.kind === 'recon'" size="small" type="info" class="ml-2">
-            {{ row.kind === 'recon' ? '对账' : '关联视图' }}
+          <el-tag v-if="row.kind === 'view' || row.kind === 'recon' || row.kind === 'summary'" size="small" type="info" class="ml-2">
+            {{ row.kind === 'recon' ? '对账' : row.kind === 'summary' ? '汇总' : '关联视图' }}
           </el-tag>
         </template>
       </el-table-column>

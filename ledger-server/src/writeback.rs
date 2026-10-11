@@ -157,6 +157,7 @@ fn target(conn: &Connection, id: &str) -> AppResult<(String, Vec<StoredColumn>, 
     match def.kind.as_str() {
         "view" => return Err(AppError::bad(format!("「{}」是关联视图，不能写入；请填报到它关联的原始数据集", def.name))),
         "recon" => return Err(AppError::bad(format!("「{}」是对账结果，不能写入；勾对请在对账页面操作", def.name))),
+        "summary" => return Err(AppError::bad(format!("「{}」是透视表转成的汇总数据集，不能写入；请填报到它的源数据集", def.name))),
         "builtin" => return Err(AppError::bad(format!("「{}」是内置数据集，由专门的导入流程维护，不能填报写入", def.name))),
         _ => {}
     }

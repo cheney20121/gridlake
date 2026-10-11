@@ -246,7 +246,8 @@ pub fn create(conn: &Connection, user: &CurrentUser, input: &NewApproval, allow_
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', CAST(? AS TIMESTAMP))",
             params![id, input.workbook_id, wb_name, version, user.id, operator, approver_id, approver_name, comment, input.summary.to_string(), now_local()],
         )?;
-        add_event(conn, &id, "submit", user, &operator, &comment)
+        add_event(conn, &id, "submit", user, &operator, &comment)?;
+        crate::comment::push(conn, crate::comment::Notice { to: &approver_id, kind: "approval_request", workbook_id: &input.workbook_id, workbook_name: &wb_name, from: &operator, text: &comment, ref_id: &id }, &user.id)
     })();
     match r {
         Ok(()) => conn.execute_batch("COMMIT")?,
@@ -331,7 +332,14 @@ pub fn decide(conn: &Connection, user: &CurrentUser, id: &str, approve: bool, co
             "UPDATE ledger_approval SET status = ?, decided_at = CAST(? AS TIMESTAMP), decided_by = ?, decision_comment = ? WHERE id = ? AND status = 'pending'",
             params![if approve { "approved" } else { "rejected" }, now_local(), who, text, id],
         )?;
-        add_event(conn, id, if approve { "approve" } else { "reject" }, user, operator, &text)
+        add_event(conn, id, if approve { "approve" } else { "reject" }, user, operator, &text)?;
+        let (wb, wb_name) = target_of(conn, id)?;
+        let note = if text.is_empty() { (if approve { "已通过" } else { "已驳回" }).to_string() } else { text.clone() };
+        crate::comment::push(
+            conn,
+            crate::comment::Notice { to: &initiator, kind: if approve { "approval_approved" } else { "approval_rejected" }, workbook_id: &wb, workbook_name: &wb_name, from: &who, text: &note, ref_id: id },
+            &user.id,
+        )
     })();
     match r {
         Ok(()) => conn.execute_batch("COMMIT")?,
@@ -343,13 +351,22 @@ pub fn decide(conn: &Connection, user: &CurrentUser, id: &str, approve: bool, co
     get(conn, user, id, allow_self)
 }
 
+/// 审批单对应的工作簿（id、名称）
+fn target_of(conn: &Connection, id: &str) -> AppResult<(String, String)> {
+    Ok(conn.query_row("SELECT workbook_id, COALESCE(workbook_name, '') FROM ledger_approval WHERE id = ?", params![id], |r| Ok((r.get(0)?, r.get(1)?)))?)
+}
+
 pub fn cancel(conn: &Connection, user: &CurrentUser, id: &str, comment: &str, operator: &str, allow_self: bool) -> AppResult<Approval> {
-    let (_, initiator) = pending(conn, id)?;
+    let (approver, initiator) = pending(conn, id)?;
     may_cancel(user, &initiator).map_err(AppError::Forbidden)?;
     conn.execute_batch("BEGIN TRANSACTION")?;
     let r = (|| -> AppResult<()> {
         conn.execute("UPDATE ledger_approval SET status = 'cancelled', decided_at = CAST(? AS TIMESTAMP), decided_by = ? WHERE id = ? AND status = 'pending'", params![now_local(), if user.enforced { user.name.as_str() } else { operator }, id])?;
-        add_event(conn, id, "cancel", user, operator, comment.trim())
+        add_event(conn, id, "cancel", user, operator, comment.trim())?;
+        let (wb, wb_name) = target_of(conn, id)?;
+        let who = if user.enforced { user.name.as_str() } else { operator };
+        let note = Some(comment.trim()).filter(|c| !c.is_empty()).unwrap_or("发起人撤回了审批");
+        crate::comment::push(conn, crate::comment::Notice { to: &approver, kind: "approval_cancelled", workbook_id: &wb, workbook_name: &wb_name, from: who, text: note, ref_id: id }, &user.id)
     })();
     match r {
         Ok(()) => conn.execute_batch("COMMIT")?,

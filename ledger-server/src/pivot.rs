@@ -26,7 +26,7 @@ const MAX_COLUMN_KEYS: i64 = 200;
 const ORD: &str = "__ord";
 
 /// 原样保留到分的汇总方式（金额列上取的是原始值或其和）
-fn keeps_cents(agg: &str) -> bool {
+pub(crate) fn keeps_cents(agg: &str) -> bool {
     matches!(agg, "sum" | "min" | "max" | "first" | "last")
 }
 
@@ -379,7 +379,7 @@ fn percentile(agg: &str) -> Option<f64> {
     }
 }
 
-fn dim_sql(def: &DatasetDef, f: &PivotField) -> AppResult<(String, String)> {
+pub(crate) fn dim_sql(def: &DatasetDef, f: &PivotField) -> AppResult<(String, String)> {
     let col = def.columns.iter().find(|c| c.key == f.column || c.title == f.column).ok_or_else(|| AppError::bad(format!("列不存在：{}", f.column)))?;
     let base = format!("CAST(({}) AS VARCHAR)", dataset::column_sql(col));
     let expr = match f.granularity.as_deref() {
@@ -403,7 +403,7 @@ fn dim_sql(def: &DatasetDef, f: &PivotField) -> AppResult<(String, String)> {
     Ok((expr, name))
 }
 
-fn value_sql(def: &DatasetDef, v: &PivotValue) -> AppResult<(String, ValueInfo)> {
+pub(crate) fn value_sql(def: &DatasetDef, v: &PivotValue) -> AppResult<(String, ValueInfo)> {
     let agg = v.agg.as_str();
     let custom = v.label.as_deref().map(str::trim).filter(|s| !s.is_empty()).map(String::from);
     if agg == "calc" {
