@@ -1,0 +1,400 @@
+{
+ "id": "builtin_monthly_ops",
+ "name": "月度经营分析",
+ "category": "经营分析",
+ "description": "销售额、订单数、客单价及同比 / 环比，店铺排行与月度趋势，店铺 × 月份透视。适合老板看板与经营周会",
+ "datasets": [
+  {
+   "key": "$orders",
+   "name": "订单",
+   "description": "订单明细（每行一个订单或子订单），可来自导入或数据连接",
+   "columns": [
+    {
+     "title": "店铺",
+     "kind": "text",
+     "description": "店铺 / 渠道名称"
+    },
+    {
+     "title": "下单时间",
+     "kind": "datetime",
+     "description": "下单或支付时间"
+    },
+    {
+     "title": "订单金额",
+     "kind": "money",
+     "description": "成交金额（实付）"
+    }
+   ]
+  }
+ ],
+ "workbook": {
+  "id": "webexcel-template",
+  "name": "月度经营分析",
+  "appVersion": "1.0.2",
+  "locale": "zhCN",
+  "styles": {
+   "title": {
+    "ff": "Microsoft YaHei",
+    "fs": 14,
+    "bl": 1
+   },
+   "note": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "cl": {
+     "rgb": "#6B7280"
+    }
+   },
+   "header": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bl": 1,
+    "bg": {
+     "rgb": "#DDEBF7"
+    },
+    "ht": 2
+   },
+   "input": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bg": {
+     "rgb": "#FFF7E6"
+    },
+    "bd": {
+     "b": {
+      "s": 1,
+      "cl": {
+       "rgb": "#F59E0B"
+      }
+     }
+    }
+   },
+   "label": {
+    "ff": "Microsoft YaHei",
+    "fs": 10
+   },
+   "helper": {
+    "ff": "Microsoft YaHei",
+    "fs": 9,
+    "cl": {
+     "rgb": "#9CA3AF"
+    }
+   },
+   "money": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "ht": 3,
+    "n": {
+     "pattern": "#,##0.00;-#,##0.00;\"-\""
+    }
+   },
+   "ratio": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "ht": 3,
+    "n": {
+     "pattern": "0.00"
+    }
+   },
+   "pct": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "ht": 3,
+    "n": {
+     "pattern": "0.0%"
+    }
+   },
+   "qty": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "ht": 3
+   },
+   "totalQty": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bl": 1,
+    "ht": 3,
+    "bd": {
+     "t": {
+      "s": 1,
+      "cl": {
+       "rgb": "#4472C4"
+      }
+     }
+    }
+   },
+   "totalLabel": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bl": 1,
+    "bd": {
+     "t": {
+      "s": 1,
+      "cl": {
+       "rgb": "#4472C4"
+      }
+     }
+    }
+   },
+   "totalMoney": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bl": 1,
+    "ht": 3,
+    "n": {
+     "pattern": "#,##0.00;-#,##0.00;\"-\""
+    },
+    "bd": {
+     "t": {
+      "s": 1,
+      "cl": {
+       "rgb": "#4472C4"
+      }
+     }
+    }
+   },
+   "totalRatio": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bl": 1,
+    "ht": 3,
+    "n": {
+     "pattern": "0.00"
+    },
+    "bd": {
+     "t": {
+      "s": 1,
+      "cl": {
+       "rgb": "#4472C4"
+      }
+     }
+    }
+   },
+   "totalPct": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bl": 1,
+    "ht": 3,
+    "n": {
+     "pattern": "0.0%"
+    },
+    "bd": {
+     "t": {
+      "s": 1,
+      "cl": {
+       "rgb": "#4472C4"
+      }
+     }
+    }
+   }
+  },
+  "sheetOrder": [
+   "dash",
+   "pv",
+   "help"
+  ],
+  "sheets": {
+   "dash": {
+    "id": "dash",
+    "name": "经营看板",
+    "tabColor": "",
+    "hidden": 0,
+    "rowCount": 1000,
+    "columnCount": 26,
+    "zoomRatio": 1,
+    "scrollTop": 0,
+    "scrollLeft": 0,
+    "defaultColumnWidth": 88,
+    "defaultRowHeight": 24,
+    "showGridlines": 0,
+    "rightToLeft": 0,
+    "freeze": {
+     "xSplit": 0,
+     "ySplit": 0,
+     "startRow": -1,
+     "startColumn": -1
+    },
+    "rowHeader": {
+     "width": 46,
+     "hidden": 0
+    },
+    "columnHeader": {
+     "height": 20,
+     "hidden": 0
+    },
+    "mergeData": [],
+    "rowData": {},
+    "columnData": {},
+    "cellData": {}
+   },
+   "pv": {
+    "id": "pv",
+    "name": "店铺 × 月份",
+    "tabColor": "",
+    "hidden": 0,
+    "rowCount": 1000,
+    "columnCount": 26,
+    "zoomRatio": 1,
+    "scrollTop": 0,
+    "scrollLeft": 0,
+    "defaultColumnWidth": 88,
+    "defaultRowHeight": 24,
+    "showGridlines": 1,
+    "rightToLeft": 0,
+    "freeze": {
+     "xSplit": 0,
+     "ySplit": 0,
+     "startRow": -1,
+     "startColumn": -1
+    },
+    "rowHeader": {
+     "width": 46,
+     "hidden": 0
+    },
+    "columnHeader": {
+     "height": 20,
+     "hidden": 0
+    },
+    "mergeData": [],
+    "rowData": {},
+    "columnData": {},
+    "cellData": {
+     "0": {
+      "0": {
+       "v": "数据透视表 · 各店铺每月销售额与同比（打开此页签时按最新数据计算）",
+       "s": "note"
+      }
+     }
+    },
+    "custom": {
+     "pivot": {
+      "version": 1,
+      "datasetId": "$orders",
+      "datasetName": "订单",
+      "request": {
+       "filters": [],
+       "sort": {
+        "by": "key",
+        "valueIndex": 0,
+        "desc": false
+       },
+       "top": null,
+       "subtotals": true,
+       "grandTotals": true,
+       "rows": [
+        {
+         "column": "店铺",
+         "granularity": null
+        }
+       ],
+       "columns": [
+        {
+         "column": "下单时间",
+         "granularity": "month"
+        }
+       ],
+       "values": [
+        {
+         "column": "订单金额",
+         "agg": "sum"
+        },
+        {
+         "column": "订单金额",
+         "agg": "sum",
+         "show": "yoy"
+        }
+       ]
+      }
+     }
+    }
+   },
+   "help": {
+    "id": "help",
+    "name": "使用说明",
+    "tabColor": "",
+    "hidden": 0,
+    "rowCount": 1000,
+    "columnCount": 26,
+    "zoomRatio": 1,
+    "scrollTop": 0,
+    "scrollLeft": 0,
+    "defaultColumnWidth": 88,
+    "defaultRowHeight": 24,
+    "showGridlines": 1,
+    "rightToLeft": 0,
+    "freeze": {
+     "xSplit": 0,
+     "ySplit": 0,
+     "startRow": -1,
+     "startColumn": -1
+    },
+    "rowHeader": {
+     "width": 46,
+     "hidden": 0
+    },
+    "columnHeader": {
+     "height": 20,
+     "hidden": 0
+    },
+    "mergeData": [],
+    "rowData": {},
+    "columnData": {
+     "0": {
+      "w": 760,
+      "hd": 0
+     }
+    },
+    "cellData": {
+     "0": {
+      "0": {
+       "v": "月度经营分析 · 使用说明",
+       "s": "title"
+      }
+     },
+     "2": {
+      "0": {
+       "v": "数据：一份订单明细，需要「店铺」「下单时间」「订单金额」三列（列名不同时在使用模板时对应即可）。",
+       "s": "label"
+      }
+     },
+     "3": {
+      "0": {
+       "v": "经营看板：左侧切片器选择店铺、时间范围，指标卡、图表、排行同时联动；可点顶部「仪表盘 → 演示」全屏展示。",
+       "s": "label"
+      }
+     },
+     "4": {
+      "0": {
+       "v": "店铺 × 月份：数据透视表，含每月同比；可在右侧透视面板继续调整。",
+       "s": "label"
+      }
+     },
+     "5": {
+      "0": {
+       "v": "· 销售额同比按上年同期计算；订单数、客单价为环比（上月）。",
+       "s": "note"
+      }
+     },
+     "6": {
+      "0": {
+       "v": "· 数据更新后（导入或数据连接同步），重新打开工作簿或点刷新即按最新数据计算。",
+       "s": "note"
+      }
+     },
+     "7": {
+      "0": {
+       "v": "· 配合「定时推送」可每天把经营看板发到老板群。",
+       "s": "note"
+      }
+     }
+    }
+   }
+  },
+  "resources": [
+   {
+    "name": "SHEET_DRAWING_PLUGIN",
+    "data": "{\"dash\": {\"data\": {\"dash-p1\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p1\", \"drawingType\": 8, \"componentKey\": \"webexcel-slicer\", \"sheetTransform\": {\"from\": {\"column\": 0, \"columnOffset\": 12, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 2, \"columnOffset\": 36, \"row\": 13, \"rowOffset\": 0}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 0, \"columnOffset\": 12, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 2, \"columnOffset\": 36, \"row\": 13, \"rowOffset\": 0}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 58, \"top\": 32, \"width\": 200, \"height\": 300}, \"data\": {\"v\": 1, \"kind\": \"slicer\", \"title\": \"店铺\", \"datasetId\": \"$orders\", \"column\": \"店铺\", \"mode\": \"values\", \"values\": [], \"range\": null, \"id\": \"slicer_dash-p1\"}, \"allowTransform\": true}, \"dash-p2\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p2\", \"drawingType\": 8, \"componentKey\": \"webexcel-slicer\", \"sheetTransform\": {\"from\": {\"column\": 0, \"columnOffset\": 12, \"row\": 13, \"rowOffset\": 12}, \"to\": {\"column\": 2, \"columnOffset\": 36, \"row\": 20, \"rowOffset\": 14}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 0, \"columnOffset\": 12, \"row\": 13, \"rowOffset\": 12}, \"to\": {\"column\": 2, \"columnOffset\": 36, \"row\": 20, \"rowOffset\": 14}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 58, \"top\": 344, \"width\": 200, \"height\": 170}, \"data\": {\"v\": 1, \"kind\": \"slicer\", \"title\": \"下单时间\", \"datasetId\": \"$orders\", \"column\": \"下单时间\", \"mode\": \"date\", \"values\": [], \"range\": {\"preset\": \"this_year\"}, \"id\": \"slicer_dash-p2\"}, \"allowTransform\": true}, \"dash-p3\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p3\", \"drawingType\": 8, \"componentKey\": \"webexcel-kpi\", \"sheetTransform\": {\"from\": {\"column\": 2, \"columnOffset\": 48, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 5, \"columnOffset\": 34, \"row\": 6, \"rowOffset\": 4}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 2, \"columnOffset\": 48, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 5, \"columnOffset\": 34, \"row\": 6, \"rowOffset\": 4}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 270, \"top\": 32, \"width\": 250, \"height\": 136}, \"data\": {\"v\": 1, \"kind\": \"kpi\", \"title\": \"销售额\", \"datasetId\": \"$orders\", \"value\": {\"column\": \"订单金额\", \"agg\": \"sum\"}, \"dateColumn\": \"下单时间\", \"granularity\": \"month\", \"compare\": \"yoy\", \"upIsGood\": true, \"sparkline\": true, \"filters\": [], \"id\": \"kpi_dash-p3\"}, \"allowTransform\": true}, \"dash-p4\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p4\", \"drawingType\": 8, \"componentKey\": \"webexcel-kpi\", \"sheetTransform\": {\"from\": {\"column\": 5, \"columnOffset\": 46, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 8, \"columnOffset\": 32, \"row\": 6, \"rowOffset\": 4}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 5, \"columnOffset\": 46, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 8, \"columnOffset\": 32, \"row\": 6, \"rowOffset\": 4}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 532, \"top\": 32, \"width\": 250, \"height\": 136}, \"data\": {\"v\": 1, \"kind\": \"kpi\", \"title\": \"订单数\", \"datasetId\": \"$orders\", \"value\": {\"column\": null, \"agg\": \"count\"}, \"dateColumn\": \"下单时间\", \"granularity\": \"month\", \"compare\": \"mom\", \"upIsGood\": true, \"sparkline\": true, \"filters\": [], \"id\": \"kpi_dash-p4\"}, \"allowTransform\": true}, \"dash-p5\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p5\", \"drawingType\": 8, \"componentKey\": \"webexcel-kpi\", \"sheetTransform\": {\"from\": {\"column\": 8, \"columnOffset\": 44, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 11, \"columnOffset\": 30, \"row\": 6, \"rowOffset\": 4}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 8, \"columnOffset\": 44, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 11, \"columnOffset\": 30, \"row\": 6, \"rowOffset\": 4}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 794, \"top\": 32, \"width\": 250, \"height\": 136}, \"data\": {\"v\": 1, \"kind\": \"kpi\", \"title\": \"客单价\", \"datasetId\": \"$orders\", \"value\": {\"column\": \"订单金额\", \"agg\": \"avg\"}, \"dateColumn\": \"下单时间\", \"granularity\": \"month\", \"compare\": \"mom\", \"upIsGood\": true, \"sparkline\": true, \"filters\": [], \"id\": \"kpi_dash-p5\"}, \"allowTransform\": true}, \"dash-p6\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p6\", \"drawingType\": 8, \"componentKey\": \"webexcel-chart\", \"sheetTransform\": {\"from\": {\"column\": 2, \"columnOffset\": 48, \"row\": 6, \"rowOffset\": 16}, \"to\": {\"column\": 8, \"columnOffset\": 40, \"row\": 20, \"rowOffset\": 10}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 2, \"columnOffset\": 48, \"row\": 6, \"rowOffset\": 16}, \"to\": {\"column\": 8, \"columnOffset\": 40, \"row\": 20, \"rowOffset\": 10}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 270, \"top\": 180, \"width\": 520, \"height\": 330}, \"data\": {\"v\": 1, \"type\": \"line\", \"title\": \"各店铺月度销售额\", \"source\": {\"kind\": \"dataset\", \"datasetId\": \"$orders\", \"x\": {\"column\": \"下单时间\", \"granularity\": \"month\"}, \"values\": [{\"column\": \"订单金额\", \"agg\": \"sum\"}], \"splitBy\": \"店铺\", \"filters\": [], \"sort\": \"x\", \"top\": null}, \"stacked\": false, \"legend\": \"top\", \"labels\": \"none\", \"unit\": \"auto\", \"id\": \"chart_dash-p6\"}, \"allowTransform\": true}, \"dash-p7\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p7\", \"drawingType\": 8, \"componentKey\": \"webexcel-table\", \"sheetTransform\": {\"from\": {\"column\": 8, \"columnOffset\": 52, \"row\": 6, \"rowOffset\": 16}, \"to\": {\"column\": 12, \"columnOffset\": 40, \"row\": 20, \"rowOffset\": 10}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 8, \"columnOffset\": 52, \"row\": 6, \"rowOffset\": 16}, \"to\": {\"column\": 12, \"columnOffset\": 40, \"row\": 20, \"rowOffset\": 10}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 802, \"top\": 180, \"width\": 340, \"height\": 330}, \"data\": {\"v\": 1, \"kind\": \"table\", \"title\": \"店铺销售排行\", \"datasetId\": \"$orders\", \"row\": {\"column\": \"店铺\", \"granularity\": null}, \"values\": [{\"column\": \"订单金额\", \"agg\": \"sum\"}, {\"column\": \"订单金额\", \"agg\": \"sum\", \"show\": \"pct_total\"}], \"top\": 10, \"sort\": \"value\", \"filters\": [], \"id\": \"table_dash-p7\"}, \"allowTransform\": true}, \"dash-p8\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p8\", \"drawingType\": 8, \"componentKey\": \"webexcel-chart\", \"sheetTransform\": {\"from\": {\"column\": 2, \"columnOffset\": 48, \"row\": 20, \"rowOffset\": 22}, \"to\": {\"column\": 8, \"columnOffset\": 40, \"row\": 32, \"rowOffset\": 14}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 2, \"columnOffset\": 48, \"row\": 20, \"rowOffset\": 22}, \"to\": {\"column\": 8, \"columnOffset\": 40, \"row\": 32, \"rowOffset\": 14}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 270, \"top\": 522, \"width\": 520, \"height\": 280}, \"data\": {\"v\": 1, \"type\": \"column\", \"title\": \"月度订单数\", \"source\": {\"kind\": \"dataset\", \"datasetId\": \"$orders\", \"x\": {\"column\": \"下单时间\", \"granularity\": \"month\"}, \"values\": [{\"agg\": \"count\"}], \"splitBy\": null, \"filters\": [], \"sort\": \"x\", \"top\": null}, \"stacked\": false, \"legend\": \"top\", \"labels\": \"none\", \"unit\": \"auto\", \"id\": \"chart_dash-p8\"}, \"allowTransform\": true}, \"dash-p9\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p9\", \"drawingType\": 8, \"componentKey\": \"webexcel-table\", \"sheetTransform\": {\"from\": {\"column\": 8, \"columnOffset\": 52, \"row\": 20, \"rowOffset\": 22}, \"to\": {\"column\": 12, \"columnOffset\": 40, \"row\": 32, \"rowOffset\": 14}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 8, \"columnOffset\": 52, \"row\": 20, \"rowOffset\": 22}, \"to\": {\"column\": 12, \"columnOffset\": 40, \"row\": 32, \"rowOffset\": 14}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 802, \"top\": 522, \"width\": 340, \"height\": 280}, \"data\": {\"v\": 1, \"kind\": \"table\", \"title\": \"月度销售额与同比\", \"datasetId\": \"$orders\", \"row\": {\"column\": \"下单时间\", \"granularity\": \"month\"}, \"values\": [{\"column\": \"订单金额\", \"agg\": \"sum\"}, {\"column\": \"订单金额\", \"agg\": \"sum\", \"show\": \"yoy\"}], \"top\": 0, \"sort\": \"key\", \"filters\": [], \"id\": \"table_dash-p9\"}, \"allowTransform\": true}}, \"order\": [\"dash-p1\", \"dash-p2\", \"dash-p3\", \"dash-p4\", \"dash-p5\", \"dash-p6\", \"dash-p7\", \"dash-p8\", \"dash-p9\"]}}"
+   }
+  ]
+ }
+}

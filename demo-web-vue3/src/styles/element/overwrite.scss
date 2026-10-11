@@ -1,0 +1,19 @@
+@use '../variable.scss' as var;
+
+.#{var.$namespace}-tag__content {
+  font-size: 12px;
+}
+
+.#{var.$namespace}-input-group__prepend{
+  @apply px-4.5;
+  .#{var.$namespace}-button {
+    @apply px-0;
+  }
+}
+.#{var.$namespace}-button + .#{var.$namespace}-button {
+  @apply ml-2;
+}
+
+.#{var.$namespace}-input-group__prepend {
+  @apply pl-5;
+}

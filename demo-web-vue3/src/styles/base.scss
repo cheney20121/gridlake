@@ -1,0 +1,9 @@
+body {
+  font-family: "HarmonyOS Sans", Helvetica Neue, Helvetica, PingFang SC, Hiragino Sans GB, Microsoft YaHei, Arial, sans-serif !important;
+}
+span, div {
+  @apply text-sm;
+}
+div {
+  @apply text-text-regular;
+}

@@ -1,0 +1,70 @@
+@use './variable.scss' as var;
+
+/**
+ * 在线表格（首页 + 编辑器）的主题：品牌绿 + 统一的弹层样式。
+ * 只在 <body> 带 app-excel 时生效（见 composables/useBodyClass.ts），不影响框架里的其他页面
+ */
+$ns: var.$namespace;
+
+body.app-excel {
+  // Element Plus 主色换成表格的品牌绿，按钮 / 单选 / 勾选 / 开关 / 选中态 / 链接按钮都跟着变
+  --#{$ns}-color-primary: #107c41;
+  --#{$ns}-color-primary-dark-2: #0c6334;
+  --#{$ns}-color-primary-light-3: #4da374;
+  --#{$ns}-color-primary-light-5: #87be9f;
+  --#{$ns}-color-primary-light-7: #b7d9c7;
+  --#{$ns}-color-primary-light-8: #cfe6da;
+  --#{$ns}-color-primary-light-9: #e7f4ec;
+
+  // 对话框：圆角、更柔和的投影，标题与内容之间一条细分隔线
+  .#{$ns}-dialog {
+    --#{$ns}-dialog-padding-primary: 18px;
+
+    border-radius: 12px;
+    box-shadow: 0 12px 40px rgb(16 24 20 / 18%);
+  }
+
+  .#{$ns}-dialog__header {
+    padding-bottom: 12px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid #eef0ee;
+  }
+
+  .#{$ns}-dialog__title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1f2933;
+  }
+
+  .#{$ns}-dialog__footer {
+    padding-top: 12px;
+  }
+
+  // 抽屉、气泡、下拉菜单与对话框保持同一套圆角
+  .#{$ns}-drawer {
+    box-shadow: -8px 0 30px rgb(16 24 20 / 12%);
+  }
+
+  .#{$ns}-popper.is-light {
+    border-radius: 8px;
+  }
+
+  .#{$ns}-dropdown-menu__item {
+    border-radius: 6px;
+    margin: 0 4px;
+  }
+
+  // 提示条更紧凑一点
+  .#{$ns}-message {
+    border-radius: 10px;
+    box-shadow: 0 6px 20px rgb(16 24 20 / 12%);
+  }
+
+  .#{$ns}-button {
+    font-weight: 500;
+  }
+
+  .#{$ns}-tag {
+    border-radius: 4px;
+  }
+}

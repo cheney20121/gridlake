@@ -1,0 +1,411 @@
+{
+ "id": "builtin_refund_analysis",
+ "name": "退款与售后分析",
+ "category": "电商财务",
+ "description": "基于资金流水：退款金额与笔数环比、每日退款趋势、店铺与商品退款排行、运费险与赔付。无需准备数据",
+ "datasets": [
+  {
+   "key": "ledger_detail",
+   "name": "资金流水",
+   "builtinId": "ledger_detail",
+   "description": "平台内置的店铺资金流水（导入店铺明细后自动更新）",
+   "columns": [
+    {
+     "title": "店铺",
+     "kind": "text"
+    },
+    {
+     "title": "动账时间",
+     "kind": "datetime"
+    },
+    {
+     "title": "动账金额",
+     "kind": "money"
+    },
+    {
+     "title": "动账场景",
+     "kind": "text"
+    },
+    {
+     "title": "商品名称",
+     "kind": "text"
+    }
+   ]
+  }
+ ],
+ "workbook": {
+  "id": "webexcel-template",
+  "name": "退款与售后分析",
+  "appVersion": "1.0.2",
+  "locale": "zhCN",
+  "styles": {
+   "title": {
+    "ff": "Microsoft YaHei",
+    "fs": 14,
+    "bl": 1
+   },
+   "note": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "cl": {
+     "rgb": "#6B7280"
+    }
+   },
+   "header": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bl": 1,
+    "bg": {
+     "rgb": "#DDEBF7"
+    },
+    "ht": 2
+   },
+   "input": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bg": {
+     "rgb": "#FFF7E6"
+    },
+    "bd": {
+     "b": {
+      "s": 1,
+      "cl": {
+       "rgb": "#F59E0B"
+      }
+     }
+    }
+   },
+   "label": {
+    "ff": "Microsoft YaHei",
+    "fs": 10
+   },
+   "helper": {
+    "ff": "Microsoft YaHei",
+    "fs": 9,
+    "cl": {
+     "rgb": "#9CA3AF"
+    }
+   },
+   "money": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "ht": 3,
+    "n": {
+     "pattern": "#,##0.00;-#,##0.00;\"-\""
+    }
+   },
+   "ratio": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "ht": 3,
+    "n": {
+     "pattern": "0.00"
+    }
+   },
+   "pct": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "ht": 3,
+    "n": {
+     "pattern": "0.0%"
+    }
+   },
+   "qty": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "ht": 3
+   },
+   "totalQty": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bl": 1,
+    "ht": 3,
+    "bd": {
+     "t": {
+      "s": 1,
+      "cl": {
+       "rgb": "#4472C4"
+      }
+     }
+    }
+   },
+   "totalLabel": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bl": 1,
+    "bd": {
+     "t": {
+      "s": 1,
+      "cl": {
+       "rgb": "#4472C4"
+      }
+     }
+    }
+   },
+   "totalMoney": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bl": 1,
+    "ht": 3,
+    "n": {
+     "pattern": "#,##0.00;-#,##0.00;\"-\""
+    },
+    "bd": {
+     "t": {
+      "s": 1,
+      "cl": {
+       "rgb": "#4472C4"
+      }
+     }
+    }
+   },
+   "totalRatio": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bl": 1,
+    "ht": 3,
+    "n": {
+     "pattern": "0.00"
+    },
+    "bd": {
+     "t": {
+      "s": 1,
+      "cl": {
+       "rgb": "#4472C4"
+      }
+     }
+    }
+   },
+   "totalPct": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bl": 1,
+    "ht": 3,
+    "n": {
+     "pattern": "0.0%"
+    },
+    "bd": {
+     "t": {
+      "s": 1,
+      "cl": {
+       "rgb": "#4472C4"
+      }
+     }
+    }
+   }
+  },
+  "sheetOrder": [
+   "dash",
+   "pv",
+   "help"
+  ],
+  "sheets": {
+   "dash": {
+    "id": "dash",
+    "name": "退款看板",
+    "tabColor": "",
+    "hidden": 0,
+    "rowCount": 1000,
+    "columnCount": 26,
+    "zoomRatio": 1,
+    "scrollTop": 0,
+    "scrollLeft": 0,
+    "defaultColumnWidth": 88,
+    "defaultRowHeight": 24,
+    "showGridlines": 0,
+    "rightToLeft": 0,
+    "freeze": {
+     "xSplit": 0,
+     "ySplit": 0,
+     "startRow": -1,
+     "startColumn": -1
+    },
+    "rowHeader": {
+     "width": 46,
+     "hidden": 0
+    },
+    "columnHeader": {
+     "height": 20,
+     "hidden": 0
+    },
+    "mergeData": [],
+    "rowData": {},
+    "columnData": {},
+    "cellData": {}
+   },
+   "pv": {
+    "id": "pv",
+    "name": "退款透视",
+    "tabColor": "",
+    "hidden": 0,
+    "rowCount": 1000,
+    "columnCount": 26,
+    "zoomRatio": 1,
+    "scrollTop": 0,
+    "scrollLeft": 0,
+    "defaultColumnWidth": 88,
+    "defaultRowHeight": 24,
+    "showGridlines": 1,
+    "rightToLeft": 0,
+    "freeze": {
+     "xSplit": 0,
+     "ySplit": 0,
+     "startRow": -1,
+     "startColumn": -1
+    },
+    "rowHeader": {
+     "width": 46,
+     "hidden": 0
+    },
+    "columnHeader": {
+     "height": 20,
+     "hidden": 0
+    },
+    "mergeData": [],
+    "rowData": {},
+    "columnData": {},
+    "cellData": {
+     "0": {
+      "0": {
+       "v": "数据透视表 · 各店铺每月退款相关流水（按动账场景）（打开此页签时按最新数据计算）",
+       "s": "note"
+      }
+     }
+    },
+    "custom": {
+     "pivot": {
+      "version": 1,
+      "datasetId": "ledger_detail",
+      "datasetName": "资金流水",
+      "request": {
+       "filters": [
+        {
+         "op": "prefix",
+         "column": "动账场景",
+         "value": "退款"
+        }
+       ],
+       "sort": {
+        "by": "key",
+        "valueIndex": 0,
+        "desc": false
+       },
+       "top": null,
+       "subtotals": true,
+       "grandTotals": true,
+       "rows": [
+        {
+         "column": "店铺",
+         "granularity": null
+        },
+        {
+         "column": "动账场景",
+         "granularity": null
+        }
+       ],
+       "columns": [
+        {
+         "column": "动账时间",
+         "granularity": "month"
+        }
+       ],
+       "values": [
+        {
+         "column": "动账金额",
+         "agg": "sum"
+        }
+       ]
+      }
+     }
+    }
+   },
+   "help": {
+    "id": "help",
+    "name": "使用说明",
+    "tabColor": "",
+    "hidden": 0,
+    "rowCount": 1000,
+    "columnCount": 26,
+    "zoomRatio": 1,
+    "scrollTop": 0,
+    "scrollLeft": 0,
+    "defaultColumnWidth": 88,
+    "defaultRowHeight": 24,
+    "showGridlines": 1,
+    "rightToLeft": 0,
+    "freeze": {
+     "xSplit": 0,
+     "ySplit": 0,
+     "startRow": -1,
+     "startColumn": -1
+    },
+    "rowHeader": {
+     "width": 46,
+     "hidden": 0
+    },
+    "columnHeader": {
+     "height": 20,
+     "hidden": 0
+    },
+    "mergeData": [],
+    "rowData": {},
+    "columnData": {
+     "0": {
+      "w": 760,
+      "hd": 0
+     }
+    },
+    "cellData": {
+     "0": {
+      "0": {
+       "v": "退款与售后分析 · 使用说明",
+       "s": "title"
+      }
+     },
+     "2": {
+      "0": {
+       "v": "数据：平台内置的「资金流水」，导入店铺资金明细后自动更新，使用模板时无需选择数据。",
+       "s": "label"
+      }
+     },
+     "3": {
+      "0": {
+       "v": "退款金额 = 动账场景为「退款-结算后退款-退用户」「退款至用户」的动账金额（退给消费者的钱）；上升为不利（红色）。",
+       "s": "label"
+      }
+     },
+     "4": {
+      "0": {
+       "v": "运费险与赔付 = 退换货运费险、消费者赔付、上门取件快递费、快递拦截费。",
+       "s": "label"
+      }
+     },
+     "5": {
+      "0": {
+       "v": "退款相关流水构成：所有以「退款」开头的动账场景，含退分账、退补贴等平台返还项，便于核对退款对结算的影响。",
+       "s": "label"
+      }
+     },
+     "6": {
+      "0": {
+       "v": "· 结算入账时已扣减的部分退款（货款结算入账中的订单退款列）不计入退款金额。",
+       "s": "note"
+      }
+     },
+     "7": {
+      "0": {
+       "v": "· 退款透视：店铺 × 动账场景 × 月份，可在右侧透视面板继续调整。",
+       "s": "note"
+      }
+     }
+    }
+   }
+  },
+  "resources": [
+   {
+    "name": "SHEET_DRAWING_PLUGIN",
+    "data": "{\"dash\": {\"data\": {\"dash-p1\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p1\", \"drawingType\": 8, \"componentKey\": \"webexcel-slicer\", \"sheetTransform\": {\"from\": {\"column\": 0, \"columnOffset\": 12, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 2, \"columnOffset\": 36, \"row\": 9, \"rowOffset\": 16}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 0, \"columnOffset\": 12, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 2, \"columnOffset\": 36, \"row\": 9, \"rowOffset\": 16}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 58, \"top\": 32, \"width\": 200, \"height\": 220}, \"data\": {\"v\": 1, \"kind\": \"slicer\", \"title\": \"店铺\", \"datasetId\": \"ledger_detail\", \"column\": \"店铺\", \"mode\": \"values\", \"values\": [], \"range\": null, \"id\": \"slicer_dash-p1\"}, \"allowTransform\": true}, \"dash-p2\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p2\", \"drawingType\": 8, \"componentKey\": \"webexcel-slicer\", \"sheetTransform\": {\"from\": {\"column\": 0, \"columnOffset\": 12, \"row\": 10, \"rowOffset\": 4}, \"to\": {\"column\": 2, \"columnOffset\": 36, \"row\": 17, \"rowOffset\": 6}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 0, \"columnOffset\": 12, \"row\": 10, \"rowOffset\": 4}, \"to\": {\"column\": 2, \"columnOffset\": 36, \"row\": 17, \"rowOffset\": 6}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 58, \"top\": 264, \"width\": 200, \"height\": 170}, \"data\": {\"v\": 1, \"kind\": \"slicer\", \"title\": \"动账时间\", \"datasetId\": \"ledger_detail\", \"column\": \"动账时间\", \"mode\": \"date\", \"values\": [], \"range\": null, \"id\": \"slicer_dash-p2\"}, \"allowTransform\": true}, \"dash-p3\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p3\", \"drawingType\": 8, \"componentKey\": \"webexcel-kpi\", \"sheetTransform\": {\"from\": {\"column\": 2, \"columnOffset\": 48, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 5, \"columnOffset\": 34, \"row\": 6, \"rowOffset\": 4}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 2, \"columnOffset\": 48, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 5, \"columnOffset\": 34, \"row\": 6, \"rowOffset\": 4}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 270, \"top\": 32, \"width\": 250, \"height\": 136}, \"data\": {\"v\": 1, \"kind\": \"kpi\", \"title\": \"退款金额\", \"datasetId\": \"ledger_detail\", \"value\": {\"column\": \"动账金额\", \"agg\": \"sum\"}, \"dateColumn\": \"动账时间\", \"granularity\": \"month\", \"compare\": \"mom\", \"upIsGood\": false, \"sparkline\": true, \"filters\": [{\"op\": \"in\", \"column\": \"动账场景\", \"values\": [\"退款-结算后退款-退用户\", \"退款至用户\"]}], \"id\": \"kpi_dash-p3\"}, \"allowTransform\": true}, \"dash-p4\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p4\", \"drawingType\": 8, \"componentKey\": \"webexcel-kpi\", \"sheetTransform\": {\"from\": {\"column\": 5, \"columnOffset\": 46, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 8, \"columnOffset\": 32, \"row\": 6, \"rowOffset\": 4}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 5, \"columnOffset\": 46, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 8, \"columnOffset\": 32, \"row\": 6, \"rowOffset\": 4}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 532, \"top\": 32, \"width\": 250, \"height\": 136}, \"data\": {\"v\": 1, \"kind\": \"kpi\", \"title\": \"退款笔数\", \"datasetId\": \"ledger_detail\", \"value\": {\"column\": null, \"agg\": \"count\"}, \"dateColumn\": \"动账时间\", \"granularity\": \"month\", \"compare\": \"mom\", \"upIsGood\": false, \"sparkline\": true, \"filters\": [{\"op\": \"in\", \"column\": \"动账场景\", \"values\": [\"退款-结算后退款-退用户\", \"退款至用户\"]}], \"id\": \"kpi_dash-p4\"}, \"allowTransform\": true}, \"dash-p5\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p5\", \"drawingType\": 8, \"componentKey\": \"webexcel-kpi\", \"sheetTransform\": {\"from\": {\"column\": 8, \"columnOffset\": 44, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 11, \"columnOffset\": 30, \"row\": 6, \"rowOffset\": 4}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 8, \"columnOffset\": 44, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 11, \"columnOffset\": 30, \"row\": 6, \"rowOffset\": 4}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 794, \"top\": 32, \"width\": 250, \"height\": 136}, \"data\": {\"v\": 1, \"kind\": \"kpi\", \"title\": \"货款结算入账\", \"datasetId\": \"ledger_detail\", \"value\": {\"column\": \"动账金额\", \"agg\": \"sum\"}, \"dateColumn\": \"动账时间\", \"granularity\": \"month\", \"compare\": \"mom\", \"upIsGood\": true, \"sparkline\": true, \"filters\": [{\"op\": \"in\", \"column\": \"动账场景\", \"values\": [\"货款结算入账\"]}], \"id\": \"kpi_dash-p5\"}, \"allowTransform\": true}, \"dash-p6\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p6\", \"drawingType\": 8, \"componentKey\": \"webexcel-kpi\", \"sheetTransform\": {\"from\": {\"column\": 11, \"columnOffset\": 42, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 14, \"columnOffset\": 28, \"row\": 6, \"rowOffset\": 4}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 11, \"columnOffset\": 42, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 14, \"columnOffset\": 28, \"row\": 6, \"rowOffset\": 4}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 1056, \"top\": 32, \"width\": 250, \"height\": 136}, \"data\": {\"v\": 1, \"kind\": \"kpi\", \"title\": \"运费险与赔付\", \"datasetId\": \"ledger_detail\", \"value\": {\"column\": \"动账金额\", \"agg\": \"sum\"}, \"dateColumn\": \"动账时间\", \"granularity\": \"month\", \"compare\": \"mom\", \"upIsGood\": false, \"sparkline\": true, \"filters\": [{\"op\": \"in\", \"column\": \"动账场景\", \"values\": [\"退换货运费险\", \"消费者赔付\", \"上门取件-支付快递费\", \"快递拦截费\"]}], \"id\": \"kpi_dash-p6\"}, \"allowTransform\": true}, \"dash-p7\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p7\", \"drawingType\": 8, \"componentKey\": \"webexcel-chart\", \"sheetTransform\": {\"from\": {\"column\": 2, \"columnOffset\": 48, \"row\": 6, \"rowOffset\": 16}, \"to\": {\"column\": 8, \"columnOffset\": 40, \"row\": 20, \"rowOffset\": 0}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 2, \"columnOffset\": 48, \"row\": 6, \"rowOffset\": 16}, \"to\": {\"column\": 8, \"columnOffset\": 40, \"row\": 20, \"rowOffset\": 0}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 270, \"top\": 180, \"width\": 520, \"height\": 320}, \"data\": {\"v\": 1, \"type\": \"column\", \"title\": \"每日退款金额\", \"source\": {\"kind\": \"dataset\", \"datasetId\": \"ledger_detail\", \"x\": {\"column\": \"动账时间\", \"granularity\": \"day\"}, \"values\": [{\"column\": \"动账金额\", \"agg\": \"sum\"}], \"splitBy\": \"店铺\", \"filters\": [{\"op\": \"in\", \"column\": \"动账场景\", \"values\": [\"退款-结算后退款-退用户\", \"退款至用户\"]}], \"sort\": \"x\", \"top\": null}, \"stacked\": true, \"legend\": \"top\", \"labels\": \"none\", \"unit\": \"auto\", \"id\": \"chart_dash-p7\"}, \"allowTransform\": true}, \"dash-p8\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p8\", \"drawingType\": 8, \"componentKey\": \"webexcel-table\", \"sheetTransform\": {\"from\": {\"column\": 8, \"columnOffset\": 52, \"row\": 6, \"rowOffset\": 16}, \"to\": {\"column\": 14, \"columnOffset\": 28, \"row\": 20, \"rowOffset\": 0}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 8, \"columnOffset\": 52, \"row\": 6, \"rowOffset\": 16}, \"to\": {\"column\": 14, \"columnOffset\": 28, \"row\": 20, \"rowOffset\": 0}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 802, \"top\": 180, \"width\": 504, \"height\": 320}, \"data\": {\"v\": 1, \"kind\": \"table\", \"title\": \"退款金额按店铺\", \"datasetId\": \"ledger_detail\", \"row\": {\"column\": \"店铺\", \"granularity\": null}, \"values\": [{\"column\": \"动账金额\", \"agg\": \"sum\"}, {\"column\": \"动账金额\", \"agg\": \"sum\", \"show\": \"pct_total\"}], \"top\": 10, \"sort\": \"value\", \"filters\": [{\"op\": \"in\", \"column\": \"动账场景\", \"values\": [\"退款-结算后退款-退用户\", \"退款至用户\"]}], \"id\": \"table_dash-p8\"}, \"allowTransform\": true}, \"dash-p9\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p9\", \"drawingType\": 8, \"componentKey\": \"webexcel-table\", \"sheetTransform\": {\"from\": {\"column\": 2, \"columnOffset\": 48, \"row\": 20, \"rowOffset\": 12}, \"to\": {\"column\": 8, \"columnOffset\": 40, \"row\": 33, \"rowOffset\": 20}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 2, \"columnOffset\": 48, \"row\": 20, \"rowOffset\": 12}, \"to\": {\"column\": 8, \"columnOffset\": 40, \"row\": 33, \"rowOffset\": 20}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 270, \"top\": 512, \"width\": 520, \"height\": 320}, \"data\": {\"v\": 1, \"kind\": \"table\", \"title\": \"退款最多的商品\", \"datasetId\": \"ledger_detail\", \"row\": {\"column\": \"商品名称\", \"granularity\": null}, \"values\": [{\"column\": \"动账金额\", \"agg\": \"sum\"}, {\"agg\": \"count\"}], \"top\": 10, \"sort\": \"value\", \"filters\": [{\"op\": \"in\", \"column\": \"动账场景\", \"values\": [\"退款-结算后退款-退用户\", \"退款至用户\"]}], \"id\": \"table_dash-p9\"}, \"allowTransform\": true}, \"dash-p10\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p10\", \"drawingType\": 8, \"componentKey\": \"webexcel-table\", \"sheetTransform\": {\"from\": {\"column\": 8, \"columnOffset\": 52, \"row\": 20, \"rowOffset\": 12}, \"to\": {\"column\": 14, \"columnOffset\": 28, \"row\": 33, \"rowOffset\": 20}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 8, \"columnOffset\": 52, \"row\": 20, \"rowOffset\": 12}, \"to\": {\"column\": 14, \"columnOffset\": 28, \"row\": 33, \"rowOffset\": 20}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 802, \"top\": 512, \"width\": 504, \"height\": 320}, \"data\": {\"v\": 1, \"kind\": \"table\", \"title\": \"退款相关流水构成\", \"datasetId\": \"ledger_detail\", \"row\": {\"column\": \"动账场景\", \"granularity\": null}, \"values\": [{\"column\": \"动账金额\", \"agg\": \"sum\"}, {\"agg\": \"count\"}], \"top\": 0, \"sort\": \"value\", \"filters\": [{\"op\": \"prefix\", \"column\": \"动账场景\", \"value\": \"退款\"}], \"id\": \"table_dash-p10\"}, \"allowTransform\": true}}, \"order\": [\"dash-p1\", \"dash-p2\", \"dash-p3\", \"dash-p4\", \"dash-p5\", \"dash-p6\", \"dash-p7\", \"dash-p8\", \"dash-p9\", \"dash-p10\"]}}"
+   }
+  ]
+ }
+}

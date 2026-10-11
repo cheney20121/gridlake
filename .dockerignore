@@ -1,0 +1,9 @@
+**/node_modules
+**/dist
+**/.DS_Store
+demo-web-vue3/.npmrc
+ledger-server/target
+ledger-server/data
+.playwright-mcp
+.codebuddy
+*.html

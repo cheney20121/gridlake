@@ -1,0 +1,33 @@
+@use './variable.scss' as var;
+
+.global-crud-container {
+  @apply flex flex-col;
+}
+
+.global-table-wrapper {
+  @apply flex-1 overflow-hidden;
+  
+  .#{var.$namespace}-table {
+    @apply h-full;
+    
+    /* 针对使用global-table-header类的表头 */
+    .global-table-header {
+      background-color: #f3f4f6 !important; /* 浅灰色 bg-gray-100 */
+      
+      .#{var.$namespace}-table__cell {
+        background-color: #f3f4f6 !important; /* 确保单元格背景色 */
+        @apply py-2;
+        .cell {
+          @apply font-normal text-text-primary;
+        }
+      }
+    }
+    .#{var.$namespace}-table__cell {
+      @apply py-2;
+    }
+  }
+}
+
+.global-pagination-wrapper {
+  @apply flex justify-end pt-3;
+}

@@ -1,0 +1,1332 @@
+{
+ "id": "builtin_ar_ap",
+ "name": "应收应付对账",
+ "category": "电商财务",
+ "description": "客户应收 / 收款、供应商应付 / 付款：往来看板、最近 12 个月余额滚动表（期初 + 增加 - 减少 = 期末）、往来单位 × 类型透视，用于对账",
+ "datasets": [
+  {
+   "key": "$partners",
+   "name": "往来明细",
+   "description": "与客户 / 供应商的往来流水，每行一笔：应收、收款、应付、付款（类型列取这四个值之一）",
+   "columns": [
+    {
+     "title": "往来单位",
+     "kind": "text",
+     "description": "客户或供应商名称"
+    },
+    {
+     "title": "日期",
+     "kind": "datetime",
+     "description": "业务发生日期"
+    },
+    {
+     "title": "类型",
+     "kind": "text",
+     "description": "只能是：应收、收款、应付、付款"
+    },
+    {
+     "title": "金额",
+     "kind": "money",
+     "description": "正数金额（方向由类型表示）"
+    }
+   ]
+  }
+ ],
+ "workbook": {
+  "id": "webexcel-template",
+  "name": "应收应付对账",
+  "appVersion": "1.0.2",
+  "locale": "zhCN",
+  "styles": {
+   "title": {
+    "ff": "Microsoft YaHei",
+    "fs": 14,
+    "bl": 1
+   },
+   "note": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "cl": {
+     "rgb": "#6B7280"
+    }
+   },
+   "header": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bl": 1,
+    "bg": {
+     "rgb": "#DDEBF7"
+    },
+    "ht": 2
+   },
+   "input": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bg": {
+     "rgb": "#FFF7E6"
+    },
+    "bd": {
+     "b": {
+      "s": 1,
+      "cl": {
+       "rgb": "#F59E0B"
+      }
+     }
+    }
+   },
+   "label": {
+    "ff": "Microsoft YaHei",
+    "fs": 10
+   },
+   "helper": {
+    "ff": "Microsoft YaHei",
+    "fs": 9,
+    "cl": {
+     "rgb": "#9CA3AF"
+    }
+   },
+   "money": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "ht": 3,
+    "n": {
+     "pattern": "#,##0.00;-#,##0.00;\"-\""
+    }
+   },
+   "ratio": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "ht": 3,
+    "n": {
+     "pattern": "0.00"
+    }
+   },
+   "pct": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "ht": 3,
+    "n": {
+     "pattern": "0.0%"
+    }
+   },
+   "qty": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "ht": 3
+   },
+   "totalQty": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bl": 1,
+    "ht": 3,
+    "bd": {
+     "t": {
+      "s": 1,
+      "cl": {
+       "rgb": "#4472C4"
+      }
+     }
+    }
+   },
+   "totalLabel": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bl": 1,
+    "bd": {
+     "t": {
+      "s": 1,
+      "cl": {
+       "rgb": "#4472C4"
+      }
+     }
+    }
+   },
+   "totalMoney": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bl": 1,
+    "ht": 3,
+    "n": {
+     "pattern": "#,##0.00;-#,##0.00;\"-\""
+    },
+    "bd": {
+     "t": {
+      "s": 1,
+      "cl": {
+       "rgb": "#4472C4"
+      }
+     }
+    }
+   },
+   "totalRatio": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bl": 1,
+    "ht": 3,
+    "n": {
+     "pattern": "0.00"
+    },
+    "bd": {
+     "t": {
+      "s": 1,
+      "cl": {
+       "rgb": "#4472C4"
+      }
+     }
+    }
+   },
+   "totalPct": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bl": 1,
+    "ht": 3,
+    "n": {
+     "pattern": "0.0%"
+    },
+    "bd": {
+     "t": {
+      "s": 1,
+      "cl": {
+       "rgb": "#4472C4"
+      }
+     }
+    }
+   }
+  },
+  "sheetOrder": [
+   "dash",
+   "bal",
+   "pv",
+   "help"
+  ],
+  "sheets": {
+   "dash": {
+    "id": "dash",
+    "name": "往来看板",
+    "tabColor": "",
+    "hidden": 0,
+    "rowCount": 1000,
+    "columnCount": 26,
+    "zoomRatio": 1,
+    "scrollTop": 0,
+    "scrollLeft": 0,
+    "defaultColumnWidth": 88,
+    "defaultRowHeight": 24,
+    "showGridlines": 0,
+    "rightToLeft": 0,
+    "freeze": {
+     "xSplit": 0,
+     "ySplit": 0,
+     "startRow": -1,
+     "startColumn": -1
+    },
+    "rowHeader": {
+     "width": 46,
+     "hidden": 0
+    },
+    "columnHeader": {
+     "height": 20,
+     "hidden": 0
+    },
+    "mergeData": [],
+    "rowData": {},
+    "columnData": {},
+    "cellData": {}
+   },
+   "bal": {
+    "id": "bal",
+    "name": "往来余额月报",
+    "tabColor": "",
+    "hidden": 0,
+    "rowCount": 1000,
+    "columnCount": 26,
+    "zoomRatio": 1,
+    "scrollTop": 0,
+    "scrollLeft": 0,
+    "defaultColumnWidth": 88,
+    "defaultRowHeight": 24,
+    "showGridlines": 1,
+    "rightToLeft": 0,
+    "freeze": {
+     "xSplit": 0,
+     "ySplit": 0,
+     "startRow": -1,
+     "startColumn": -1
+    },
+    "rowHeader": {
+     "width": 46,
+     "hidden": 0
+    },
+    "columnHeader": {
+     "height": 20,
+     "hidden": 0
+    },
+    "mergeData": [],
+    "rowData": {},
+    "columnData": {
+     "0": {
+      "w": 80,
+      "hd": 0
+     },
+     "1": {
+      "w": 110,
+      "hd": 0
+     },
+     "2": {
+      "w": 110,
+      "hd": 0
+     },
+     "3": {
+      "w": 110,
+      "hd": 0
+     },
+     "4": {
+      "w": 110,
+      "hd": 0
+     },
+     "5": {
+      "w": 80,
+      "hd": 0
+     },
+     "6": {
+      "w": 80,
+      "hd": 0
+     }
+    },
+    "cellData": {
+     "0": {
+      "0": {
+       "v": "往来余额月报（最近 12 个月）",
+       "s": "title"
+      }
+     },
+     "1": {
+      "0": {
+       "v": "往来单位",
+       "s": "label"
+      },
+      "1": {
+       "v": "*",
+       "s": "input"
+      },
+      "2": {
+       "v": "← 填客户 / 供应商名只看该单位；* 为全部",
+       "s": "note"
+      }
+     },
+     "3": {
+      "0": {
+       "v": "应收往来：期初 + 应收发生 - 收款 = 期末应收余额",
+       "s": "title"
+      }
+     },
+     "4": {
+      "0": {
+       "v": "月份",
+       "s": "header"
+      },
+      "1": {
+       "v": "期初余额",
+       "s": "header"
+      },
+      "2": {
+       "v": "本期应收",
+       "s": "header"
+      },
+      "3": {
+       "v": "本期收款",
+       "s": "header"
+      },
+      "4": {
+       "v": "期末余额",
+       "s": "header"
+      },
+      "5": {
+       "v": "开始",
+       "s": "header"
+      },
+      "6": {
+       "v": "结束",
+       "s": "header"
+      }
+     },
+     "5": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-11,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-10,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F6,7)",
+       "s": "label"
+      },
+      "1": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F6,\"类型\",\"应收\",\"往来单位\",$B$2)-DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F6,\"类型\",\"收款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F6,\"日期\",\"<\"&G6,\"类型\",\"应收\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F6,\"日期\",\"<\"&G6,\"类型\",\"收款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "4": {
+       "f": "=B6+C6-D6",
+       "s": "money"
+      }
+     },
+     "6": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-10,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-9,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F7,7)",
+       "s": "label"
+      },
+      "1": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F7,\"类型\",\"应收\",\"往来单位\",$B$2)-DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F7,\"类型\",\"收款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F7,\"日期\",\"<\"&G7,\"类型\",\"应收\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F7,\"日期\",\"<\"&G7,\"类型\",\"收款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "4": {
+       "f": "=B7+C7-D7",
+       "s": "money"
+      }
+     },
+     "7": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-9,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-8,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F8,7)",
+       "s": "label"
+      },
+      "1": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F8,\"类型\",\"应收\",\"往来单位\",$B$2)-DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F8,\"类型\",\"收款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F8,\"日期\",\"<\"&G8,\"类型\",\"应收\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F8,\"日期\",\"<\"&G8,\"类型\",\"收款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "4": {
+       "f": "=B8+C8-D8",
+       "s": "money"
+      }
+     },
+     "8": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-8,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-7,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F9,7)",
+       "s": "label"
+      },
+      "1": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F9,\"类型\",\"应收\",\"往来单位\",$B$2)-DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F9,\"类型\",\"收款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F9,\"日期\",\"<\"&G9,\"类型\",\"应收\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F9,\"日期\",\"<\"&G9,\"类型\",\"收款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "4": {
+       "f": "=B9+C9-D9",
+       "s": "money"
+      }
+     },
+     "9": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-7,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-6,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F10,7)",
+       "s": "label"
+      },
+      "1": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F10,\"类型\",\"应收\",\"往来单位\",$B$2)-DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F10,\"类型\",\"收款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F10,\"日期\",\"<\"&G10,\"类型\",\"应收\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F10,\"日期\",\"<\"&G10,\"类型\",\"收款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "4": {
+       "f": "=B10+C10-D10",
+       "s": "money"
+      }
+     },
+     "10": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-6,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-5,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F11,7)",
+       "s": "label"
+      },
+      "1": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F11,\"类型\",\"应收\",\"往来单位\",$B$2)-DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F11,\"类型\",\"收款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F11,\"日期\",\"<\"&G11,\"类型\",\"应收\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F11,\"日期\",\"<\"&G11,\"类型\",\"收款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "4": {
+       "f": "=B11+C11-D11",
+       "s": "money"
+      }
+     },
+     "11": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-5,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-4,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F12,7)",
+       "s": "label"
+      },
+      "1": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F12,\"类型\",\"应收\",\"往来单位\",$B$2)-DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F12,\"类型\",\"收款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F12,\"日期\",\"<\"&G12,\"类型\",\"应收\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F12,\"日期\",\"<\"&G12,\"类型\",\"收款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "4": {
+       "f": "=B12+C12-D12",
+       "s": "money"
+      }
+     },
+     "12": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-4,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-3,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F13,7)",
+       "s": "label"
+      },
+      "1": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F13,\"类型\",\"应收\",\"往来单位\",$B$2)-DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F13,\"类型\",\"收款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F13,\"日期\",\"<\"&G13,\"类型\",\"应收\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F13,\"日期\",\"<\"&G13,\"类型\",\"收款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "4": {
+       "f": "=B13+C13-D13",
+       "s": "money"
+      }
+     },
+     "13": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-3,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-2,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F14,7)",
+       "s": "label"
+      },
+      "1": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F14,\"类型\",\"应收\",\"往来单位\",$B$2)-DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F14,\"类型\",\"收款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F14,\"日期\",\"<\"&G14,\"类型\",\"应收\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F14,\"日期\",\"<\"&G14,\"类型\",\"收款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "4": {
+       "f": "=B14+C14-D14",
+       "s": "money"
+      }
+     },
+     "14": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-2,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-1,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F15,7)",
+       "s": "label"
+      },
+      "1": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F15,\"类型\",\"应收\",\"往来单位\",$B$2)-DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F15,\"类型\",\"收款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F15,\"日期\",\"<\"&G15,\"类型\",\"应收\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F15,\"日期\",\"<\"&G15,\"类型\",\"收款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "4": {
+       "f": "=B15+C15-D15",
+       "s": "money"
+      }
+     },
+     "15": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-1,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY()),1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F16,7)",
+       "s": "label"
+      },
+      "1": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F16,\"类型\",\"应收\",\"往来单位\",$B$2)-DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F16,\"类型\",\"收款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F16,\"日期\",\"<\"&G16,\"类型\",\"应收\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F16,\"日期\",\"<\"&G16,\"类型\",\"收款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "4": {
+       "f": "=B16+C16-D16",
+       "s": "money"
+      }
+     },
+     "16": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY()),1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())+1,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F17,7)",
+       "s": "label"
+      },
+      "1": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F17,\"类型\",\"应收\",\"往来单位\",$B$2)-DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F17,\"类型\",\"收款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F17,\"日期\",\"<\"&G17,\"类型\",\"应收\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F17,\"日期\",\"<\"&G17,\"类型\",\"收款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "4": {
+       "f": "=B17+C17-D17",
+       "s": "money"
+      }
+     },
+     "17": {
+      "0": {
+       "v": "合计",
+       "s": "totalLabel"
+      },
+      "1": {
+       "f": "=B6",
+       "s": "totalMoney"
+      },
+      "2": {
+       "f": "=SUM(C6:C17)",
+       "s": "totalMoney"
+      },
+      "3": {
+       "f": "=SUM(D6:D17)",
+       "s": "totalMoney"
+      },
+      "4": {
+       "f": "=E17",
+       "s": "totalMoney"
+      }
+     },
+     "21": {
+      "0": {
+       "v": "应付往来：期初 + 应付发生 - 付款 = 期末应付余额",
+       "s": "title"
+      }
+     },
+     "22": {
+      "0": {
+       "v": "月份",
+       "s": "header"
+      },
+      "1": {
+       "v": "期初余额",
+       "s": "header"
+      },
+      "2": {
+       "v": "本期应付",
+       "s": "header"
+      },
+      "3": {
+       "v": "本期付款",
+       "s": "header"
+      },
+      "4": {
+       "v": "期末余额",
+       "s": "header"
+      },
+      "5": {
+       "v": "开始",
+       "s": "header"
+      },
+      "6": {
+       "v": "结束",
+       "s": "header"
+      }
+     },
+     "23": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-11,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-10,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F24,7)",
+       "s": "label"
+      },
+      "1": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F24,\"类型\",\"应付\",\"往来单位\",$B$2)-DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F24,\"类型\",\"付款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F24,\"日期\",\"<\"&G24,\"类型\",\"应付\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F24,\"日期\",\"<\"&G24,\"类型\",\"付款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "4": {
+       "f": "=B24+C24-D24",
+       "s": "money"
+      }
+     },
+     "24": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-10,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-9,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F25,7)",
+       "s": "label"
+      },
+      "1": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F25,\"类型\",\"应付\",\"往来单位\",$B$2)-DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F25,\"类型\",\"付款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F25,\"日期\",\"<\"&G25,\"类型\",\"应付\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F25,\"日期\",\"<\"&G25,\"类型\",\"付款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "4": {
+       "f": "=B25+C25-D25",
+       "s": "money"
+      }
+     },
+     "25": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-9,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-8,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F26,7)",
+       "s": "label"
+      },
+      "1": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F26,\"类型\",\"应付\",\"往来单位\",$B$2)-DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F26,\"类型\",\"付款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F26,\"日期\",\"<\"&G26,\"类型\",\"应付\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F26,\"日期\",\"<\"&G26,\"类型\",\"付款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "4": {
+       "f": "=B26+C26-D26",
+       "s": "money"
+      }
+     },
+     "26": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-8,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-7,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F27,7)",
+       "s": "label"
+      },
+      "1": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F27,\"类型\",\"应付\",\"往来单位\",$B$2)-DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F27,\"类型\",\"付款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F27,\"日期\",\"<\"&G27,\"类型\",\"应付\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F27,\"日期\",\"<\"&G27,\"类型\",\"付款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "4": {
+       "f": "=B27+C27-D27",
+       "s": "money"
+      }
+     },
+     "27": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-7,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-6,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F28,7)",
+       "s": "label"
+      },
+      "1": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F28,\"类型\",\"应付\",\"往来单位\",$B$2)-DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F28,\"类型\",\"付款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F28,\"日期\",\"<\"&G28,\"类型\",\"应付\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F28,\"日期\",\"<\"&G28,\"类型\",\"付款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "4": {
+       "f": "=B28+C28-D28",
+       "s": "money"
+      }
+     },
+     "28": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-6,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-5,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F29,7)",
+       "s": "label"
+      },
+      "1": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F29,\"类型\",\"应付\",\"往来单位\",$B$2)-DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F29,\"类型\",\"付款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F29,\"日期\",\"<\"&G29,\"类型\",\"应付\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F29,\"日期\",\"<\"&G29,\"类型\",\"付款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "4": {
+       "f": "=B29+C29-D29",
+       "s": "money"
+      }
+     },
+     "29": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-5,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-4,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F30,7)",
+       "s": "label"
+      },
+      "1": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F30,\"类型\",\"应付\",\"往来单位\",$B$2)-DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F30,\"类型\",\"付款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F30,\"日期\",\"<\"&G30,\"类型\",\"应付\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F30,\"日期\",\"<\"&G30,\"类型\",\"付款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "4": {
+       "f": "=B30+C30-D30",
+       "s": "money"
+      }
+     },
+     "30": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-4,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-3,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F31,7)",
+       "s": "label"
+      },
+      "1": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F31,\"类型\",\"应付\",\"往来单位\",$B$2)-DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F31,\"类型\",\"付款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F31,\"日期\",\"<\"&G31,\"类型\",\"应付\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F31,\"日期\",\"<\"&G31,\"类型\",\"付款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "4": {
+       "f": "=B31+C31-D31",
+       "s": "money"
+      }
+     },
+     "31": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-3,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-2,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F32,7)",
+       "s": "label"
+      },
+      "1": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F32,\"类型\",\"应付\",\"往来单位\",$B$2)-DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F32,\"类型\",\"付款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F32,\"日期\",\"<\"&G32,\"类型\",\"应付\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F32,\"日期\",\"<\"&G32,\"类型\",\"付款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "4": {
+       "f": "=B32+C32-D32",
+       "s": "money"
+      }
+     },
+     "32": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-2,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-1,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F33,7)",
+       "s": "label"
+      },
+      "1": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F33,\"类型\",\"应付\",\"往来单位\",$B$2)-DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F33,\"类型\",\"付款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F33,\"日期\",\"<\"&G33,\"类型\",\"应付\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F33,\"日期\",\"<\"&G33,\"类型\",\"付款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "4": {
+       "f": "=B33+C33-D33",
+       "s": "money"
+      }
+     },
+     "33": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-1,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY()),1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F34,7)",
+       "s": "label"
+      },
+      "1": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F34,\"类型\",\"应付\",\"往来单位\",$B$2)-DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F34,\"类型\",\"付款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F34,\"日期\",\"<\"&G34,\"类型\",\"应付\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F34,\"日期\",\"<\"&G34,\"类型\",\"付款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "4": {
+       "f": "=B34+C34-D34",
+       "s": "money"
+      }
+     },
+     "34": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY()),1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())+1,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F35,7)",
+       "s": "label"
+      },
+      "1": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F35,\"类型\",\"应付\",\"往来单位\",$B$2)-DSUMIFS(\"往来明细\",\"金额\",\"日期\",\"<\"&F35,\"类型\",\"付款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F35,\"日期\",\"<\"&G35,\"类型\",\"应付\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"往来明细\",\"金额\",\"日期\",\">=\"&F35,\"日期\",\"<\"&G35,\"类型\",\"付款\",\"往来单位\",$B$2)",
+       "s": "money"
+      },
+      "4": {
+       "f": "=B35+C35-D35",
+       "s": "money"
+      }
+     },
+     "35": {
+      "0": {
+       "v": "合计",
+       "s": "totalLabel"
+      },
+      "1": {
+       "f": "=B24",
+       "s": "totalMoney"
+      },
+      "2": {
+       "f": "=SUM(C24:C35)",
+       "s": "totalMoney"
+      },
+      "3": {
+       "f": "=SUM(D24:D35)",
+       "s": "totalMoney"
+      },
+      "4": {
+       "f": "=E35",
+       "s": "totalMoney"
+      }
+     },
+     "39": {
+      "0": {
+       "v": "期初余额 = 该月 1 号之前累计的 增加 - 减少（含更早年份的数据）；期末余额为正表示对方欠我们（应收）/ 我们欠对方（应付）。",
+       "s": "note"
+      }
+     }
+    }
+   },
+   "pv": {
+    "id": "pv",
+    "name": "往来单位 × 类型",
+    "tabColor": "",
+    "hidden": 0,
+    "rowCount": 1000,
+    "columnCount": 26,
+    "zoomRatio": 1,
+    "scrollTop": 0,
+    "scrollLeft": 0,
+    "defaultColumnWidth": 88,
+    "defaultRowHeight": 24,
+    "showGridlines": 1,
+    "rightToLeft": 0,
+    "freeze": {
+     "xSplit": 0,
+     "ySplit": 0,
+     "startRow": -1,
+     "startColumn": -1
+    },
+    "rowHeader": {
+     "width": 46,
+     "hidden": 0
+    },
+    "columnHeader": {
+     "height": 20,
+     "hidden": 0
+    },
+    "mergeData": [],
+    "rowData": {},
+    "columnData": {},
+    "cellData": {
+     "0": {
+      "0": {
+       "v": "数据透视表 · 各往来单位的应收、收款、应付、付款合计（打开此页签时按最新数据计算）",
+       "s": "note"
+      }
+     }
+    },
+    "custom": {
+     "pivot": {
+      "version": 1,
+      "datasetId": "$partners",
+      "datasetName": "往来明细",
+      "request": {
+       "filters": [],
+       "sort": {
+        "by": "key",
+        "valueIndex": 0,
+        "desc": false
+       },
+       "top": null,
+       "subtotals": true,
+       "grandTotals": true,
+       "rows": [
+        {
+         "column": "往来单位",
+         "granularity": null
+        }
+       ],
+       "columns": [
+        {
+         "column": "类型",
+         "granularity": null
+        }
+       ],
+       "values": [
+        {
+         "column": "金额",
+         "agg": "sum"
+        }
+       ]
+      }
+     }
+    }
+   },
+   "help": {
+    "id": "help",
+    "name": "使用说明",
+    "tabColor": "",
+    "hidden": 0,
+    "rowCount": 1000,
+    "columnCount": 26,
+    "zoomRatio": 1,
+    "scrollTop": 0,
+    "scrollLeft": 0,
+    "defaultColumnWidth": 88,
+    "defaultRowHeight": 24,
+    "showGridlines": 1,
+    "rightToLeft": 0,
+    "freeze": {
+     "xSplit": 0,
+     "ySplit": 0,
+     "startRow": -1,
+     "startColumn": -1
+    },
+    "rowHeader": {
+     "width": 46,
+     "hidden": 0
+    },
+    "columnHeader": {
+     "height": 20,
+     "hidden": 0
+    },
+    "mergeData": [],
+    "rowData": {},
+    "columnData": {
+     "0": {
+      "w": 760,
+      "hd": 0
+     }
+    },
+    "cellData": {
+     "0": {
+      "0": {
+       "v": "应收应付对账 · 使用说明",
+       "s": "title"
+      }
+     },
+     "2": {
+      "0": {
+       "v": "数据：一份往来明细，需要「往来单位」「日期」「类型」「金额」四列；类型只能取「应收」「收款」「应付」「付款」，金额填正数。",
+       "s": "label"
+      }
+     },
+     "3": {
+      "0": {
+       "v": "往来看板：左侧切片器选往来单位、时间范围；指标卡为本月应收 / 收款 / 应付 / 付款及环比；下方是月度对比与排行。",
+       "s": "label"
+      }
+     },
+     "4": {
+      "0": {
+       "v": "往来余额月报：最近 12 个月的期初 + 本期增加 - 本期减少 = 期末余额，应收、应付各一张；B2 填往来单位名只看该单位，* 为全部。",
+       "s": "label"
+      }
+     },
+     "5": {
+      "0": {
+       "v": "往来单位 × 类型：数据透视表，一眼看出每个单位的应收、收款、应付、付款合计，差额即未结余额。",
+       "s": "label"
+      }
+     },
+     "6": {
+      "0": {
+       "v": "· 余额按「累计增加 - 累计减少」计算，不区分具体哪笔收款冲销哪笔应收（不是账龄分析）。",
+       "s": "note"
+      }
+     },
+     "7": {
+      "0": {
+       "v": "· 「开始」「结束」两列是公式用的月份边界，请勿删除。",
+       "s": "note"
+      }
+     },
+     "8": {
+      "0": {
+       "v": "· 对账时：把对方的对账单也导入为一份往来明细，用往来单位 × 类型透视分别核对两边的期末余额。",
+       "s": "note"
+      }
+     }
+    }
+   }
+  },
+  "resources": [
+   {
+    "name": "SHEET_DRAWING_PLUGIN",
+    "data": "{\"dash\": {\"data\": {\"dash-p1\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p1\", \"drawingType\": 8, \"componentKey\": \"webexcel-slicer\", \"sheetTransform\": {\"from\": {\"column\": 0, \"columnOffset\": 12, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 2, \"columnOffset\": 36, \"row\": 13, \"rowOffset\": 0}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 0, \"columnOffset\": 12, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 2, \"columnOffset\": 36, \"row\": 13, \"rowOffset\": 0}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 58, \"top\": 32, \"width\": 200, \"height\": 300}, \"data\": {\"v\": 1, \"kind\": \"slicer\", \"title\": \"往来单位\", \"datasetId\": \"$partners\", \"column\": \"往来单位\", \"mode\": \"values\", \"values\": [], \"range\": null, \"id\": \"slicer_dash-p1\"}, \"allowTransform\": true}, \"dash-p2\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p2\", \"drawingType\": 8, \"componentKey\": \"webexcel-slicer\", \"sheetTransform\": {\"from\": {\"column\": 0, \"columnOffset\": 12, \"row\": 13, \"rowOffset\": 12}, \"to\": {\"column\": 2, \"columnOffset\": 36, \"row\": 20, \"rowOffset\": 14}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 0, \"columnOffset\": 12, \"row\": 13, \"rowOffset\": 12}, \"to\": {\"column\": 2, \"columnOffset\": 36, \"row\": 20, \"rowOffset\": 14}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 58, \"top\": 344, \"width\": 200, \"height\": 170}, \"data\": {\"v\": 1, \"kind\": \"slicer\", \"title\": \"日期\", \"datasetId\": \"$partners\", \"column\": \"日期\", \"mode\": \"date\", \"values\": [], \"range\": {\"preset\": \"this_year\"}, \"id\": \"slicer_dash-p2\"}, \"allowTransform\": true}, \"dash-p3\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p3\", \"drawingType\": 8, \"componentKey\": \"webexcel-kpi\", \"sheetTransform\": {\"from\": {\"column\": 2, \"columnOffset\": 48, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 5, \"columnOffset\": 34, \"row\": 6, \"rowOffset\": 4}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 2, \"columnOffset\": 48, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 5, \"columnOffset\": 34, \"row\": 6, \"rowOffset\": 4}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 270, \"top\": 32, \"width\": 250, \"height\": 136}, \"data\": {\"v\": 1, \"kind\": \"kpi\", \"title\": \"应收发生\", \"datasetId\": \"$partners\", \"value\": {\"column\": \"金额\", \"agg\": \"sum\"}, \"dateColumn\": \"日期\", \"granularity\": \"month\", \"compare\": \"mom\", \"upIsGood\": true, \"sparkline\": true, \"filters\": [{\"op\": \"in\", \"column\": \"类型\", \"values\": [\"应收\"]}], \"id\": \"kpi_dash-p3\"}, \"allowTransform\": true}, \"dash-p4\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p4\", \"drawingType\": 8, \"componentKey\": \"webexcel-kpi\", \"sheetTransform\": {\"from\": {\"column\": 5, \"columnOffset\": 46, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 8, \"columnOffset\": 32, \"row\": 6, \"rowOffset\": 4}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 5, \"columnOffset\": 46, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 8, \"columnOffset\": 32, \"row\": 6, \"rowOffset\": 4}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 532, \"top\": 32, \"width\": 250, \"height\": 136}, \"data\": {\"v\": 1, \"kind\": \"kpi\", \"title\": \"已收款\", \"datasetId\": \"$partners\", \"value\": {\"column\": \"金额\", \"agg\": \"sum\"}, \"dateColumn\": \"日期\", \"granularity\": \"month\", \"compare\": \"mom\", \"upIsGood\": true, \"sparkline\": true, \"filters\": [{\"op\": \"in\", \"column\": \"类型\", \"values\": [\"收款\"]}], \"id\": \"kpi_dash-p4\"}, \"allowTransform\": true}, \"dash-p5\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p5\", \"drawingType\": 8, \"componentKey\": \"webexcel-kpi\", \"sheetTransform\": {\"from\": {\"column\": 8, \"columnOffset\": 44, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 11, \"columnOffset\": 30, \"row\": 6, \"rowOffset\": 4}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 8, \"columnOffset\": 44, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 11, \"columnOffset\": 30, \"row\": 6, \"rowOffset\": 4}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 794, \"top\": 32, \"width\": 250, \"height\": 136}, \"data\": {\"v\": 1, \"kind\": \"kpi\", \"title\": \"应付发生\", \"datasetId\": \"$partners\", \"value\": {\"column\": \"金额\", \"agg\": \"sum\"}, \"dateColumn\": \"日期\", \"granularity\": \"month\", \"compare\": \"mom\", \"upIsGood\": false, \"sparkline\": true, \"filters\": [{\"op\": \"in\", \"column\": \"类型\", \"values\": [\"应付\"]}], \"id\": \"kpi_dash-p5\"}, \"allowTransform\": true}, \"dash-p6\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p6\", \"drawingType\": 8, \"componentKey\": \"webexcel-kpi\", \"sheetTransform\": {\"from\": {\"column\": 11, \"columnOffset\": 42, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 14, \"columnOffset\": 28, \"row\": 6, \"rowOffset\": 4}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 11, \"columnOffset\": 42, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 14, \"columnOffset\": 28, \"row\": 6, \"rowOffset\": 4}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 1056, \"top\": 32, \"width\": 250, \"height\": 136}, \"data\": {\"v\": 1, \"kind\": \"kpi\", \"title\": \"已付款\", \"datasetId\": \"$partners\", \"value\": {\"column\": \"金额\", \"agg\": \"sum\"}, \"dateColumn\": \"日期\", \"granularity\": \"month\", \"compare\": \"mom\", \"upIsGood\": false, \"sparkline\": true, \"filters\": [{\"op\": \"in\", \"column\": \"类型\", \"values\": [\"付款\"]}], \"id\": \"kpi_dash-p6\"}, \"allowTransform\": true}, \"dash-p7\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p7\", \"drawingType\": 8, \"componentKey\": \"webexcel-chart\", \"sheetTransform\": {\"from\": {\"column\": 2, \"columnOffset\": 48, \"row\": 6, \"rowOffset\": 16}, \"to\": {\"column\": 8, \"columnOffset\": 40, \"row\": 20, \"rowOffset\": 10}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 2, \"columnOffset\": 48, \"row\": 6, \"rowOffset\": 16}, \"to\": {\"column\": 8, \"columnOffset\": 40, \"row\": 20, \"rowOffset\": 10}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 270, \"top\": 180, \"width\": 520, \"height\": 330}, \"data\": {\"v\": 1, \"type\": \"column\", \"title\": \"月度应收与收款\", \"source\": {\"kind\": \"dataset\", \"datasetId\": \"$partners\", \"x\": {\"column\": \"日期\", \"granularity\": \"month\"}, \"values\": [{\"column\": \"金额\", \"agg\": \"sum\"}], \"splitBy\": \"类型\", \"filters\": [{\"op\": \"in\", \"column\": \"类型\", \"values\": [\"应收\", \"收款\"]}], \"sort\": \"x\", \"top\": null}, \"stacked\": false, \"legend\": \"top\", \"labels\": \"none\", \"unit\": \"auto\", \"id\": \"chart_dash-p7\"}, \"allowTransform\": true}, \"dash-p8\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p8\", \"drawingType\": 8, \"componentKey\": \"webexcel-chart\", \"sheetTransform\": {\"from\": {\"column\": 8, \"columnOffset\": 52, \"row\": 6, \"rowOffset\": 16}, \"to\": {\"column\": 14, \"columnOffset\": 28, \"row\": 20, \"rowOffset\": 10}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 8, \"columnOffset\": 52, \"row\": 6, \"rowOffset\": 16}, \"to\": {\"column\": 14, \"columnOffset\": 28, \"row\": 20, \"rowOffset\": 10}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 802, \"top\": 180, \"width\": 504, \"height\": 330}, \"data\": {\"v\": 1, \"type\": \"column\", \"title\": \"月度应付与付款\", \"source\": {\"kind\": \"dataset\", \"datasetId\": \"$partners\", \"x\": {\"column\": \"日期\", \"granularity\": \"month\"}, \"values\": [{\"column\": \"金额\", \"agg\": \"sum\"}], \"splitBy\": \"类型\", \"filters\": [{\"op\": \"in\", \"column\": \"类型\", \"values\": [\"应付\", \"付款\"]}], \"sort\": \"x\", \"top\": null}, \"stacked\": false, \"legend\": \"top\", \"labels\": \"none\", \"unit\": \"auto\", \"id\": \"chart_dash-p8\"}, \"allowTransform\": true}, \"dash-p9\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p9\", \"drawingType\": 8, \"componentKey\": \"webexcel-table\", \"sheetTransform\": {\"from\": {\"column\": 2, \"columnOffset\": 48, \"row\": 20, \"rowOffset\": 22}, \"to\": {\"column\": 8, \"columnOffset\": 40, \"row\": 33, \"rowOffset\": 10}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 2, \"columnOffset\": 48, \"row\": 20, \"rowOffset\": 22}, \"to\": {\"column\": 8, \"columnOffset\": 40, \"row\": 33, \"rowOffset\": 10}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 270, \"top\": 522, \"width\": 520, \"height\": 300}, \"data\": {\"v\": 1, \"kind\": \"table\", \"title\": \"应收最多的客户\", \"datasetId\": \"$partners\", \"row\": {\"column\": \"往来单位\", \"granularity\": null}, \"values\": [{\"column\": \"金额\", \"agg\": \"sum\"}, {\"agg\": \"count\"}], \"top\": 10, \"sort\": \"value\", \"filters\": [{\"op\": \"in\", \"column\": \"类型\", \"values\": [\"应收\"]}], \"id\": \"table_dash-p9\"}, \"allowTransform\": true}, \"dash-p10\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p10\", \"drawingType\": 8, \"componentKey\": \"webexcel-table\", \"sheetTransform\": {\"from\": {\"column\": 8, \"columnOffset\": 52, \"row\": 20, \"rowOffset\": 22}, \"to\": {\"column\": 14, \"columnOffset\": 28, \"row\": 33, \"rowOffset\": 10}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 8, \"columnOffset\": 52, \"row\": 20, \"rowOffset\": 22}, \"to\": {\"column\": 14, \"columnOffset\": 28, \"row\": 33, \"rowOffset\": 10}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 802, \"top\": 522, \"width\": 504, \"height\": 300}, \"data\": {\"v\": 1, \"kind\": \"table\", \"title\": \"应付最多的供应商\", \"datasetId\": \"$partners\", \"row\": {\"column\": \"往来单位\", \"granularity\": null}, \"values\": [{\"column\": \"金额\", \"agg\": \"sum\"}, {\"agg\": \"count\"}], \"top\": 10, \"sort\": \"value\", \"filters\": [{\"op\": \"in\", \"column\": \"类型\", \"values\": [\"应付\"]}], \"id\": \"table_dash-p10\"}, \"allowTransform\": true}}, \"order\": [\"dash-p1\", \"dash-p2\", \"dash-p3\", \"dash-p4\", \"dash-p5\", \"dash-p6\", \"dash-p7\", \"dash-p8\", \"dash-p9\", \"dash-p10\"]}}"
+   }
+  ]
+ }
+}

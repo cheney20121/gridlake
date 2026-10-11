@@ -1,0 +1,36 @@
+# docker compose -f deploy/docker-compose.yml up -d
+# 数据在 ./data（首次启动前：mkdir -p data && chown -R 10001:10001 data）
+services:
+  webexcel:
+    image: webexcel:0.1.0
+    container_name: webexcel
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    environment:
+      # DuckDB 内存上限默认取容器内存的 30%；大数据量可在这里显式设置，如 LEDGER_MEMORY_LIMIT: 6GB
+      # LEDGER_MEMORY_LIMIT: 6GB
+      LEDGER_BACKUP_AT: "02:30"
+      LEDGER_BACKUP_KEEP: "7"
+      # LEDGER_ADMIN_TOKEN: 请改成一串随机字符
+      # 登录（详见部署手册「登录与权限」）：默认内置账号。首次启动时创建管理员 admin，
+      # 不设 LEDGER_ADMIN_PASSWORD 时随机生成密码，用 docker logs webexcel 查看（只打印一次）
+      LEDGER_AUTH_MODE: local
+      # LEDGER_ADMIN_PASSWORD: 请改成强密码
+      # 或对接登录网关（同时去掉上面的 local）：
+      # LEDGER_AUTH_MODE: gateway
+      # LEDGER_AUTH_URL: https://网关地址/api/current_user
+      # LEDGER_ADMINS: zhangsan
+      # LEDGER_AUTH_CA_FILE: /certs/corp-ca.pem   # 网关证书由内部 CA 签发时，并挂载下面的证书文件
+    volumes:
+      - ./data:/data
+      # 运行时配置（网关登录地址等）：从镜像里复制一份出来修改后挂载
+      # docker cp webexcel:/app/web/config/index.js ./index.js
+      # - ./index.js:/app/web/config/index.js:ro
+      # - ./corp-ca.pem:/certs/corp-ca.pem:ro
+    # 硬内存上限兜底（LEDGER_MEMORY_LIMIT 只约束 DuckDB 缓冲区，不是进程内存的硬上限）：亿级数据建议 16g 起
+    # mem_limit: 16g
+    # 给服务足够时间完成进行中的导入并写回数据
+    stop_grace_period: 2m
+    ulimits:
+      nofile: 65536

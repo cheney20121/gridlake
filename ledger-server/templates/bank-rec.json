@@ -1,0 +1,844 @@
+{
+ "id": "builtin_bank_rec",
+ "name": "银行余额调节表",
+ "category": "电商财务",
+ "description": "银行流水与企业账逐笔对账后，自动出具银行存款余额调节表（未达账项 4 项 + 差额核对）；含对账看板与未达账项透视",
+ "datasets": [
+  {
+   "key": "$rec",
+   "name": "对账结果",
+   "description": "逐笔对账的结果数据集（在「新建对账」里把银行流水设为 A 方、企业账设为 B 方）：每行一笔，带状态、勾对完成日、勾对差额",
+   "columns": [
+    {
+     "title": "来源",
+     "kind": "text",
+     "description": "对账里两方的显示名称（如：银行、账面）"
+    },
+    {
+     "title": "日期",
+     "kind": "datetime",
+     "description": "这一笔的日期"
+    },
+    {
+     "title": "金额",
+     "kind": "money",
+     "description": "已统一符号：收入为正、支出为负"
+    },
+    {
+     "title": "方向",
+     "kind": "text",
+     "description": "收入 / 支出（按金额正负）"
+    },
+    {
+     "title": "状态",
+     "kind": "text",
+     "description": "已勾对 / 未勾对"
+    },
+    {
+     "title": "勾对完成日",
+     "kind": "datetime",
+     "description": "已勾对的组里最晚的日期（对方日期晚于截至日时，这一笔在截至日仍是未达账项）"
+    },
+    {
+     "title": "勾对差额",
+     "kind": "money",
+     "description": "勾对时确认的差额（A 方合计 - B 方合计），每组记在一行上"
+    },
+    {
+     "title": "摘要",
+     "kind": "text",
+     "description": "对账里选的摘要列"
+    }
+   ]
+  }
+ ],
+ "workbook": {
+  "id": "webexcel-template",
+  "name": "银行余额调节表",
+  "appVersion": "1.0.2",
+  "locale": "zhCN",
+  "styles": {
+   "title": {
+    "ff": "Microsoft YaHei",
+    "fs": 14,
+    "bl": 1
+   },
+   "note": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "cl": {
+     "rgb": "#6B7280"
+    }
+   },
+   "header": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bl": 1,
+    "bg": {
+     "rgb": "#DDEBF7"
+    },
+    "ht": 2
+   },
+   "input": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bg": {
+     "rgb": "#FFF7E6"
+    },
+    "bd": {
+     "b": {
+      "s": 1,
+      "cl": {
+       "rgb": "#F59E0B"
+      }
+     }
+    }
+   },
+   "label": {
+    "ff": "Microsoft YaHei",
+    "fs": 10
+   },
+   "helper": {
+    "ff": "Microsoft YaHei",
+    "fs": 9,
+    "cl": {
+     "rgb": "#9CA3AF"
+    }
+   },
+   "money": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "ht": 3,
+    "n": {
+     "pattern": "#,##0.00;-#,##0.00;\"-\""
+    }
+   },
+   "ratio": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "ht": 3,
+    "n": {
+     "pattern": "0.00"
+    }
+   },
+   "pct": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "ht": 3,
+    "n": {
+     "pattern": "0.0%"
+    }
+   },
+   "qty": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "ht": 3
+   },
+   "totalQty": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bl": 1,
+    "ht": 3,
+    "bd": {
+     "t": {
+      "s": 1,
+      "cl": {
+       "rgb": "#4472C4"
+      }
+     }
+    }
+   },
+   "totalLabel": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bl": 1,
+    "bd": {
+     "t": {
+      "s": 1,
+      "cl": {
+       "rgb": "#4472C4"
+      }
+     }
+    }
+   },
+   "totalMoney": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bl": 1,
+    "ht": 3,
+    "n": {
+     "pattern": "#,##0.00;-#,##0.00;\"-\""
+    },
+    "bd": {
+     "t": {
+      "s": 1,
+      "cl": {
+       "rgb": "#4472C4"
+      }
+     }
+    }
+   },
+   "totalRatio": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bl": 1,
+    "ht": 3,
+    "n": {
+     "pattern": "0.00"
+    },
+    "bd": {
+     "t": {
+      "s": 1,
+      "cl": {
+       "rgb": "#4472C4"
+      }
+     }
+    }
+   },
+   "totalPct": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bl": 1,
+    "ht": 3,
+    "n": {
+     "pattern": "0.0%"
+    },
+    "bd": {
+     "t": {
+      "s": 1,
+      "cl": {
+       "rgb": "#4472C4"
+      }
+     }
+    }
+   }
+  },
+  "sheetOrder": [
+   "adj",
+   "dash",
+   "pv",
+   "help"
+  ],
+  "sheets": {
+   "adj": {
+    "id": "adj",
+    "name": "调节表",
+    "tabColor": "",
+    "hidden": 0,
+    "rowCount": 1000,
+    "columnCount": 26,
+    "zoomRatio": 1,
+    "scrollTop": 0,
+    "scrollLeft": 0,
+    "defaultColumnWidth": 88,
+    "defaultRowHeight": 24,
+    "showGridlines": 1,
+    "rightToLeft": 0,
+    "freeze": {
+     "xSplit": 0,
+     "ySplit": 0,
+     "startRow": -1,
+     "startColumn": -1
+    },
+    "rowHeader": {
+     "width": 46,
+     "hidden": 0
+    },
+    "columnHeader": {
+     "height": 20,
+     "hidden": 0
+    },
+    "mergeData": [],
+    "rowData": {},
+    "columnData": {
+     "0": {
+      "w": 250,
+      "hd": 0
+     },
+     "1": {
+      "w": 120,
+      "hd": 0
+     },
+     "2": {
+      "w": 60,
+      "hd": 0
+     },
+     "3": {
+      "w": 380,
+      "hd": 0
+     }
+    },
+    "cellData": {
+     "0": {
+      "0": {
+       "v": "银行存款余额调节表",
+       "s": "title"
+      }
+     },
+     "1": {
+      "0": {
+       "v": "银行方名称",
+       "s": "label"
+      },
+      "1": {
+       "v": "银行",
+       "s": "input"
+      },
+      "3": {
+       "v": "← 对账里 A 方的「显示名称」（结果数据集「来源」列里银行流水的名字）",
+       "s": "note"
+      }
+     },
+     "2": {
+      "0": {
+       "v": "企业方名称",
+       "s": "label"
+      },
+      "1": {
+       "v": "账面",
+       "s": "input"
+      },
+      "3": {
+       "v": "← 对账里 B 方的「显示名称」",
+       "s": "note"
+      }
+     },
+     "3": {
+      "0": {
+       "v": "截至日期",
+       "s": "label"
+      },
+      "1": {
+       "f": "=TEXT(TODAY()-DAY(TODAY()),\"yyyy-mm-dd\")",
+       "s": "input"
+      },
+      "3": {
+       "v": "← 默认上月末；改成要调节的日期，格式 2026-09-30",
+       "s": "note"
+      }
+     },
+     "4": {
+      "0": {
+       "v": "银行期初余额",
+       "s": "label"
+      },
+      "1": {
+       "v": 0,
+       "s": "input"
+      },
+      "3": {
+       "v": "← 对账数据开始日之前，银行对账单上的余额",
+       "s": "note"
+      }
+     },
+     "5": {
+      "0": {
+       "v": "企业期初余额",
+       "s": "label"
+      },
+      "1": {
+       "v": 0,
+       "s": "input"
+      },
+      "3": {
+       "v": "← 对账数据开始日之前，企业银行存款账上的余额",
+       "s": "note"
+      }
+     },
+     "6": {
+      "0": {
+       "v": "截至日期（公式用）",
+       "s": "helper"
+      },
+      "1": {
+       "f": "=IF(ISNUMBER(B4),TEXT(B4,\"yyyy-mm-dd\"),B4)",
+       "s": "helper"
+      }
+     },
+     "8": {
+      "0": {
+       "v": "项目",
+       "s": "header"
+      },
+      "1": {
+       "v": "金额",
+       "s": "header"
+      },
+      "2": {
+       "v": "笔数",
+       "s": "header"
+      },
+      "3": {
+       "v": "说明",
+       "s": "header"
+      }
+     },
+     "9": {
+      "0": {
+       "v": "银行对账单余额",
+       "s": "label"
+      },
+      "1": {
+       "f": "=B5+DSUMIFS(\"对账结果\",\"金额\",\"来源\",$B$2,\"日期\",\"<=\"&$B$7)",
+       "s": "money"
+      },
+      "2": {
+       "f": "=DCOUNTIFS(\"对账结果\",\"来源\",$B$2,\"日期\",\"<=\"&$B$7)",
+       "s": "qty"
+      },
+      "3": {
+       "v": "期初余额 + 截至日的银行流水合计",
+       "s": "note"
+      }
+     },
+     "10": {
+      "0": {
+       "v": "加：企业已收、银行未收",
+       "s": "label"
+      },
+      "1": {
+       "f": "=DSUMIFS(\"对账结果\",\"金额\",\"来源\",$B$3,\"日期\",\"<=\"&$B$7,\"金额\",\">0\",\"状态\",\"未勾对\")+DSUMIFS(\"对账结果\",\"金额\",\"来源\",$B$3,\"日期\",\"<=\"&$B$7,\"金额\",\">0\",\"状态\",\"已勾对\",\"勾对完成日\",\">\"&$B$7)",
+       "s": "money"
+      },
+      "2": {
+       "f": "=DCOUNTIFS(\"对账结果\",\"来源\",$B$3,\"日期\",\"<=\"&$B$7,\"金额\",\">0\",\"状态\",\"未勾对\")+DCOUNTIFS(\"对账结果\",\"来源\",$B$3,\"日期\",\"<=\"&$B$7,\"金额\",\">0\",\"状态\",\"已勾对\",\"勾对完成日\",\">\"&$B$7)",
+       "s": "qty"
+      },
+      "3": {
+       "v": "企业账上已记收入，银行还没入账（在途存款）",
+       "s": "note"
+      }
+     },
+     "11": {
+      "0": {
+       "v": "减：企业已付、银行未付",
+       "s": "label"
+      },
+      "1": {
+       "f": "=-(DSUMIFS(\"对账结果\",\"金额\",\"来源\",$B$3,\"日期\",\"<=\"&$B$7,\"金额\",\"<0\",\"状态\",\"未勾对\")+DSUMIFS(\"对账结果\",\"金额\",\"来源\",$B$3,\"日期\",\"<=\"&$B$7,\"金额\",\"<0\",\"状态\",\"已勾对\",\"勾对完成日\",\">\"&$B$7))",
+       "s": "money"
+      },
+      "2": {
+       "f": "=DCOUNTIFS(\"对账结果\",\"来源\",$B$3,\"日期\",\"<=\"&$B$7,\"金额\",\"<0\",\"状态\",\"未勾对\")+DCOUNTIFS(\"对账结果\",\"来源\",$B$3,\"日期\",\"<=\"&$B$7,\"金额\",\"<0\",\"状态\",\"已勾对\",\"勾对完成日\",\">\"&$B$7)",
+       "s": "qty"
+      },
+      "3": {
+       "v": "企业账上已记支出，银行还没扣款（已开出未兑付的支票）",
+       "s": "note"
+      }
+     },
+     "12": {
+      "0": {
+       "v": "调整后的银行存款余额",
+       "s": "totalLabel"
+      },
+      "1": {
+       "f": "=B10+B11-B12",
+       "s": "totalMoney"
+      },
+      "2": {
+       "s": "totalQty"
+      },
+      "3": {
+       "v": "",
+       "s": "note"
+      }
+     },
+     "14": {
+      "0": {
+       "v": "企业银行存款账面余额",
+       "s": "label"
+      },
+      "1": {
+       "f": "=B6+DSUMIFS(\"对账结果\",\"金额\",\"来源\",$B$3,\"日期\",\"<=\"&$B$7)",
+       "s": "money"
+      },
+      "2": {
+       "f": "=DCOUNTIFS(\"对账结果\",\"来源\",$B$3,\"日期\",\"<=\"&$B$7)",
+       "s": "qty"
+      },
+      "3": {
+       "v": "期初余额 + 截至日的企业账合计",
+       "s": "note"
+      }
+     },
+     "15": {
+      "0": {
+       "v": "加：银行已收、企业未收",
+       "s": "label"
+      },
+      "1": {
+       "f": "=DSUMIFS(\"对账结果\",\"金额\",\"来源\",$B$2,\"日期\",\"<=\"&$B$7,\"金额\",\">0\",\"状态\",\"未勾对\")+DSUMIFS(\"对账结果\",\"金额\",\"来源\",$B$2,\"日期\",\"<=\"&$B$7,\"金额\",\">0\",\"状态\",\"已勾对\",\"勾对完成日\",\">\"&$B$7)",
+       "s": "money"
+      },
+      "2": {
+       "f": "=DCOUNTIFS(\"对账结果\",\"来源\",$B$2,\"日期\",\"<=\"&$B$7,\"金额\",\">0\",\"状态\",\"未勾对\")+DCOUNTIFS(\"对账结果\",\"来源\",$B$2,\"日期\",\"<=\"&$B$7,\"金额\",\">0\",\"状态\",\"已勾对\",\"勾对完成日\",\">\"&$B$7)",
+       "s": "qty"
+      },
+      "3": {
+       "v": "银行已入账，企业账上还没记（如利息、客户直接汇款）",
+       "s": "note"
+      }
+     },
+     "16": {
+      "0": {
+       "v": "减：银行已付、企业未付",
+       "s": "label"
+      },
+      "1": {
+       "f": "=-(DSUMIFS(\"对账结果\",\"金额\",\"来源\",$B$2,\"日期\",\"<=\"&$B$7,\"金额\",\"<0\",\"状态\",\"未勾对\")+DSUMIFS(\"对账结果\",\"金额\",\"来源\",$B$2,\"日期\",\"<=\"&$B$7,\"金额\",\"<0\",\"状态\",\"已勾对\",\"勾对完成日\",\">\"&$B$7))",
+       "s": "money"
+      },
+      "2": {
+       "f": "=DCOUNTIFS(\"对账结果\",\"来源\",$B$2,\"日期\",\"<=\"&$B$7,\"金额\",\"<0\",\"状态\",\"未勾对\")+DCOUNTIFS(\"对账结果\",\"来源\",$B$2,\"日期\",\"<=\"&$B$7,\"金额\",\"<0\",\"状态\",\"已勾对\",\"勾对完成日\",\">\"&$B$7)",
+       "s": "qty"
+      },
+      "3": {
+       "v": "银行已扣款，企业账上还没记（如手续费）",
+       "s": "note"
+      }
+     },
+     "17": {
+      "0": {
+       "v": "调整后的企业账面余额",
+       "s": "totalLabel"
+      },
+      "1": {
+       "f": "=B15+B16-B17",
+       "s": "totalMoney"
+      },
+      "2": {
+       "s": "totalQty"
+      },
+      "3": {
+       "v": "",
+       "s": "note"
+      }
+     },
+     "19": {
+      "0": {
+       "v": "核对",
+       "s": "header"
+      },
+      "1": {
+       "v": "金额",
+       "s": "header"
+      },
+      "2": {
+       "v": "",
+       "s": "header"
+      },
+      "3": {
+       "v": "说明",
+       "s": "header"
+      }
+     },
+     "20": {
+      "0": {
+       "v": "两个调整后余额的差额（银行 - 企业）",
+       "s": "label"
+      },
+      "1": {
+       "f": "=B13-B18",
+       "s": "money"
+      },
+      "3": {
+       "v": "应为 0；不为 0 时看下面两项能否解释",
+       "s": "note"
+      }
+     },
+     "21": {
+      "0": {
+       "v": "其中：期初余额差异（银行 - 企业）",
+       "s": "label"
+      },
+      "1": {
+       "f": "=B5-B6",
+       "s": "money"
+      },
+      "3": {
+       "v": "两个期初余额不一致造成的",
+       "s": "note"
+      }
+     },
+     "22": {
+      "0": {
+       "v": "其中：勾对时确认的差额",
+       "s": "label"
+      },
+      "1": {
+       "f": "=DSUMIFS(\"对账结果\",\"勾对差额\",\"勾对完成日\",\"<=\"&$B$7)",
+       "s": "money"
+      },
+      "3": {
+       "v": "手工勾对时合计不相等、写明原因后确认的差额（如银行手续费、汇率差），A 方 - B 方",
+       "s": "note"
+      }
+     },
+     "23": {
+      "0": {
+       "v": "无法解释的差额",
+       "s": "label"
+      },
+      "1": {
+       "f": "=B21-B22-B23",
+       "s": "money"
+      },
+      "3": {
+       "v": "应为 0；不为 0 说明有的行没有日期、或对账数据不完整（见使用说明）",
+       "s": "note"
+      }
+     },
+     "24": {
+      "0": {
+       "v": "结论",
+       "s": "totalLabel"
+      },
+      "1": {
+       "f": "=IF(ABS(B24)<0.005,IF(ABS(B21)<0.005,\"✓ 已平衡\",\"✓ 差额均已解释\"),\"✗ 有无法解释的差额\")",
+       "s": "totalLabel"
+      },
+      "2": {
+       "s": "totalLabel"
+      },
+      "3": {
+       "s": "totalLabel"
+      }
+     },
+     "26": {
+      "0": {
+       "v": "未达账项 = 截至日仍未勾对的行，加上已勾对、但对方的日期晚于截至日的行（如 9 月 30 日开出的支票，银行 10 月 2 日才扣款）。",
+       "s": "note"
+      }
+     }
+    }
+   },
+   "dash": {
+    "id": "dash",
+    "name": "对账看板",
+    "tabColor": "",
+    "hidden": 0,
+    "rowCount": 1000,
+    "columnCount": 26,
+    "zoomRatio": 1,
+    "scrollTop": 0,
+    "scrollLeft": 0,
+    "defaultColumnWidth": 88,
+    "defaultRowHeight": 24,
+    "showGridlines": 0,
+    "rightToLeft": 0,
+    "freeze": {
+     "xSplit": 0,
+     "ySplit": 0,
+     "startRow": -1,
+     "startColumn": -1
+    },
+    "rowHeader": {
+     "width": 46,
+     "hidden": 0
+    },
+    "columnHeader": {
+     "height": 20,
+     "hidden": 0
+    },
+    "mergeData": [],
+    "rowData": {},
+    "columnData": {},
+    "cellData": {}
+   },
+   "pv": {
+    "id": "pv",
+    "name": "未达账项汇总",
+    "tabColor": "",
+    "hidden": 0,
+    "rowCount": 1000,
+    "columnCount": 26,
+    "zoomRatio": 1,
+    "scrollTop": 0,
+    "scrollLeft": 0,
+    "defaultColumnWidth": 88,
+    "defaultRowHeight": 24,
+    "showGridlines": 1,
+    "rightToLeft": 0,
+    "freeze": {
+     "xSplit": 0,
+     "ySplit": 0,
+     "startRow": -1,
+     "startColumn": -1
+    },
+    "rowHeader": {
+     "width": 46,
+     "hidden": 0
+    },
+    "columnHeader": {
+     "height": 20,
+     "hidden": 0
+    },
+    "mergeData": [],
+    "rowData": {},
+    "columnData": {},
+    "cellData": {
+     "0": {
+      "0": {
+       "v": "数据透视表 · 未勾对的行按来源与收支方向汇总（不含已勾对但对方日期晚于截至日的，那部分以调节表为准）（打开此页签时按最新数据计算）",
+       "s": "note"
+      }
+     }
+    },
+    "custom": {
+     "pivot": {
+      "version": 1,
+      "datasetId": "$rec",
+      "datasetName": "对账结果",
+      "request": {
+       "filters": [
+        {
+         "op": "in",
+         "column": "状态",
+         "values": [
+          "未勾对"
+         ]
+        }
+       ],
+       "sort": {
+        "by": "key",
+        "valueIndex": 0,
+        "desc": false
+       },
+       "top": null,
+       "subtotals": true,
+       "grandTotals": true,
+       "rows": [
+        {
+         "column": "来源",
+         "granularity": null
+        }
+       ],
+       "columns": [
+        {
+         "column": "方向",
+         "granularity": null
+        }
+       ],
+       "values": [
+        {
+         "column": "金额",
+         "agg": "sum"
+        },
+        {
+         "column": "金额",
+         "agg": "count"
+        }
+       ]
+      }
+     }
+    }
+   },
+   "help": {
+    "id": "help",
+    "name": "使用说明",
+    "tabColor": "",
+    "hidden": 0,
+    "rowCount": 1000,
+    "columnCount": 26,
+    "zoomRatio": 1,
+    "scrollTop": 0,
+    "scrollLeft": 0,
+    "defaultColumnWidth": 88,
+    "defaultRowHeight": 24,
+    "showGridlines": 1,
+    "rightToLeft": 0,
+    "freeze": {
+     "xSplit": 0,
+     "ySplit": 0,
+     "startRow": -1,
+     "startColumn": -1
+    },
+    "rowHeader": {
+     "width": 46,
+     "hidden": 0
+    },
+    "columnHeader": {
+     "height": 20,
+     "hidden": 0
+    },
+    "mergeData": [],
+    "rowData": {},
+    "columnData": {
+     "0": {
+      "w": 760,
+      "hd": 0
+     }
+    },
+    "cellData": {
+     "0": {
+      "0": {
+       "v": "银行余额调节表 · 使用说明",
+       "s": "title"
+      }
+     },
+     "2": {
+      "0": {
+       "v": "先做逐笔对账：数据面板「新建对账」，A 方选银行流水、B 方选企业银行存款账，对应金额 / 日期 / 摘要列（有流水号、参考号等可作为对账键），自动勾对后把剩下的手工勾对。会生成一个对账结果数据集，套用本模板时选它。",
+       "s": "label"
+      }
+     },
+     "3": {
+      "0": {
+       "v": "调节表：B2、B3 填两方在对账里的「显示名称」；B4 截至日期（默认上月末，格式 2026-09-30）；B5、B6 填两边的期初余额（对账数据开始日之前的余额；数据从开账日开始时填 0）。",
+       "s": "label"
+      }
+     },
+     "4": {
+      "0": {
+       "v": "调节表按标准格式：银行对账单余额 + 企业已收银行未收 - 企业已付银行未付 = 调整后的银行存款余额；企业账面余额 + 银行已收企业未收 - 银行已付企业未付 = 调整后的企业账面余额；两者应相等。",
+       "s": "label"
+      }
+     },
+     "5": {
+      "0": {
+       "v": "核对区：差额应能由「期初余额差异」与「勾对时确认的差额」解释，「无法解释的差额」应为 0。",
+       "s": "label"
+      }
+     },
+     "6": {
+      "0": {
+       "v": "· A 方（银行）必须是对账里的第一方：「勾对差额」按 A 方 - B 方计算，两方放反了「无法解释的差额」会不为 0。",
+       "s": "note"
+      }
+     },
+     "7": {
+      "0": {
+       "v": "· 没有日期的行不在任何截至日范围内（对账里选了日期列时才有这个问题），会让「无法解释的差额」不为 0：请补全日期。",
+       "s": "note"
+      }
+     },
+     "8": {
+      "0": {
+       "v": "· 对账数据改了（重新导入、改了金额）后，调节表自动按最新结果计算；被改动的行原来的勾对会失效，回到未勾对。",
+       "s": "note"
+      }
+     },
+     "9": {
+      "0": {
+       "v": "· 对账看板：未勾对 / 已勾对的笔数与金额、按月分布、未勾对金额最大的摘要；「未达账项汇总」页签是未勾对行的透视。",
+       "s": "note"
+      }
+     },
+     "10": {
+      "0": {
+       "v": "· 笔数是未达账项的笔数；金额都按收入为正、支出为负的统一符号。",
+       "s": "note"
+      }
+     }
+    }
+   }
+  },
+  "resources": [
+   {
+    "name": "SHEET_DRAWING_PLUGIN",
+    "data": "{\"dash\": {\"data\": {\"dash-p1\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p1\", \"drawingType\": 8, \"componentKey\": \"webexcel-slicer\", \"sheetTransform\": {\"from\": {\"column\": 0, \"columnOffset\": 12, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 2, \"columnOffset\": 36, \"row\": 8, \"rowOffset\": 20}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 0, \"columnOffset\": 12, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 2, \"columnOffset\": 36, \"row\": 8, \"rowOffset\": 20}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 58, \"top\": 32, \"width\": 200, \"height\": 200}, \"data\": {\"v\": 1, \"kind\": \"slicer\", \"title\": \"来源\", \"datasetId\": \"$rec\", \"column\": \"来源\", \"mode\": \"values\", \"values\": [], \"range\": null, \"id\": \"slicer_dash-p1\"}, \"allowTransform\": true}, \"dash-p2\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p2\", \"drawingType\": 8, \"componentKey\": \"webexcel-slicer\", \"sheetTransform\": {\"from\": {\"column\": 0, \"columnOffset\": 12, \"row\": 9, \"rowOffset\": 8}, \"to\": {\"column\": 2, \"columnOffset\": 36, \"row\": 16, \"rowOffset\": 10}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 0, \"columnOffset\": 12, \"row\": 9, \"rowOffset\": 8}, \"to\": {\"column\": 2, \"columnOffset\": 36, \"row\": 16, \"rowOffset\": 10}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 58, \"top\": 244, \"width\": 200, \"height\": 170}, \"data\": {\"v\": 1, \"kind\": \"slicer\", \"title\": \"日期\", \"datasetId\": \"$rec\", \"column\": \"日期\", \"mode\": \"date\", \"values\": [], \"range\": {\"preset\": \"this_year\"}, \"id\": \"slicer_dash-p2\"}, \"allowTransform\": true}, \"dash-p3\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p3\", \"drawingType\": 8, \"componentKey\": \"webexcel-kpi\", \"sheetTransform\": {\"from\": {\"column\": 2, \"columnOffset\": 48, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 5, \"columnOffset\": 34, \"row\": 6, \"rowOffset\": 4}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 2, \"columnOffset\": 48, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 5, \"columnOffset\": 34, \"row\": 6, \"rowOffset\": 4}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 270, \"top\": 32, \"width\": 250, \"height\": 136}, \"data\": {\"v\": 1, \"kind\": \"kpi\", \"title\": \"未勾对笔数\", \"datasetId\": \"$rec\", \"value\": {\"column\": null, \"agg\": \"count\"}, \"dateColumn\": \"日期\", \"granularity\": \"month\", \"compare\": \"mom\", \"upIsGood\": false, \"sparkline\": true, \"filters\": [{\"op\": \"in\", \"column\": \"状态\", \"values\": [\"未勾对\"]}], \"id\": \"kpi_dash-p3\"}, \"allowTransform\": true}, \"dash-p4\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p4\", \"drawingType\": 8, \"componentKey\": \"webexcel-kpi\", \"sheetTransform\": {\"from\": {\"column\": 5, \"columnOffset\": 46, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 8, \"columnOffset\": 32, \"row\": 6, \"rowOffset\": 4}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 5, \"columnOffset\": 46, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 8, \"columnOffset\": 32, \"row\": 6, \"rowOffset\": 4}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 532, \"top\": 32, \"width\": 250, \"height\": 136}, \"data\": {\"v\": 1, \"kind\": \"kpi\", \"title\": \"未勾对金额（净）\", \"datasetId\": \"$rec\", \"value\": {\"column\": \"金额\", \"agg\": \"sum\"}, \"dateColumn\": \"日期\", \"granularity\": \"month\", \"compare\": \"mom\", \"upIsGood\": false, \"sparkline\": true, \"filters\": [{\"op\": \"in\", \"column\": \"状态\", \"values\": [\"未勾对\"]}], \"id\": \"kpi_dash-p4\"}, \"allowTransform\": true}, \"dash-p5\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p5\", \"drawingType\": 8, \"componentKey\": \"webexcel-kpi\", \"sheetTransform\": {\"from\": {\"column\": 8, \"columnOffset\": 44, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 11, \"columnOffset\": 30, \"row\": 6, \"rowOffset\": 4}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 8, \"columnOffset\": 44, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 11, \"columnOffset\": 30, \"row\": 6, \"rowOffset\": 4}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 794, \"top\": 32, \"width\": 250, \"height\": 136}, \"data\": {\"v\": 1, \"kind\": \"kpi\", \"title\": \"已勾对笔数\", \"datasetId\": \"$rec\", \"value\": {\"column\": null, \"agg\": \"count\"}, \"dateColumn\": \"日期\", \"granularity\": \"month\", \"compare\": \"mom\", \"upIsGood\": true, \"sparkline\": true, \"filters\": [{\"op\": \"in\", \"column\": \"状态\", \"values\": [\"已勾对\"]}], \"id\": \"kpi_dash-p5\"}, \"allowTransform\": true}, \"dash-p6\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p6\", \"drawingType\": 8, \"componentKey\": \"webexcel-kpi\", \"sheetTransform\": {\"from\": {\"column\": 11, \"columnOffset\": 42, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 14, \"columnOffset\": 28, \"row\": 6, \"rowOffset\": 4}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 11, \"columnOffset\": 42, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 14, \"columnOffset\": 28, \"row\": 6, \"rowOffset\": 4}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 1056, \"top\": 32, \"width\": 250, \"height\": 136}, \"data\": {\"v\": 1, \"kind\": \"kpi\", \"title\": \"勾对差额合计\", \"datasetId\": \"$rec\", \"value\": {\"column\": \"勾对差额\", \"agg\": \"sum\"}, \"dateColumn\": \"日期\", \"granularity\": \"month\", \"compare\": \"mom\", \"upIsGood\": false, \"sparkline\": true, \"filters\": [{\"op\": \"in\", \"column\": \"状态\", \"values\": [\"已勾对\"]}], \"id\": \"kpi_dash-p6\"}, \"allowTransform\": true}, \"dash-p7\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p7\", \"drawingType\": 8, \"componentKey\": \"webexcel-chart\", \"sheetTransform\": {\"from\": {\"column\": 2, \"columnOffset\": 48, \"row\": 6, \"rowOffset\": 16}, \"to\": {\"column\": 8, \"columnOffset\": 40, \"row\": 20, \"rowOffset\": 10}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 2, \"columnOffset\": 48, \"row\": 6, \"rowOffset\": 16}, \"to\": {\"column\": 8, \"columnOffset\": 40, \"row\": 20, \"rowOffset\": 10}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 270, \"top\": 180, \"width\": 520, \"height\": 330}, \"data\": {\"v\": 1, \"type\": \"column\", \"title\": \"月度未勾对金额\", \"source\": {\"kind\": \"dataset\", \"datasetId\": \"$rec\", \"x\": {\"column\": \"日期\", \"granularity\": \"month\"}, \"values\": [{\"column\": \"金额\", \"agg\": \"sum\"}], \"splitBy\": \"来源\", \"filters\": [{\"op\": \"in\", \"column\": \"状态\", \"values\": [\"未勾对\"]}], \"sort\": \"x\", \"top\": null}, \"stacked\": false, \"legend\": \"top\", \"labels\": \"none\", \"unit\": \"auto\", \"id\": \"chart_dash-p7\"}, \"allowTransform\": true}, \"dash-p8\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p8\", \"drawingType\": 8, \"componentKey\": \"webexcel-chart\", \"sheetTransform\": {\"from\": {\"column\": 8, \"columnOffset\": 52, \"row\": 6, \"rowOffset\": 16}, \"to\": {\"column\": 14, \"columnOffset\": 28, \"row\": 20, \"rowOffset\": 10}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 8, \"columnOffset\": 52, \"row\": 6, \"rowOffset\": 16}, \"to\": {\"column\": 14, \"columnOffset\": 28, \"row\": 20, \"rowOffset\": 10}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 802, \"top\": 180, \"width\": 504, \"height\": 330}, \"data\": {\"v\": 1, \"type\": \"column\", \"title\": \"月度已勾对笔数\", \"source\": {\"kind\": \"dataset\", \"datasetId\": \"$rec\", \"x\": {\"column\": \"日期\", \"granularity\": \"month\"}, \"values\": [{\"agg\": \"count\"}], \"splitBy\": \"来源\", \"filters\": [{\"op\": \"in\", \"column\": \"状态\", \"values\": [\"已勾对\"]}], \"sort\": \"x\", \"top\": null}, \"stacked\": false, \"legend\": \"top\", \"labels\": \"none\", \"unit\": \"auto\", \"id\": \"chart_dash-p8\"}, \"allowTransform\": true}, \"dash-p9\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"dash\", \"drawingId\": \"dash-p9\", \"drawingType\": 8, \"componentKey\": \"webexcel-table\", \"sheetTransform\": {\"from\": {\"column\": 2, \"columnOffset\": 48, \"row\": 20, \"rowOffset\": 22}, \"to\": {\"column\": 14, \"columnOffset\": 28, \"row\": 33, \"rowOffset\": 10}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 2, \"columnOffset\": 48, \"row\": 20, \"rowOffset\": 22}, \"to\": {\"column\": 14, \"columnOffset\": 28, \"row\": 33, \"rowOffset\": 10}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 270, \"top\": 522, \"width\": 1036, \"height\": 300}, \"data\": {\"v\": 1, \"kind\": \"table\", \"title\": \"未勾对金额最大的摘要\", \"datasetId\": \"$rec\", \"row\": {\"column\": \"摘要\", \"granularity\": null}, \"values\": [{\"column\": \"金额\", \"agg\": \"sum\"}, {\"agg\": \"count\"}], \"top\": 10, \"sort\": \"value\", \"filters\": [{\"op\": \"in\", \"column\": \"状态\", \"values\": [\"未勾对\"]}], \"id\": \"table_dash-p9\"}, \"allowTransform\": true}}, \"order\": [\"dash-p1\", \"dash-p2\", \"dash-p3\", \"dash-p4\", \"dash-p5\", \"dash-p6\", \"dash-p7\", \"dash-p8\", \"dash-p9\"]}}"
+   }
+  ]
+ }
+}

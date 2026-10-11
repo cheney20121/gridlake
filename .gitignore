@@ -1,0 +1,30 @@
+# 依赖与构建产物
+node_modules/
+dist/
+dist-ssr/
+ledger-server/target/
+*.tsbuildinfo
+.eslintcache
+coverage/
+
+# 运行数据与密钥（数据库、备份、收件目录、加密密钥）——不得提交
+ledger-server/data/
+*.duckdb
+*.duckdb.wal*
+secret.key
+*.env.local
+.env.*.local
+
+# 本地 npm 配置（可能含私有源凭据）
+.npmrc
+
+# 本地工具缓存 / 系统文件
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.log
+.claude/settings.local.json
+
+# 本地测试数据（测试库、生成的样例数据）
+.testdata/

@@ -1,0 +1,137 @@
+:root {
+  /* 白色 */
+  --color-white: #FFFFFF;
+  --color-white-transparent-5: rgba(255,255,255,0.5);
+  /* 黑色 */
+  --color-black: #000000;
+  /* 成功 */
+  --color-success: #35C97F;
+  /* 警告 */
+  --color-warning: #FFB806;
+  /* 报错 */
+  --color-danger: #FF6155;
+  /* 消息 */
+  --color-info: #909399;
+
+  /* dark1  */
+  --color-success-dark-1: #30b572;
+  --color-warning-dark-1: #e6a605;
+  --color-danger-dark-1: #e6574d;
+  --color-info-dark-1: #82848a;
+
+  /* light2 */
+  --color-success-light-2: #5dd499;
+  --color-warning-light-2: #ffc638;
+  --color-danger-light-2: #ff8177;
+  --color-info-light-2: #a6a9ad;
+
+  /* light4 */
+  --color-success-light-4: #86dfb2;
+  --color-warning-light-4: #ffd46a;
+  --color-danger-light-4: #ffa099;
+  --color-info-light-4: #bcbec2;
+
+  /* light5 */
+  --color-success-light-5: #9ae4bf;
+  --color-warning-light-5: #ffdc83;
+  --color-danger-light-5: #ffb0aa;
+  --color-info-light-5: #c8c9cc;
+
+  /* light6 */
+  --color-success-light-6: #aee9cc;
+  --color-warning-light-6: #ffe39b;
+  --color-danger-light-6: #ffc0bb;
+  --color-info-light-6: #d3d4d6;
+
+  /* light8 */
+  --color-success-light-8: #d7f4e5;
+  --color-warning-light-8: #fff1cd;
+  --color-danger-light-8: #ffdfdd;
+  --color-info-light-8: #e9e9eb;
+
+  /* light9 */
+  --color-success-light-9: #ebfaf2;
+  --color-warning-light-9: #fff8e6;
+  --color-danger-light-9: #ffefee;
+  --color-info-light-9: #f4f4f5;
+
+  /* 主要/标题文字 */
+  --color-text-primary: rgba(0, 0, 0, 0.85);
+  /* 标题辅助 */
+  --color-text-primary-secondary: #86909c;
+  /* 常规/正文文字 */
+  --color-text-regular: rgba(0, 0, 0, 0.75);
+  /* 次要/辅助文字 */
+  --color-text-secondary: rgba(0, 0, 0, 0.45);
+  --color-text-secondary-transparent-3: rgba(0,0, 0, 0.135);
+  --color-text-secondary-transparent-5: rgba(0,0,0, 0.225);
+  /* 次要/辅助文字 HEX */
+  --color-text-secondary-hex: #8C8C8C;
+  /* 置灰文字 */
+  --color-text-disabled: rgba(0, 0, 0, 0.25);
+  /* 占位文字 */
+  --color-text-placeholder: rgba(0, 0, 0, 0.5);
+  /* 强调描边 */
+  --border-color-base: rgb(217 217 217);
+  --border-color-base-transparent-5: rgba(217 217 217, 0.5);
+  /* 描边/分割线/菜单背景 */
+  --border-color-light: #EBEBEB;
+  /* color|1|Border Color|3 */
+  --border-color-lighter: #EBEBEB;
+  /* color|1|Border Color|3 */
+  --border-color-extra-light: #EBEBEB;
+
+  /* 区域背景填充 */
+  --background-color-base: #FAFAFA;
+  /* 背景/禁用填充 */
+  --background-disabled-color-base: #F5F5F5;
+
+  /* 各种阴影 */
+  --box-shadow-base: 0 4px 10px 0 rgba(0, 0, 0, 0.1);
+  --box-shadow-dark: 0 4px 10px 0 rgba(0, 0, 0, 0.1);
+  --box-shadow-light: 0 4px 10px 0 rgba(0, 0, 0, 0.1);
+
+  --sidebar-width: 208px;
+
+}
+.theme-blue {
+  --color-primary:#2A7FFF;
+  --color-primary-dark-1:#2672e6; 
+  --color-primary-light-1:#3f8cff;
+  --color-primary-light-2:#5599ff; 
+  --color-primary-light-3:#6aa5ff; 
+  --color-primary-light-4:#7fb2ff; 
+  --color-primary-light-5:#95bfff; 
+  --color-primary-light-6:#aaccff; 
+  --color-primary-light-7:#bfd9ff;
+  --color-primary-light-8:#d4e5ff; 
+  --color-primary-light-9:#eaf2ff; 
+}
+
+.theme-green {
+  --color-primary:#5EC468;
+  --color-primary-dark-1:#55b05e; 
+  --color-primary-light-1:#6eca77; 
+  --color-primary-light-2:#7ed086;
+  --color-primary-light-3:#8ed695; 
+  --color-primary-light-4:#9edca4; 
+  --color-primary-light-5:#afe2b4; 
+  --color-primary-light-6:#bfe7c3; 
+  --color-primary-light-7:#cfedd2; 
+  --color-primary-light-8:#dff3e1;
+  --color-primary-light-9:#eff9f0; 
+}
+
+.theme-orange {
+  --color-primary:#F97E19;
+  --color-primary-dark-1:#e07117; 
+  --color-primary-light-1:#fa8b30; 
+  --color-primary-light-2:#fa9847;
+  --color-primary-light-3:#fba55e; 
+  --color-primary-light-4:#fbb275; 
+  --color-primary-light-5:#fcbf8c; 
+  --color-primary-light-6:#fdcba3; 
+  --color-primary-light-7:#fdd8ba; 
+  --color-primary-light-8:#fee5d1;
+  --color-primary-light-9:#fef2e8; 
+}

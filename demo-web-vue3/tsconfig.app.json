@@ -1,0 +1,14 @@
+{
+  "extends": "@vue/tsconfig/tsconfig.dom.json",
+  "compilerOptions": {
+    "composite": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    "skipLibCheck": true
+  },
+  "include": ["auto-imports.d.ts", "components.d.ts", "env.d.ts", "src/**/*", "src/**/*.vue", "types/**/*.d.ts", "types/**/*.ts", "config/**/*.ts"],
+  "exclude": ["src/**/__tests__/*"]
+}

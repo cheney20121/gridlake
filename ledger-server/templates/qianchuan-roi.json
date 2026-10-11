@@ -1,0 +1,802 @@
+{
+ "id": "builtin_qianchuan_roi",
+ "name": "千川投放 ROI",
+ "category": "电商财务",
+ "description": "订单成交与千川投放消耗按月对比：ROI、消耗占成交、各店铺消耗趋势；月份自动滚动，可按店铺查看",
+ "datasets": [
+  {
+   "key": "$orders",
+   "name": "订单",
+   "description": "订单明细（每行一个订单或子订单），可来自导入或数据连接",
+   "columns": [
+    {
+     "title": "店铺",
+     "kind": "text",
+     "description": "店铺 / 渠道名称"
+    },
+    {
+     "title": "下单时间",
+     "kind": "datetime",
+     "description": "下单或支付时间"
+    },
+    {
+     "title": "订单金额",
+     "kind": "money",
+     "description": "成交金额（实付）"
+    }
+   ]
+  },
+  {
+   "key": "$ads",
+   "name": "投放消耗",
+   "description": "千川（或其他投放平台）的消耗明细，可从投放后台导出后导入",
+   "columns": [
+    {
+     "title": "日期",
+     "kind": "datetime",
+     "description": "消耗日期"
+    },
+    {
+     "title": "店铺",
+     "kind": "text",
+     "description": "与订单数据中的店铺名称一致"
+    },
+    {
+     "title": "消耗",
+     "kind": "money",
+     "description": "投放消耗金额"
+    }
+   ]
+  }
+ ],
+ "workbook": {
+  "id": "webexcel-template",
+  "name": "千川投放 ROI",
+  "appVersion": "1.0.2",
+  "locale": "zhCN",
+  "styles": {
+   "title": {
+    "ff": "Microsoft YaHei",
+    "fs": 14,
+    "bl": 1
+   },
+   "note": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "cl": {
+     "rgb": "#6B7280"
+    }
+   },
+   "header": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bl": 1,
+    "bg": {
+     "rgb": "#DDEBF7"
+    },
+    "ht": 2
+   },
+   "input": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bg": {
+     "rgb": "#FFF7E6"
+    },
+    "bd": {
+     "b": {
+      "s": 1,
+      "cl": {
+       "rgb": "#F59E0B"
+      }
+     }
+    }
+   },
+   "label": {
+    "ff": "Microsoft YaHei",
+    "fs": 10
+   },
+   "helper": {
+    "ff": "Microsoft YaHei",
+    "fs": 9,
+    "cl": {
+     "rgb": "#9CA3AF"
+    }
+   },
+   "money": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "ht": 3,
+    "n": {
+     "pattern": "#,##0.00;-#,##0.00;\"-\""
+    }
+   },
+   "ratio": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "ht": 3,
+    "n": {
+     "pattern": "0.00"
+    }
+   },
+   "pct": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "ht": 3,
+    "n": {
+     "pattern": "0.0%"
+    }
+   },
+   "qty": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "ht": 3
+   },
+   "totalQty": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bl": 1,
+    "ht": 3,
+    "bd": {
+     "t": {
+      "s": 1,
+      "cl": {
+       "rgb": "#4472C4"
+      }
+     }
+    }
+   },
+   "totalLabel": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bl": 1,
+    "bd": {
+     "t": {
+      "s": 1,
+      "cl": {
+       "rgb": "#4472C4"
+      }
+     }
+    }
+   },
+   "totalMoney": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bl": 1,
+    "ht": 3,
+    "n": {
+     "pattern": "#,##0.00;-#,##0.00;\"-\""
+    },
+    "bd": {
+     "t": {
+      "s": 1,
+      "cl": {
+       "rgb": "#4472C4"
+      }
+     }
+    }
+   },
+   "totalRatio": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bl": 1,
+    "ht": 3,
+    "n": {
+     "pattern": "0.00"
+    },
+    "bd": {
+     "t": {
+      "s": 1,
+      "cl": {
+       "rgb": "#4472C4"
+      }
+     }
+    }
+   },
+   "totalPct": {
+    "ff": "Microsoft YaHei",
+    "fs": 10,
+    "bl": 1,
+    "ht": 3,
+    "n": {
+     "pattern": "0.0%"
+    },
+    "bd": {
+     "t": {
+      "s": 1,
+      "cl": {
+       "rgb": "#4472C4"
+      }
+     }
+    }
+   }
+  },
+  "sheetOrder": [
+   "roi",
+   "help"
+  ],
+  "sheets": {
+   "roi": {
+    "id": "roi",
+    "name": "ROI 月报",
+    "tabColor": "",
+    "hidden": 0,
+    "rowCount": 1000,
+    "columnCount": 26,
+    "zoomRatio": 1,
+    "scrollTop": 0,
+    "scrollLeft": 0,
+    "defaultColumnWidth": 88,
+    "defaultRowHeight": 24,
+    "showGridlines": 1,
+    "rightToLeft": 0,
+    "freeze": {
+     "xSplit": 0,
+     "ySplit": 0,
+     "startRow": -1,
+     "startColumn": -1
+    },
+    "rowHeader": {
+     "width": 46,
+     "hidden": 0
+    },
+    "columnHeader": {
+     "height": 20,
+     "hidden": 0
+    },
+    "mergeData": [],
+    "rowData": {},
+    "columnData": {
+     "0": {
+      "w": 80,
+      "hd": 0
+     },
+     "1": {
+      "w": 70,
+      "hd": 0
+     },
+     "2": {
+      "w": 120,
+      "hd": 0
+     },
+     "3": {
+      "w": 120,
+      "hd": 0
+     },
+     "4": {
+      "w": 96,
+      "hd": 0
+     },
+     "5": {
+      "w": 80,
+      "hd": 0
+     },
+     "6": {
+      "w": 80,
+      "hd": 0
+     }
+    },
+    "cellData": {
+     "0": {
+      "0": {
+       "v": "千川投放 ROI 月报（最近 12 个月）",
+       "s": "title"
+      }
+     },
+     "1": {
+      "0": {
+       "v": "店铺",
+       "s": "label"
+      },
+      "1": {
+       "v": "*",
+       "s": "input"
+      },
+      "2": {
+       "v": "← 填店铺名只看该店铺；* 为全部店铺",
+       "s": "note"
+      }
+     },
+     "3": {
+      "0": {
+       "v": "月份",
+       "s": "header"
+      },
+      "1": {
+       "v": "ROI",
+       "s": "header"
+      },
+      "2": {
+       "v": "成交金额",
+       "s": "header"
+      },
+      "3": {
+       "v": "投放消耗",
+       "s": "header"
+      },
+      "4": {
+       "v": "消耗占成交",
+       "s": "header"
+      },
+      "5": {
+       "v": "开始",
+       "s": "header"
+      },
+      "6": {
+       "v": "结束",
+       "s": "header"
+      }
+     },
+     "4": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-11,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-10,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F5,7)",
+       "s": "label"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"订单\",\"订单金额\",\"下单时间\",\">=\"&F5,\"下单时间\",\"<\"&G5,\"店铺\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"投放消耗\",\"消耗\",\"日期\",\">=\"&F5,\"日期\",\"<\"&G5,\"店铺\",$B$2)",
+       "s": "money"
+      },
+      "1": {
+       "f": "=IF(D5=0,\"-\",C5/D5)",
+       "s": "ratio"
+      },
+      "4": {
+       "f": "=IF(C5=0,\"-\",D5/C5)",
+       "s": "pct"
+      }
+     },
+     "5": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-10,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-9,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F6,7)",
+       "s": "label"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"订单\",\"订单金额\",\"下单时间\",\">=\"&F6,\"下单时间\",\"<\"&G6,\"店铺\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"投放消耗\",\"消耗\",\"日期\",\">=\"&F6,\"日期\",\"<\"&G6,\"店铺\",$B$2)",
+       "s": "money"
+      },
+      "1": {
+       "f": "=IF(D6=0,\"-\",C6/D6)",
+       "s": "ratio"
+      },
+      "4": {
+       "f": "=IF(C6=0,\"-\",D6/C6)",
+       "s": "pct"
+      }
+     },
+     "6": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-9,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-8,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F7,7)",
+       "s": "label"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"订单\",\"订单金额\",\"下单时间\",\">=\"&F7,\"下单时间\",\"<\"&G7,\"店铺\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"投放消耗\",\"消耗\",\"日期\",\">=\"&F7,\"日期\",\"<\"&G7,\"店铺\",$B$2)",
+       "s": "money"
+      },
+      "1": {
+       "f": "=IF(D7=0,\"-\",C7/D7)",
+       "s": "ratio"
+      },
+      "4": {
+       "f": "=IF(C7=0,\"-\",D7/C7)",
+       "s": "pct"
+      }
+     },
+     "7": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-8,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-7,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F8,7)",
+       "s": "label"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"订单\",\"订单金额\",\"下单时间\",\">=\"&F8,\"下单时间\",\"<\"&G8,\"店铺\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"投放消耗\",\"消耗\",\"日期\",\">=\"&F8,\"日期\",\"<\"&G8,\"店铺\",$B$2)",
+       "s": "money"
+      },
+      "1": {
+       "f": "=IF(D8=0,\"-\",C8/D8)",
+       "s": "ratio"
+      },
+      "4": {
+       "f": "=IF(C8=0,\"-\",D8/C8)",
+       "s": "pct"
+      }
+     },
+     "8": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-7,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-6,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F9,7)",
+       "s": "label"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"订单\",\"订单金额\",\"下单时间\",\">=\"&F9,\"下单时间\",\"<\"&G9,\"店铺\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"投放消耗\",\"消耗\",\"日期\",\">=\"&F9,\"日期\",\"<\"&G9,\"店铺\",$B$2)",
+       "s": "money"
+      },
+      "1": {
+       "f": "=IF(D9=0,\"-\",C9/D9)",
+       "s": "ratio"
+      },
+      "4": {
+       "f": "=IF(C9=0,\"-\",D9/C9)",
+       "s": "pct"
+      }
+     },
+     "9": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-6,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-5,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F10,7)",
+       "s": "label"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"订单\",\"订单金额\",\"下单时间\",\">=\"&F10,\"下单时间\",\"<\"&G10,\"店铺\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"投放消耗\",\"消耗\",\"日期\",\">=\"&F10,\"日期\",\"<\"&G10,\"店铺\",$B$2)",
+       "s": "money"
+      },
+      "1": {
+       "f": "=IF(D10=0,\"-\",C10/D10)",
+       "s": "ratio"
+      },
+      "4": {
+       "f": "=IF(C10=0,\"-\",D10/C10)",
+       "s": "pct"
+      }
+     },
+     "10": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-5,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-4,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F11,7)",
+       "s": "label"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"订单\",\"订单金额\",\"下单时间\",\">=\"&F11,\"下单时间\",\"<\"&G11,\"店铺\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"投放消耗\",\"消耗\",\"日期\",\">=\"&F11,\"日期\",\"<\"&G11,\"店铺\",$B$2)",
+       "s": "money"
+      },
+      "1": {
+       "f": "=IF(D11=0,\"-\",C11/D11)",
+       "s": "ratio"
+      },
+      "4": {
+       "f": "=IF(C11=0,\"-\",D11/C11)",
+       "s": "pct"
+      }
+     },
+     "11": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-4,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-3,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F12,7)",
+       "s": "label"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"订单\",\"订单金额\",\"下单时间\",\">=\"&F12,\"下单时间\",\"<\"&G12,\"店铺\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"投放消耗\",\"消耗\",\"日期\",\">=\"&F12,\"日期\",\"<\"&G12,\"店铺\",$B$2)",
+       "s": "money"
+      },
+      "1": {
+       "f": "=IF(D12=0,\"-\",C12/D12)",
+       "s": "ratio"
+      },
+      "4": {
+       "f": "=IF(C12=0,\"-\",D12/C12)",
+       "s": "pct"
+      }
+     },
+     "12": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-3,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-2,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F13,7)",
+       "s": "label"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"订单\",\"订单金额\",\"下单时间\",\">=\"&F13,\"下单时间\",\"<\"&G13,\"店铺\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"投放消耗\",\"消耗\",\"日期\",\">=\"&F13,\"日期\",\"<\"&G13,\"店铺\",$B$2)",
+       "s": "money"
+      },
+      "1": {
+       "f": "=IF(D13=0,\"-\",C13/D13)",
+       "s": "ratio"
+      },
+      "4": {
+       "f": "=IF(C13=0,\"-\",D13/C13)",
+       "s": "pct"
+      }
+     },
+     "13": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-2,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-1,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F14,7)",
+       "s": "label"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"订单\",\"订单金额\",\"下单时间\",\">=\"&F14,\"下单时间\",\"<\"&G14,\"店铺\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"投放消耗\",\"消耗\",\"日期\",\">=\"&F14,\"日期\",\"<\"&G14,\"店铺\",$B$2)",
+       "s": "money"
+      },
+      "1": {
+       "f": "=IF(D14=0,\"-\",C14/D14)",
+       "s": "ratio"
+      },
+      "4": {
+       "f": "=IF(C14=0,\"-\",D14/C14)",
+       "s": "pct"
+      }
+     },
+     "14": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())-1,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY()),1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F15,7)",
+       "s": "label"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"订单\",\"订单金额\",\"下单时间\",\">=\"&F15,\"下单时间\",\"<\"&G15,\"店铺\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"投放消耗\",\"消耗\",\"日期\",\">=\"&F15,\"日期\",\"<\"&G15,\"店铺\",$B$2)",
+       "s": "money"
+      },
+      "1": {
+       "f": "=IF(D15=0,\"-\",C15/D15)",
+       "s": "ratio"
+      },
+      "4": {
+       "f": "=IF(C15=0,\"-\",D15/C15)",
+       "s": "pct"
+      }
+     },
+     "15": {
+      "5": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY()),1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "6": {
+       "f": "=TEXT(DATE(YEAR(TODAY()),MONTH(TODAY())+1,1),\"yyyy-mm-dd\")",
+       "s": "helper"
+      },
+      "0": {
+       "f": "=LEFT(F16,7)",
+       "s": "label"
+      },
+      "2": {
+       "f": "=DSUMIFS(\"订单\",\"订单金额\",\"下单时间\",\">=\"&F16,\"下单时间\",\"<\"&G16,\"店铺\",$B$2)",
+       "s": "money"
+      },
+      "3": {
+       "f": "=DSUMIFS(\"投放消耗\",\"消耗\",\"日期\",\">=\"&F16,\"日期\",\"<\"&G16,\"店铺\",$B$2)",
+       "s": "money"
+      },
+      "1": {
+       "f": "=IF(D16=0,\"-\",C16/D16)",
+       "s": "ratio"
+      },
+      "4": {
+       "f": "=IF(C16=0,\"-\",D16/C16)",
+       "s": "pct"
+      }
+     },
+     "16": {
+      "0": {
+       "v": "合计",
+       "s": "totalLabel"
+      },
+      "2": {
+       "f": "=SUM(C5:C16)",
+       "s": "totalMoney"
+      },
+      "3": {
+       "f": "=SUM(D5:D16)",
+       "s": "totalMoney"
+      },
+      "1": {
+       "f": "=IF(D17=0,\"-\",C17/D17)",
+       "s": "totalRatio"
+      },
+      "4": {
+       "f": "=IF(C17=0,\"-\",D17/C17)",
+       "s": "totalPct"
+      }
+     },
+     "18": {
+      "0": {
+       "v": "ROI = 成交金额 ÷ 投放消耗；成交金额为全部订单（含自然流量），如需只看投放带来的成交，可在订单数据中增加「流量来源」列后按需修改公式条件。",
+       "s": "note"
+      }
+     }
+    }
+   },
+   "help": {
+    "id": "help",
+    "name": "使用说明",
+    "tabColor": "",
+    "hidden": 0,
+    "rowCount": 1000,
+    "columnCount": 26,
+    "zoomRatio": 1,
+    "scrollTop": 0,
+    "scrollLeft": 0,
+    "defaultColumnWidth": 88,
+    "defaultRowHeight": 24,
+    "showGridlines": 1,
+    "rightToLeft": 0,
+    "freeze": {
+     "xSplit": 0,
+     "ySplit": 0,
+     "startRow": -1,
+     "startColumn": -1
+    },
+    "rowHeader": {
+     "width": 46,
+     "hidden": 0
+    },
+    "columnHeader": {
+     "height": 20,
+     "hidden": 0
+    },
+    "mergeData": [],
+    "rowData": {},
+    "columnData": {
+     "0": {
+      "w": 760,
+      "hd": 0
+     }
+    },
+    "cellData": {
+     "0": {
+      "0": {
+       "v": "千川投放 ROI · 使用说明",
+       "s": "title"
+      }
+     },
+     "2": {
+      "0": {
+       "v": "数据：订单明细（店铺、下单时间、订单金额）与投放消耗（日期、店铺、消耗）两份数据，店铺名称需一致。",
+       "s": "label"
+      }
+     },
+     "3": {
+      "0": {
+       "v": "ROI 月报：最近 12 个月按月汇总成交、消耗与 ROI，月份随当前日期自动滚动；B2 填店铺名只看该店铺。",
+       "s": "label"
+      }
+     },
+     "4": {
+      "0": {
+       "v": "公式使用 DSUMIFS 在服务端汇总千万行数据，可照此增加列（如退款后成交、净 ROI）。",
+       "s": "label"
+      }
+     },
+     "5": {
+      "0": {
+       "v": "· 「开始」「结束」两列是公式用的月份边界，请勿删除。",
+       "s": "note"
+      }
+     },
+     "6": {
+      "0": {
+       "v": "· 右侧指标卡为本月数据与上月对比；柱状图为各店铺每月消耗。",
+       "s": "note"
+      }
+     }
+    }
+   }
+  },
+  "resources": [
+   {
+    "name": "SHEET_DRAWING_PLUGIN",
+    "data": "{\"roi\": {\"data\": {\"roi-p1\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"roi\", \"drawingId\": \"roi-p1\", \"drawingType\": 8, \"componentKey\": \"webexcel-chart\", \"sheetTransform\": {\"from\": {\"column\": 7, \"columnOffset\": 54, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 13, \"columnOffset\": 6, \"row\": 13, \"rowOffset\": 0}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 7, \"columnOffset\": 54, \"row\": 0, \"rowOffset\": 12}, \"to\": {\"column\": 13, \"columnOffset\": 6, \"row\": 13, \"rowOffset\": 0}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 716, \"top\": 32, \"width\": 480, \"height\": 300}, \"data\": {\"v\": 1, \"type\": \"line\", \"title\": \"月度 ROI\", \"source\": {\"kind\": \"range\", \"sheetId\": \"roi\", \"range\": \"A4:B16\", \"headerRow\": true, \"firstColLabels\": true, \"seriesIn\": \"columns\"}, \"legend\": \"top\", \"labels\": \"key\", \"unit\": \"raw\", \"id\": \"chart_roi-p1\"}, \"allowTransform\": true}, \"roi-p2\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"roi\", \"drawingId\": \"roi-p2\", \"drawingType\": 8, \"componentKey\": \"webexcel-kpi\", \"sheetTransform\": {\"from\": {\"column\": 7, \"columnOffset\": 54, \"row\": 13, \"rowOffset\": 12}, \"to\": {\"column\": 10, \"columnOffset\": 24, \"row\": 19, \"rowOffset\": 4}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 7, \"columnOffset\": 54, \"row\": 13, \"rowOffset\": 12}, \"to\": {\"column\": 10, \"columnOffset\": 24, \"row\": 19, \"rowOffset\": 4}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 716, \"top\": 344, \"width\": 234, \"height\": 136}, \"data\": {\"v\": 1, \"kind\": \"kpi\", \"title\": \"本月投放消耗\", \"datasetId\": \"$ads\", \"value\": {\"column\": \"消耗\", \"agg\": \"sum\"}, \"dateColumn\": \"日期\", \"granularity\": \"month\", \"compare\": \"mom\", \"upIsGood\": false, \"sparkline\": true, \"filters\": [], \"id\": \"kpi_roi-p2\"}, \"allowTransform\": true}, \"roi-p3\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"roi\", \"drawingId\": \"roi-p3\", \"drawingType\": 8, \"componentKey\": \"webexcel-kpi\", \"sheetTransform\": {\"from\": {\"column\": 10, \"columnOffset\": 36, \"row\": 13, \"rowOffset\": 12}, \"to\": {\"column\": 13, \"columnOffset\": 6, \"row\": 19, \"rowOffset\": 4}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 10, \"columnOffset\": 36, \"row\": 13, \"rowOffset\": 12}, \"to\": {\"column\": 13, \"columnOffset\": 6, \"row\": 19, \"rowOffset\": 4}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 962, \"top\": 344, \"width\": 234, \"height\": 136}, \"data\": {\"v\": 1, \"kind\": \"kpi\", \"title\": \"本月成交金额\", \"datasetId\": \"$orders\", \"value\": {\"column\": \"订单金额\", \"agg\": \"sum\"}, \"dateColumn\": \"下单时间\", \"granularity\": \"month\", \"compare\": \"mom\", \"upIsGood\": true, \"sparkline\": true, \"filters\": [], \"id\": \"kpi_roi-p3\"}, \"allowTransform\": true}, \"roi-p4\": {\"unitId\": \"webexcel-template\", \"subUnitId\": \"roi\", \"drawingId\": \"roi-p4\", \"drawingType\": 8, \"componentKey\": \"webexcel-chart\", \"sheetTransform\": {\"from\": {\"column\": 7, \"columnOffset\": 54, \"row\": 19, \"rowOffset\": 16}, \"to\": {\"column\": 13, \"columnOffset\": 6, \"row\": 32, \"rowOffset\": 4}}, \"axisAlignSheetTransform\": {\"from\": {\"column\": 7, \"columnOffset\": 54, \"row\": 19, \"rowOffset\": 16}, \"to\": {\"column\": 13, \"columnOffset\": 6, \"row\": 32, \"rowOffset\": 4}}, \"transform\": {\"flipY\": false, \"flipX\": false, \"angle\": 0, \"skewX\": 0, \"skewY\": 0, \"left\": 716, \"top\": 492, \"width\": 480, \"height\": 300}, \"data\": {\"v\": 1, \"type\": \"column\", \"title\": \"各店铺月度投放消耗\", \"source\": {\"kind\": \"dataset\", \"datasetId\": \"$ads\", \"x\": {\"column\": \"日期\", \"granularity\": \"month\"}, \"values\": [{\"column\": \"消耗\", \"agg\": \"sum\"}], \"splitBy\": \"店铺\", \"filters\": [], \"sort\": \"x\", \"top\": null}, \"stacked\": true, \"legend\": \"top\", \"labels\": \"none\", \"unit\": \"auto\", \"id\": \"chart_roi-p4\"}, \"allowTransform\": true}}, \"order\": [\"roi-p1\", \"roi-p2\", \"roi-p3\", \"roi-p4\"]}}"
+   }
+  ]
+ }
+}
