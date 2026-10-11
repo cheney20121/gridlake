@@ -96,6 +96,8 @@ cd ledger-server && cargo test                       # 后端单元测试
 cd ledger-server && tests/e2e/run.sh                 # 后端端到端测试（每个文件起一个临时库的服务）
 cd demo-web-vue3 && pnpm test:unit                   # 前端单元测试
 cd demo-web-vue3 && pnpm test:ui                     # 界面测试（需要本机 Chrome）
+scripts/check-forbidden.sh                           # 敏感内容检查：私钥、内网地址、非官方 npm 源
+git config core.hooksPath .githooks                  # 提交前自动做上面的检查
 ```
 
 ## 现状与局限

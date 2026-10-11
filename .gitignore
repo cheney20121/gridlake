@@ -28,3 +28,6 @@ secret.key
 
 # 本地测试数据（测试库、生成的样例数据）
 .testdata/
+
+# 敏感词清单（公司名、内部域名等），只放本地，见 scripts/check-forbidden.sh
+.forbidden-patterns

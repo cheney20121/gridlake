@@ -1,7 +1,7 @@
 //! OpenAI 兼容的对话接口（/chat/completions + tools）：客户内网的 DeepSeek、Qwen（vLLM / Ollama / Xinference），或云端模型
 //!
 //! 配置（环境变量）：
-//! - LEDGER_AI_BASE_URL：接口地址，如 `https://api.deepseek.com/v1`、`http://10.0.0.8:8000/v1`（不含 /chat/completions）
+//! - LEDGER_AI_BASE_URL：接口地址，如 `https://api.deepseek.com/v1`、`http://vllm.internal:8000/v1`（不含 /chat/completions）
 //! - LEDGER_AI_API_KEY：密钥（内网模型可不设）
 //! - LEDGER_AI_MODEL：模型名，如 `deepseek-chat`、`qwen2.5-72b-instruct`
 //! - LEDGER_AI_STREAM：默认流式返回；个别内网部署不支持「流式 + 工具调用」时设为 `0`
