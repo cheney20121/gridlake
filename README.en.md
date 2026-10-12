@@ -1,4 +1,4 @@
-# WebExcel
+# Gridlake
 
 [中文](README.md) · **English**
 
@@ -16,11 +16,11 @@
 - BI tools are great for fixed dashboards but not for ad-hoc formulas, pivots and free-form layout.
 - Database-style tables (Airtable, NocoDB, Teable…) are one-type-per-column record stores, not free-form spreadsheets.
 
-WebExcel keeps the **Excel-style interface** and pushes everything that touches a large dataset — pivots, formulas, data tables, charts — down to DuckDB on the server.
+Gridlake keeps the **Excel-style interface** and pushes everything that touches a large dataset — pivots, formulas, data tables, charts — down to DuckDB on the server.
 
 ## Performance
 
-Measured on 100M rows × 8 columns of synthetic order data (MacBook, 8 cores, 16 GB, release build, over HTTP). Slow cases are listed too; how to reproduce is in `ledger-server/tests/bench/README.md`.
+Measured on 100M rows × 8 columns of synthetic order data (MacBook, 8 cores, 16 GB, release build, over HTTP). Slow cases are listed too; how to reproduce is in `server/tests/bench/README.md`.
 
 | Operation | Time |
 |---|---|
@@ -47,10 +47,10 @@ Measured on 100M rows × 8 columns of synthetic order data (MacBook, 8 cores, 16
 ## Quick start
 
 ```bash
-git clone <this repository> && cd webexcel
+git clone <this repository> && cd gridlake
 mkdir -p data && sudo chown -R 10001:10001 data
 docker compose -f deploy/docker-compose.yml up -d
-docker logs webexcel 2>&1 | grep 初始密码      # the generated initial admin password
+docker logs gridlake 2>&1 | grep 初始密码      # the generated initial admin password
 ```
 
 Open `http://localhost:8787/excel` and sign in as `admin`. To try it with sample data, log in via the API to get a token and run
@@ -59,7 +59,7 @@ Open `http://localhost:8787/excel` and sign in as `admin`. To try it with sample
 Build from source: Rust 1.85+, Node 20+ with pnpm, a C++ compiler (DuckDB is bundled; the first build takes 5–15 minutes).
 
 ```bash
-cd ledger-server && cargo run                 # backend on http://127.0.0.1:8787
+cd server && cargo run                 # backend on http://127.0.0.1:8787
 cd web && pnpm install && pnpm dev  # frontend on http://localhost:5173/excel/home
 ```
 

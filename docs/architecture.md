@@ -4,7 +4,7 @@
 浏览器（Vue 3 + Univer + Element Plus）
    │  HTTP / JSON；SSE（协作与 AI 流式回答）
    ▼
-ledger-server（单进程：Rust + axum）
+gridlake（单进程：Rust + axum）
    ├─ 认证与权限中间件（auth.rs）：登录 → 路由权限 → 数据范围 → 审计
    ├─ 业务模块：数据集 / 透视 / 公式下推 / SQL / 工作簿 / 协作 / AI / 审批 / 连接 / 推送 …
    └─ DuckDB（内置，单个数据文件）
@@ -27,7 +27,7 @@ ledger-server（单进程：Rust + axum）
 
 ## 后端模块
 
-见 [ledger-server/README.md](../ledger-server/README.md) 的模块表。几个关键的横切点：
+见 [server/README.md](../server/README.md) 的模块表。几个关键的横切点：
 
 | 位置 | 作用 |
 |---|---|

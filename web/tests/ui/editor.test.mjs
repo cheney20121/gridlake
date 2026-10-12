@@ -425,7 +425,7 @@ describe('在线表格编辑器（界面）', { skip }, () => {
     const specB = { v: 1, id: 'chB', type: 'column', title: '按月金额', source: { kind: 'dataset', datasetId: dsId, x: { column: '下单时间', granularity: 'month' }, values: sum } }
     // 图表里柱子的屏幕坐标：按系列累计值的中点换算（堆叠柱）
     const barAt = (page, chartId, category, series) => page.eval(`(() => {
-      const chart = window.__webexcel.chart(${JSON.stringify(chartId)})
+      const chart = window.__gridlake.chart(${JSON.stringify(chartId)})
       const opt = chart.getOption()
       const cats = opt.xAxis[0].data
       const ci = cats.indexOf(${JSON.stringify(category)})
@@ -441,12 +441,12 @@ describe('在线表格编辑器（界面）', { skip }, () => {
       }
       return null
     })()`)
-    const chartData = (page, chartId) => page.eval(`(() => { const o = window.__webexcel.chart(${JSON.stringify(chartId)}).getOption(); return { cats: o.xAxis[0].data, values: o.series.map(s => s.data.map(d => Number(d?.value ?? d))) } })()`)
+    const chartData = (page, chartId) => page.eval(`(() => { const o = window.__gridlake.chart(${JSON.stringify(chartId)}).getOption(); return { cats: o.xAxis[0].data, values: o.series.map(s => s.data.map(d => Number(d?.value ?? d))) } })()`)
     const stored = page => page.eval(`JSON.stringify(window.__univerAPI.getActiveWorkbook().getActiveSheet().getCustomMetadata()?.crossfilter ?? null)`).then(JSON.parse)
     await withPage('chart-link', 'alice', `/excel?wb=${id}`, async (page) => {
       await editorReady(page)
-      await page.eval(`void (window.__webexcel.insertChart(${JSON.stringify(specA)}), window.__webexcel.insertChart(${JSON.stringify(specB)}))`)
-      await page.waitFor(`!!window.__webexcel.chart('chA')?.getOption().series?.length && !!window.__webexcel.chart('chB')?.getOption().series?.length`, { what: '两张图表画好', timeout: 30_000 })
+      await page.eval(`void (window.__gridlake.insertChart(${JSON.stringify(specA)}), window.__gridlake.insertChart(${JSON.stringify(specB)}))`)
+      await page.waitFor(`!!window.__gridlake.chart('chA')?.getOption().series?.length && !!window.__gridlake.chart('chB')?.getOption().series?.length`, { what: '两张图表画好', timeout: 30_000 })
       assert.deepEqual((await chartData(page, 'chB')).cats, ['2026-01', '2026-02', '2026-03'], '联动前：三个月')
       // 等柱子长完（图表有入场动画，动画没结束时点不中）
       await new Promise(r => setTimeout(r, 2000))
@@ -454,7 +454,7 @@ describe('在线表格编辑器（界面）', { skip }, () => {
       const [x1, y1] = await barAt(page, 'chA', 'A', '线下')
       await page.mouseClick(x1, y1)
       await page.waitFor(`document.body.innerText.includes('已筛选 店铺：A · 渠道：线下')`, { what: '图表上显示「已筛选 店铺：A · 渠道：线下」' })
-      await page.waitFor(`JSON.stringify(window.__webexcel.chart('chB').getOption().series[0].data.map(d => Number(d?.value ?? d))) === '[20,70]'`, { what: '另一张图只剩 A 店线下的 1 月（20）、3 月（70）' })
+      await page.waitFor(`JSON.stringify(window.__gridlake.chart('chB').getOption().series[0].data.map(d => Number(d?.value ?? d))) === '[20,70]'`, { what: '另一张图只剩 A 店线下的 1 月（20）、3 月（70）' })
       const saved = await stored(page)
       assert.deepEqual([saved.values, saved.series, saved.chartId], [['A'], { column: '渠道', values: ['线下'] }, 'chA'], '联动写进了工作表元数据')
       // ⌘（Meta）+ 点「店铺 B」的「线下」柱（Mac 上 Ctrl + 点击是右键，所以用 ⌘；Windows 上 Ctrl 同样可以）：分类增加，系列不变 → B 店线下 2 月（50）也进来
@@ -462,18 +462,18 @@ describe('在线表格编辑器（界面）', { skip }, () => {
       const [x2, y2] = await barAt(page, 'chA', 'B', '线下')
       await page.mouseClick(x2, y2, 4)
       await page.waitFor(`document.body.innerText.includes('已筛选 店铺：A、B · 渠道：线下')`, { what: '多选后显示 A、B' })
-      await page.waitFor(`JSON.stringify(window.__webexcel.chart('chB').getOption().series[0].data.map(d => Number(d?.value ?? d))) === '[20,50,70]'`, { what: '另一张图是 A、B 两店线下的 20、50、70' })
+      await page.waitFor(`JSON.stringify(window.__gridlake.chart('chB').getOption().series[0].data.map(d => Number(d?.value ?? d))) === '[20,50,70]'`, { what: '另一张图是 A、B 两店线下的 20、50、70' })
       await page.press('s', { ctrl: true, code: 'KeyS' })
       await page.waitFor(`document.querySelector('.status-indicator')?.innerText.includes('已保存')`, { what: '保存' })
     }, { allowErrors: [UNIVER_REMOVED_SHEET_RACE] })
     // 重新打开：联动仍然生效
     await withPage('chart-link-reload', 'alice', `/excel?wb=${id}`, async (page) => {
       await editorReady(page)
-      await page.waitFor(`JSON.stringify(window.__webexcel.chart('chB')?.getOption().series?.[0]?.data.map(d => Number(d?.value ?? d))) === '[20,50,70]'`, { what: '重新打开后联动仍生效', timeout: 30_000 })
+      await page.waitFor(`JSON.stringify(window.__gridlake.chart('chB')?.getOption().series?.[0]?.data.map(d => Number(d?.value ?? d))) === '[20,50,70]'`, { what: '重新打开后联动仍生效', timeout: 30_000 })
       assert.ok(await page.eval(`document.body.innerText.includes('已筛选 店铺：A、B · 渠道：线下')`), '发起联动的图表上仍显示筛选条件')
       // 点「×」取消：联动消失，元数据里也没有了
       await page.click('.pick .x')
-      await page.waitFor(`JSON.stringify(window.__webexcel.chart('chB').getOption().series[0].data.map(d => Number(d?.value ?? d))) === '[60,90,130]' && !document.body.innerText.includes('已筛选')`, { what: '取消联动，恢复全量' })
+      await page.waitFor(`JSON.stringify(window.__gridlake.chart('chB').getOption().series[0].data.map(d => Number(d?.value ?? d))) === '[60,90,130]' && !document.body.innerText.includes('已筛选')`, { what: '取消联动，恢复全量' })
       assert.equal(await stored(page), null, '取消后工作表元数据里的联动也清掉')
     }, { allowErrors: [UNIVER_REMOVED_SHEET_RACE] })
   })
@@ -490,9 +490,9 @@ describe('在线表格编辑器（界面）', { skip }, () => {
     await withPage('widget-images', 'alice', `/excel?wb=${id}`, async (page) => {
       await editorReady(page)
       for (const [key, spec] of widgets)
-        await page.eval(`void window.__webexcel.insertFloat(${JSON.stringify(key)}, ${JSON.stringify(spec)}, { width: 260, height: 180 })`)
-      await page.eval(`void window.__webexcel.insertChart(${JSON.stringify({ v: 1, id: 'c1', type: 'column', title: '图表 / 导出', source: { kind: 'dataset', datasetId: dsId, x: { column: '店铺' }, values: sum } })})`)
-      await page.waitFor(`!!document.querySelector('.kpi .value') && !document.querySelector('.kpi .value').innerText.includes('…') && !!window.__webexcel.chart('c1')?.getOption().series?.length`, { what: '部件都画好了', timeout: 30_000 })
+        await page.eval(`void window.__gridlake.insertFloat(${JSON.stringify(key)}, ${JSON.stringify(spec)}, { width: 260, height: 180 })`)
+      await page.eval(`void window.__gridlake.insertChart(${JSON.stringify({ v: 1, id: 'c1', type: 'column', title: '图表 / 导出', source: { kind: 'dataset', datasetId: dsId, x: { column: '店铺' }, values: sum } })})`)
+      await page.waitFor(`!!document.querySelector('.kpi .value') && !document.querySelector('.kpi .value').innerText.includes('…') && !!window.__gridlake.chart('c1')?.getOption().series?.length`, { what: '部件都画好了', timeout: 30_000 })
       // 截获下载：记下生成的图片
       await page.eval(`(() => { window.__imgs = []; const orig = URL.createObjectURL.bind(URL); URL.createObjectURL = (b) => { window.__imgs.push(b); return orig(b) }; HTMLAnchorElement.prototype.click = function () { window.__names = [...(window.__names ?? []), this.download] } })()`)
       for (const sel of ['.kpi .edit[title="保存为图片"]', '.slicer .edit[title="保存为图片"]', '.card .edit[title="保存为图片"]'])

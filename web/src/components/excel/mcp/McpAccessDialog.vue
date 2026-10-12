@@ -124,11 +124,11 @@ const snippet = computed(() => {
   const tk = tokenText.value
   switch (client.value) {
     case 'cursor':
-      return JSON.stringify({ mcpServers: { webexcel: { url: ep, headers: { Authorization: `Bearer ${tk}` } } } }, null, 2)
+      return JSON.stringify({ mcpServers: { gridlake: { url: ep, headers: { Authorization: `Bearer ${tk}` } } } }, null, 2)
     case 'claude':
-      return JSON.stringify({ mcpServers: { webexcel: { command: 'npx', args: ['-y', 'mcp-remote', ep, '--header', AUTH_REF, '--allow-http'], env: { AUTH_HEADER: `Bearer ${tk}` } } } }, null, 2)
+      return JSON.stringify({ mcpServers: { gridlake: { command: 'npx', args: ['-y', 'mcp-remote', ep, '--header', AUTH_REF, '--allow-http'], env: { AUTH_HEADER: `Bearer ${tk}` } } } }, null, 2)
     case 'bridge':
-      return JSON.stringify({ mcpServers: { webexcel: { command: '/opt/webexcel/bin/ledger-server', args: ['mcp-bridge'], env: { LEDGER_MCP_URL: ep, LEDGER_MCP_TOKEN: tk } } } }, null, 2)
+      return JSON.stringify({ mcpServers: { gridlake: { command: '/opt/gridlake/bin/gridlake', args: ['mcp-bridge'], env: { LEDGER_MCP_URL: ep, LEDGER_MCP_TOKEN: tk } } } }, null, 2)
     case 'cherry':
       return `类型：可流式传输的 HTTP（streamableHttp）\nURL：${ep}\n请求头：Authorization=Bearer ${tk}`
     default:
@@ -140,7 +140,7 @@ const CLIENT_HINT: Record<string, string> = {
   cursor: '编辑 ~/.cursor/mcp.json（或项目下 .cursor/mcp.json），粘贴后在 Cursor 设置的 MCP 页面启用',
   cherry: 'Cherry Studio → 设置 → MCP 服务器 → 添加服务器，按下方填写',
   claude: 'Claude Desktop → 设置 → 开发者 → 编辑配置（claude_desktop_config.json）；需要本机装有 Node.js（npx）。内网 HTTP 地址需要 --allow-http',
-  bridge: 'macOS / Linux 上有 ledger-server 程序时可用内置转接（不需要 Node.js）；命令路径改成程序实际位置',
+  bridge: 'macOS / Linux 上有 gridlake 程序时可用内置转接（不需要 Node.js）；命令路径改成程序实际位置',
   dify: 'Dify：在「工具 → MCP」中添加 HTTP 类型的 MCP 服务；其他支持 MCP 的平台同样填写地址与请求头',
 }
 </script>

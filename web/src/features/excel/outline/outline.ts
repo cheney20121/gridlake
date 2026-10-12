@@ -283,12 +283,12 @@ export function registerOutline(api: FUniver, options: { onDirty: () => void, on
       options.onMessage(err)
   }
   const menus: [string, string, 'group' | 'ungroup', Dim | undefined, string[]][] = [
-    ['webexcel.outline.group-rows', '组合行', 'group', 'rows', ['contextMenu.rowHeader', 'contextMenu.others']],
-    ['webexcel.outline.ungroup-rows', '取消组合行', 'ungroup', 'rows', ['contextMenu.rowHeader', 'contextMenu.others']],
-    ['webexcel.outline.group-cols', '组合列', 'group', 'cols', ['contextMenu.colHeader', 'contextMenu.others']],
-    ['webexcel.outline.ungroup-cols', '取消组合列', 'ungroup', 'cols', ['contextMenu.colHeader', 'contextMenu.others']],
-    ['webexcel.outline.group', '组合所选行（Shift+Alt+→）', 'group', 'rows', ['contextMenu.mainArea', 'contextMenu.others']],
-    ['webexcel.outline.ungroup', '取消组合所选行（Shift+Alt+←）', 'ungroup', 'rows', ['contextMenu.mainArea', 'contextMenu.others']],
+    ['gridlake.outline.group-rows', '组合行', 'group', 'rows', ['contextMenu.rowHeader', 'contextMenu.others']],
+    ['gridlake.outline.ungroup-rows', '取消组合行', 'ungroup', 'rows', ['contextMenu.rowHeader', 'contextMenu.others']],
+    ['gridlake.outline.group-cols', '组合列', 'group', 'cols', ['contextMenu.colHeader', 'contextMenu.others']],
+    ['gridlake.outline.ungroup-cols', '取消组合列', 'ungroup', 'cols', ['contextMenu.colHeader', 'contextMenu.others']],
+    ['gridlake.outline.group', '组合所选行（Shift+Alt+→）', 'group', 'rows', ['contextMenu.mainArea', 'contextMenu.others']],
+    ['gridlake.outline.ungroup', '取消组合所选行（Shift+Alt+←）', 'ungroup', 'rows', ['contextMenu.mainArea', 'contextMenu.others']],
   ]
   const ui = api as unknown as { createMenu?: (item: { id: string, title: string, action: () => void }) => { appendTo: (path: string[]) => void } }
   for (const [id, title, action, dim, path] of menus) {

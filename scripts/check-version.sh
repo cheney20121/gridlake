@@ -6,10 +6,10 @@
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
-server="$(grep -m1 '^version' ledger-server/Cargo.toml | sed -E 's/.*"(.*)".*/\1/')"
+server="$(grep -m1 '^version' server/Cargo.toml | sed -E 's/.*"(.*)".*/\1/')"
 web="$(grep -m1 '"version"' web/package.json | sed -E 's/.*"version": *"([^"]*)".*/\1/')"
 
-echo "ledger-server/Cargo.toml     $server"
+echo "server/Cargo.toml     $server"
 echo "web/package.json   $web"
 
 fail=0

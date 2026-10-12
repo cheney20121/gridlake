@@ -3,7 +3,7 @@
 
 数据来源（都在后端源码里，所以文档不会和代码脱节）：
   - 每个处理函数上方形如 `/// POST /api/ledger/xxx  { 请求体 }  说明` 的文档注释；
-  - ledger-server/src/auth.rs 的 ROUTES（权限规则与审计名称）和 RESTRICTED_OK（数据范围受限用户可用的接口）。
+  - server/src/auth.rs 的 ROUTES（权限规则与审计名称）和 RESTRICTED_OK（数据范围受限用户可用的接口）。
 
     scripts/gen-api-docs.py            # 重新生成 docs/api.md
     scripts/gen-api-docs.py --check    # 只检查 docs/api.md 是否是最新的（CI 用）
@@ -15,7 +15,7 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-SRC = ROOT / "ledger-server" / "src"
+SRC = ROOT / "server" / "src"
 OUT = ROOT / "docs" / "api.md"
 
 ROUTE_DOC = re.compile(r"^\s*///\s*(GET|POST|PUT|DELETE)\s+(/api/\S+)\s*(.*)$")
@@ -149,7 +149,7 @@ def esc(s):
 HEAD = """# REST 接口参考
 
 > 本文件由 `scripts/gen-api-docs.py` 根据后端源码里的文档注释与权限表生成，**请不要手工编辑**；改了接口后重新运行脚本。
-> 请求体 / 参数的详细字段以对应的 Rust 结构体（`ledger-server/src/` 里处理函数的参数类型）为准，下表「说明」列给出的是接口注释里的概要。
+> 请求体 / 参数的详细字段以对应的 Rust 结构体（`server/src/` 里处理函数的参数类型）为准，下表「说明」列给出的是接口注释里的概要。
 
 ## 约定
 

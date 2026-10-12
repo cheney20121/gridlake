@@ -44,14 +44,14 @@ export default defineConfig(({ mode }: ConfigEnv): UserConfig => {
           src: 'config/index.json',
           dest: 'config',
           rename: () => `index.js`,
-          transform: async contents => `window.__webexcel_config = ${contents.toString()}`,
+          transform: async contents => `window.__gridlake_config = ${contents.toString()}`,
         }],
       }),
       createHtmlPlugin({
         minify: !isDev,
         inject: {
           data: {
-            title: packageJson.title || 'WebExcel',
+            title: packageJson.title || 'Gridlake',
             injectScript: `
             <script src="${appBase}config/index.js?t=${new Date().getTime()}"></script>`,
           },
@@ -64,7 +64,7 @@ export default defineConfig(({ mode }: ConfigEnv): UserConfig => {
     base: appBase,
     server: {
       proxy: {
-        // 店铺资金流水服务（ledger-server，Rust + DuckDB）
+        // 店铺资金流水服务（gridlake，Rust + DuckDB）
         '/ledger-api': {
           target: env.VITE_LEDGER_SERVER || 'http://127.0.0.1:8787',
           changeOrigin: true,

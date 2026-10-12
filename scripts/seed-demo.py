@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""向一个运行中的 WebExcel 导入示例数据集「订单」（合成数据，只用标准库）。
+"""向一个运行中的 Gridlake 导入示例数据集「订单」（合成数据，只用标准库）。
 
     scripts/seed-demo.py                                # 100 万行，导入 http://127.0.0.1:8787
     scripts/seed-demo.py --rows 20000000                # 想试试更大的
@@ -75,7 +75,7 @@ def main() -> None:
     ap.add_argument("--url", default="http://127.0.0.1:8787", help="服务地址")
     ap.add_argument("--rows", type=int, default=1_000_000, help="行数（默认 100 万）")
     ap.add_argument("--name", default="订单", help="数据集名称")
-    ap.add_argument("--token", default=os.environ.get("WEBEXCEL_TOKEN"), help="登录令牌（开了登录时必填；也可用环境变量 WEBEXCEL_TOKEN）")
+    ap.add_argument("--token", default=os.environ.get("GRIDLAKE_TOKEN"), help="登录令牌（开了登录时必填；也可用环境变量 GRIDLAKE_TOKEN）")
     a = ap.parse_args()
     base = a.url.rstrip("/")
 
@@ -87,7 +87,7 @@ def main() -> None:
         size = os.path.getsize(csv_path)
         print(f"  完成，{size / 1048576:.0f} MB，用时 {time.time() - t:.0f} 秒")
 
-        boundary = "----webexcel-seed"
+        boundary = "----gridlake-seed"
         with open(csv_path, "rb") as f:
             payload = f.read()
         raw = (f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="orders.csv"\r\n'

@@ -47,7 +47,7 @@ jobs:
         run: python3 -I scripts/gen-third-party.py --check
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
-          manifest-path: ledger-server/Cargo.toml
+          manifest-path: server/Cargo.toml
           command: check licenses sources
 
   backend:
@@ -55,7 +55,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ledger-server
+        working-directory: server
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -63,7 +63,7 @@ jobs:
           components: clippy
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: ledger-server
+          workspaces: server
       - name: Clippy（警告视为错误）
         run: cargo clippy --all-targets --locked -- -D warnings
       - name: 单元测试
@@ -76,13 +76,13 @@ jobs:
     runs-on: macos-latest
     defaults:
       run:
-        working-directory: ledger-server
+        working-directory: server
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: ledger-server
+          workspaces: server
       - name: 单元测试
         # macOS 上编译内置的 DuckDB 需要显式指定 C++ 标准库头文件目录
         run: |
@@ -124,9 +124,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: ledger-server
+          workspaces: server
       - name: 编译后端
-        working-directory: ledger-server
+        working-directory: server
         run: cargo build --locked
       - uses: pnpm/action-setup@v4
         with:
@@ -142,7 +142,7 @@ jobs:
       - name: 界面测试
         working-directory: web
         env:
-          LEDGER_BIN: ../ledger-server/target/debug/ledger-server
+          LEDGER_BIN: ../server/target/debug/gridlake
           CHROME_BIN: /usr/bin/google-chrome
         run: pnpm test:ui
       - name: 失败截图

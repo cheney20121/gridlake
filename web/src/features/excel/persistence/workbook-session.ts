@@ -6,7 +6,7 @@ import { disposeWorkbook } from '@/features/excel/data/selection'
 import { setImportRangeContext } from '@/features/excel/formula/import-range'
 import { persistenceManager } from './manager'
 
-const LAST_KEY = 'web-excel-last-workbook'
+const LAST_KEY = 'gridlake-last-workbook'
 
 /** 记住当前打开的工作簿：地址栏 ?wb=（可分享 / 刷新保持）+ 本地最近打开 */
 export function rememberWorkbook(id: string) {

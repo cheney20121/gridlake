@@ -114,7 +114,7 @@ const saveStatusText = computed(() => {
             <text x="8" y="11" text-anchor="middle" fill="white" font-size="9" font-weight="700">E</text>
           </svg>
         </span>
-        <span class="logo-text">Web Excel</span>
+        <span class="logo-text">Gridlake</span>
       </a>
       <span class="divider" />
       <span class="breadcrumb">

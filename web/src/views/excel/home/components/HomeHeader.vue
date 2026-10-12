@@ -23,7 +23,7 @@ const initial = computed(() => props.userName?.trim().charAt(0).toUpperCase() ??
     <div class="logo">
       <svg viewBox="0 0 16 16" width="16" height="16"><path d="M3 3h10v10H3z" fill="none" stroke="#fff" stroke-width="1.2" /><path d="M3 6.5h10M3 9.8h10M7 3v10" stroke="#fff" stroke-width="1" /></svg>
     </div>
-    <span class="whitespace-nowrap text-[15px] font-semibold tracking-wide">WebExcel</span>
+    <span class="whitespace-nowrap text-[15px] font-semibold tracking-wide">Gridlake</span>
     <span class="tagline">亿级数据表格</span>
     <div class="flex-1" />
     <UserMenu v-if="userName">

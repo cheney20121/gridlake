@@ -2,8 +2,8 @@
 **/dist
 **/.DS_Store
 web/.npmrc
-ledger-server/target
-ledger-server/data
+server/target
+server/data
 .playwright-mcp
 .codebuddy
 *.html

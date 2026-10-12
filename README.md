@@ -1,4 +1,4 @@
-# WebExcel
+# Gridlake
 
 **开源、可私有部署的亿级数据表格**：像 Excel 一样用公式和透视表分析上亿行数据。表格界面基于 [Univer](https://github.com/dream-num/univer)，数据放在服务端的 [DuckDB](https://github.com/duckdb/duckdb) 里，浏览器只取看到的那一屏。
 
@@ -16,7 +16,7 @@
 - BI 工具做固定看板很好，但没有 Excel 那样随手写公式、拖透视、自由排版的灵活；
 - 数据库式表格（Airtable / NocoDB / Teable 一类）是「每列一个类型、一行一条记录」，不是 Excel 式的自由表格。
 
-WebExcel 的做法是：**界面是 Excel 式的表格，大数据集在服务端 DuckDB 里计算**。普通工作表、公式、图表照常在浏览器里；引用大数据集的透视表、公式、数据表、图表都下推到服务端算。
+Gridlake 的做法是：**界面是 Excel 式的表格，大数据集在服务端 DuckDB 里计算**。普通工作表、公式、图表照常在浏览器里；引用大数据集的透视表、公式、数据表、图表都下推到服务端算。
 
 ## 性能（实测）
 
@@ -31,7 +31,7 @@ WebExcel 的做法是：**界面是 Excel 式的表格，大数据集在服务�
 | 公式 `DSUMIFS` 单个（两个条件） | 0.17 秒 |
 | 导出 33 万行 CSV | 1.8 秒 |
 
-偏慢的操作也如实列出：冷启动全表排序 11.6 ~ 18 秒（之后同条件 3 毫秒）、1 亿唯一值的精确去重计数 17 ~ 44 秒（可改用近似去重）。复现方法见 `ledger-server/tests/bench/README.md`。
+偏慢的操作也如实列出：冷启动全表排序 11.6 ~ 18 秒（之后同条件 3 毫秒）、1 亿唯一值的精确去重计数 17 ~ 44 秒（可改用近似去重）。复现方法见 `server/tests/bench/README.md`。
 
 ## 功能
 
@@ -52,10 +52,10 @@ WebExcel 的做法是：**界面是 Excel 式的表格，大数据集在服务�
 ### 一分钟体验（Docker）
 
 ```bash
-git clone <本仓库地址> && cd webexcel
+git clone <本仓库地址> && cd gridlake
 mkdir -p data && sudo chown -R 10001:10001 data
 docker compose -f deploy/docker-compose.yml up -d
-docker logs webexcel 2>&1 | grep 初始密码      # 首次启动随机生成的管理员密码
+docker logs gridlake 2>&1 | grep 初始密码      # 首次启动随机生成的管理员密码
 ```
 
 浏览器打开 `http://localhost:8787/excel`，用 `admin` 和上面的密码登录。想先看看效果，导入一份示例数据（合成的订单，默认 100 万行，用 Docker 部署时在本机执行）：
@@ -70,7 +70,7 @@ scripts/seed-demo.py --url http://localhost:8787 --token "$TOKEN" --rows 2000000
 然后在页面里：新建工作簿 → 左侧「数据」面板点开「订单」→ 工具栏「透视分析」。同事的账号在首页「自动化 → 账号管理」里创建。
 
 > 镜像默认从 GitHub Container Registry 拉取发布版（`deploy/docker-compose.yml`）。想用本地源码构建：
-> `docker build -f deploy/Dockerfile -t webexcel:local . && WEBEXCEL_IMAGE=webexcel:local docker compose -f deploy/docker-compose.yml up -d`。
+> `docker build -f deploy/Dockerfile -t gridlake:local . && GRIDLAKE_IMAGE=gridlake:local docker compose -f deploy/docker-compose.yml up -d`。
 > 发布到 GitHub 后用 `scripts/set-repo.sh 用户名/仓库名` 把文档里的占位符 `OWNER` 换成真实地址。
 
 ### 从源码运行（开发）
@@ -79,7 +79,7 @@ scripts/seed-demo.py --url http://localhost:8787 --token "$TOKEN" --rows 2000000
 
 ```bash
 # 后端（默认 http://127.0.0.1:8787，不开启登录；加 LEDGER_AUTH_MODE=local 使用内置账号）
-cd ledger-server && cargo run
+cd server && cargo run
 
 # 前端（另开一个终端，http://localhost:5173/excel/home）
 cd web && pnpm install && pnpm dev
@@ -104,7 +104,7 @@ macOS 上如果编译 DuckDB 报 `'memory' file not found`，加上：`export CX
 
 | 目录 | 内容 |
 |---|---|
-| `ledger-server/` | 后端：Rust + axum + DuckDB（数据集、透视、公式下推、SQL、AI、协作、权限、审批） |
+| `server/` | 后端：Rust + axum + DuckDB（数据集、透视、公式下推、SQL、AI、协作、权限、审批） |
 | `web/` | 前端：Vue 3 + Univer + Element Plus |
 | `deploy/` | Dockerfile、docker-compose、安装脚本、部署手册 |
 | `scripts/` | 敏感内容检查、示例数据导入（`seed-demo.py`）、版本 / 许可证检查 |
@@ -113,8 +113,8 @@ macOS 上如果编译 DuckDB 报 `'memory' file not found`，加上：`export CX
 ## 测试
 
 ```bash
-cd ledger-server && cargo test                       # 后端单元测试
-cd ledger-server && tests/e2e/run.sh                 # 后端端到端测试（每个文件起一个临时库的服务）
+cd server && cargo test                       # 后端单元测试
+cd server && tests/e2e/run.sh                 # 后端端到端测试（每个文件起一个临时库的服务）
 cd web && pnpm test:unit                   # 前端单元测试
 cd web && pnpm test:ui                     # 界面测试（需要本机 Chrome）
 scripts/check-forbidden.sh                           # 敏感内容检查：私钥、内网地址、非官方 npm 源

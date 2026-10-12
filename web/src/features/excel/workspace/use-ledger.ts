@@ -15,7 +15,7 @@ import { SUMMARY_SHEET_NAME } from '@/features/excel/shop-ledger/summary-templat
 export type LedgerCommand = 'import' | 'detail' | 'shops' | 'coverage' | 'close'
 
 /**
- * 店铺资金台账（ledger-server）：月份与锁账、汇总表的加载与重建、台账功能入口（导入明细 / 店铺档案 / 月结完整性 / 月结中心）、
+ * 店铺资金台账（gridlake）：月份与锁账、汇总表的加载与重建、台账功能入口（导入明细 / 店铺档案 / 月结完整性 / 月结中心）、
  * 选中汇总表 / 透视表格子时的「查看明细」下钻，以及「当前工作簿是不是台账」的判断。
  */
 export function useLedger(options: {
@@ -84,7 +84,7 @@ export function useLedger(options: {
   function notifyLedgerError(e: unknown, action: string) {
     console.error(`[ledger] ${action}失败:`, e)
     if (isAxiosError(e) && !e.response)
-      ElMessage.error(`${action}失败：无法连接资金流水服务，请确认 ledger-server 已启动`)
+      ElMessage.error(`${action}失败：无法连接资金流水服务，请确认 gridlake 已启动`)
     else if (!isAxiosError(e))
       ElMessage.error(`${action}失败：${e instanceof Error ? e.message : String(e)}`)
   }

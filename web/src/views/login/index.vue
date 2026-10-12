@@ -6,6 +6,7 @@ import { getLedgerMeApi, loginApi } from '@/api/auth'
 import { LEDGER_SAME_ORIGIN } from '@/api/ledger-base'
 import { useLedgerUserStore } from '@/stores/ledger-user'
 import { setToken } from '@/utils/auth'
+import { runtimeConfig } from '@/utils/runtime-config'
 
 /**
  * 登录页：按服务端的登录方式（LEDGER_AUTH_MODE）显示
@@ -41,7 +42,7 @@ onMounted(async () => {
     router.replace(redirect())
     return
   }
-  const loginUrl = window.__webexcel_config?.loginUrl
+  const loginUrl = runtimeConfig().loginUrl
   if (me.value.mode === 'gateway' && loginUrl) {
     const target = new URL(loginUrl, window.location.origin)
     target.searchParams.set('redirect', new URL(redirect(), window.location.origin).href)
@@ -79,7 +80,7 @@ async function submit() {
     <div class="w-[360px] rounded-xl bg-white p-8 shadow-[0_8px_30px_rgba(0,0,0,0.06)]">
       <div class="mb-6 flex items-center gap-2">
         <span class="h-7 w-7 flex items-center justify-center rounded-md bg-[#107C41] text-sm text-white font-bold">W</span>
-        <span class="text-lg text-gray-900 font-semibold">WebExcel</span>
+        <span class="text-lg text-gray-900 font-semibold">Gridlake</span>
       </div>
       <div v-if="failed" class="text-[13px] text-[#B91C1C] leading-6">
         连不上表格服务：{{ failed }}

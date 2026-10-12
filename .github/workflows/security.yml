@@ -19,7 +19,7 @@ jobs:
       - uses: rustsec/audit-check@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          working-directory: ledger-server
+          working-directory: server
 
   web:
     name: 前端依赖（pnpm audit）

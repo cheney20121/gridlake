@@ -24,19 +24,19 @@ jobs:
     timeout-minutes: 120
     defaults:
       run:
-        working-directory: ledger-server
+        working-directory: server
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: ledger-server
+          workspaces: server
       - name: 编译（release）
         run: cargo build --release --locked && cargo build --release --locked --example inflate
       - name: 取上一次的结果
         uses: actions/cache/restore@v4
         with:
-          path: ledger-server/soak-prev.json
+          path: server/soak-prev.json
           key: soak-result-${{ github.run_id }}
           restore-keys: soak-result-
       - name: 运行
@@ -50,12 +50,12 @@ jobs:
         if: always()
         with:
           name: soak-result
-          path: ledger-server/soak-result.json
+          path: server/soak-result.json
       - name: 记住这次的结果作为下次的对比基线
         if: success()
         run: cp soak-result.json soak-prev.json
       - uses: actions/cache/save@v4
         if: success()
         with:
-          path: ledger-server/soak-prev.json
+          path: server/soak-prev.json
           key: soak-result-${{ github.run_id }}

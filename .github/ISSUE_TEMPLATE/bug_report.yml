@@ -44,7 +44,7 @@ body:
     id: logs
     attributes:
       label: 日志与截图
-      description: 服务日志（`docker logs webexcel`）、浏览器控制台报错。请先去掉密码、令牌等敏感信息
+      description: 服务日志（`docker logs gridlake`）、浏览器控制台报错。请先去掉密码、令牌等敏感信息
       render: shell
   - type: input
     id: env

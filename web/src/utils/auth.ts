@@ -1,4 +1,5 @@
 import Cookies from 'js-cookie'
+import { runtimeConfig } from '@/utils/runtime-config'
 
 /**
  * 页面可读的登录令牌，请求时作为 x-user-token 请求头发给表格服务。只用于两种情况：
@@ -6,7 +7,7 @@ import Cookies from 'js-cookie'
  * - 内置账号 + 前后端跨域部署：由登录页写入。
  * 内置账号 + 同源部署（默认）不走这里：服务端登录时写 HttpOnly 会话 cookie，页面读不到，也不需要读
  */
-const TOKEN_KEY = (window.__webexcel_config?.tokenCookie as string | undefined) || 'webexcel-token'
+const TOKEN_KEY = (runtimeConfig().tokenCookie as string | undefined) || 'webexcel-token'
 
 export function getToken(): string | undefined {
   return Cookies.get(TOKEN_KEY) || undefined

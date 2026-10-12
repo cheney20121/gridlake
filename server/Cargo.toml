@@ -1,0 +1,45 @@
+[package]
+name = "gridlake"
+version = "0.1.0"
+edition = "2024"
+description = "Gridlake 表格服务：亿级数据集、透视、公式下推、SQL、协作与权限（Rust + DuckDB）"
+license = "Apache-2.0"
+
+[dependencies]
+aes-gcm = "0.10"
+anyhow = "1"
+base64 = "0.22"
+axum = { version = "0.8", features = ["multipart"] }
+calamine = { version = "0.26", features = ["dates"] }
+chrono = { version = "0.4.45", default-features = false, features = ["std", "clock"] }
+csv = "1.4.0"
+duckdb = { version = "1", features = ["bundled"] }
+encoding_rs = "0.8"
+hmac = "0.12"
+lettre = { version = "0.11", default-features = false, features = ["builder", "smtp-transport", "tokio1", "tokio1-rustls-tls", "file-transport", "hostname"] }
+flate2 = "1.1.10"
+futures-util = { version = "0.3.34", default-features = false, features = ["std"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream", "json", "multipart"] }
+rust_xlsxwriter = { version = "0.99.1", features = ["constant_memory"] }
+sha2 = "0.10"
+serde = { version = "1", features = ["derive"] }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls-ring-webpki", "mysql", "postgres"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+tempfile = "3"
+tokio = { version = "1", features = ["full"] }
+tokio-util = { version = "0.7.19", features = ["io"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.6", features = ["cors", "trace", "fs", "compression-gzip"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+[profile.dev.package.duckdb]
+opt-level = 2
+[profile.dev.package.libduckdb-sys]
+opt-level = 2
+
+# 密码哈希（60 万次迭代）在调试版里也要快，否则端到端测试登录很慢
+[profile.dev.package.sha2]
+opt-level = 3
+[profile.dev.package.hmac]
+opt-level = 3

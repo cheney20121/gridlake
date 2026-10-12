@@ -68,9 +68,9 @@ def satisfiable(expr: str) -> bool:
 
 def rust():
     meta = json.loads(subprocess.check_output(
-        ["cargo", "metadata", "--manifest-path", str(ROOT / "ledger-server/Cargo.toml"), "--format-version", "1", "--locked"],
+        ["cargo", "metadata", "--manifest-path", str(ROOT / "server/Cargo.toml"), "--format-version", "1", "--locked"],
         text=True))
-    root_ids = {p["id"] for p in meta["packages"] if p["name"] == "ledger-server"}
+    root_ids = {p["id"] for p in meta["packages"] if p["name"] == "gridlake"}
     out = []
     for p in meta["packages"]:
         if p["id"] in root_ids:
@@ -105,7 +105,7 @@ def main():
     lines = [
         "# 第三方许可证",
         "",
-        "WebExcel 本身以 [Apache-2.0](LICENSE) 发布，并使用了下列开源软件。它们各自的许可证和版权声明以对应项目为准；",
+        "Gridlake 本身以 [Apache-2.0](LICENSE) 发布，并使用了下列开源软件。它们各自的许可证和版权声明以对应项目为准；",
         "全部是宽松许可证（MIT / Apache-2.0 / BSD / ISC 等），没有 GPL / AGPL 等传染性许可证。",
         "",
         "重点依赖：[Univer](https://github.com/dream-num/univer)（Apache-2.0，表格界面）、[DuckDB](https://github.com/duckdb/duckdb)（MIT，数据引擎）、",

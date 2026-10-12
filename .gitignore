@@ -2,13 +2,13 @@
 node_modules/
 dist/
 dist-ssr/
-ledger-server/target/
+server/target/
 *.tsbuildinfo
 .eslintcache
 coverage/
 
 # 运行数据与密钥（数据库、备份、收件目录、加密密钥）——不得提交
-ledger-server/data/
+server/data/
 *.duckdb
 *.duckdb.wal*
 secret.key

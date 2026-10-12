@@ -3,7 +3,7 @@ import { LEDGER_BASE } from '@/api/ledger-base'
 import request from '@/utils/request'
 
 /**
- * 服务端工作簿（ledger-server）
+ * 服务端工作簿（gridlake）
  * 内容上传前在浏览器端 gzip 压缩（约 10 倍）；读取时服务端原样返回 gzip，由浏览器按 Content-Encoding 解压。
  * 与 ledger.ts 相同，使用绝对地址绕开 request.ts 改写 baseURL，复用其信封解析与错误提示
  */
@@ -122,7 +122,7 @@ export async function saveWorkbookApi(id: string, json: string, params: { baseVe
     method: 'put',
     params,
     data: await gzipJson(json),
-    // 协作中保存：快照已包含到哪个序号，服务端据此截断变更日志（见 ledger-server/src/collab.rs）
+    // 协作中保存：快照已包含到哪个序号，服务端据此截断变更日志（见 server/src/collab.rs）
     headers: { 'Content-Type': 'application/octet-stream', ...(collabSeq != null ? { 'x-collab-seq': String(collabSeq) } : {}) },
     timeout: 10 * 60 * 1000,
   })

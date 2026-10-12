@@ -13,6 +13,6 @@ export function setupRouterGuard(router: Router) {
       return { name: 'Login', query: { redirect: to.fullPath } }
   })
   router.afterEach((to) => {
-    document.title = to.meta.title ? `${String(to.meta.title)} · WebExcel` : 'WebExcel'
+    document.title = to.meta.title ? `${String(to.meta.title)} · Gridlake` : 'Gridlake'
   })
 }

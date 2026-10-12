@@ -4,7 +4,7 @@ import { LEDGER_BASE } from '@/api/ledger-base'
 import request from '@/utils/request'
 
 /**
- * 店铺资金流水服务（ledger-server，Rust + DuckDB）
+ * 店铺资金流水服务（gridlake，Rust + DuckDB）
  *
  * request.ts 的拦截器会把 baseURL 固定改写为业务网关地址，这里使用绝对地址绕开，
  * 仍然复用其响应信封解析与错误提示。开发环境经 Vite 代理 /ledger-api 转发到 127.0.0.1:8787

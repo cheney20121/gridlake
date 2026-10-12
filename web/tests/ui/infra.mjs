@@ -12,7 +12,7 @@ import zlib from 'node:zlib'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 export const WEB_DIR = path.resolve(here, '../..')
-const SERVER_DIR = path.resolve(WEB_DIR, '../ledger-server')
+const SERVER_DIR = path.resolve(WEB_DIR, '../server')
 
 // UITEST_PORT_OFFSET：整体平移端口，方便同时跑多份界面测试（如两个检出目录、或测试时本机正在手动开发）
 const PORT_OFFSET = Number(process.env.UITEST_PORT_OFFSET || 0)
@@ -102,7 +102,7 @@ export async function startServices({ auth = 'gateway' } = {}) {
     const r = spawnSync('cargo', ['build'], { cwd: SERVER_DIR, encoding: 'utf8' })
     if (r.status !== 0)
       throw new Error(`编译表格服务失败：\n${r.stderr.slice(-2000)}`)
-    bin = path.join(SERVER_DIR, 'target/debug/ledger-server')
+    bin = path.join(SERVER_DIR, 'target/debug/gridlake')
   }
 
   start('gateway', 'python3', [path.join(SERVER_DIR, 'tests/e2e/mock_gateway.py'), String(PORTS.gateway)])

@@ -244,7 +244,7 @@ const {
   onDatasetCommand,
 } = useDatasets({ workspaceView, operatorName })
 
-// ─── 店铺资金流水（ledger-server）───
+// ─── 店铺资金流水（gridlake）───
 const {
   importDialogVisible,
   shopDialogVisible,

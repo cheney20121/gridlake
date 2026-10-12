@@ -31,10 +31,10 @@ export function useUniver(containerId: string = 'univer-container') {
       ready.value = true
       // 仅开发环境：便于在控制台 / 端到端测试中检查工作簿
       if (import.meta.env.DEV) {
-        const w = window as unknown as { __univerAPI?: FUniver, __webexcel?: unknown }
+        const w = window as unknown as { __univerAPI?: FUniver, __gridlake?: unknown }
         w.__univerAPI = ctx.univerAPI
         // 端到端测试用：插入图表 / 看板部件、取页面上的图表实例
-        w.__webexcel = {
+        w.__gridlake = {
           insertChart: (spec: ChartSpec) => insertChart(ctx.univerAPI, spec),
           insertFloat: (key: string, spec: FloatSpec, size: { width: number, height: number }) => insertFloat(ctx.univerAPI, key, spec, size),
           chart: chartInstance,

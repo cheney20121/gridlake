@@ -199,7 +199,7 @@ export async function buildWorkbookXlsx(api: FUniver, fileName: string): Promise
   const ExcelJS = (await import('exceljs')).default
   const snapshot = workbook.save() as IWorkbookData
   const out = new ExcelJS.Workbook()
-  out.creator = 'Web Excel'
+  out.creator = 'Gridlake'
   out.created = new Date()
   // 打开时全部重算：数据表公式转成 SUM(表[列]) 等之后以 Excel 的计算为准（缓存值 0 等也不会丢）
   out.calcProperties = { ...out.calcProperties, fullCalcOnLoad: true }

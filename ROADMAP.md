@@ -1,4 +1,4 @@
-# WebExcel 后续开发路线（ROADMAP）
+# Gridlake 后续开发路线（ROADMAP）
 
 > 本文是对当前代码库的一次盘点：现有功能、作为开源项目的缺口，以及按优先级排列的后续需求。
 > 依据是对仓库的静态阅读（README、部署手册、后端 / 前端目录与关键模块、CI 配置、测试目录），**未运行编译与测试**；测试数量为静态统计，不代表全部通过。
@@ -45,16 +45,16 @@
 | 1 | 补齐社区文件：CONTRIBUTING、SECURITY（漏洞披露渠道）、CODE_OF_CONDUCT、CHANGELOG、Issue / PR 模板 | 仓库根目录缺失 | S | ✅ 已补齐 |
 | 2 | 发布物：GitHub Release 提供 Linux x86 / arm 和 macOS 二进制，镜像推到 GHCR；`docker-compose.yml` 改为拉取镜像；统一版本号 | 后端 0.1.0、前端 0.0.0 | M | ✅ 已实现，待首次打标签验证 |
 | 3 | README 加截图或 GIF、在线 Demo（带示例数据集一键体验）、英文简介 | README 无任何图 | S | ✅ 截图、`seed-demo.py`、英文 README；在线 Demo 需自行部署 |
-| 4 | **权限从黑名单改白名单。** `auth.rs` 的 `FULL_ONLY` 是“受限用户不能调用的接口”清单，新增路由默认对受限用户开放，容易漏。改成默认拒绝，或加测试断言每条路由都已分类 | `ledger-server/src/auth.rs` 的 `FULL_ONLY` | M | ✅ `RESTRICTED_OK` 白名单 + 分类测试 |
+| 4 | **权限从黑名单改白名单。** `auth.rs` 的 `FULL_ONLY` 是“受限用户不能调用的接口”清单，新增路由默认对受限用户开放，容易漏。改成默认拒绝，或加测试断言每条路由都已分类 | `server/src/auth.rs` 的 `FULL_ONLY` | M | ✅ `RESTRICTED_OK` 白名单 + 分类测试 |
 | 5 | **安全默认值：** `AUTH_MODE=off` 同时监听 `0.0.0.0` 时启动即警告或拒绝；`LEDGER_CORS=*` 用了 `very_permissive`，加警告 | `config.rs`、`main.rs` | S | ✅ 拒绝启动 + 警告，`LEDGER_ALLOW_NO_AUTH` |
 | 6 | **登录令牌放在 JS 可读的 cookie 里**（用于 WebSocket 和下载链接）。改为服务端下发 HttpOnly cookie，并补 CSRF 防护；登录失败锁定目前存在内存里，重启清零，可持久化 | `web/src/utils/auth.ts`、`account.rs` | M | ✅ HttpOnly cookie + `x-requested-with` + 失败计数入库 |
-| 7 | 开源合规：用 cargo-deny / license-checker 生成第三方许可证清单和 NOTICE，查“WebExcel”重名与商标，复查 `templates/*.json` 里的业务示例数据是否脱敏 | 仓库内无 NOTICE | S | ✅ NOTICE / 许可证清单 / CI 检查；重名见下 |
+| 7 | 开源合规：用 cargo-deny / license-checker 生成第三方许可证清单和 NOTICE，查“Gridlake”重名与商标，复查 `templates/*.json` 里的业务示例数据是否脱敏 | 仓库内无 NOTICE | S | ✅ NOTICE / 许可证清单 / CI 检查；重名见下 |
 
 **P0 落地后的遗留事项（需要人工决定 / 操作）：**
 
 - 仓库发布到 GitHub 后运行 `scripts/set-repo.sh 用户名/仓库名`，替换文档和镜像地址里的 `OWNER` 占位符；再打 `v0.1.0` 标签验证发布流水线（Linux arm64 / macOS 构建、GHCR 推送尚未实跑）。
-- **项目重名：** 检索发现已有同名项目 [Marco-Sulla/WebExcel](https://github.com/Marco-Sulla/WebExcel)（MIT，Handsontable 衍生的前端表格组件，2020 年后基本停更）及若干小型同名仓库，另有以 Webexcel 命名的公司（如印度的 Webexcel Technologies）。未检索到该名称的商标注册，但检索并不等于商标查询；正式推广前建议到 USPTO / WIPO / 国内商标局核查，或考虑改名。
-- 示例模板（`ledger-server/templates/*.json`）已核对：只含列定义和说明文字，没有真实公司 / 客户 / 联系方式。
+- **项目名：** 原名 WebExcel 与已有的同名项目重名，且包含微软的商标 Excel，已改名为 Gridlake（npm、crates.io 上无同名包，GitHub 上无同名仓库）。正式推广前仍建议到 USPTO / WIPO / 国内商标局核查 “Gridlake”——检索不等于商标查询。
+- 示例模板（`server/templates/*.json`）已核对：只含列定义和说明文字，没有真实公司 / 客户 / 联系方式。
 - 在线 Demo 需要自己部署一个实例（`seed-demo.py` 可导入数据），并建议只读或定时重置。
 
 ### P1：让社区能用起来、能参与

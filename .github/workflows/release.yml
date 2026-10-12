@@ -38,7 +38,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: ledger-server
+          workspaces: server
       - uses: pnpm/action-setup@v4
         with:
           version: 9

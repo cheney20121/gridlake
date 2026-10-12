@@ -5,7 +5,7 @@
 
 import type { PersistedWorkbook, WorkbookSnapshot } from './types'
 
-const DB_NAME = 'web-excel-db'
+const DB_NAME = 'gridlake-db'
 const DB_VERSION = 1
 const WORKBOOKS_STORE = 'workbooks'
 const SNAPSHOTS_STORE = 'snapshots'

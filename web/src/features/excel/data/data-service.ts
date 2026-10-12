@@ -1,5 +1,5 @@
 /**
- * Mock 数据生成器 — 迁移自 web-excel-demo.html
+ * Mock 数据生成器 — 迁移自早期的单文件演示页
  * 生成工业自动化订单数据，用于填充 Univer Worksheet
  */
 
