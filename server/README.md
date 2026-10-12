@@ -17,7 +17,7 @@ cargo run -- reset-password admin --admin   # 重置内置账号密码（服务�
 
 | 模块 | 职责 |
 |---|---|
-| `main.rs` / `routes.rs` / `config.rs` / `db.rs` / `schema.rs` | 启动、路由、配置、数据库连接与建表 |
+| `main.rs` / `routes/` / `config.rs` / `db.rs` / `schema.rs` | 启动与路由注册、HTTP 处理函数（`routes/` 下按功能分文件：`datasets.rs`、`workbooks.rs`、`ledger.rs` 等，共用的辅助函数在 `routes/mod.rs`）、配置、数据库连接与建表 |
 | `auth.rs` / `account.rs` / `scope.rs` | 登录（四种方式）、内置账号、权限规则、操作审计、按店铺的行级权限 |
 | `dataset*.rs` / `views.rs` / `calc.rs` / `usage.rs` | 数据集：导入、游标与取数、计算列、关联视图、回收站、使用统计 |
 | `pivot.rs` / `pivot/` / `pivot_calc.rs` | 透视表（GROUPING SETS 一次算出所有层级）、计算值、计算项 |

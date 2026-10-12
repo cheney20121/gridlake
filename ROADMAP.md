@@ -65,7 +65,7 @@
 | 9 | 国际化：前端接 vue-i18n，后端错误返回错误码加参数，至少补英文 | 目前后端报错直接写中文字符串 | L |
 | 10 | 建 `docs/`：架构说明、平台函数手册（`DSUMIFS` 等）、Excel 公式兼容矩阵、REST API 参考（OpenAPI）、配置项参考；部署手册文件名改英文 | 现在配置只在 `deploy/` 手册里 | M |
 | 11 | CI 增强：`cargo fmt` / `clippy -D warnings`、`cargo audit`、`pnpm audit`、Dependabot / Renovate、macOS / Linux 矩阵、覆盖率徽章 | 当前 CI 只有测试和构建 | S |
-| 12 | 代码拆分：`routes.rs`（2030 行）、`ai/tools.rs`（1836）、`views/excel/index.vue`（934）；目录 `demo-web-vue3` 已改名为 `web`（拆分尚未做） | 降低贡献门槛 | M |
+| 12 | 代码拆分：`routes.rs`（2030 行）已按功能拆成 `routes/` 下 13 个文件；`ai/tools.rs`（1836）、`views/excel/index.vue`（934）尚未拆；目录 `demo-web-vue3` 已改名为 `web` | 降低贡献门槛 | M |
 | 13 | 评估 452 处 `unwrap/expect`（含测试代码）：生产路径换成错误传播，或加 `#![deny(clippy::unwrap_used)]` | 只统计了总数，未区分生产和测试 | M |
 | 14 | Linux 长时间运行验证（soak test）：把 `tests/bench` 的亿级压测做成 nightly CI，建立性能回归基线 | README 自述“没在 Linux 生产长期运行过” | M |
 | 15 | 数据文件升级 / 回滚策略：schema 版本号、迁移说明、备份校验、一键恢复界面 | 升级章节只有手册里的几行 | M |
