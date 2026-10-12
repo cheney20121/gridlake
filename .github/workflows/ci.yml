@@ -112,6 +112,8 @@ jobs:
         run: pnpm lint
       - name: 类型检查
         run: pnpm exec vue-tsc --noEmit -p tsconfig.app.json
+      - name: 国际化检查（t() 用到的键都有英文）
+        run: pnpm i18n:check
       - name: 单元测试
         run: pnpm test:unit
       - name: 构建

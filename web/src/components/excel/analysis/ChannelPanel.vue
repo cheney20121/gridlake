@@ -6,6 +6,7 @@ import { computed, ref, watch } from 'vue'
 import { getAnalysisBreakdownApi } from '@/api/ledger'
 import { formatMoney } from '@/components/excel/ledger-detail/columns'
 import { buildDrillTarget, formatPct, rateOf, WATERFALL_KEYS } from '@/features/excel/shop-ledger/analysis'
+import { t as tr } from '@/i18n'
 import AmountLink from './AmountLink.vue'
 
 const props = defineProps<{
@@ -70,7 +71,7 @@ const steps = computed<Step[]>(() => {
     acc += value
     return step
   })
-  out.push({ key: 'net', label: '资金净额', value: row.values.net, from: 0, to: row.values.net, total: true })
+  out.push({ key: 'net', label: tr('资金净额'), value: row.values.net, from: 0, to: row.values.net, total: true })
   return out
 })
 
@@ -103,10 +104,10 @@ const tiles = computed(() => {
   if (!t)
     return []
   return [
-    { label: '结算实付', value: formatMoney(t.values.gmv), sub: `${t.orders.toLocaleString()} 单` },
-    { label: '平台服务费率', value: formatPct(rateOf(t, 'platformFee')), sub: formatMoney(t.values.platformFee) },
-    { label: '佣金率', value: formatPct(rateOf(t, 'commission')), sub: formatMoney(t.values.commission) },
-    { label: '退款率', value: formatPct(rateOf(t, 'refund')), sub: `${t.refundCount.toLocaleString()} 笔售后` },
+    { label: tr('结算实付'), value: formatMoney(t.values.gmv), sub: `${t.orders.toLocaleString()} 单` },
+    { label: tr('平台服务费率'), value: formatPct(rateOf(t, 'platformFee')), sub: formatMoney(t.values.platformFee) },
+    { label: tr('佣金率'), value: formatPct(rateOf(t, 'commission')), sub: formatMoney(t.values.commission) },
+    { label: tr('退款率'), value: formatPct(rateOf(t, 'refund')), sub: `${t.refundCount.toLocaleString()} 笔售后` },
   ]
 })
 
@@ -120,12 +121,12 @@ function exportSheet() {
     name: `渠道分析_${props.period}`,
     title: `渠道资金瀑布 ${props.period}${props.shop ? ` · ${props.shop}` : ' · 全部店铺'}`,
     columns: [
-      { title: '渠道' },
+      { title: tr('渠道') },
       ...TABLE_KEYS.map(k => ({ title: metricOf(k).label, kind: 'money' as const })),
-      { title: '结算订单数', kind: 'int' },
-      { title: '平台服务费率', kind: 'percent' },
-      { title: '佣金率', kind: 'percent' },
-      { title: '退款率', kind: 'percent' },
+      { title: tr('结算订单数'), kind: 'int' },
+      { title: tr('平台服务费率'), kind: 'percent' },
+      { title: tr('佣金率'), kind: 'percent' },
+      { title: tr('退款率'), kind: 'percent' },
     ],
     rows: rows.map(r => [
       r.name,
@@ -157,11 +158,11 @@ function exportSheet() {
 
     <div v-if="data" class="rounded border border-[#e6e6e6] border-solid p-3">
       <div class="mb-2 flex items-center gap-3">
-        <span class="text-gray-800 font-semibold">资金瀑布 · {{ selectedName }}</span>
-        <span class="legend"><i class="dot bg-[#3b7dd8]" />增加</span>
-        <span class="legend"><i class="dot bg-[#d4544f]" />扣减</span>
-        <span class="legend"><i class="dot bg-[#5f5e5a]" />资金净额</span>
-        <span class="text-xs text-gray-400">点击下表的渠道行切换；点击柱子查看构成明细</span>
+        <span class="text-gray-800 font-semibold">{{ $t('资金瀑布 · {0}', [selectedName]) }}</span>
+        <span class="legend"><i class="dot bg-[#3b7dd8]" />{{ $t('增加') }}</span>
+        <span class="legend"><i class="dot bg-[#d4544f]" />{{ $t('扣减') }}</span>
+        <span class="legend"><i class="dot bg-[#5f5e5a]" />{{ $t('资金净额') }}</span>
+        <span class="text-xs text-gray-400">{{ $t('点击下表的渠道行切换；点击柱子查看构成明细') }}</span>
       </div>
       <div class="relative h-56 flex gap-2 border-b border-[#d9d9d6] border-b-solid">
         <div class="pointer-events-none absolute left-0 right-0 border-t border-[#b4b2a9] border-t-dashed" :style="{ bottom: zeroLine }" />
@@ -187,10 +188,10 @@ function exportSheet() {
 
     <div class="flex items-center justify-between">
       <span class="text-xs text-gray-400">
-        各项之和 = 资金净额；「其他收支」含运费险、小额打款、提现、千川充值等非订单收支。点击金额可下钻明细，明细贡献合计与此一致
+        {{ $t('各项之和 = 资金净额；「其他收支」含运费险、小额打款、提现、千川充值等非订单收支。点击金额可下钻明细，明细贡献合计与此一致') }}
       </span>
       <el-button size="small" @click="exportSheet">
-        写入工作表
+        {{ $t('写入工作表') }}
       </el-button>
     </div>
     <el-table
@@ -200,7 +201,7 @@ function exportSheet() {
       :row-class-name="({ row }: { row: AnalysisRow }) => (row === data!.total ? 'total-row' : (selectedKey === row.key ? 'selected-row' : ''))"
       @row-click="(row: AnalysisRow) => selectedKey = row === data!.total ? null : row.key"
     >
-      <el-table-column label="渠道" prop="name" width="110" fixed />
+      <el-table-column :label="$t('渠道')" prop="name" width="110" fixed />
       <el-table-column v-for="k in TABLE_KEYS" :key="k" :label="metricOf(k).label" align="right" min-width="118">
         <template #header>
           <el-tooltip :content="metricOf(k).hint" placement="top">
@@ -211,22 +212,22 @@ function exportSheet() {
           <AmountLink :value="row.values[k]" @drill="drill(k, row, row === data.total)" />
         </template>
       </el-table-column>
-      <el-table-column label="订单数" align="right" width="90">
+      <el-table-column :label="$t('订单数')" align="right" width="90">
         <template #default="{ row }">
           {{ row.orders.toLocaleString() }}
         </template>
       </el-table-column>
-      <el-table-column label="平台费率" align="right" width="84">
+      <el-table-column :label="$t('平台费率')" align="right" width="84">
         <template #default="{ row }">
           {{ formatPct(rateOf(row, 'platformFee')) }}
         </template>
       </el-table-column>
-      <el-table-column label="佣金率" align="right" width="80">
+      <el-table-column :label="$t('佣金率')" align="right" width="80">
         <template #default="{ row }">
           {{ formatPct(rateOf(row, 'commission')) }}
         </template>
       </el-table-column>
-      <el-table-column label="退款率" align="right" width="80">
+      <el-table-column :label="$t('退款率')" align="right" width="80">
         <template #default="{ row }">
           {{ formatPct(rateOf(row, 'refund')) }}
         </template>

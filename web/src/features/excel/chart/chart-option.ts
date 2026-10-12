@@ -1,5 +1,6 @@
 import type { EChartsOption, SeriesOption } from 'echarts'
 import type { ChartData, ChartSpec } from './types'
+import { t } from '@/i18n'
 import { toNumber, toSlices } from './chart-data'
 
 /**
@@ -381,7 +382,7 @@ export interface BuiltOption {
 
 export function buildOption(spec: ChartSpec, data: ChartData): BuiltOption {
   if (!data.categories.length || !data.series.length)
-    return { option: { title: { text: '没有数据', left: 'center', top: 'middle', textStyle: { color: INK.muted, fontFamily: FONT, fontSize: 13, fontWeight: 400 } } }, notes: data.notes }
+    return { option: { title: { text: t('没有数据'), left: 'center', top: 'middle', textStyle: { color: INK.muted, fontFamily: FONT, fontSize: 13, fontWeight: 400 } } }, notes: data.notes }
   switch (spec.type) {
     case 'pie':
     case 'donut': {

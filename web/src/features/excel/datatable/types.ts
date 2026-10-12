@@ -6,6 +6,7 @@ import type { ColumnStyle } from '@/components/excel/big-grid/column-style'
 import type { FloatLocation } from '@/features/excel/chart/chart-manager'
 import { insertFloat, listFloats, sheetHeaderSize } from '@/features/excel/chart/chart-manager'
 import { datasetById, slicerFiltersFor } from '@/features/excel/dashboard/slicer'
+import { t as tr } from '@/i18n'
 
 /**
  * 数据表：把数据集（或关联视图）的明细放进工作表，占位固定、内部滚动，千万行也只取可视区域
@@ -189,7 +190,7 @@ export function searchable(datasetId: string) {
 export function insertDataTable(api: FUniver, init: { datasetId: string, datasetName: string, name?: string, fields?: string[], filters?: DatasetFilter[], sort?: DatasetSort[], keyword?: string }) {
   const sheet = api.getActiveWorkbook()?.getActiveSheet()
   if (!sheet)
-    throw new Error('没有打开的工作表')
+    throw new Error(tr('没有打开的工作表'))
   const cell = sheet.getSelection()?.getActiveRange()
   const at = cellPixel(sheet, cell?.getRow() ?? 0, cell?.getColumn() ?? 0)
   const spec: DataTableSpec = {

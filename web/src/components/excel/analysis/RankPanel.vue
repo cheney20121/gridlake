@@ -5,6 +5,7 @@ import type { DrillTarget } from '@/features/excel/shop-ledger/ledger-workbook'
 import { computed, ref, watch } from 'vue'
 import { getAnalysisBreakdownApi } from '@/api/ledger'
 import { buildDrillTarget, dimensionLabel, formatPct, rateOf } from '@/features/excel/shop-ledger/analysis'
+import { t } from '@/i18n'
 import AmountLink from './AmountLink.vue'
 
 const props = defineProps<{
@@ -47,9 +48,9 @@ const metricOf = (key: AnalysisMetricKey) => data.value?.metrics.find(m => m.key
 // ── 异常标记 ──
 type Flag = 'highCommission' | 'highRefund' | 'negative'
 const FLAG_META: Record<Flag, { label: string, cls: string, hint: string }> = {
-  highCommission: { label: '高佣', cls: 'flag-warn', hint: '佣金率 ≥ 35%，且高于整体佣金率 1.5 倍' },
-  highRefund: { label: '高退款', cls: 'flag-bad', hint: '退款率 ≥ 整体退款率 2 倍（结算实付 ≥ 1,000）' },
-  negative: { label: '负贡献', cls: 'flag-bad', hint: '资金净额为负：扣除佣金、费用、退款后倒贴' },
+  highCommission: { label: t('高佣'), cls: 'flag-warn', hint: t('佣金率 ≥ 35%，且高于整体佣金率 1.5 倍') },
+  highRefund: { label: t('高退款'), cls: 'flag-bad', hint: t('退款率 ≥ 整体退款率 2 倍（结算实付 ≥ 1,000）') },
+  negative: { label: t('负贡献'), cls: 'flag-bad', hint: t('资金净额为负：扣除佣金、费用、退款后倒贴') },
 }
 
 const baseline = computed(() => data.value
@@ -135,12 +136,12 @@ function exportSheet() {
     columns: [
       { title: DIM_LABEL[props.by], width: 260 },
       { title: 'ID', width: 170 },
-      { title: '结算订单数', kind: 'int' },
+      { title: t('结算订单数'), kind: 'int' },
       ...MONEY_COLS.map(c => ({ title: metricOf(c.key).label, kind: 'money' as const })),
-      { title: '佣金率', kind: 'percent' },
-      { title: '退款率', kind: 'percent' },
-      { title: '净回款率', kind: 'percent' },
-      { title: '标记', width: 140 },
+      { title: t('佣金率'), kind: 'percent' },
+      { title: t('退款率'), kind: 'percent' },
+      { title: t('净回款率'), kind: 'percent' },
+      { title: t('标记'), width: 140 },
     ],
     rows: filtered.value.map(r => [
       r.name,
@@ -159,10 +160,10 @@ function exportSheet() {
 <template>
   <div v-loading="loading" class="flex flex-col gap-3">
     <div class="flex flex-wrap items-center gap-2">
-      <el-input v-model="keyword" size="small" clearable :placeholder="`搜索${DIM_LABEL[by]}名称 / ID`" class="!w-56" />
+      <el-input v-model="keyword" size="small" clearable :placeholder="$t('搜索{0}名称 / ID', [DIM_LABEL[by]])" class="!w-56" />
       <el-radio-group v-model="flagFilter" size="small">
         <el-radio-button value="">
-          全部 {{ data?.rows.length ?? 0 }}
+          {{ $t('全部 {0}', [data?.rows.length ?? 0]) }}
         </el-radio-button>
         <el-radio-button v-for="(m, f) in FLAG_META" :key="f" :value="f">
           <el-tooltip :content="m.hint" placement="top">
@@ -171,10 +172,10 @@ function exportSheet() {
         </el-radio-button>
       </el-radio-group>
       <span v-if="data" class="text-xs text-gray-400">
-        整体佣金率 {{ formatPct(baseline.commission) }} · 整体退款率 {{ formatPct(baseline.refund) }}
+        {{ $t('整体佣金率 {0} · 整体退款率 {1}', [formatPct(baseline.commission), formatPct(baseline.refund)]) }}
       </span>
       <el-button size="small" class="ml-auto" @click="exportSheet">
-        写入工作表
+        {{ $t('写入工作表') }}
       </el-button>
     </div>
 
@@ -188,7 +189,7 @@ function exportSheet() {
           </el-tooltip>
         </template>
       </el-table-column>
-      <el-table-column label="订单数" prop="orders" sortable="custom" align="right" width="90">
+      <el-table-column :label="$t('订单数')" prop="orders" sortable="custom" align="right" width="90">
         <template #default="{ row }">
           {{ row.orders.toLocaleString() }}
         </template>
@@ -198,17 +199,17 @@ function exportSheet() {
           <AmountLink :value="row.values[c.key]" @drill="drill(c.key, row)" />
         </template>
       </el-table-column>
-      <el-table-column label="佣金率" prop="commissionRate" sortable="custom" align="right" width="90">
+      <el-table-column :label="$t('佣金率')" prop="commissionRate" sortable="custom" align="right" width="90">
         <template #default="{ row }">
           {{ formatPct(rateOf(row, 'commission')) }}
         </template>
       </el-table-column>
-      <el-table-column label="退款率" prop="refundRate" sortable="custom" align="right" width="90">
+      <el-table-column :label="$t('退款率')" prop="refundRate" sortable="custom" align="right" width="90">
         <template #default="{ row }">
           {{ formatPct(rateOf(row, 'refund')) }}
         </template>
       </el-table-column>
-      <el-table-column label="净回款率" prop="netRate" sortable="custom" align="right" width="100">
+      <el-table-column :label="$t('净回款率')" prop="netRate" sortable="custom" align="right" width="100">
         <template #default="{ row }">
           {{ formatPct(rateOf(row, 'net')) }}
         </template>

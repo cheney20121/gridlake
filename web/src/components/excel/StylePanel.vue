@@ -139,27 +139,27 @@ onUnmounted(() => {
 <template>
   <div class="style-panel">
     <div v-if="!hasSelection" class="no-selection">
-      请先选择单元格或区域
+      {{ $t('请先选择单元格或区域') }}
     </div>
 
     <template v-else>
       <!-- 预设样式 -->
       <div class="panel-section">
         <div class="section-label">
-          预设样式
+          {{ $t('预设样式') }}
         </div>
         <div class="preset-grid">
           <el-button size="small" @click="applyPreset('header')">
-            表头
+            {{ $t('表头') }}
           </el-button>
           <el-button size="small" @click="applyPreset('highlight')">
-            高亮
+            {{ $t('高亮') }}
           </el-button>
           <el-button size="small" type="danger" plain @click="applyPreset('warning')">
-            警告
+            {{ $t('警告') }}
           </el-button>
           <el-button size="small" type="success" plain @click="applyPreset('success')">
-            成功
+            {{ $t('成功') }}
           </el-button>
         </div>
       </div>
@@ -167,7 +167,7 @@ onUnmounted(() => {
       <!-- 字体设置 -->
       <div class="panel-section">
         <div class="section-label">
-          字体
+          {{ $t('字体') }}
         </div>
         <div class="style-row">
           <el-select v-model="fontFamily" size="small" style="width: 130px" @change="applyFontFamily">
@@ -191,12 +191,12 @@ onUnmounted(() => {
       <!-- 颜色设置 -->
       <div class="panel-section">
         <div class="section-label">
-          颜色
+          {{ $t('颜色') }}
         </div>
         <div class="color-row">
-          <span class="color-label">文字</span>
+          <span class="color-label">{{ $t('文字') }}</span>
           <el-color-picker v-model="fontColor" size="small" @change="applyFontColor" />
-          <span class="color-label">背景</span>
+          <span class="color-label">{{ $t('背景') }}</span>
           <el-color-picker v-model="bgColor" size="small" @change="applyBgColor" />
         </div>
         <div class="preset-colors">
@@ -213,31 +213,31 @@ onUnmounted(() => {
       <!-- 对齐设置 -->
       <div class="panel-section">
         <div class="section-label">
-          对齐方式
+          {{ $t('对齐方式') }}
         </div>
         <div class="align-row">
           <el-button-group>
             <el-button size="small" :type="hAlign === 'left' ? 'primary' : 'default'" @click="hAlign = 'left'; applyHAlign()">
-              左
+              {{ $t('左') }}
             </el-button>
             <el-button size="small" :type="hAlign === 'center' ? 'primary' : 'default'" @click="hAlign = 'center'; applyHAlign()">
-              中
+              {{ $t('中') }}
             </el-button>
             <el-button size="small" :type="hAlign === 'right' ? 'primary' : 'default'" @click="hAlign = 'right'; applyHAlign()">
-              右
+              {{ $t('右') }}
             </el-button>
           </el-button-group>
         </div>
         <div class="align-row">
           <el-button-group>
             <el-button size="small" :type="vAlign === 'top' ? 'primary' : 'default'" @click="vAlign = 'top'; applyVAlign()">
-              上
+              {{ $t('上') }}
             </el-button>
             <el-button size="small" :type="vAlign === 'middle' ? 'primary' : 'default'" @click="vAlign = 'middle'; applyVAlign()">
-              中
+              {{ $t('中') }}
             </el-button>
             <el-button size="small" :type="vAlign === 'bottom' ? 'primary' : 'default'" @click="vAlign = 'bottom'; applyVAlign()">
-              下
+              {{ $t('下') }}
             </el-button>
           </el-button-group>
         </div>
@@ -245,9 +245,7 @@ onUnmounted(() => {
 
       <!-- 选区信息 -->
       <div class="selection-info">
-        选区: {{ String.fromCharCode(65 + startCol) }}{{ startRow + 1 }}:{{
-          String.fromCharCode(65 + endCol)
-        }}{{ endRow + 1 }}
+        {{ $t('选区: {0}{1}:{2}{3}', [String.fromCharCode(65 + startCol), startRow + 1, String.fromCharCode(65 + endCol), endRow + 1]) }}
       </div>
     </template>
   </div>

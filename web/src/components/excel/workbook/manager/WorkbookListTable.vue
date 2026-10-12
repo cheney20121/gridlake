@@ -48,57 +48,57 @@ function sizeText(n: number) {
     <el-table-column type="selection" width="36" />
     <el-table-column width="30">
       <template #default="{ row }">
-        <span class="star" :class="{ on: row.starred }" :title="row.starred ? '取消星标' : '加星标'" @click.stop="emit('star', row)">{{ row.starred ? '★' : '☆' }}</span>
+        <span class="star" :class="{ on: row.starred }" :title="row.starred ? $t('取消星标') : $t('加星标')" @click.stop="emit('star', row)">{{ row.starred ? '★' : '☆' }}</span>
       </template>
     </el-table-column>
-    <el-table-column label="名称" min-width="150">
+    <el-table-column :label="$t('名称')" min-width="150">
       <template #default="{ row }">
         <button class="name-link" @click="emit('open', row)">
           {{ row.name }}
         </button>
         <el-tag v-if="row.id === currentId" size="small" type="success" class="ml-2">
-          当前
+          {{ $t('当前') }}
         </el-tag>
         <div v-if="showPath" class="text-xs text-gray-400">
-          {{ pathOf(row.folderId) || '我的工作簿' }}
+          {{ pathOf(row.folderId) || $t('我的工作簿') }}
         </div>
       </template>
     </el-table-column>
-    <el-table-column v-if="ledgerUser.authRequired" label="所有者 / 共享" width="170">
+    <el-table-column v-if="ledgerUser.authRequired" :label="$t('所有者 / 共享')" width="170">
       <template #default="{ row }">
         <div class="flex flex-col gap-0.5">
-          <span class="truncate text-gray-600" :title="row.ownerName || '没有所有者（仅管理员可管理）'">{{ row.ownerName || '—' }}</span>
+          <span class="truncate text-gray-600" :title="row.ownerName || $t('没有所有者（仅管理员可管理）')">{{ row.ownerName || '—' }}</span>
           <WorkbookShare :workbook="row" @changed="(m: WorkbookMeta) => Object.assign(row, m)" />
         </div>
       </template>
     </el-table-column>
-    <el-table-column label="最后修改" min-width="190">
+    <el-table-column :label="$t('最后修改')" min-width="190">
       <template #default="{ row }">
         <span>{{ row.updatedAt }}</span>
         <span class="ml-1 text-gray-400">{{ row.updatedBy }}</span>
       </template>
     </el-table-column>
-    <el-table-column label="版本" prop="version" width="56" align="right" />
-    <el-table-column label="大小" width="76" align="right">
+    <el-table-column :label="$t('版本')" prop="version" width="56" align="right" />
+    <el-table-column :label="$t('大小')" width="76" align="right">
       <template #default="{ row }">
-        <el-tooltip :content="`压缩后存储 ${sizeText(row.storedSize)}`" placement="top">
+        <el-tooltip :content="$t('压缩后存储 {0}', [sizeText(row.storedSize)])" placement="top">
           <span>{{ sizeText(row.size) }}</span>
         </el-tooltip>
       </template>
     </el-table-column>
     <el-table-column width="220" align="right" fixed="right">
       <template #default="{ row }">
-        <el-button link size="small" :disabled="!canEdit(row)" :title="canEdit(row) ? '' : '只有所有者开放编辑后才能修改'" @click="emit('rename', row)">
-          重命名
+        <el-button link size="small" :disabled="!canEdit(row)" :title="canEdit(row) ? '' : $t('只有所有者开放编辑后才能修改')" @click="emit('rename', row)">
+          {{ $t('重命名') }}
         </el-button>
         <el-button link size="small" @click="emit('duplicate', row)">
-          复制
+          {{ $t('复制') }}
         </el-button>
         <el-button link size="small" :disabled="!canEdit(row)" @click="emit('move', [row])">
-          移动
+          {{ $t('移动') }}
         </el-button>
-        <el-button link size="small" type="danger" :disabled="row.id === currentId || !canManage(row)" :title="canManage(row) ? '' : '只有所有者或管理员可以删除'" @click="emit('remove', [row])">
-          删除
+        <el-button link size="small" type="danger" :disabled="row.id === currentId || !canManage(row)" :title="canManage(row) ? '' : $t('只有所有者或管理员可以删除')" @click="emit('remove', [row])">
+          {{ $t('删除') }}
         </el-button>
       </template>
     </el-table-column>

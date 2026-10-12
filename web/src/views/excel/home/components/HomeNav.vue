@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Component } from 'vue'
 import { Clock, Collection, Cpu, DataAnalysis, Star } from '@element-plus/icons-vue'
+import { t } from '@/i18n'
 
 /** 首页左侧导航：最近 / 星标 / 数据中心 / 自动化 + 模板库 */
 export type HomeSection = 'recent' | 'starred' | 'data' | 'automation'
@@ -18,10 +19,10 @@ const emit = defineEmits<{
 }>()
 
 const NAV: { key: HomeSection, label: string, icon: Component }[] = [
-  { key: 'recent', label: '最近', icon: Clock },
-  { key: 'starred', label: '已加星标', icon: Star },
-  { key: 'data', label: '数据中心', icon: DataAnalysis },
-  { key: 'automation', label: '自动化', icon: Cpu },
+  { key: 'recent', label: t('最近'), icon: Clock },
+  { key: 'starred', label: t('已加星标'), icon: Star },
+  { key: 'data', label: t('数据中心'), icon: DataAnalysis },
+  { key: 'automation', label: t('自动化'), icon: Cpu },
 ]
 </script>
 
@@ -33,14 +34,14 @@ const NAV: { key: HomeSection, label: string, icon: Component }[] = [
       </el-icon>
       <span>{{ n.label }}</span>
       <span v-if="n.key === 'data'" class="count">{{ datasetCount }}</span>
-      <span v-if="n.key === 'automation' && failures" class="ml-auto h-1.5 w-1.5 rounded-full bg-[#DC2626]" :title="`${failures} 个数据连接同步失败`" />
+      <span v-if="n.key === 'automation' && failures" class="ml-auto h-1.5 w-1.5 rounded-full bg-[#DC2626]" :title="$t('{0} 个数据连接同步失败', [failures])" />
     </button>
     <div class="mx-1 my-2 border-t border-[#eef0ee] border-t-solid" />
     <button type="button" class="nav-item" @click="emit('templates')">
       <el-icon :size="16">
         <Collection />
       </el-icon>
-      <span>模板库</span>
+      <span>{{ $t('模板库') }}</span>
     </button>
   </nav>
 </template>

@@ -35,53 +35,53 @@ const isDate = (col: string) => builderDs.value?.columns.find(c => c.title === c
 <template>
   <div class="builder">
     <div class="row">
-      <span class="label">数据集</span>
-      <el-select :model-value="model.dataset" size="small" filterable placeholder="选择数据集" class="!w-60" @update:model-value="setBuilderDataset">
+      <span class="label">{{ $t('数据集') }}</span>
+      <el-select :model-value="model.dataset" size="small" filterable :placeholder="$t('选择数据集')" class="!w-60" @update:model-value="setBuilderDataset">
         <el-option v-for="d in datasets" :key="d.id" :label="d.name" :value="d.name" />
       </el-select>
     </div>
     <template v-if="builderDs">
       <div class="row items-start">
-        <span class="label">{{ model.measures.length ? '分组' : '列' }}</span>
+        <span class="label">{{ model.measures.length ? $t('分组') : $t('列') }}</span>
         <div class="flex flex-1 flex-wrap items-center gap-2">
           <div v-for="(f, i) in model.fields" :key="i" class="chip">
             <el-select v-model="f.column" size="small" class="!w-36">
               <el-option v-for="c in builderDs.columns" :key="c.key" :label="c.title" :value="c.title" />
             </el-select>
-            <el-select v-if="isDate(f.column)" v-model="f.granularity" size="small" class="!w-20" placeholder="原值">
-              <el-option label="原值" :value="(null as unknown as string)" />
-              <el-option label="按年" value="year" />
-              <el-option label="按月" value="month" />
-              <el-option label="按日" value="day" />
+            <el-select v-if="isDate(f.column)" v-model="f.granularity" size="small" class="!w-20" :placeholder="$t('原值')">
+              <el-option :label="$t('原值')" :value="(null as unknown as string)" />
+              <el-option :label="$t('按年')" value="year" />
+              <el-option :label="$t('按月')" value="month" />
+              <el-option :label="$t('按日')" value="day" />
             </el-select>
             <span class="x" @click="model.fields.splice(i, 1)">×</span>
           </div>
           <el-button size="small" link type="primary" @click="addField">
-            + 添加
+            {{ $t('+ 添加') }}
           </el-button>
-          <span v-if="!model.fields.length && !model.measures.length" class="text-xs text-gray-400">不选则列出全部列</span>
+          <span v-if="!model.fields.length && !model.measures.length" class="text-xs text-gray-400">{{ $t('不选则列出全部列') }}</span>
         </div>
       </div>
       <div class="row items-start">
-        <span class="label">汇总</span>
+        <span class="label">{{ $t('汇总') }}</span>
         <div class="flex flex-1 flex-wrap items-center gap-2">
           <div v-for="(m, i) in model.measures" :key="i" class="chip">
             <el-select v-model="m.agg" size="small" class="!w-24">
               <el-option v-for="(label, k) in AGG_LABEL" :key="k" :label="label" :value="(k as Agg)" />
             </el-select>
-            <el-select v-model="m.column" size="small" class="!w-36" :placeholder="m.agg === 'count' ? '全部行' : '选择列'" clearable>
+            <el-select v-model="m.column" size="small" class="!w-36" :placeholder="m.agg === 'count' ? $t('全部行') : $t('选择列')" clearable>
               <el-option v-for="c in builderDs.columns.filter(c => m.agg === 'count' || m.agg === 'count_distinct' || m.agg === 'min' || m.agg === 'max' || ['money', 'number'].includes(c.kind))" :key="c.key" :label="c.title" :value="c.title" />
             </el-select>
-            <el-input v-model="m.alias" size="small" class="!w-28" placeholder="结果列名" />
+            <el-input v-model="m.alias" size="small" class="!w-28" :placeholder="$t('结果列名')" />
             <span class="x" @click="model.measures.splice(i, 1)">×</span>
           </div>
           <el-button size="small" link type="primary" @click="addMeasure">
-            + 添加
+            {{ $t('+ 添加') }}
           </el-button>
         </div>
       </div>
       <div class="row items-start">
-        <span class="label">筛选</span>
+        <span class="label">{{ $t('筛选') }}</span>
         <div class="flex flex-1 flex-col gap-1.5">
           <div v-for="(f, i) in model.filters" :key="i" class="chip self-start">
             <el-select v-model="f.column" size="small" class="!w-36">
@@ -91,31 +91,31 @@ const isDate = (col: string) => builderDs.value?.columns.find(c => c.title === c
               <el-option v-for="(label, k) in OP_LABEL" :key="k" :label="label" :value="(k as FilterOp)" />
             </el-select>
             <template v-if="f.op !== 'empty' && f.op !== 'not_empty'">
-              <el-input v-model="f.value" size="small" class="!w-40" :placeholder="isDate(f.column) ? '如 2026-09-01' : '值'" />
+              <el-input v-model="f.value" size="small" class="!w-40" :placeholder="isDate(f.column) ? $t('如 2026-09-01') : $t('值')" />
               <template v-if="f.op === 'between'">
                 <span class="text-gray-400">~</span>
-                <el-input v-model="f.value2" size="small" class="!w-40" :placeholder="isDate(f.column) ? '如 2026-09-30' : '值'" />
+                <el-input v-model="f.value2" size="small" class="!w-40" :placeholder="isDate(f.column) ? $t('如 2026-09-30') : $t('值')" />
               </template>
             </template>
             <span class="x" @click="model.filters.splice(i, 1)">×</span>
           </div>
           <el-button size="small" link type="primary" class="self-start" @click="addFilter">
-            + 添加条件
+            {{ $t('+ 添加条件') }}
           </el-button>
         </div>
       </div>
       <div class="row">
-        <span class="label">排序</span>
-        <el-select :model-value="model.sort?.by ?? ''" size="small" class="!w-44" clearable placeholder="默认" @update:model-value="(v: string) => model.sort = v ? { by: v, desc: model.sort?.desc ?? true } : null">
+        <span class="label">{{ $t('排序') }}</span>
+        <el-select :model-value="model.sort?.by ?? ''" size="small" class="!w-44" clearable :placeholder="$t('默认')" @update:model-value="(v: string) => model.sort = v ? { by: v, desc: model.sort?.desc ?? true } : null">
           <el-option v-for="o in sortOptions(model, builderDs)" :key="o" :label="o" :value="o" />
         </el-select>
         <el-select v-if="model.sort" v-model="model.sort.desc" size="small" class="!w-24">
-          <el-option label="从大到小" :value="true" />
-          <el-option label="从小到大" :value="false" />
+          <el-option :label="$t('从大到小')" :value="true" />
+          <el-option :label="$t('从小到大')" :value="false" />
         </el-select>
-        <span class="label ml-4">最多</span>
+        <span class="label ml-4">{{ $t('最多') }}</span>
         <el-input-number v-model="model.limit" size="small" :min="1" :max="1000000" :step="100" controls-position="right" class="!w-32" />
-        <span class="text-xs text-gray-400">行</span>
+        <span class="text-xs text-gray-400">{{ $t('行') }}</span>
       </div>
       <pre class="preview-sql">{{ builderSql }}</pre>
     </template>

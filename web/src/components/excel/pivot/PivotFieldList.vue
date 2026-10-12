@@ -20,8 +20,8 @@ const search = defineModel<string>('search', { required: true })
 <template>
   <div class="section">
     <div class="section-title">
-      字段
-      <el-input v-model="search" size="small" clearable placeholder="搜索" class="!w-28" />
+      {{ $t('字段') }}
+      <el-input v-model="search" size="small" clearable :placeholder="$t('搜索')" class="!w-28" />
     </div>
     <draggable
       :list="fields"
@@ -32,7 +32,7 @@ const search = defineModel<string>('search', { required: true })
       class="field-list"
     >
       <template #item="{ element }">
-        <div class="field" :class="{ used: used.has(element.title) }" title="拖到下方区域，或点右侧按钮添加">
+        <div class="field" :class="{ used: used.has(element.title) }" :title="$t('拖到下方区域，或点右侧按钮添加')">
           <span class="kind">{{ KIND_ICON[element.kind] ?? 'Aa' }}</span>
           <span class="min-w-0 flex-1 truncate">{{ element.title }}</span>
           <el-dropdown trigger="click" size="small" @command="(a: Area) => emit('add', a, element)">
@@ -40,7 +40,7 @@ const search = defineModel<string>('search', { required: true })
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item v-for="a in AREAS" :key="a.key" :command="a.key">
-                  添加到{{ a.label }}
+                  {{ $t('添加到{0}', [a.label]) }}
                 </el-dropdown-item>
               </el-dropdown-menu>
             </template>

@@ -5,6 +5,7 @@ import type { LedgerPeriod } from '@/api/ledger'
 import type { WorkbookFolder } from '@/api/workbook'
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { listFoldersApi } from '@/api/workbook'
+import LanguageSwitch from '@/components/common/LanguageSwitch.vue'
 import UserMenu from '@/components/excel/account/UserMenu.vue'
 import { collabSession } from '@/features/excel/collaboration/session'
 import { collaborationSync } from '@/features/excel/collaboration/sync-engine'
@@ -107,7 +108,7 @@ const saveStatusText = computed(() => {
 <template>
   <header class="excel-topbar">
     <div class="topbar-left">
-      <a class="home-link" :href="homeHref" title="返回首页：最近的工作簿、数据中心、自动化">
+      <a class="home-link" :href="homeHref" :title="$t('返回首页：最近的工作簿、数据中心、自动化')">
         <span class="logo-mark">
           <svg viewBox="0 0 16 16" width="14" height="14">
             <rect x="2" y="2" width="12" height="12" rx="2" fill="#107C41" />
@@ -118,69 +119,70 @@ const saveStatusText = computed(() => {
       </a>
       <span class="divider" />
       <span class="breadcrumb">
-        <a class="crumb" :href="homeHref" title="返回首页">首页</a>
+        <a class="crumb" :href="homeHref" :title="$t('返回首页')">{{ $t('首页') }}</a>
         <template v-for="f in folderChain" :key="f.id">
           <span class="sep">›</span>
-          <button type="button" class="crumb" :title="`文件夹「${f.name}」：打开 / 新建 / 管理工作簿`" @click="emit('fileCommand', 'manage')">
+          <button type="button" class="crumb" :title="$t('文件夹「{0}」：打开 / 新建 / 管理工作簿', [f.name])" @click="emit('fileCommand', 'manage')">
             {{ f.name }}
           </button>
         </template>
         <span class="sep">›</span>
         <el-dropdown trigger="click" @command="(c: FileCommand) => emit('fileCommand', c)">
-          <strong class="workbook-name" title="文件：打开 / 新建 / 导入导出 / 版本历史">{{ uiStore.fileName }} ▾</strong>
+          <strong class="workbook-name" :title="$t('文件：打开 / 新建 / 导入导出 / 版本历史')">{{ uiStore.fileName }} ▾</strong>
           <template #dropdown>
             <el-dropdown-menu>
               <el-dropdown-item command="manage">
-                打开 / 新建 / 管理工作簿…
+                {{ $t('打开 / 新建 / 管理工作簿…') }}
               </el-dropdown-item>
               <el-dropdown-item command="template">
-                从模板新建…
+                {{ $t('从模板新建…') }}
               </el-dropdown-item>
               <el-dropdown-item command="publish">
-                发布为模板…
+                {{ $t('发布为模板…') }}
               </el-dropdown-item>
               <el-dropdown-item command="import" divided>
-                导入 .xlsx（追加为新页签）
+                {{ $t('导入 .xlsx（追加为新页签）') }}
               </el-dropdown-item>
               <el-dropdown-item command="export">
-                导出为 .xlsx（保留公式与格式）
+                {{ $t('导出为 .xlsx（保留公式与格式）') }}
               </el-dropdown-item>
               <el-dropdown-item command="snapshots" divided>
-                版本历史
+                {{ $t('版本历史') }}
               </el-dropdown-item>
               <el-dropdown-item command="save">
-                <span class="flex-1">保存</span><span class="ml-6 text-xs text-gray-400">Ctrl+S</span>
+                <span class="flex-1">{{ $t('保存') }}</span><span class="ml-6 text-xs text-gray-400">Ctrl+S</span>
               </el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
       </span>
     </div>
-    <button type="button" class="palette-entry" title="搜索功能、数据集、工作表、工作簿（Alt+Q）" @click="emit('openPalette')">
+    <button type="button" class="palette-entry" :title="$t('搜索功能、数据集、工作表、工作簿（Alt+Q）')" @click="emit('openPalette')">
       <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="4.5" /><path d="M10.5 10.5 14 14" /></svg>
-      <span class="min-w-0 flex-1 truncate text-left">搜索功能、数据…</span>
+      <span class="min-w-0 flex-1 truncate text-left">{{ $t('搜索功能、数据…') }}</span>
       <kbd>Alt+Q</kbd>
     </button>
     <div class="topbar-right">
+      <LanguageSwitch />
       <UserMenu v-if="ledgerUser.authRequired && ledgerUser.name">
-        <span class="whitespace-nowrap text-xs text-gray-500 hover:text-gray-800" :title="`登录账号：${ledgerUser.name}${ledgerUser.isAdmin ? '（管理员）' : ''}`">{{ ledgerUser.name }}</span>
+        <span class="whitespace-nowrap text-xs text-gray-500 hover:text-gray-800" :title="$t('登录账号：{0}{1}', [ledgerUser.name, ledgerUser.isAdmin ? '（管理员）' : ''])">{{ ledgerUser.name }}</span>
       </UserMenu>
-      <el-tag v-if="ledgerUser.restricted" size="small" type="warning" :title="`你的数据范围被限制在店铺：${ledgerUser.scopeText}。读取、透视、公式、导出都只含这些店铺；导入、建视图、定时推送等功能不可用`">
-        数据范围：{{ ledgerUser.scopeText }}
+      <el-tag v-if="ledgerUser.restricted" size="small" type="warning" :title="$t('你的数据范围被限制在店铺：{0}。读取、透视、公式、导出都只含这些店铺；导入、建视图、定时推送等功能不可用', [ledgerUser.scopeText])">
+        {{ $t('数据范围：{0}', [ledgerUser.scopeText]) }}
       </el-tag>
-      <el-tag v-if="readOnly" size="small" type="warning" title="这个工作簿是别人共享给你的只读版本，修改不会被保存；可另存为副本">
-        只读
+      <el-tag v-if="readOnly" size="small" type="warning" :title="$t('这个工作簿是别人共享给你的只读版本，修改不会被保存；可另存为副本')">
+        {{ $t('只读') }}
       </el-tag>
       <NotificationBell v-if="ledgerUser.authRequired" @open="n => emit('openNotification', n)" />
       <!-- 保存状态（有未保存修改时点击保存） -->
-      <div class="status-indicator cursor-pointer" title="点击保存（Ctrl+S）" @click="emit('save')">
+      <div class="status-indicator cursor-pointer" :title="$t('点击保存（Ctrl+S）')" @click="emit('save')">
         <span v-if="xlsxBusy" class="i-svg-spinners-90-ring-with-bg text-xs" />
         <span v-else class="dot" :class="uiStore.saveStatus" />
-        <span>{{ xlsxBusy ? 'Excel 处理中…' : saveStatusText }}</span>
+        <span>{{ xlsxBusy ? $t('Excel 处理中…') : saveStatusText }}</span>
       </div>
 
       <!-- 协作头像（点击打开实时协作） -->
-      <div class="avatars cursor-pointer" title="实时协作" @click="uiStore.togglePanel('collaboration')">
+      <div class="avatars cursor-pointer" :title="$t('实时协作')" @click="uiStore.togglePanel('collaboration')">
         <span class="avatar current" :style="{ background: collabSession.self.value?.color ?? collaborationSync.getUserColor() }">
           {{ (collabSession.self.value?.name ?? collaborationSync.getUserName()).charAt(0) }}
         </span>
@@ -204,14 +206,14 @@ const saveStatusText = computed(() => {
           :model-value="currentPeriod"
           size="small"
           class="w-28 shrink-0"
-          placeholder="月份"
+          :placeholder="$t('月份')"
           @change="(p: string) => emit('loadPeriod', p)"
         >
           <el-option v-for="p in periods" :key="p.period" :label="p.period" :value="p.period" />
         </el-select>
         <el-tooltip
           v-if="currentLock.locked || currentLock.pending"
-          :content="`${currentPeriod}：${currentLock.locked} 个店铺已锁账，${currentLock.pending} 个审批中（共 ${currentLock.total} 个），冻结的店铺不能再导入或修改`"
+          :content="$t('{0}：{1} 个店铺已锁账，{2} 个审批中（共 {3} 个），冻结的店铺不能再导入或修改', [currentPeriod, currentLock.locked, currentLock.pending, currentLock.total])"
           placement="bottom"
         >
           <el-tag
@@ -230,32 +232,32 @@ const saveStatusText = computed(() => {
         v-if="detailTitle"
         type="button"
         class="tool active"
-        :title="`查看「${detailTitle}」的明细`"
+        :title="$t('查看「{0}」的明细', [detailTitle])"
         @click="emit('openDetail')"
       >
-        查看明细
+        {{ $t('查看明细') }}
         <span class="max-w-28 truncate text-xs font-normal opacity-75">{{ detailTitle }}</span>
       </button>
 
       <span class="divider" />
 
-      <button type="button" class="tool ai" :class="{ active: uiStore.activePanel === 'ai' }" title="AI 分析助手：用中文提问，查询数据并生成透视表、图表、公式建议" @click="uiStore.togglePanel('ai')">
-        ✦ AI 助手
+      <button type="button" class="tool ai" :class="{ active: uiStore.activePanel === 'ai' }" :title="$t('AI 分析助手：用中文提问，查询数据并生成透视表、图表、公式建议')" @click="uiStore.togglePanel('ai')">
+        {{ $t('✦ AI 助手') }}
       </button>
 
       <el-dropdown trigger="click" @command="(c: ApprovalCommand) => emit('approvalCommand', c)">
         <el-badge :value="approvalStore.pendingCount" :hidden="approvalStore.pendingCount === 0" type="warning">
           <el-button size="small" type="primary">
-            审批 ▾
+            {{ $t('审批 ▾') }}
           </el-button>
         </el-badge>
         <template #dropdown>
           <el-dropdown-menu>
             <el-dropdown-item command="start" :disabled="!!openApproval">
-              {{ openApproval ? `审批中（${openApproval.approverName}）…` : '发起审批' }}
+              {{ openApproval ? $t('审批中（{0}）…', [openApproval.approverName]) : $t('发起审批') }}
             </el-dropdown-item>
             <el-dropdown-item command="center">
-              {{ approvalStore.pendingCount ? `审批中心（${approvalStore.pendingCount} 条待办）` : '审批中心' }}
+              {{ approvalStore.pendingCount ? $t('审批中心（{0} 条待办）', [approvalStore.pendingCount]) : $t('审批中心') }}
             </el-dropdown-item>
           </el-dropdown-menu>
         </template>

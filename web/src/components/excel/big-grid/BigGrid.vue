@@ -3,6 +3,7 @@ import type { Hit, HitGeometry } from './grid-hit'
 import type { GridColumn, GridSelection } from './types'
 import type { CellValue } from '@/api/dataset'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { t } from '@/i18n'
 import { FIELD_H, FILTER_BTN, letterHeight, MAX_SCROLL, ROW_H } from './grid-constants'
 import { drawGrid } from './grid-draw'
 import { colAt, hitTest } from './grid-hit'
@@ -402,7 +403,7 @@ async function copySelection() {
     return
   const rows = rg.r2 - rg.r1 + 1
   if (rows > COPY_LIMIT) {
-    ElMessage.warning(`一次最多复制 ${COPY_LIMIT.toLocaleString()} 行（当前选中 ${rows.toLocaleString()} 行），大量数据请用导出`)
+    ElMessage.warning(t('一次最多复制 {0} 行（当前选中 {1} 行），大量数据请用导出', [COPY_LIMIT.toLocaleString(), rows.toLocaleString()]))
     return
   }
   try {
@@ -414,10 +415,10 @@ async function copySelection() {
       return v == null ? '' : String(v).replace(/[\t\n]/g, ' ')
     }).join('\t')).join('\n')
     await navigator.clipboard.writeText(header + body)
-    ElMessage.success(`已复制 ${rows.toLocaleString()} 行 × ${cols.length} 列${rows > 1 ? '（含表头）' : ''}`)
+    ElMessage.success(t('已复制 {0} 行 × {1} 列{2}', [rows.toLocaleString(), cols.length, rows > 1 ? '（含表头）' : '']))
   }
   catch (e) {
-    ElMessage.error(`复制失败：${e instanceof Error ? e.message : String(e)}`)
+    ElMessage.error(t('复制失败：{0}', [e instanceof Error ? e.message : String(e)]))
   }
 }
 

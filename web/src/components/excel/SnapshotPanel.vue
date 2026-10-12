@@ -6,6 +6,7 @@ import { listWorkbookVersionsApi, restoreWorkbookVersionApi } from '@/api/workbo
 import { persistenceManager } from '@/features/excel/persistence/manager'
 import { openServerWorkbook } from '@/features/excel/persistence/workbook-session'
 import { useLedgerOperator } from '@/features/excel/shop-ledger/month-close'
+import { t } from '@/i18n'
 
 /** 版本历史（服务端）：每次保存都是一个版本；恢复会以旧版本内容生成新版本，历史不丢 */
 const props = defineProps<{
@@ -41,9 +42,9 @@ onBeforeUnmount(stop)
 refresh()
 
 async function saveNamedVersion() {
-  const description = await ElMessageBox.prompt('给这个版本起个名字，方便以后找回（如「9 月月结定稿」）', '保存版本', {
+  const description = await ElMessageBox.prompt(t('给这个版本起个名字，方便以后找回（如「9 月月结定稿」）'), t('保存版本'), {
     inputValidator: v => !!v.trim() || '请填写版本说明',
-    confirmButtonText: '保存',
+    confirmButtonText: t('保存'),
   }).then(r => r.value.trim(), () => null)
   if (!description)
     return
@@ -51,7 +52,7 @@ async function saveNamedVersion() {
   try {
     const r = await persistenceManager.save({ description })
     if (r.state === 'saved')
-      ElMessage.success('已保存版本')
+      ElMessage.success(t('已保存版本'))
   }
   finally {
     busy.value = false
@@ -64,9 +65,9 @@ async function restore(v: WorkbookVersion) {
     return
   const unsaved = persistenceManager.isDirty() ? '当前还有未保存的修改，恢复后将丢失。' : ''
   const ok = await ElMessageBox.confirm(
-    `${unsaved}恢复到第 ${v.version} 版（${v.savedAt} ${v.savedBy ?? ''}）？会以该版本内容生成一个新版本，现有版本仍保留在历史中。`,
-    '恢复版本',
-    { type: 'warning', confirmButtonText: '恢复' },
+    t('{0}恢复到第 {1} 版（{2} {3}）？会以该版本内容生成一个新版本，现有版本仍保留在历史中。', [unsaved, v.version, v.savedAt, v.savedBy ?? '']),
+    t('恢复版本'),
+    { type: 'warning', confirmButtonText: t('恢复') },
   ).then(() => true, () => false)
   if (!ok)
     return
@@ -74,7 +75,7 @@ async function restore(v: WorkbookVersion) {
   try {
     const restored = await restoreWorkbookVersionApi(meta.id, v.version, operator.value)
     await openServerWorkbook(props.univerApi, restored)
-    ElMessage.success(`已恢复到第 ${v.version} 版（新版本号 ${restored.version}）`)
+    ElMessage.success(t('已恢复到第 {0} 版（新版本号 {1}）', [v.version, restored.version]))
     await refresh()
   }
   finally {
@@ -90,18 +91,18 @@ function sizeText(n: number) {
 <template>
   <div class="snapshot-panel">
     <el-button type="primary" :loading="busy" @click="saveNamedVersion">
-      保存为命名版本
+      {{ $t('保存为命名版本') }}
     </el-button>
     <div class="text-xs text-gray-400 leading-5">
-      修改后自动保存到服务端。命名版本与手动保存永久保留，自动保存保留最近 30 个
+      {{ $t('修改后自动保存到服务端。命名版本与手动保存永久保留，自动保存保留最近 30 个') }}
     </div>
 
     <div v-loading="loading" class="snapshot-list">
-      <el-empty v-if="!versions.length" description="暂无版本记录" :image-size="60" />
+      <el-empty v-if="!versions.length" :description="$t('暂无版本记录')" :image-size="60" />
       <div v-for="v in versions" :key="v.version" class="snapshot-item">
         <div class="snap-info">
           <div class="snap-desc">
-            {{ v.description || '保存' }}
+            {{ v.description || $t('保存') }}
           </div>
           <div class="snap-meta">
             <span>{{ v.savedAt.slice(5, 16) }}</span>
@@ -109,13 +110,13 @@ function sizeText(n: number) {
             <span>v{{ v.version }}</span>
             <span>{{ sizeText(v.size) }}</span>
             <el-tag size="small" :type="v.isAuto ? 'info' : 'success'" round>
-              {{ v.isAuto ? '自动' : '保留' }}
+              {{ v.isAuto ? $t('自动') : $t('保留') }}
             </el-tag>
           </div>
         </div>
         <div class="snap-actions">
           <el-button size="small" :disabled="busy || v.version === versions[0]?.version" @click="restore(v)">
-            恢复
+            {{ $t('恢复') }}
           </el-button>
         </div>
       </div>

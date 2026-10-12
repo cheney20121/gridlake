@@ -4,7 +4,7 @@
 
 **An open-source, self-hosted spreadsheet for 100M-row datasets.** Excel-style formulas, pivot tables and free-form layout in the browser; the big data lives in a server-side [DuckDB](https://github.com/duckdb/duckdb) and the browser only fetches the screen you are looking at. The spreadsheet UI is built on [Univer](https://github.com/dream-num/univer).
 
-> **Language note:** the user interface, in-app messages and most code comments are **Chinese only** for now (internationalization is on the [roadmap](ROADMAP.md)). The server, API and deployment docs are Chinese as well; this page is a short English overview.
+> **Language note:** the user interface is available in **Chinese and English** (use the language switch in the top bar, or `?lang=en-US`; the choice is remembered). Most screens are translated; server error messages, the e-commerce ledger scenario and some runtime messages are still Chinese, and code comments are Chinese. See [ROADMAP.md](ROADMAP.md). The server, API and deployment docs are Chinese as well; this page is a short English overview.
 
 ![A 2M-row dataset opened in the big-data grid](docs/images/big-grid.png)
 
@@ -70,7 +70,7 @@ cd web && pnpm install && pnpm dev  # frontend on http://localhost:5173/excel/ho
 ## Status and limitations
 
 - Single-node DuckDB, no distributed mode; a billion rows has not been tested.
-- Chinese-only UI.
+- The English UI is partial: server error messages and parts of the e-commerce ledger scenario are still Chinese.
 - AI assistant quality depends on your model and has not been systematically evaluated.
 - Not yet run long-term in Linux production — feedback is welcome.
 

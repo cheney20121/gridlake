@@ -36,7 +36,7 @@ function act(event: 'overwrite' | 'loadTheirs' | 'saveCopy') {
 <template>
   <el-dialog
     :model-value="visible"
-    title="保存冲突"
+    :title="$t('保存冲突')"
     width="520px"
     :close-on-click-modal="false"
     append-to-body
@@ -44,27 +44,26 @@ function act(event: 'overwrite' | 'loadTheirs' | 'saveCopy') {
   >
     <div v-if="conflict" class="flex flex-col gap-2 text-[13px] leading-6">
       <div>
-        「<b>{{ conflict.updatedBy || '其他人' }}</b>」于 {{ conflict.updatedAt }} 保存了新版本（第 {{ conflict.version }} 版），
-        你打开后做的修改还没有保存。
+        「<b>{{ conflict.updatedBy || $t('其他人') }}</b>{{ $t('」于 {0} 保存了新版本（第 {1} 版）， 你打开后做的修改还没有保存。', [conflict.updatedAt, conflict.version]) }}
       </div>
       <div class="rounded bg-[#F7F8FA] px-3 py-2 text-xs text-gray-600 leading-5">
-        <div><b>覆盖保存</b>：用你的内容生成新版本；对方的版本仍在版本历史中，可随时恢复</div>
-        <div><b>加载对方版本</b>：放弃你未保存的修改</div>
-        <div><b>另存为副本</b>：你的内容保存为一个新的工作簿，两份都保留</div>
+        <div><b>{{ $t('覆盖保存') }}</b>{{ $t('：用你的内容生成新版本；对方的版本仍在版本历史中，可随时恢复') }}</div>
+        <div><b>{{ $t('加载对方版本') }}</b>{{ $t('：放弃你未保存的修改') }}</div>
+        <div><b>{{ $t('另存为副本') }}</b>{{ $t('：你的内容保存为一个新的工作簿，两份都保留') }}</div>
       </div>
       <div class="text-xs text-gray-400">
-        在问题解决前自动保存已暂停
+        {{ $t('在问题解决前自动保存已暂停') }}
       </div>
     </div>
     <template #footer>
       <el-button :disabled="busy" @click="act('saveCopy')">
-        另存为副本
+        {{ $t('另存为副本') }}
       </el-button>
       <el-button :disabled="busy" @click="act('loadTheirs')">
-        加载对方版本
+        {{ $t('加载对方版本') }}
       </el-button>
       <el-button type="primary" :disabled="busy" @click="act('overwrite')">
-        覆盖保存
+        {{ $t('覆盖保存') }}
       </el-button>
     </template>
   </el-dialog>

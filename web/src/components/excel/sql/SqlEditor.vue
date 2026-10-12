@@ -189,7 +189,7 @@ const TYPE_LABEL = { dataset: '数据集', column: '列', keyword: '关键字', 
         <span v-if="it.detail" class="detail">{{ it.detail }}</span>
       </li>
       <li class="hint">
-        ↑↓ 选择 · Tab / 回车确认 · Esc 关闭
+        {{ $t('↑↓ 选择 · Tab / 回车确认 · Esc 关闭') }}
       </li>
     </ul>
   </div>

@@ -5,6 +5,7 @@ import type { PivotStyles, StyleDelta, StyleGrid } from './pivot-styles'
 import type { DatasetFilter, PivotAgg, PivotField, PivotRequest, PivotResult, PivotRow } from '@/api/dataset'
 import type { DatasetDrill } from '@/components/excel/big-grid/drill'
 import { getPivotApi } from '@/api/dataset'
+import { t as tr } from '@/i18n'
 import { extractStyles, isEmptyStyles, styleDelta, stylesAt } from './pivot-styles'
 
 /**
@@ -136,14 +137,14 @@ function tabularRows(spec: PivotSpec, rows: PivotRow[]): DisplayRow[] {
   for (const row of rows) {
     const labels: DisplayRow['labels'] = new Map()
     if (row.kind === 'total') {
-      labels.set(0, { text: '总计' })
+      labels.set(0, { text: tr('总计') })
       prev = []
     }
     else if (row.kind === 'subtotal') {
       const level = row.keys.length - 1
       if (repeat)
         row.keys.slice(0, level).forEach((key, c) => labels.set(c, { text: labelOf(req, req.rows[c], key), target: { kind: 'key', field: c, key } }))
-      labels.set(level, { text: `${labelOf(req, req.rows[level], row.keys[level]!)} 汇总`, target: { kind: 'key', field: level, key: row.keys[level]! } })
+      labels.set(level, { text: tr('{0} 汇总', [labelOf(req, req.rows[level], row.keys[level]!)]), target: { kind: 'key', field: level, key: row.keys[level]! } })
       prev = []
     }
     else {
@@ -172,7 +173,7 @@ function compactRows(spec: PivotSpec, rows: PivotRow[]): DisplayRow[] {
   const open: string[] = []
   for (const row of rows) {
     if (row.kind === 'total') {
-      out.push({ row, keys: [], kind: 'total', labels: new Map([[1, { text: '总计' }]]) })
+      out.push({ row, keys: [], kind: 'total', labels: new Map([[1, { text: tr('总计') }]]) })
       continue
     }
     if (row.kind === 'subtotal')
@@ -480,7 +481,7 @@ export function pivotGroupPrefixes(sheetId: string, level = 0): string[] {
 export async function createPivotSheet(api: FUniver, spec: PivotSpec): Promise<FWorksheet> {
   const workbook = api.getActiveWorkbook()
   if (!workbook)
-    throw new Error('工作簿尚未就绪')
+    throw new Error(tr('工作簿尚未就绪'))
   const taken = new Set(workbook.getSheets().map(s => s.getSheetName()))
   let n = 1
   while (taken.has(`透视表${n}`))
@@ -553,9 +554,9 @@ export function pivotDrillAt(sheetId: string, row: number, col: number): Dataset
   let expected: DatasetDrill['expected']
   if (typeof value === 'number') {
     if (info.agg === 'sum' && info.column)
-      expected = { label: `透视表「${baseLabel}」`, value, kind: 'columnSum', column: info.column }
+      expected = { label: tr('透视表「{0}」', [baseLabel]), value, kind: 'columnSum', column: info.column }
     else if (info.agg === 'count' && !info.column)
-      expected = { label: '透视表「计数」', value, kind: 'count' }
+      expected = { label: tr('透视表「计数」'), value, kind: 'count' }
   }
   return {
     datasetId: spec.datasetId,

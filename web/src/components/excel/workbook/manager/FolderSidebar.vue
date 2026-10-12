@@ -33,15 +33,15 @@ defineExpose({ expand })
     <el-scrollbar class="flex-1">
       <div class="p-2">
         <div class="nav" :class="{ on: isActive({ kind: 'all' }) }" @click="emit('go', { kind: 'all' })">
-          <span class="icon">▤</span><span class="flex-1">全部工作簿</span><span class="count">{{ allCount }}</span>
+          <span class="icon">▤</span><span class="flex-1">{{ $t('全部工作簿') }}</span><span class="count">{{ allCount }}</span>
         </div>
         <div class="nav" :class="{ on: isActive({ kind: 'starred' }) }" @click="emit('go', { kind: 'starred' })">
-          <span class="icon text-[#E6A23C]">★</span><span class="flex-1">星标</span><span class="count">{{ starredCount }}</span>
+          <span class="icon text-[#E6A23C]">★</span><span class="flex-1">{{ $t('星标') }}</span><span class="count">{{ starredCount }}</span>
         </div>
         <div class="section">
-          <span>文件夹</span>
-          <el-button link size="small" title="在根目录新建文件夹" @click="emit('newFolder', null)">
-            + 新建
+          <span>{{ $t('文件夹') }}</span>
+          <el-button link size="small" :title="$t('在根目录新建文件夹')" @click="emit('newFolder', null)">
+            {{ $t('+ 新建') }}
           </el-button>
         </div>
         <el-tree
@@ -64,17 +64,17 @@ defineExpose({ expand })
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item command="new">
-                      新建子文件夹
+                      {{ $t('新建子文件夹') }}
                     </el-dropdown-item>
                     <template v-if="data.id !== ROOT">
                       <el-dropdown-item command="rename">
-                        重命名
+                        {{ $t('重命名') }}
                       </el-dropdown-item>
                       <el-dropdown-item command="move">
-                        移动到…
+                        {{ $t('移动到…') }}
                       </el-dropdown-item>
                       <el-dropdown-item command="delete" divided>
-                        <span class="text-[#B91C1C]">删除</span>
+                        <span class="text-[#B91C1C]">{{ $t('删除') }}</span>
                       </el-dropdown-item>
                     </template>
                   </el-dropdown-menu>
@@ -87,7 +87,7 @@ defineExpose({ expand })
     </el-scrollbar>
     <div class="border-t border-t-[#ebeef5] border-t-solid p-2">
       <div class="nav" :class="{ on: isActive({ kind: 'trash' }) }" @click="emit('go', { kind: 'trash' })">
-        <span class="icon">🗑</span><span class="flex-1">回收站</span><span class="count">{{ trashCount || '' }}</span>
+        <span class="icon">🗑</span><span class="flex-1">{{ $t('回收站') }}</span><span class="count">{{ trashCount || '' }}</span>
       </div>
     </div>
   </aside>

@@ -17,30 +17,30 @@ const datasetId = defineModel<string>({ required: true })
 <template>
   <div class="section">
     <div class="section-title">
-      添加到当前工作表
+      {{ $t('添加到当前工作表') }}
     </div>
     <el-select v-model="datasetId" size="small" filterable>
-      <el-option v-for="d in datasets" :key="d.id" :label="`${d.name}（${d.rowCount.toLocaleString()} 行）`" :value="d.id" />
+      <el-option v-for="d in datasets" :key="d.id" :label="$t('{0}（{1} 行）', [d.name, d.rowCount.toLocaleString()])" :value="d.id" />
     </el-select>
     <div class="grid grid-cols-5 gap-1.5">
-      <button class="add-btn" title="按字段筛选本页所有部件" @click="emit('add', 'slicer')">
-        <span class="text-base">☰</span>切片器
+      <button class="add-btn" :title="$t('按字段筛选本页所有部件')" @click="emit('add', 'slicer')">
+        <span class="text-base">☰</span>{{ $t('切片器') }}
       </button>
-      <button class="add-btn" title="一个汇总值 + 同比 / 环比 + 趋势" @click="emit('add', 'kpi')">
-        <span class="text-base">№</span>指标卡
+      <button class="add-btn" :title="$t('一个汇总值 + 同比 / 环比 + 趋势')" @click="emit('add', 'kpi')">
+        <span class="text-base">№</span>{{ $t('指标卡') }}
       </button>
-      <button class="add-btn" title="柱 / 线 / 饼等图表" @click="emit('addChart')">
-        <span class="text-base">▮▮</span>图表
+      <button class="add-btn" :title="$t('柱 / 线 / 饼等图表')" @click="emit('addChart')">
+        <span class="text-base">▮▮</span>{{ $t('图表') }}
       </button>
-      <button class="add-btn" title="按字段分组的汇总表，如前 10 的店铺" @click="emit('add', 'table')">
-        <span class="text-base">▦</span>表格
+      <button class="add-btn" :title="$t('按字段分组的汇总表，如前 10 的店铺')" @click="emit('add', 'table')">
+        <span class="text-base">▦</span>{{ $t('表格') }}
       </button>
-      <button class="add-btn" title="数据集明细：放在选中的单元格处，内部滚动、可排序筛选，公式可按表名引用" @click="emit('add', 'datatable')">
-        <span class="text-base">☷</span>数据表
+      <button class="add-btn" :title="$t('数据集明细：放在选中的单元格处，内部滚动、可排序筛选，公式可按表名引用')" @click="emit('add', 'datatable')">
+        <span class="text-base">☷</span>{{ $t('数据表') }}
       </button>
     </div>
     <div class="text-xs text-gray-400 leading-5">
-      切片器筛选本页所有部件（数据集里有同名字段即可，可跨数据集）；数据表放在选中的单元格处；拖动部件调整位置，拖边角调整大小
+      {{ $t('切片器筛选本页所有部件（数据集里有同名字段即可，可跨数据集）；数据表放在选中的单元格处；拖动部件调整位置，拖边角调整大小') }}
     </div>
   </div>
 </template>

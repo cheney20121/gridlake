@@ -13,6 +13,7 @@ import { createSummaryApi } from '@/api/dataset'
 import FilterMenu from '@/components/excel/big-grid/FilterMenu.vue'
 import BusyInline from '@/components/excel/common/BusyInline.vue'
 import { createPivotSheet, getPivotSpec, onPivotChanged, pivotGroupPrefixes, refreshPivot, setPivotDisplay } from '@/features/excel/pivot/pivot-sheet'
+import { t as tr } from '@/i18n'
 import { errorText } from '@/utils/busy-hint'
 import { AGG_OPTIONS, AREAS, cloneField, GRANULARITY_OPTIONS, isNumeric, SHOW_OPTIONS, valueLabel } from './constants'
 import PivotCalcDialog from './PivotCalcDialog.vue'
@@ -219,7 +220,7 @@ async function convertToTable() {
     const r = await ElMessageBox.prompt(
       `行字段、列字段成为分组列，汇总值与计算值成为数值列；之后可以在数据表里按值筛选、排序、加计算列，源数据变化时自动更新。${drops.length ? `<br><br><span style="color:#92400E">不带入：${drops.join('；')}</span>` : ''}`,
       '转为数据表',
-      { inputValue: `${ds.name}汇总`, inputPlaceholder: '汇总数据集的名称', confirmButtonText: '转换', dangerouslyUseHTMLString: true, inputValidator: v => !!v.trim() || '请填写名称' },
+      { inputValue: `${ds.name}汇总`, inputPlaceholder: '汇总数据集的名称', confirmButtonText: tr('转换'), dangerouslyUseHTMLString: true, inputValidator: v => !!v.trim() || '请填写名称' },
     )
     name = r.value.trim()
   }
@@ -489,22 +490,22 @@ function filterSummary(f: DatasetFilter | null | undefined) {
     <!-- 当前页签不是透视表 -->
     <div v-if="!sheet" class="flex flex-col gap-3 text-[13px]">
       <div class="text-gray-600 leading-5">
-        数据透视表直接在服务端对数据集计算（千万行秒级），结果写入新页签；任意格子可下钻到明细并自动核对。
+        {{ $t('数据透视表直接在服务端对数据集计算（千万行秒级），结果写入新页签；任意格子可下钻到明细并自动核对。') }}
       </div>
-      <el-select v-model="newDatasetId" placeholder="选择数据集" size="small">
-        <el-option v-for="d in datasets" :key="d.id" :label="`${d.name}（${d.rowCount.toLocaleString()} 行）`" :value="d.id" />
+      <el-select v-model="newDatasetId" :placeholder="$t('选择数据集')" size="small">
+        <el-option v-for="d in datasets" :key="d.id" :label="$t('{0}（{1} 行）', [d.name, d.rowCount.toLocaleString()])" :value="d.id" />
       </el-select>
       <el-button type="primary" size="small" :disabled="!datasets.length" @click="createNew">
-        新建数据透视表
+        {{ $t('新建数据透视表') }}
       </el-button>
       <div class="text-xs text-gray-400">
-        切换到已有的透视表页签，可在这里继续调整字段
+        {{ $t('切换到已有的透视表页签，可在这里继续调整字段') }}
       </div>
     </div>
 
     <template v-else>
       <div class="flex items-center gap-2 text-xs text-gray-500">
-        <span>数据集</span>
+        <span>{{ $t('数据集') }}</span>
         <el-select v-model="datasetId" size="small" class="flex-1">
           <el-option v-for="d in datasets" :key="d.id" :label="d.name" :value="d.id" />
         </el-select>
@@ -515,7 +516,7 @@ function filterSummary(f: DatasetFilter | null | undefined) {
       <!-- 空白时：一键起步 -->
       <div v-if="isBlank && suggestions.length" class="flex flex-col gap-1.5 rounded-md bg-[#F4F9F6] p-2.5" data-testid="pivot-suggestions">
         <div class="text-xs text-gray-600">
-          不知道从哪开始？点一个：
+          {{ $t('不知道从哪开始？点一个：') }}
         </div>
         <button v-for="sg in suggestions" :key="sg.label" class="suggest" @click="sg.apply">
           {{ sg.label }}
@@ -530,23 +531,23 @@ function filterSummary(f: DatasetFilter | null | undefined) {
         <draggable v-model="areas[a.key]" group="pivot" item-key="uid" class="drop" :class="{ empty: !areas[a.key].length }" @change="normalize">
           <template #item="{ element }">
             <div class="chip" :class="{ 'flex-wrap': a.key === 'values' }">
-              <span v-if="element.agg === 'calc'" class="min-w-0 flex-1 truncate" :title="`计算值：${element.formula}`">
+              <span v-if="element.agg === 'calc'" class="min-w-0 flex-1 truncate" :title="$t('计算值：{0}', [element.formula])">
                 <span class="text-[#8250df]">ƒ</span> {{ element.label }}
               </span>
-              <span v-else class="min-w-0 flex-1 truncate" :title="element.label ? `${element.column}（显示为「${element.label}」）` : element.column">
+              <span v-else class="min-w-0 flex-1 truncate" :title="element.label ? $t('{0}（显示为「{1}」）', [element.column, element.label]) : element.column">
                 {{ element.column }}<span v-if="element.label" class="text-gray-400"> → {{ element.label }}</span>
               </span>
-              <span v-if="element.agg === 'calc'" class="cursor-pointer text-[#217346] hover:underline" title="修改公式" @click="openCalc(element)">编辑</span>
+              <span v-if="element.agg === 'calc'" class="cursor-pointer text-[#217346] hover:underline" :title="$t('修改公式')" @click="openCalc(element)">{{ $t('编辑') }}</span>
               <el-select v-else-if="a.key === 'values'" v-model="element.agg" size="small" class="!w-26">
                 <el-option v-for="o in AGG_OPTIONS.filter(o => !o.numeric || isNumeric(element.kind))" :key="o.value" :label="o.label" :value="o.value" />
               </el-select>
               <div v-if="a.key === 'values' && element.agg !== 'calc'" class="order-last w-full flex items-center gap-1.5 pt-1">
-                <span class="text-gray-400">显示为</span>
+                <span class="text-gray-400">{{ $t('显示为') }}</span>
                 <el-select v-model="element.show" size="small" class="!w-28" :class="{ 'show-active': element.show && element.show !== 'raw' }">
                   <el-option v-for="o in SHOW_OPTIONS" :key="o.value" :label="o.label" :value="o.value" :title="o.hint" />
                 </el-select>
                 <el-dropdown trigger="click" size="small" @command="(sh: PivotShow) => addShowCopy(element, sh)">
-                  <span class="cursor-pointer text-[#217346] hover:underline" title="再加一个同字段的值，显示为占比 / 同比 / 环比">+ 对比</span>
+                  <span class="cursor-pointer text-[#217346] hover:underline" :title="$t('再加一个同字段的值，显示为占比 / 同比 / 环比')">{{ $t('+ 对比') }}</span>
                   <template #dropdown>
                     <el-dropdown-menu>
                       <el-dropdown-item v-for="o in SHOW_OPTIONS.filter(o => o.value !== 'raw')" :key="o.value" :command="o.value">
@@ -556,13 +557,13 @@ function filterSummary(f: DatasetFilter | null | undefined) {
                   </template>
                 </el-dropdown>
               </div>
-              <el-select v-if="(a.key === 'rows' || a.key === 'columns') && canGroupByDate(element)" v-model="element.granularity" size="small" clearable placeholder="原值" class="!w-22">
+              <el-select v-if="(a.key === 'rows' || a.key === 'columns') && canGroupByDate(element)" v-model="element.granularity" size="small" clearable :placeholder="$t('原值')" class="!w-22">
                 <el-option v-for="g in GRANULARITY_OPTIONS" :key="g.value" :label="g.label" :value="g.value" />
               </el-select>
               <button v-if="a.key === 'filters'" class="filter-btn" @click="openFilter(element, $event)">
                 {{ filterSummary(element.filter) }} ▾
               </button>
-              <span class="remove" title="移除" @click="remove(a.key, element.uid)">×</span>
+              <span class="remove" :title="$t('移除')" @click="remove(a.key, element.uid)">×</span>
             </div>
           </template>
           <template #footer>
@@ -571,26 +572,26 @@ function filterSummary(f: DatasetFilter | null | undefined) {
             </div>
           </template>
         </draggable>
-        <button v-if="a.key === 'values'" class="add-calc" title="用公式组合已有的值，如毛利率、客单价" @click="openCalc(null)">
-          + 计算值（公式）
+        <button v-if="a.key === 'values'" class="add-calc" :title="$t('用公式组合已有的值，如毛利率、客单价')" @click="openCalc(null)">
+          {{ $t('+ 计算值（公式）') }}
         </button>
       </div>
 
       <!-- 计算项：在行 / 列字段的取值之间运算（期末 = 期初 + 入库 - 出库） -->
       <div v-if="areas.rows.length || areas.columns.length" class="section" data-testid="pivot-items">
         <div class="section-title">
-          计算项
-          <span class="text-gray-400 font-normal">在字段的取值之间运算</span>
+          {{ $t('计算项') }}
+          <span class="text-gray-400 font-normal">{{ $t('在字段的取值之间运算') }}</span>
         </div>
         <div v-for="c in calcItems" :key="`${c.field}:${c.name}`" class="chip">
           <span class="min-w-0 flex-1 truncate" :title="`${c.field}：${c.name} = ${c.formula}`">
             <span class="text-[#8250df]">ƒ</span> {{ c.name }} <span class="text-gray-400">= {{ c.formula }}（{{ c.field }}）</span>
           </span>
-          <span class="cursor-pointer text-[#217346] hover:underline" @click="openItem(c)">编辑</span>
-          <span class="remove" title="移除" @click="removeItem(c)">×</span>
+          <span class="cursor-pointer text-[#217346] hover:underline" @click="openItem(c)">{{ $t('编辑') }}</span>
+          <span class="remove" :title="$t('移除')" @click="removeItem(c)">×</span>
         </div>
-        <button class="add-calc" title="如列字段「单据类型」里新增「期末 = 期初 + 入库 - 出库」" @click="openItem(null)">
-          + 计算项
+        <button class="add-calc" :title="$t('如列字段「单据类型」里新增「期末 = 期初 + 入库 - 出库」')" @click="openItem(null)">
+          {{ $t('+ 计算项') }}
         </button>
       </div>
 
@@ -600,25 +601,25 @@ function filterSummary(f: DatasetFilter | null | undefined) {
         <BusyInline v-if="loading" :loading="loading" cancellable @cancel="cancelApply" />
         <span v-else-if="error" class="text-[#B91C1C]">{{ error }}</span>
         <span v-else-if="lastResult" class="text-gray-500">
-          {{ lastResult.leafRows.toLocaleString() }} 行 · 计算 {{ lastResult.elapsedMs }} ms
-          <template v-if="lastResult.firstLevelCount != null && options.top">（共 {{ lastResult.firstLevelCount }} 项）</template>
-          <template v-if="lastResult.baseField && usesPeriod"> · 同比 / 环比按「{{ lastResult.baseField }}」</template>
+          {{ $t('{0} 行 · 计算 {1} ms', [lastResult.leafRows.toLocaleString(), lastResult.elapsedMs]) }}
+          <template v-if="lastResult.firstLevelCount != null && options.top">{{ $t('（共 {0} 项）', [lastResult.firstLevelCount]) }}</template>
+          <template v-if="lastResult.baseField && usesPeriod"> {{ $t('· 同比 / 环比按「{0}」', [lastResult.baseField]) }}</template>
         </span>
         <el-button size="small" link type="primary" class="ml-auto" :disabled="loading" @click="apply">
-          刷新
+          {{ $t('刷新') }}
         </el-button>
-        <el-button size="small" link type="primary" :disabled="!canConvert || loading" :loading="converting" title="把透视结果按行展平成一个数据集：可按值筛选、排序、加计算列，随源数据自动更新" data-testid="pivot-to-table" @click="convertToTable">
-          转为数据表
+        <el-button size="small" link type="primary" :disabled="!canConvert || loading" :loading="converting" :title="$t('把透视结果按行展平成一个数据集：可按值筛选、排序、加计算列，随源数据自动更新')" data-testid="pivot-to-table" @click="convertToTable">
+          {{ $t('转为数据表') }}
         </el-button>
       </div>
       <div class="text-xs text-gray-400 leading-5">
-        选中透视表中的格子，点顶部「查看明细」可下钻到组成它的数据并自动核对。双击行 / 列标签或表头可直接改名，清空即恢复原名
+        {{ $t('选中透视表中的格子，点顶部「查看明细」可下钻到组成它的数据并自动核对。双击行 / 列标签或表头可直接改名，清空即恢复原名') }}
       </div>
       <div v-if="display.layout === 'compact' && areas.rows.length >= 2" class="text-xs text-gray-400 leading-5">
-        点透视表最左侧的 ▾ / ▸ 折叠或展开分组；勾选「小计」时分组行显示该组合计
+        {{ $t('点透视表最左侧的 ▾ / ▸ 折叠或展开分组；勾选「小计」时分组行显示该组合计') }}
       </div>
       <div v-if="usesPeriod" class="text-xs text-gray-400 leading-5">
-        同比 / 环比：日期字段放在行或列（按年 / 月 / 日分组）；筛选了日期时，基期仍按上年同期 / 上一期取数（不受该筛选限制），基期没有数据时显示为「-」
+        {{ $t('同比 / 环比：日期字段放在行或列（按年 / 月 / 日分组）；筛选了日期时，基期仍按上年同期 / 上一期取数（不受该筛选限制），基期没有数据时显示为「-」') }}
       </div>
     </template>
 

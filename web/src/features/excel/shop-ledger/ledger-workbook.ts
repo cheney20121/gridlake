@@ -17,6 +17,7 @@ import type { RuleTerm, SummaryColumn } from './summary-template'
 import type { LedgerDetailFilter, LedgerPivot } from '@/api/ledger'
 import { getLedgerPivotApi, saveEntityAliasesApi } from '@/api/ledger'
 import { datasetFormulasBusy, invalidateDatasetFormulas } from '@/features/excel/formula/dataset-functions'
+import { t } from '@/i18n'
 import { disposeWorkbook } from '../data/selection'
 import { buildSummarySheet, getDrillRule, LEGACY_PIVOT_SHEET_NAME, readEntityAliases, shortEntityName, SUBTOTAL_SHOP_LABEL, SUMMARY_ROW, SUMMARY_SHEET_NAME, SUMMARY_STYLES, summaryLabelAt, TOTAL_ENTITY_LABEL, TOTAL_SHOP_LABEL } from './summary-template'
 
@@ -112,7 +113,7 @@ export async function loadLedgerPeriod(api: FUniver, period: string): Promise<Lo
 
   const conflict = Object.values(sheets).find(s => s.name === SUMMARY_SHEET_NAME && s.id !== SUMMARY_SHEET_ID)
   if (conflict)
-    throw new Error(`已存在名为「${conflict.name}」的其他工作表，请先重命名`)
+    throw new Error(t('已存在名为「{0}」的其他工作表，请先重命名', [conflict.name]))
 
   const aliases = await syncAliases(pivot, sheets[SUMMARY_SHEET_ID]?.cellData)
   const columns = buildSummaryColumns(pivot, aliases)
@@ -310,7 +311,7 @@ export function resolveDrillTarget(api: FUniver): DrillTarget | null {
       title: `${label} · ${scope}`,
       filter,
       rule,
-      expected: typeof value === 'number' ? { label: `汇总表「${label}」`, value, kind: 'contribution' } : undefined,
+      expected: typeof value === 'number' ? { label: t('汇总表「{0}」', [label]), value, kind: 'contribution' } : undefined,
     }
   }
 

@@ -1,5 +1,6 @@
 import type { AxiosInstance, AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios'
 import axios from 'axios'
+import { t } from '@/i18n'
 import { getToken, removeToken } from './auth'
 
 /**
@@ -42,9 +43,9 @@ function showTokenExpired() {
   if (expiredDialogShowing)
     return
   expiredDialogShowing = true
-  ElMessageBox.confirm('登录状态已失效，请重新登录', '提示', {
-    confirmButtonText: '登录',
-    cancelButtonText: '取消',
+  ElMessageBox.confirm(t('登录状态已失效，请重新登录'), t('提示'), {
+    confirmButtonText: t('登录'),
+    cancelButtonText: t('取消'),
     type: 'warning',
   }).then(() => {
     removeToken()

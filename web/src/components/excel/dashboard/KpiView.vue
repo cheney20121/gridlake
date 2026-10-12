@@ -7,6 +7,7 @@ import { chartBus, sheetIdOf } from '@/features/excel/chart/chart-manager'
 import { crossFilterAffecting, dashboardFiltersFor } from '@/features/excel/dashboard/cross-filter'
 import { compact, full, loadKpi } from '@/features/excel/dashboard/data'
 import { saveWidgetImage } from '@/features/excel/dashboard/export-image'
+import { t } from '@/i18n'
 
 /**
  * 指标卡：标题、数值（自动用万 / 亿）、同比 / 环比（箭头 + 文字，颜色表示好坏）、最近 12 期趋势
@@ -82,10 +83,10 @@ const spark = computed(() => {
 async function saveImage(e: MouseEvent) {
   e.stopPropagation()
   try {
-    ElMessage.success(`已保存图片：${await saveWidgetImage(e, '.kpi', spec.value.title || '指标卡')}`)
+    ElMessage.success(t('已保存图片：{0}', [await saveWidgetImage(e, '.kpi', spec.value.title || '指标卡')]))
   }
   catch (err) {
-    ElMessage.error(`保存图片失败：${err instanceof Error ? err.message : String(err)}`)
+    ElMessage.error(t('保存图片失败：{0}', [err instanceof Error ? err.message : String(err)]))
   }
 }
 
@@ -123,11 +124,11 @@ onBeforeUnmount(() => {
 <template>
   <div class="kpi" @dblclick="edit">
     <div class="head">
-      <span class="label" :title="spec.title">{{ spec.title || '指标' }}</span>
+      <span class="label" :title="spec.title">{{ spec.title || $t('指标') }}</span>
       <span v-if="data?.period" class="period">{{ data.period }}</span>
-      <span v-if="cross" class="cross" :title="`按图表点选的「${cross.label}」筛选；在图表上再点一次或点空白处取消`">联动</span>
-      <span class="edit" title="保存为图片" @pointerdown.stop @mousedown.stop @click="saveImage">📷</span>
-      <span class="edit" title="编辑指标卡" @pointerdown.stop @mousedown.stop @click="edit">⚙</span>
+      <span v-if="cross" class="cross" :title="$t('按图表点选的「{0}」筛选；在图表上再点一次或点空白处取消', [cross.label])">{{ $t('联动') }}</span>
+      <span class="edit" :title="$t('保存为图片')" @pointerdown.stop @mousedown.stop @click="saveImage">📷</span>
+      <span class="edit" :title="$t('编辑指标卡')" @pointerdown.stop @mousedown.stop @click="edit">⚙</span>
     </div>
     <div v-if="error" class="error">
       {{ error }}
@@ -142,7 +143,7 @@ onBeforeUnmount(() => {
           {{ deltaText }}
           <span class="vs">{{ data.deltaLabel }}</span>
         </span>
-        <span v-else-if="spec.compare !== 'none' && data" class="vs">{{ data.deltaLabel }}：无基期数据</span>
+        <span v-else-if="spec.compare !== 'none' && data" class="vs">{{ $t('{0}：无基期数据', [data.deltaLabel]) }}</span>
         <svg v-if="spark" class="spark" :viewBox="`0 0 ${W} ${H}`" :width="W" :height="H">
           <path :d="spark.path" fill="none" stroke="#b5b3ab" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" />
           <g v-for="p in spark.points" :key="p.key">

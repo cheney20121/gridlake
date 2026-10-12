@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Plus } from '@element-plus/icons-vue'
 import { computed } from 'vue'
+import LanguageSwitch from '@/components/common/LanguageSwitch.vue'
 import UserMenu from '@/components/excel/account/UserMenu.vue'
 
 /** 首页顶栏：品牌、登录用户、新建入口 */
@@ -24,20 +25,21 @@ const initial = computed(() => props.userName?.trim().charAt(0).toUpperCase() ??
       <svg viewBox="0 0 16 16" width="16" height="16"><path d="M3 3h10v10H3z" fill="none" stroke="#fff" stroke-width="1.2" /><path d="M3 6.5h10M3 9.8h10M7 3v10" stroke="#fff" stroke-width="1" /></svg>
     </div>
     <span class="whitespace-nowrap text-[15px] font-semibold tracking-wide">Gridlake</span>
-    <span class="tagline">亿级数据表格</span>
+    <span class="tagline">{{ $t('亿级数据表格') }}</span>
     <div class="flex-1" />
+    <LanguageSwitch />
     <UserMenu v-if="userName">
-      <span class="user-chip" :title="`登录账号：${userName}`">
+      <span class="user-chip" :title="$t('登录账号：{0}', [userName])">
         <span class="avatar">{{ initial }}</span>
         <span class="max-w-32 truncate">{{ userName }}</span>
-        <span v-if="isAdmin" class="admin-tag">管理员</span>
+        <span v-if="isAdmin" class="admin-tag">{{ $t('管理员') }}</span>
       </span>
     </UserMenu>
     <el-button @click="emit('template')">
-      从模板新建
+      {{ $t('从模板新建') }}
     </el-button>
     <el-button type="primary" :icon="Plus" :loading="creating" @click="emit('create')">
-      新建工作簿
+      {{ $t('新建工作簿') }}
     </el-button>
   </header>
 </template>

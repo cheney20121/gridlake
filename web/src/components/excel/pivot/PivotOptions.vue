@@ -21,56 +21,56 @@ const display = defineModel<Required<PivotDisplay>>('display', { required: true 
 <template>
   <div class="section">
     <div class="section-title">
-      选项
+      {{ $t('选项') }}
     </div>
     <div class="grid grid-cols-[56px_1fr] items-center gap-x-2 gap-y-1.5 text-xs text-gray-600">
-      <span>排序</span>
+      <span>{{ $t('排序') }}</span>
       <el-select v-model="options.sort" size="small">
         <el-option v-for="o in SORT_OPTIONS" :key="o.value" :label="o.label" :value="o.value" />
       </el-select>
-      <span>前 N 项</span>
-      <el-input-number v-model="options.top" size="small" :min="1" :max="10000" :controls="false" placeholder="不限（按第一个行字段、第一个值）" />
-      <span>汇总</span>
+      <span>{{ $t('前 N 项') }}</span>
+      <el-input-number v-model="options.top" size="small" :min="1" :max="10000" :controls="false" :placeholder="$t('不限（按第一个行字段、第一个值）')" />
+      <span>{{ $t('汇总') }}</span>
       <div class="flex gap-3">
         <el-checkbox v-model="options.subtotals" size="small">
-          小计
+          {{ $t('小计') }}
         </el-checkbox>
         <el-checkbox v-model="options.grandTotals" size="small">
-          总计
+          {{ $t('总计') }}
         </el-checkbox>
       </div>
-      <span>版式</span>
+      <span>{{ $t('版式') }}</span>
       <el-radio-group v-model="display.layout" size="small">
-        <el-radio-button value="tabular" title="每个行字段一列，适合复制、再加工">
-          表格
+        <el-radio-button value="tabular" :title="$t('每个行字段一列，适合复制、再加工')">
+          {{ $t('表格') }}
         </el-radio-button>
-        <el-radio-button value="compact" title="一列标签按层级缩进，分组可折叠展开，适合阅读和汇报">
-          紧凑
+        <el-radio-button value="compact" :title="$t('一列标签按层级缩进，分组可折叠展开，适合阅读和汇报')">
+          {{ $t('紧凑') }}
         </el-radio-button>
       </el-radio-group>
       <template v-if="display.layout === 'tabular'">
         <span />
-        <el-checkbox v-model="display.repeatLabels" size="small" title="每一行都显示上级标签">
-          重复显示上级标签
+        <el-checkbox v-model="display.repeatLabels" size="small" :title="$t('每一行都显示上级标签')">
+          {{ $t('重复显示上级标签') }}
         </el-checkbox>
       </template>
       <template v-else-if="rowsCount >= 2">
         <span />
         <div class="flex items-center gap-3">
           <el-button link size="small" type="primary" @click="emit('collapseAll', true)">
-            全部折叠
+            {{ $t('全部折叠') }}
           </el-button>
           <el-button link size="small" type="primary" :disabled="!display.collapsed.length" @click="emit('collapseAll', false)">
-            全部展开
+            {{ $t('全部展开') }}
           </el-button>
         </div>
       </template>
       <template v-if="aliasCount">
-        <span>别名</span>
+        <span>{{ $t('别名') }}</span>
         <div class="flex items-center gap-2">
-          <span class="text-gray-500">已改 {{ aliasCount }} 处</span>
+          <span class="text-gray-500">{{ $t('已改 {0} 处', [aliasCount]) }}</span>
           <el-button link size="small" type="primary" @click="emit('clearAliases')">
-            恢复原名
+            {{ $t('恢复原名') }}
           </el-button>
         </div>
       </template>

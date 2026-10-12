@@ -9,6 +9,7 @@ import { excelPattern } from '@/components/excel/big-grid/column-style'
 import { chartBus, insertFloat, removeFloat, sheetHeaderSize } from '@/features/excel/chart/chart-manager'
 import { datasetById } from '@/features/excel/dashboard/slicer'
 import { cellName } from '@/features/excel/writeback/input-table'
+import { t as tr } from '@/i18n'
 import { applyEdits, editCount, recordEdit, rowKey } from './edits'
 import { cellPixel, cellTableArea, DATA_TABLE_KEY, DEFAULT_TABLE_SIZE, findCellTable, getCellTables, listCellTables, MAX_CELL_ROWS, newDataTableId, saveCellTables, tableColumns, tableQuery, uniqueTableName } from './types'
 
@@ -38,10 +39,10 @@ function blank(v: unknown) {
 async function fetchRows(api: FUniver, spec: DataTableSpec, sheetId: string) {
   const ds = datasetById(spec.datasetId)
   if (!ds)
-    throw new Error(`数据表「${spec.name}」的数据集已删除`)
+    throw new Error(tr('数据表「{0}」的数据集已删除', [spec.name]))
   const cols = tableColumns(spec, ds)
   if (!cols.length)
-    throw new Error(`数据表「${spec.name}」没有可显示的列`)
+    throw new Error(tr('数据表「{0}」没有可显示的列', [spec.name]))
   const cur = await openCursorApi(ds.id, tableQuery(api, spec, sheetId))
   const limit = Math.min(cur.total, MAX_CELL_ROWS)
   const fields = cols.map(c => c.title)
@@ -49,7 +50,7 @@ async function fetchRows(api: FUniver, spec: DataTableSpec, sheetId: string) {
   for (let off = 0; off < limit; off += PAGE) {
     const r = await getRowsApi(ds.id, cur.cursorId, off, Math.min(PAGE, limit - off), undefined, fields)
     if (r.expired)
-      throw new Error(`数据表「${spec.name}」取数期间数据有更新，请重试`)
+      throw new Error(tr('数据表「{0}」取数期间数据有更新，请重试', [spec.name]))
     rows.push(...r.rows)
   }
   return { cols, rows, total: cur.total }
@@ -140,7 +141,7 @@ function upsertSpec(sheet: FWorksheet, spec: CellTableSpec) {
 export async function insertCellTable(api: FUniver, init: { datasetId: string, datasetName: string, name?: string, fields?: string[], filters?: DatasetFilter[], sort?: DatasetSort[], keyword?: string }) {
   const sheet = api.getActiveWorkbook()?.getActiveSheet()
   if (!sheet)
-    throw new Error('没有打开的工作表')
+    throw new Error(tr('没有打开的工作表'))
   const cell = sheet.getSelection()?.getActiveRange()
   const spec: CellTableSpec = {
     v: 1,
@@ -166,7 +167,7 @@ export async function insertCellTable(api: FUniver, init: { datasetId: string, d
 export async function updateCellTable(api: FUniver, spec: CellTableSpec) {
   const loc = findCellTable(api, spec.id)
   if (!loc)
-    throw new Error('数据表已被删除')
+    throw new Error(tr('数据表已被删除'))
   // 手工调整以工作表里记下的为准（表单里是打开时的旧副本）；关掉「保留手工调整」就清掉记录
   const next = await renderCellTable(api, loc.sheet, { ...spec, row: loc.spec.row, col: loc.spec.col, extent: loc.spec.extent, edits: spec.keepEdits ? loc.spec.edits : undefined })
   upsertSpec(loc.sheet, next)
@@ -191,7 +192,7 @@ export function removeCellTable(api: FUniver, id: string, keepValues = false) {
 export async function resetCellTableEdits(api: FUniver, id: string) {
   const loc = findCellTable(api, id)
   if (!loc)
-    throw new Error('数据表已被删除')
+    throw new Error(tr('数据表已被删除'))
   const next = await renderCellTable(api, loc.sheet, { ...loc.spec, edits: undefined })
   upsertSpec(loc.sheet, next)
   chartBus.emit('cell-table', id)
@@ -275,7 +276,7 @@ export async function floatToCells(api: FUniver, loc: FloatLocation<DataTableSpe
 export function cellsToFloat(api: FUniver, id: string) {
   const loc = findCellTable(api, id)
   if (!loc)
-    throw new Error('数据表已被删除')
+    throw new Error(tr('数据表已被删除'))
   const { row, col, extent: _extent, total: _total, ...base } = loc.spec
   removeCellTable(api, id)
   const at = cellPixel(loc.sheet, row, col)

@@ -4,6 +4,7 @@ import type { WorkbookMeta } from '@/api/workbook'
 import type { PaletteCommand } from '@/components/excel/command-palette/CommandPalette.vue'
 import type { RibbonTab } from '@/features/excel/ribbon/app-ribbon'
 import { refreshImportRanges } from '@/features/excel/formula/import-range'
+import { t } from '@/i18n'
 
 /** 功能区条目在命令面板里的搜索关键字（拼写、同义词） */
 const KEYWORDS: Record<string, string> = {
@@ -74,32 +75,32 @@ export function buildPaletteCommands(c: PaletteContext): PaletteCommand[] {
     }
   }
   const more: Omit<PaletteCommand, 'group'>[] = [
-    { id: 'file.save', title: '保存', hint: 'Ctrl+S', keywords: 'save', run: c.save },
-    { id: 'file.manage', title: '打开 / 新建 / 管理工作簿', keywords: 'open new 文件夹', run: () => c.onFile('manage') },
-    { id: 'file.template', title: '从模板新建', keywords: 'template 模板', run: () => c.onFile('template') },
-    { id: 'file.publish', title: '发布为模板', keywords: 'template publish', run: () => c.onFile('publish') },
-    { id: 'file.import', title: '导入 Excel 文件（.xlsx）', keywords: 'xlsx excel 打开', run: () => c.onFile('import') },
-    { id: 'file.export', title: '导出为 Excel（.xlsx）', keywords: 'xlsx excel 下载 export', run: () => c.onFile('export') },
-    { id: 'dc.anomaly', title: '异常发现', keywords: 'anomaly 异常 偏离 骤降 暴跌 骤增 不对劲 检查 巡检', run: () => c.onDataCenter('anomaly') },
-    { id: 'dc.connector', title: '数据连接', hint: c.connectorFailures ? `${c.connectorFailures} 个同步失败` : undefined, keywords: 'connector 数据库 同步 mysql 接口', run: () => c.onDataCenter('connector') },
-    { id: 'dc.report', title: '定时推送', keywords: 'report 推送 飞书 邮件 企业微信 订阅', run: () => c.onDataCenter('report') },
-    ...(c.isAdmin ? [{ id: 'dc.mcp', title: '外部 AI 接入（MCP）', keywords: 'mcp claude 令牌 token', run: () => c.onDataCenter('mcp') }] : []),
-    ...(c.authRequired && c.isAdmin ? [{ id: 'dc.datascope', title: '数据权限（按店铺）', keywords: 'scope 权限 行级 店铺 范围 可见', run: () => c.onDataCenter('datascope') }] : []),
-    ...(c.authRequired && c.isAdmin ? [{ id: 'dc.audit', title: '操作审计', keywords: 'audit 审计 日志 谁改了 操作记录', run: () => c.onDataCenter('audit') }] : []),
-    { id: 'formula.refresh-import', title: '刷新跨工作簿引用（IMPORTRANGE）', keywords: 'importrange 外部链接 更新链接 引用其他工作簿', run: () => {
+    { id: 'file.save', title: t('保存'), hint: 'Ctrl+S', keywords: 'save', run: c.save },
+    { id: 'file.manage', title: t('打开 / 新建 / 管理工作簿'), keywords: 'open new 文件夹', run: () => c.onFile('manage') },
+    { id: 'file.template', title: t('从模板新建'), keywords: 'template 模板', run: () => c.onFile('template') },
+    { id: 'file.publish', title: t('发布为模板'), keywords: 'template publish', run: () => c.onFile('publish') },
+    { id: 'file.import', title: t('导入 Excel 文件（.xlsx）'), keywords: 'xlsx excel 打开', run: () => c.onFile('import') },
+    { id: 'file.export', title: t('导出为 Excel（.xlsx）'), keywords: 'xlsx excel 下载 export', run: () => c.onFile('export') },
+    { id: 'dc.anomaly', title: t('异常发现'), keywords: 'anomaly 异常 偏离 骤降 暴跌 骤增 不对劲 检查 巡检', run: () => c.onDataCenter('anomaly') },
+    { id: 'dc.connector', title: t('数据连接'), hint: c.connectorFailures ? `${c.connectorFailures} 个同步失败` : undefined, keywords: 'connector 数据库 同步 mysql 接口', run: () => c.onDataCenter('connector') },
+    { id: 'dc.report', title: t('定时推送'), keywords: 'report 推送 飞书 邮件 企业微信 订阅', run: () => c.onDataCenter('report') },
+    ...(c.isAdmin ? [{ id: 'dc.mcp', title: t('外部 AI 接入（MCP）'), keywords: 'mcp claude 令牌 token', run: () => c.onDataCenter('mcp') }] : []),
+    ...(c.authRequired && c.isAdmin ? [{ id: 'dc.datascope', title: t('数据权限（按店铺）'), keywords: 'scope 权限 行级 店铺 范围 可见', run: () => c.onDataCenter('datascope') }] : []),
+    ...(c.authRequired && c.isAdmin ? [{ id: 'dc.audit', title: t('操作审计'), keywords: 'audit 审计 日志 谁改了 操作记录', run: () => c.onDataCenter('audit') }] : []),
+    { id: 'formula.refresh-import', title: t('刷新跨工作簿引用（IMPORTRANGE）'), keywords: 'importrange 外部链接 更新链接 引用其他工作簿', run: () => {
       refreshImportRanges()
-      ElMessage.success('已重新读取被引用工作簿的最新保存版本')
+      ElMessage.success(t('已重新读取被引用工作簿的最新保存版本'))
     } },
-    { id: 'dc.trash', title: '数据集回收站', keywords: 'trash 恢复 删除', run: () => c.onDataCenter('trash') },
-    { id: 'approval.start', title: '发起审批', keywords: 'approval 审批', run: () => c.onApproval('start') },
-    { id: 'approval.center', title: '审批中心', keywords: 'approval 待办', run: () => c.onApproval('center') },
-    { id: 'nav.home', title: '返回首页', keywords: 'home 首页 最近', run: () => window.location.assign(c.homeHref) },
+    { id: 'dc.trash', title: t('数据集回收站'), keywords: 'trash 恢复 删除', run: () => c.onDataCenter('trash') },
+    { id: 'approval.start', title: t('发起审批'), keywords: 'approval 审批', run: () => c.onApproval('start') },
+    { id: 'approval.center', title: t('审批中心'), keywords: 'approval 待办', run: () => c.onApproval('center') },
+    { id: 'nav.home', title: t('返回首页'), keywords: 'home 首页 最近', run: () => window.location.assign(c.homeHref) },
   ]
   if (!c.isLedgerWorkbook) {
     more.push(
-      { id: 'dc.ledger.import', title: '导入店铺明细', keywords: '台账 资金 流水', run: () => c.onLedger('import') },
-      { id: 'dc.ledger.shops', title: '店铺档案', keywords: '台账', run: () => c.onLedger('shops') },
-      { id: 'dc.ledger.close', title: '月结中心', keywords: '台账 对账 锁账', run: () => c.onLedger('close') },
+      { id: 'dc.ledger.import', title: t('导入店铺明细'), keywords: '台账 资金 流水', run: () => c.onLedger('import') },
+      { id: 'dc.ledger.shops', title: t('店铺档案'), keywords: '台账', run: () => c.onLedger('shops') },
+      { id: 'dc.ledger.close', title: t('月结中心'), keywords: '台账 对账 锁账', run: () => c.onLedger('close') },
     )
   }
   more.forEach(add)
@@ -116,7 +117,7 @@ export function buildPaletteCommands(c: PaletteContext): PaletteCommand[] {
     id: `dataset.${d.id}`,
     title: d.name,
     group: '数据集',
-    hint: `${d.rowCount.toLocaleString()} 行`,
+    hint: t('{0} 行', [d.rowCount.toLocaleString()]),
     keywords: `数据集 dataset ${d.columns.map(col => col.title).join(' ')}`,
     run: () => c.openDataset(d.id),
   }))

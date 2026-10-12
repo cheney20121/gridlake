@@ -1,4 +1,5 @@
 import { toBlob } from 'html-to-image'
+import { t } from '@/i18n'
 
 /**
  * 看板部件（指标卡、切片器、表格卡片）保存为图片：把部件的界面画成 PNG（2 倍清晰度），不含编辑按钮；
@@ -27,7 +28,7 @@ export function downloadBlob(blob: Blob, fileName: string) {
 export async function saveWidgetImage(trigger: Event, selector: string, title: string): Promise<string> {
   const root = (trigger.currentTarget as HTMLElement | null)?.closest<HTMLElement>(selector)
   if (!root)
-    throw new Error('找不到要保存的部件')
+    throw new Error(t('找不到要保存的部件'))
   const blob = await toBlob(root, {
     pixelRatio: 2,
     backgroundColor: '#ffffff',
@@ -35,7 +36,7 @@ export async function saveWidgetImage(trigger: Event, selector: string, title: s
     filter: node => !(node instanceof HTMLElement && node.classList.contains('edit')),
   })
   if (!blob)
-    throw new Error('生成图片失败')
+    throw new Error(t('生成图片失败'))
   const fileName = `${safeFileName(title)}.png`
   downloadBlob(blob, fileName)
   return fileName

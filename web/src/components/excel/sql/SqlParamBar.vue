@@ -16,10 +16,10 @@ function set(name: string, v: string) {
 
 <template>
   <div class="param-bar" data-testid="sql-params">
-    <span class="text-xs text-gray-500">参数</span>
+    <span class="text-xs text-gray-500">{{ $t('参数') }}</span>
     <div v-for="d in defs" :key="d.name" class="param">
-      <span class="name" :title="`在 SQL 里写 {{${d.name}}}`">{{ d.name }}</span>
-      <el-select v-model="d.kind" size="small" class="!w-[72px]" title="类型决定值怎样代入 SQL（文本加引号、数字不加、日期按日期）">
+      <span class="name" :title="$t('在 SQL 里写 {{{0}}}', [d.name])">{{ d.name }}</span>
+      <el-select v-model="d.kind" size="small" class="!w-[72px]" :title="$t('类型决定值怎样代入 SQL（文本加引号、数字不加、日期按日期）')">
         <el-option v-for="k in KIND_OPTIONS" :key="k.value" :label="k.label" :value="k.value" />
       </el-select>
       <el-date-picker
@@ -29,7 +29,7 @@ function set(name: string, v: string) {
         value-format="YYYY-MM-DD"
         size="small"
         class="!w-36"
-        placeholder="选择日期"
+        :placeholder="$t('选择日期')"
         @update:model-value="(v: string | null) => set(d.name, v ?? '')"
       />
       <el-input
@@ -37,7 +37,7 @@ function set(name: string, v: string) {
         :model-value="values[d.name] ?? ''"
         size="small"
         class="!w-36"
-        :placeholder="d.kind === 'number' ? '数字' : '文本'"
+        :placeholder="d.kind === 'number' ? $t('数字') : $t('文本')"
         :class="{ bad: valueError(d.kind, values[d.name] ?? '') }"
         clearable
         @update:model-value="(v: string) => set(d.name, v)"

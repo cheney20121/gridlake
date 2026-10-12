@@ -2,26 +2,18 @@ import type { Univer } from '@univerjs/core'
 import type { FUniver } from '@univerjs/core/facade'
 
 import { UniverSheetsConditionalFormattingPreset } from '@univerjs/preset-sheets-conditional-formatting'
-import UniverPresetSheetsConditionalFormattingZhCN from '@univerjs/preset-sheets-conditional-formatting/locales/zh-CN'
 import { UniverSheetsCorePreset } from '@univerjs/preset-sheets-core'
-import UniverPresetSheetsCoreZhCN from '@univerjs/preset-sheets-core/locales/zh-CN'
 import { UniverSheetsDataValidationPreset } from '@univerjs/preset-sheets-data-validation'
-import UniverPresetSheetsDataValidationZhCN from '@univerjs/preset-sheets-data-validation/locales/zh-CN'
 import { UniverSheetsDrawingPreset } from '@univerjs/preset-sheets-drawing'
-import UniverPresetSheetsDrawingZhCN from '@univerjs/preset-sheets-drawing/locales/zh-CN'
 import { UniverSheetsFilterPreset } from '@univerjs/preset-sheets-filter'
-import UniverPresetSheetsFilterZhCN from '@univerjs/preset-sheets-filter/locales/zh-CN'
 import { UniverSheetsFindReplacePreset } from '@univerjs/preset-sheets-find-replace'
-import UniverPresetSheetsFindReplaceZhCN from '@univerjs/preset-sheets-find-replace/locales/zh-CN'
 import { UniverSheetsHyperLinkPreset } from '@univerjs/preset-sheets-hyper-link'
-import UniverPresetSheetsHyperLinkZhCN from '@univerjs/preset-sheets-hyper-link/locales/zh-CN'
 import { UniverSheetsNotePreset } from '@univerjs/preset-sheets-note'
-import UniverPresetSheetsNoteZhCN from '@univerjs/preset-sheets-note/locales/zh-CN'
 import { UniverSheetsSortPreset } from '@univerjs/preset-sheets-sort'
-import UniverPresetSheetsSortZhCN from '@univerjs/preset-sheets-sort/locales/zh-CN'
 import { UniverSheetsTablePreset } from '@univerjs/preset-sheets-table'
-import UniverPresetSheetsTableZhCN from '@univerjs/preset-sheets-table/locales/zh-CN'
 import { createUniver, greenTheme, LocaleType, mergeLocales } from '@univerjs/presets'
+import { lang } from '@/i18n'
+import { univerLocalePacks } from '@/i18n/univer-locale'
 
 import '@univerjs/preset-sheets-core/lib/index.css'
 import '@univerjs/preset-sheets-drawing/lib/index.css'
@@ -51,22 +43,12 @@ export function initUniver(container: string | HTMLElement): UniverContext {
     disposeUniver()
 
   const { univer, univerAPI } = createUniver({
-    locale: LocaleType.ZH_CN,
+    locale: lang === 'en-US' ? LocaleType.EN_US : LocaleType.ZH_CN,
     // Excel 品牌绿：选区框、激活标签、工具栏高亮统一为绿色
     theme: greenTheme,
+    // 当前语言的界面语言包在应用挂载前已加载好（见 main.ts）
     locales: {
-      [LocaleType.ZH_CN]: mergeLocales(
-        UniverPresetSheetsCoreZhCN,
-        UniverPresetSheetsDrawingZhCN,
-        UniverPresetSheetsConditionalFormattingZhCN,
-        UniverPresetSheetsDataValidationZhCN,
-        UniverPresetSheetsFilterZhCN,
-        UniverPresetSheetsSortZhCN,
-        UniverPresetSheetsFindReplaceZhCN,
-        UniverPresetSheetsHyperLinkZhCN,
-        UniverPresetSheetsNoteZhCN,
-        UniverPresetSheetsTableZhCN,
-      ),
+      [lang === 'en-US' ? LocaleType.EN_US : LocaleType.ZH_CN]: mergeLocales(...univerLocalePacks() as Parameters<typeof mergeLocales>),
     },
     presets: [
       UniverSheetsCorePreset({

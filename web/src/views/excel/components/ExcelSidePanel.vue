@@ -53,17 +53,17 @@ const uiStore = useExcelUIStore()
       <div class="panel-header">
         <span class="panel-title">
           {{ {
-            'sort-filter': '排序与筛选',
-            'style': '单元格样式',
-            'formula': '公式函数',
-            'collaboration': '实时协作',
-            'snapshots': '版本历史',
-            'pivot': '数据透视表字段',
-            'chart': '图表',
-            'dashboard': '仪表盘',
-            'ai': 'AI 分析助手',
-            'writeback': '填报回写',
-            'comments': '评论',
+            'sort-filter': $t('排序与筛选'),
+            'style': $t('单元格样式'),
+            'formula': $t('公式函数'),
+            'collaboration': $t('实时协作'),
+            'snapshots': $t('版本历史'),
+            'pivot': $t('数据透视表字段'),
+            'chart': $t('图表'),
+            'dashboard': $t('仪表盘'),
+            'ai': $t('AI 分析助手'),
+            'writeback': $t('填报回写'),
+            'comments': $t('评论'),
           }[uiStore.activePanel] }}
         </span>
         <el-button text circle size="small" @click="uiStore.closePanel()">

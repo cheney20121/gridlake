@@ -156,7 +156,7 @@ function onKeydown(e: KeyboardEvent) {
             ref="inputRef"
             v-model="query"
             class="h-12 flex-1 border-none bg-transparent text-[15px] outline-none"
-            placeholder="搜索功能、数据集、工作表、工作簿…"
+            :placeholder="$t('搜索功能、数据集、工作表、工作簿…')"
           >
           <kbd class="kbd">Esc</kbd>
         </div>
@@ -179,13 +179,13 @@ function onKeydown(e: KeyboardEvent) {
             </div>
           </template>
           <div v-if="!results.length" class="px-4 py-8 text-center text-gray-400">
-            没有找到「{{ query }}」
+            {{ $t('没有找到「{0}」', [query]) }}
           </div>
         </div>
         <div class="flex gap-4 border-t border-[#eee] border-t-solid px-4 py-1.5 text-[11px] text-gray-400">
-          <span><kbd class="kbd">↑</kbd> <kbd class="kbd">↓</kbd> 选择</span>
-          <span><kbd class="kbd">Enter</kbd> 执行</span>
-          <span class="ml-auto">Alt+Q 随时打开</span>
+          <span><kbd class="kbd">↑</kbd> <kbd class="kbd">↓</kbd> {{ $t('选择') }}</span>
+          <span><kbd class="kbd">Enter</kbd> {{ $t('执行') }}</span>
+          <span class="ml-auto">{{ $t('Alt+Q 随时打开') }}</span>
         </div>
       </div>
     </div>

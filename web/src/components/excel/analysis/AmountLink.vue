@@ -16,7 +16,7 @@ const emit = defineEmits<{
     v-else
     class="amount-link"
     :class="{ 'text-[#B91C1C]': value < 0 }"
-    title="查看构成明细"
+    :title="$t('查看构成明细')"
     @click.stop="emit('drill')"
   >
     {{ formatMoney(value) }}

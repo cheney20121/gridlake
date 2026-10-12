@@ -64,7 +64,7 @@ watch(() => props.univerApi, (api) => {
     <el-input
       v-model="searchKeyword"
       size="small"
-      placeholder="搜索公式函数..."
+      :placeholder="$t('搜索公式函数...')"
       clearable
       class="search-input"
     >
@@ -108,7 +108,7 @@ watch(() => props.univerApi, (api) => {
           {{ f.category }}
         </el-tag>
       </div>
-      <el-empty v-if="filteredFormulas.length === 0" description="未找到匹配公式" :image-size="60" />
+      <el-empty v-if="filteredFormulas.length === 0" :description="$t('未找到匹配公式')" :image-size="60" />
     </div>
 
     <!-- 公式详情 -->
@@ -120,15 +120,15 @@ watch(() => props.univerApi, (api) => {
         {{ selectedFormula.description }}
       </div>
       <div class="detail-syntax">
-        <span class="detail-label">语法</span>
+        <span class="detail-label">{{ $t('语法') }}</span>
         <code>{{ selectedFormula.syntax }}</code>
       </div>
       <div class="detail-example">
-        <span class="detail-label">示例</span>
+        <span class="detail-label">{{ $t('示例') }}</span>
         <code>{{ selectedFormula.example }}</code>
       </div>
       <el-button type="primary" size="small" @click="insertFormula">
-        插入到当前单元格
+        {{ $t('插入到当前单元格') }}
       </el-button>
       <div v-if="applyResult" class="apply-result">
         {{ applyResult }}

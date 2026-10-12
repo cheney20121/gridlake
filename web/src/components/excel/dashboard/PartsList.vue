@@ -30,32 +30,32 @@ function titleOf(p: FloatLocation) {
 <template>
   <div class="section">
     <div class="section-title flex items-center justify-between">
-      <span>本页部件（{{ parts.length + cellParts.length }}）</span>
+      <span>{{ $t('本页部件（{0}）', [parts.length + cellParts.length]) }}</span>
       <el-button link size="small" @click="emit('refresh')">
-        刷新列表
+        {{ $t('刷新列表') }}
       </el-button>
     </div>
     <div v-if="!parts.length && !cellParts.length" class="text-xs text-gray-400">
-      还没有部件
+      {{ $t('还没有部件') }}
     </div>
     <div v-for="p in cellParts" :key="p.spec.id" class="part" :class="{ on: p.spec.id === editId }">
-      <span class="tag">数据表 · 单元格</span>
+      <span class="tag">{{ $t('数据表 · 单元格') }}</span>
       <span class="min-w-0 flex-1 truncate" :title="p.spec.name">{{ p.spec.name }}</span>
       <el-button link size="small" @click="emit('editCells', p.spec.id)">
-        编辑
+        {{ $t('编辑') }}
       </el-button>
       <el-button link size="small" type="danger" @click="emit('remove', p.spec.id)">
-        删除
+        {{ $t('删除') }}
       </el-button>
     </div>
     <div v-for="p in parts" :key="p.spec.id" class="part" :class="{ on: p.spec.id === editId }">
       <span class="tag">{{ KIND_LABEL[p.key] }}</span>
       <span class="min-w-0 flex-1 truncate" :title="titleOf(p)">{{ titleOf(p) }}</span>
       <el-button link size="small" @click="emit('edit', p)">
-        编辑
+        {{ $t('编辑') }}
       </el-button>
       <el-button link size="small" type="danger" @click="emit('remove', p.spec.id)">
-        删除
+        {{ $t('删除') }}
       </el-button>
     </div>
   </div>

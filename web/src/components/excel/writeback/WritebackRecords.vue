@@ -23,9 +23,9 @@ function sourceText(r: WritebackRecord) {
 <template>
   <div class="section">
     <div class="section-title">
-      「{{ datasetName }}」的提交记录
+      {{ $t('「{0}」的提交记录', [datasetName]) }}
       <el-button link size="small" @click="emit('refresh')">
-        刷新
+        {{ $t('刷新') }}
       </el-button>
     </div>
     <div class="flex flex-col">
@@ -35,18 +35,18 @@ function sourceText(r: WritebackRecord) {
           <span class="text-gray-500">{{ r.operator }}</span>
           <el-tooltip v-if="!r.undoneAt" :disabled="r.canUndo" :content="r.undoBlocked ?? ''" placement="top">
             <span class="ml-auto">
-              <el-button link size="small" type="primary" :disabled="!r.canUndo" @click="emit('undo', r)">撤销</el-button>
+              <el-button link size="small" type="primary" :disabled="!r.canUndo" @click="emit('undo', r)">{{ $t('撤销') }}</el-button>
             </span>
           </el-tooltip>
-          <span v-else class="ml-auto text-gray-400">{{ r.undoneBy }} 已撤销</span>
+          <span v-else class="ml-auto text-gray-400">{{ $t('{0} 已撤销', [r.undoneBy]) }}</span>
         </div>
         <div class="text-gray-500">
           {{ modeText(r.mode) }}<template v-if="r.mode === 'delete'">
-            · 删除 {{ r.deleted }}
+            {{ $t('· 删除 {0}', [r.deleted]) }}
           </template><template v-else>
-            · 新增 {{ r.inserted }} · 更新 {{ r.updated }}
+            {{ $t('· 新增 {0} · 更新 {1}', [r.inserted, r.updated]) }}
           </template><template v-if="r.unchanged">
-            · 无变化 {{ r.unchanged }}
+            {{ $t('· 无变化 {0}', [r.unchanged]) }}
           </template>
           <template v-if="sourceText(r)">
             · {{ sourceText(r) }}

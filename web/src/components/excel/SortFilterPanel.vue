@@ -133,9 +133,9 @@ watch(() => props.univerApi, (api) => {
   <div class="sort-filter-panel">
     <div class="panel-section">
       <div class="section-label">
-        排序列
+        {{ $t('排序列') }}
       </div>
-      <el-select v-model="selectedColumn" class="full-width" placeholder="选择列">
+      <el-select v-model="selectedColumn" class="full-width" :placeholder="$t('选择列')">
         <el-option
           v-for="col in columnLabels"
           :key="col.index"
@@ -147,14 +147,14 @@ watch(() => props.univerApi, (api) => {
 
     <div class="panel-section">
       <div class="section-label">
-        排序方向
+        {{ $t('排序方向') }}
       </div>
       <el-radio-group v-model="sortOrder">
         <el-radio-button value="asc">
-          升序 ↑
+          {{ $t('升序 ↑') }}
         </el-radio-button>
         <el-radio-button value="desc">
-          降序 ↓
+          {{ $t('降序 ↓') }}
         </el-radio-button>
       </el-radio-group>
     </div>
@@ -163,23 +163,23 @@ watch(() => props.univerApi, (api) => {
       <svg viewBox="0 0 16 16" width="14" height="14" fill="none">
         <path d="M3 4l4 4M3 12l4-4M9 4h4M9 8h4M9 12h2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
       </svg>
-      执行排序
+      {{ $t('执行排序') }}
     </el-button>
 
     <el-divider />
 
     <div class="panel-section">
       <div class="section-label">
-        <span>列筛选</span>
+        <span>{{ $t('列筛选') }}</span>
         <el-switch v-model="filterEnabled" size="small" @change="handleApplyFilter" />
       </div>
 
       <div v-if="uniqueValues.length > 0" class="filter-controls">
         <el-button size="small" text @click="selectAll">
-          全选
+          {{ $t('全选') }}
         </el-button>
         <el-button size="small" text @click="selectNone">
-          清空
+          {{ $t('清空') }}
         </el-button>
       </div>
 
@@ -202,7 +202,7 @@ watch(() => props.univerApi, (api) => {
       </div>
 
       <el-button size="small" @click="handleClearFilter">
-        清除筛选
+        {{ $t('清除筛选') }}
       </el-button>
     </div>
 

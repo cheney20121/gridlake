@@ -6,6 +6,7 @@ import { ref } from 'vue'
 import { listConnectorsApi } from '@/api/connector'
 import { listWorkbooksApi } from '@/api/workbook'
 import { persistenceManager } from '@/features/excel/persistence/manager'
+import { t } from '@/i18n'
 import { useLedgerUserStore } from '@/stores/ledger-user'
 
 /**
@@ -37,7 +38,7 @@ export function usePlatformDialogs(options: {
   function openPublish() {
     const meta = persistenceManager.getMeta()
     if (!meta)
-      return ElMessage.warning('工作簿还没有保存到服务端，无法发布为模板')
+      return ElMessage.warning(t('工作簿还没有保存到服务端，无法发布为模板'))
     publishWorkbookId.value = meta.id
     publishVisible.value = true
   }
@@ -46,24 +47,24 @@ export function usePlatformDialogs(options: {
   async function saveForPublish() {
     if (!persistenceManager.isDirty())
       return true
-    const r = await persistenceManager.save({ description: '发布为模板前保存' })
+    const r = await persistenceManager.save({ description: t('发布为模板前保存') })
     if (r.state === 'saved' || r.state === 'unchanged')
       return true
-    ElMessage.error('工作簿保存失败，请先处理保存问题再发布')
+    ElMessage.error(t('工作簿保存失败，请先处理保存问题再发布'))
     return false
   }
 
   async function onTemplateCreated(meta: WorkbookMeta, warnings: string[]) {
     await openWorkbook(meta)
-    ElMessage.success(`已用模板创建「${meta.name}」`)
+    ElMessage.success(t('已用模板创建「{0}」', [meta.name]))
     if (warnings.length)
-      ElNotification.warning({ title: '部分引用需要手动检查', message: warnings.join('；'), duration: 0 })
+      ElNotification.warning({ title: t('部分引用需要手动检查'), message: warnings.join('；'), duration: 0 })
   }
 
   async function openWorkbookById(id: string) {
     const meta = (await listWorkbooksApi().catch(() => [])).find(w => w.id === id)
     if (!meta)
-      return ElMessage.warning('工作簿不存在')
+      return ElMessage.warning(t('工作簿不存在'))
     templateVisible.value = false
     await openWorkbook(meta)
   }
@@ -78,7 +79,7 @@ export function usePlatformDialogs(options: {
   async function openReports(create = false) {
     // 推送按服务端保存的工作簿计算：有未保存的修改先保存
     if (create && persistenceManager.isDirty())
-      await persistenceManager.save({ description: '设置定时推送前保存' }).catch(() => {})
+      await persistenceManager.save({ description: t('设置定时推送前保存') }).catch(() => {})
     reportWorkbookId.value = persistenceManager.getMeta()?.id ?? null
     reportSheetId.value = univerAPI.value?.getActiveWorkbook()?.getActiveSheet().getSheetId() ?? null
     reportCreate.value = create
@@ -91,7 +92,7 @@ export function usePlatformDialogs(options: {
     if (persistenceManager.getMeta()?.id !== workbookId) {
       const meta = (await listWorkbooksApi().catch(() => [])).find(w => w.id === workbookId)
       if (!meta)
-        return ElMessage.warning('工作簿不存在')
+        return ElMessage.warning(t('工作簿不存在'))
       await openWorkbook(meta)
     }
     activateSheet(sheetId)

@@ -8,6 +8,7 @@ import { computed, nextTick, ref, shallowRef, watch } from 'vue'
 import { CONTRIBUTION_KEY, exportUrl, getStatsApi, MAX_EXPORT_ROWS, MAX_XLSX_ROWS, openCursorApi } from '@/api/dataset'
 import BusyOverlay from '@/components/excel/common/BusyOverlay.vue'
 import { formatMoney } from '@/components/excel/ledger-detail/columns'
+import { t } from '@/i18n'
 import { errorText } from '@/utils/busy-hint'
 import BigGrid from './BigGrid.vue'
 import FilterMenu from './FilterMenu.vue'
@@ -43,7 +44,7 @@ const columns = computed<GridColumn[]>(() => {
   // 用户计算列在表头加 ƒ 标记
   const cols: GridColumn[] = props.dataset.columns.map(c => ({ ...c, title: c.formula ? `${c.title} ƒ` : c.title, width: widths.value[c.key] ?? c.width }))
   if (cursor.value?.hasContribution)
-    cols.unshift({ key: CONTRIBUTION_KEY, title: '贡献金额', kind: 'money', width: widths.value[CONTRIBUTION_KEY] ?? 120, emphasis: true })
+    cols.unshift({ key: CONTRIBUTION_KEY, title: t('贡献金额'), kind: 'money', width: widths.value[CONTRIBUTION_KEY] ?? 120, emphasis: true })
   return cols
 })
 
@@ -368,70 +369,70 @@ function exportData(format: 'csv' | 'xlsx') {
   <div class="h-full flex flex-col bg-white">
     <!-- 工具栏：标题与行数不换行；搜索框与筛选标签可收缩；窄屏时按钮换到下一行，低频操作收进「更多」 -->
     <div class="toolbar">
-      <el-button v-if="dataset.kind === 'recon'" size="small" type="primary" plain title="回到对账工作台：勾对、看未达账项" @click="emit('backToRecon')">
-        ← 对账工作台
+      <el-button v-if="dataset.kind === 'recon'" size="small" type="primary" plain :title="$t('回到对账工作台：勾对、看未达账项')" @click="emit('backToRecon')">
+        {{ $t('← 对账工作台') }}
       </el-button>
       <span class="shrink-0 whitespace-nowrap text-sm text-gray-800 font-semibold">{{ dataset.name }}</span>
       <el-tooltip v-if="dataset.kind === 'view' && dataset.view" placement="bottom" :content="`关联视图：按 ${dataset.view.on.map(k => k.left === k.right ? k.left : `${k.left}=${k.right}`).join(' + ')} 带入 ${dataset.view.columns.map(c => c.title).join('、')}（点击修改）`">
         <el-tag size="small" type="info" class="cursor-pointer" @click="emit('editJoin', dataset.id)">
-          关联 ✎
+          {{ $t('关联 ✎') }}
         </el-tag>
       </el-tooltip>
       <span class="shrink-0 whitespace-nowrap text-xs text-gray-500 tabular-nums">
-        {{ cursor ? cursor.total.toLocaleString() : '…' }} 行
-        <template v-if="cursor && cursor.total !== dataset.rowCount"> / 共 {{ dataset.rowCount.toLocaleString() }}</template>
+        {{ $t('{0} 行', [cursor ? cursor.total.toLocaleString() : '…']) }}
+        <template v-if="cursor && cursor.total !== dataset.rowCount"> {{ $t('/ 共 {0}', [dataset.rowCount.toLocaleString()]) }}</template>
       </span>
-      <el-input v-if="dataset.searchable" v-model="keyword" size="small" clearable placeholder="搜索订单号 / 流水号 / 商品 / 达人 / 备注" class="min-w-44 max-w-72 flex-1" />
+      <el-input v-if="dataset.searchable" v-model="keyword" size="small" clearable :placeholder="$t('搜索订单号 / 流水号 / 商品 / 达人 / 备注')" class="min-w-44 max-w-72 flex-1" />
       <div class="min-w-0 flex flex-1 flex-wrap items-center gap-1.5 overflow-hidden">
         <el-tag v-for="(f, i) in userFilters" :key="i" size="small" closable @close="removeFilter(i)">
           {{ filterLabel(f) }}
         </el-tag>
         <el-button v-if="userFilters.length > 1" link size="small" @click="userFilters = []">
-          清除全部筛选
+          {{ $t('清除全部筛选') }}
         </el-button>
       </div>
       <div class="ml-auto flex shrink-0 items-center gap-1.5">
-        <el-button size="small" title="以当前筛选新建数据透视表" @click="emit('pivot', dataset.id, query.filters ?? [])">
-          透视分析
+        <el-button size="small" :title="$t('以当前筛选新建数据透视表')" @click="emit('pivot', dataset.id, query.filters ?? [])">
+          {{ $t('透视分析') }}
         </el-button>
-        <el-button size="small" title="以当前筛选新建图表（千万行在服务端汇总）" @click="emit('chart', dataset.id, query.filters ?? [])">
-          图表分析
+        <el-button size="small" :title="$t('以当前筛选新建图表（千万行在服务端汇总）')" @click="emit('chart', dataset.id, query.filters ?? [])">
+          {{ $t('图表分析') }}
         </el-button>
-        <el-button size="small" title="把当前筛选的明细放进工作表的选中单元格处（内部滚动，公式可按表名引用）" @click="emit('embed', dataset.id, { filters: query.filters, keyword: query.keyword, sort: query.sort })">
-          放入工作表
+        <el-button size="small" :title="$t('把当前筛选的明细放进工作表的选中单元格处（内部滚动，公式可按表名引用）')" @click="emit('embed', dataset.id, { filters: query.filters, keyword: query.keyword, sort: query.sort })">
+          {{ $t('放入工作表') }}
         </el-button>
         <el-dropdown trigger="click" @command="onMore">
           <el-button size="small">
-            更多 ▾
+            {{ $t('更多 ▾') }}
           </el-button>
           <template #dropdown>
             <el-dropdown-menu>
               <el-dropdown-item command="calc">
-                计算列…（用公式新增一列）
+                {{ $t('计算列…（用公式新增一列）') }}
               </el-dropdown-item>
               <el-dropdown-item command="join">
-                关联…（按键带入另一个数据集的列）
+                {{ $t('关联…（按键带入另一个数据集的列）') }}
               </el-dropdown-item>
               <el-dropdown-item command="copy" divided>
-                复制选区（Ctrl + C）
+                {{ $t('复制选区（Ctrl + C）') }}
               </el-dropdown-item>
               <el-dropdown-item command="goto">
-                跳转到行（Ctrl + G）
+                {{ $t('跳转到行（Ctrl + G）') }}
               </el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
         <el-dropdown trigger="click" :disabled="!cursor?.total" @command="exportData">
           <el-button size="small" :disabled="!cursor?.total">
-            导出 ▾
+            {{ $t('导出 ▾') }}
           </el-button>
           <template #dropdown>
             <el-dropdown-menu>
               <el-dropdown-item command="xlsx">
-                Excel（.xlsx，含汇总页签）
+                {{ $t('Excel（.xlsx，含汇总页签）') }}
               </el-dropdown-item>
               <el-dropdown-item command="csv">
-                CSV（最多 100 万行）
+                {{ $t('CSV（最多 100 万行）') }}
               </el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -442,15 +443,15 @@ function exportData(format: 'csv' | 'xlsx') {
     <!-- 下钻上下文与核对 -->
     <div v-if="drill" class="drill-bar">
       <el-tag type="success" effect="light" round>
-        下钻：{{ drill.title }}
+        {{ $t('下钻：{0}', [drill.title]) }}
       </el-tag>
-      <el-switch v-if="drill.rule" v-model="useRule" size="small" active-text="只看有贡献的流水" />
+      <el-switch v-if="drill.rule" v-model="useRule" size="small" :active-text="$t('只看有贡献的流水')" />
       <span v-if="check" class="check" :class="check.extra ? 'muted' : check.ok ? 'ok' : 'bad'">
-        {{ check.extra ? '' : check.ok ? '✓' : '✕' }} {{ check.label }} {{ check.expected }}<span class="ml-3">明细合计</span> {{ check.actual }}
-        <span v-if="check.extra" class="text-gray-500">（已叠加筛选，对比仅供参考）</span>
+        {{ check.extra ? '' : check.ok ? '✓' : '✕' }} {{ check.label }} {{ check.expected }}<span class="ml-3">{{ $t('明细合计') }}</span> {{ check.actual }}
+        <span v-if="check.extra" class="text-gray-500">{{ $t('（已叠加筛选，对比仅供参考）') }}</span>
       </span>
       <el-button link type="primary" size="small" class="ml-auto" @click="emit('exitDrill')">
-        退出下钻，查看全部数据
+        {{ $t('退出下钻，查看全部数据') }}
       </el-button>
     </div>
 
@@ -475,35 +476,35 @@ function exportData(format: 'csv' | 'xlsx') {
       <BusyOverlay
         :loading="loading"
         :error="error"
-        :title="`正在查询 ${dataset.rowCount.toLocaleString()} 行数据`"
+        :title="$t('正在查询 {0} 行数据', [dataset.rowCount.toLocaleString()])"
         :cancellable="!!cursor"
         :revertable="!!cursor"
         @cancel="cancelQuery"
         @retry="openCursor(true)"
         @revert="revertQuery"
       />
-      <el-empty v-if="cursor && !cursor.total && !loading" class="absolute inset-x-0 top-20" description="没有符合条件的数据" :image-size="80" />
+      <el-empty v-if="cursor && !cursor.total && !loading" class="absolute inset-x-0 top-20" :description="$t('没有符合条件的数据')" :image-size="80" />
     </div>
 
     <!-- 状态栏：与 Excel 一致，选中多个单元格时显示统计 -->
     <div class="statusbar">
       <template v-if="selectionSize && (selectionSize.rows > 1 || selectionSize.cols > 1)">
-        <span>已选 {{ selectionSize.rows.toLocaleString() }} 行 × {{ selectionSize.cols }} 列</span>
+        <span>{{ $t('已选 {0} 行 × {1} 列', [selectionSize.rows.toLocaleString(), selectionSize.cols]) }}</span>
         <template v-if="stats">
-          <span>计数 {{ stats.count.toLocaleString() }}</span>
+          <span>{{ $t('计数 {0}', [stats.count.toLocaleString()]) }}</span>
           <template v-if="stats.numericCount">
-            <span>求和 {{ formatMoney(stats.sum) }}</span>
-            <span>平均 {{ formatMoney(stats.avg) }}</span>
-            <span>最小 {{ formatMoney(stats.min) }}</span>
-            <span>最大 {{ formatMoney(stats.max) }}</span>
+            <span>{{ $t('求和 {0}', [formatMoney(stats.sum)]) }}</span>
+            <span>{{ $t('平均 {0}', [formatMoney(stats.avg)]) }}</span>
+            <span>{{ $t('最小 {0}', [formatMoney(stats.min)]) }}</span>
+            <span>{{ $t('最大 {0}', [formatMoney(stats.max)]) }}</span>
           </template>
         </template>
-        <span v-else class="text-gray-400">统计中…</span>
+        <span v-else class="text-gray-400">{{ $t('统计中…') }}</span>
       </template>
-      <span v-else class="min-w-0 truncate text-gray-400">双击行查看详情 · 列头按钮排序 / 筛选 · Ctrl+C 复制选区 · Ctrl+G 跳转到行</span>
+      <span v-else class="min-w-0 truncate text-gray-400">{{ $t('双击行查看详情 · 列头按钮排序 / 筛选 · Ctrl+C 复制选区 · Ctrl+G 跳转到行') }}</span>
       <span v-if="cursor?.total" class="ml-auto flex shrink-0 items-center gap-1 whitespace-nowrap text-gray-500">
         <template v-if="gotoOpen">
-          第
+          {{ $t('第') }}
           <input
             ref="gotoInput"
             v-model="gotoValue"
@@ -516,12 +517,12 @@ function exportData(format: 'csv' | 'xlsx') {
             @keydown.esc.prevent="gotoOpen = false"
             @blur="gotoOpen = false"
           >
-          行
+          {{ $t('行') }}
         </template>
-        <button v-else class="goto-btn" title="跳转到指定行（Ctrl / ⌘ + G）" @click="openGoto">跳转到行</button>
+        <button v-else class="goto-btn" :title="$t('跳转到指定行（Ctrl / ⌘ + G）')" @click="openGoto">{{ $t('跳转到行') }}</button>
       </span>
       <span v-if="cursor" class="shrink-0 whitespace-nowrap text-gray-400">
-        {{ cursor.cached ? '查询结果已缓存' : `查询耗时 ${cursor.elapsedMs.toLocaleString()} ms` }}
+        {{ cursor.cached ? $t('查询结果已缓存') : $t('查询耗时 {0} ms', [cursor.elapsedMs.toLocaleString()]) }}
       </span>
     </div>
 
@@ -538,14 +539,14 @@ function exportData(format: 'csv' | 'xlsx') {
       @close="menu = null"
     />
 
-    <el-drawer :model-value="!!openedRow" :title="`第 ${(openedRow?.row ?? 0) + 1} 行`" size="420px" append-to-body @update:model-value="openedRow = null">
+    <el-drawer :model-value="!!openedRow" :title="$t('第 {0} 行', [(openedRow?.row ?? 0) + 1])" size="420px" append-to-body @update:model-value="openedRow = null">
       <div class="flex flex-col text-[13px]">
         <div v-for="f in rowFields" :key="f.col.key" class="flex gap-3 border-b border-[#f2f2f2] border-b-solid py-1.5">
           <span class="w-28 shrink-0 text-gray-500">{{ f.col.title }}</span>
           <span class="min-w-0 flex-1 break-all" :class="{ 'tabular-nums text-right': f.col.kind === 'money' }">{{ display(f.value, f.col.kind) }}</span>
         </div>
         <div class="mt-2 text-xs text-gray-400">
-          金额列只显示非零项
+          {{ $t('金额列只显示非零项') }}
         </div>
       </div>
     </el-drawer>

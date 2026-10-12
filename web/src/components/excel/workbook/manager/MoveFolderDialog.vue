@@ -38,10 +38,10 @@ const target = defineModel<string>('target', { required: true })
     </el-scrollbar>
     <template #footer>
       <el-button size="small" @click="emit('cancel')">
-        取消
+        {{ $t('取消') }}
       </el-button>
       <el-button size="small" type="primary" @click="emit('confirm')">
-        移到这里
+        {{ $t('移到这里') }}
       </el-button>
     </template>
   </el-dialog>

@@ -11,6 +11,7 @@ import { buildOption, formatCell } from '@/features/excel/chart/chart-option'
 import { echarts } from '@/features/excel/chart/echarts'
 import { clearCrossFilter, crossFilterOf, crossFilters, dashboardFiltersFor, dropCrossFiltersOf, persistCrossFilter, toggleCrossFilter } from '@/features/excel/dashboard/cross-filter'
 import { downloadBlob, safeFileName } from '@/features/excel/dashboard/export-image'
+import { t } from '@/i18n'
 import { errorText } from '@/utils/busy-hint'
 
 /**
@@ -240,17 +241,17 @@ function edit(e: MouseEvent) {
 async function saveImage(e: MouseEvent) {
   e.stopPropagation()
   if (!chart || view.value !== 'chart') {
-    ElMessage.warning('请先切回图表再保存图片')
+    ElMessage.warning(t('请先切回图表再保存图片'))
     return
   }
   try {
     const blob = await (await fetch(chart.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: '#fff' }))).blob()
     const name = `${safeFileName(spec.value.title, '图表')}.png`
     downloadBlob(blob, name)
-    ElMessage.success(`已保存图片：${name}`)
+    ElMessage.success(t('已保存图片：{0}', [name]))
   }
   catch (err) {
-    ElMessage.error(`保存图片失败：${err instanceof Error ? err.message : String(err)}`)
+    ElMessage.error(t('保存图片失败：{0}', [err instanceof Error ? err.message : String(err)]))
   }
 }
 
@@ -309,7 +310,7 @@ onBeforeUnmount(() => {
       <table>
         <thead>
           <tr>
-            <th>{{ spec.type === 'histogram' ? '区间' : '分类' }}</th>
+            <th>{{ spec.type === 'histogram' ? $t('区间') : $t('分类') }}</th>
             <th v-for="s in data.series" :key="s.name">
               {{ s.name }}
             </th>
@@ -318,7 +319,7 @@ onBeforeUnmount(() => {
         <tbody>
           <tr v-for="(c, i) in data.categories" :key="i">
             <td class="text-left">
-              {{ c || '（空）' }}
+              {{ c || $t('（空）') }}
             </td>
             <td v-for="s in data.series" :key="s.name">
               {{ formatCell(s.values[i] ?? null, !!data.money, spec.unit) }}
@@ -331,30 +332,30 @@ onBeforeUnmount(() => {
     <div v-if="error" class="state flex-col gap-1 text-[#B91C1C]">
       <span>{{ error }}</span>
       <button class="retry" @pointerdown.stop @mousedown.stop @click="load">
-        重试
+        {{ $t('重试') }}
       </button>
     </div>
     <div v-else-if="loading && !data" class="state px-4 text-center text-[#898781]">
-      <BusyInline :loading="true" text="正在计算" cancellable @cancel="cancel" />
+      <BusyInline :loading="true" :text="$t('正在计算')" cancellable @cancel="cancel" />
     </div>
 
     <div class="toolbar">
-      <button title="编辑图表（或双击图表）" @pointerdown.stop @mousedown.stop @click="edit">
-        编辑
+      <button :title="$t('编辑图表（或双击图表）')" @pointerdown.stop @mousedown.stop @click="edit">
+        {{ $t('编辑') }}
       </button>
-      <button title="保存为图片（PNG）" @pointerdown.stop @mousedown.stop @click="saveImage">
-        图片
+      <button :title="$t('保存为图片（PNG）')" @pointerdown.stop @mousedown.stop @click="saveImage">
+        {{ $t('图片') }}
       </button>
-      <button :title="view === 'chart' ? '以表格查看全部数值' : '回到图表'" @pointerdown.stop @mousedown.stop @click="toggleView">
-        {{ view === 'chart' ? '数据' : '图表' }}
+      <button :title="view === 'chart' ? $t('以表格查看全部数值') : $t('回到图表')" @pointerdown.stop @mousedown.stop @click="toggleView">
+        {{ view === 'chart' ? $t('数据') : $t('图表') }}
       </button>
     </div>
-    <div v-if="selection" class="pick" :title="`同一工作表上的其他图表、指标卡、表格按「${selection.label}」筛选；Ctrl（⌘）+ 点击可多选，点空白处或 × 取消`" @pointerdown.stop @mousedown.stop>
-      <span class="t">已筛选 {{ selection.label }}</span>
+    <div v-if="selection" class="pick" :title="$t('同一工作表上的其他图表、指标卡、表格按「{0}」筛选；Ctrl（⌘）+ 点击可多选，点空白处或 × 取消', [selection.label])" @pointerdown.stop @mousedown.stop>
+      <span class="t">{{ $t('已筛选 {0}', [selection.label]) }}</span>
       <span class="x" @click="clearSelection">×</span>
     </div>
     <div v-if="notes.length && view === 'chart'" class="notes" :title="notes.join('\n')">
-      ⓘ {{ notes[0] }}<span v-if="notes.length > 1"> 等 {{ notes.length }} 条</span>
+      ⓘ {{ notes[0] }}<span v-if="notes.length > 1"> {{ $t('等 {0} 条', [notes.length]) }}</span>
     </div>
   </div>
 </template>

@@ -39,16 +39,16 @@ function visibleItems(dim: string, key: FacetKey): LedgerFacetItem[] {
     <template v-for="{ dim, key } in FACETS" :key="dim">
       <section v-if="!hidden?.includes(key) && (facets[dim]?.length ?? 0) > 0" class="mb-4">
         <div class="mb-1 flex items-center justify-between">
-          <span class="facet-title">{{ dim === '商户主体名称' ? '商户主体' : dim }}</span>
+          <span class="facet-title">{{ dim === '商户主体名称' ? $t('商户主体') : dim }}</span>
           <button v-if="selected[key].length" class="text-xs text-[#107C41]" @click="emit('clear', key)">
-            清除（{{ selected[key].length }}）
+            {{ $t('清除（{0}）', [selected[key].length]) }}
           </button>
         </div>
         <el-input
           v-if="(facets[dim]?.length ?? 0) > 12"
           v-model="search[dim]"
           size="small"
-          placeholder="搜索"
+          :placeholder="$t('搜索')"
           clearable
           class="mb-1"
         />
@@ -58,12 +58,12 @@ function visibleItems(dim: string, key: FacetKey): LedgerFacetItem[] {
             :key="item.value"
             class="facet-item"
             :class="{ active: selected[key].includes(item.value) }"
-            :title="`${item.value || '（空）'}\n${item.count.toLocaleString()} 笔，净额 ${formatMoney(item.net)}`"
+            :title="$t('{0}\n{1} 笔，净额 {2}', [item.value || '（空）', item.count.toLocaleString(), formatMoney(item.net)])"
             @click="emit('toggle', key, item.value)"
           >
-            <span class="min-w-0 flex-1 truncate">{{ item.value || '（空）' }}</span>
+            <span class="min-w-0 flex-1 truncate">{{ item.value || $t('（空）') }}</span>
             <span class="shrink-0 text-right">
-              <span class="block text-[11px] text-gray-400">{{ item.count.toLocaleString() }} 笔</span>
+              <span class="block text-[11px] text-gray-400">{{ $t('{0} 笔', [item.count.toLocaleString()]) }}</span>
               <span class="block text-[11px]" :class="item.net < 0 ? 'text-[#DC2626]' : 'text-[#107C41]'">{{ formatMoney(item.net) }}</span>
             </span>
           </li>
@@ -73,7 +73,7 @@ function visibleItems(dim: string, key: FacetKey): LedgerFacetItem[] {
           class="mt-1 text-xs text-gray-500 hover:text-[#107C41]"
           @click="expanded[dim] = !expanded[dim]"
         >
-          {{ expanded[dim] ? '收起' : `展开全部 ${facets[dim]?.length} 项` }}
+          {{ expanded[dim] ? $t('收起') : $t('展开全部 {0} 项', [facets[dim]?.length]) }}
         </button>
       </section>
     </template>

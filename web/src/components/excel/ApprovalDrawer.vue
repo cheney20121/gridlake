@@ -3,6 +3,7 @@ import type { Approval, ApprovalBox, ApprovalStatus } from '@/api/approval'
 import { computed, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useLedgerOperator } from '@/features/excel/shop-ledger/month-close'
+import { t } from '@/i18n'
 import { useApprovalStore } from '@/stores/excel-approval'
 import { useLedgerUserStore } from '@/stores/ledger-user'
 
@@ -25,10 +26,10 @@ const activeTab = computed({
 })
 
 const STATUS: Record<ApprovalStatus, { label: string, type: 'warning' | 'success' | 'danger' | 'info' }> = {
-  pending: { label: '审批中', type: 'warning' },
-  approved: { label: '已通过', type: 'success' },
-  rejected: { label: '已驳回', type: 'danger' },
-  cancelled: { label: '已撤回', type: 'info' },
+  pending: { label: t('审批中'), type: 'warning' },
+  approved: { label: t('已通过'), type: 'success' },
+  rejected: { label: t('已驳回'), type: 'danger' },
+  cancelled: { label: t('已撤回'), type: 'info' },
 }
 
 const ACTION_LABEL: Record<string, string> = { submit: '发起审批', approve: '审批通过', reject: '审批驳回', cancel: '撤回' }
@@ -53,7 +54,7 @@ async function toggleDetail(a: Approval) {
 async function act(a: Approval, kind: 'approve' | 'reject' | 'cancel') {
   const comment = (comments[a.id] ?? '').trim()
   if (kind === 'reject' && !comment) {
-    ElMessage.warning('驳回时请填写原因')
+    ElMessage.warning(t('驳回时请填写原因'))
     return
   }
   busy.value = a.id
@@ -75,20 +76,20 @@ function openWorkbook(a: Approval) {
 }
 
 const TABS = computed<{ name: ApprovalBox, label: string, empty: string }[]>(() => [
-  { name: 'todo', label: '待我审批', empty: '暂无待审批事项' },
-  { name: 'started', label: '我发起的', empty: '你还没有发起过审批' },
-  { name: 'done', label: '已处理', empty: '暂无已处理的审批' },
-  ...(ledgerUser.authRequired && ledgerUser.isAdmin ? [{ name: 'all' as const, label: '全部', empty: '暂无审批单' }] : []),
+  { name: 'todo', label: t('待我审批'), empty: '暂无待审批事项' },
+  { name: 'started', label: t('我发起的'), empty: '你还没有发起过审批' },
+  { name: 'done', label: t('已处理'), empty: '暂无已处理的审批' },
+  ...(ledgerUser.authRequired && ledgerUser.isAdmin ? [{ name: 'all' as const, label: t('全部'), empty: '暂无审批单' }] : []),
 ])
 </script>
 
 <template>
-  <el-drawer v-model="drawerVisible" title="审批中心" direction="rtl" size="420px" :with-header="false">
+  <el-drawer v-model="drawerVisible" :title="$t('审批中心')" direction="rtl" size="420px" :with-header="false">
     <div class="h-full flex flex-col">
       <div class="flex items-center justify-between border-b border-[#ebeef5] border-b-solid pb-2">
-        <span class="text-base font-semibold">审批中心</span>
+        <span class="text-base font-semibold">{{ $t('审批中心') }}</span>
         <el-tag size="small" round>
-          {{ store.pendingCount }} 待我处理
+          {{ $t('{0} 待我处理', [store.pendingCount]) }}
         </el-tag>
       </div>
 
@@ -103,7 +104,7 @@ const TABS = computed<{ name: ApprovalBox, label: string, empty: string }[]>(() 
             <el-empty v-if="!store.loading && !store.items.length" :description="t.empty" :image-size="80" />
             <div v-for="a in store.items" :key="a.id" class="mb-2 border border-[#ebeef5] rounded-md border-solid bg-white p-3">
               <div class="mb-2 flex items-center justify-between">
-                <button type="button" class="truncate border-0 bg-transparent p-0 text-left text-[13px] font-semibold cursor-pointer hover:text-[#0E5A31]" title="查看审批历史" @click="toggleDetail(a)">
+                <button type="button" class="truncate border-0 bg-transparent p-0 text-left text-[13px] font-semibold cursor-pointer hover:text-[#0E5A31]" :title="$t('查看审批历史')" @click="toggleDetail(a)">
                   {{ a.workbookName }}
                 </button>
                 <el-tag size="small" :type="STATUS[a.status].type">
@@ -112,31 +113,31 @@ const TABS = computed<{ name: ApprovalBox, label: string, empty: string }[]>(() 
               </div>
               <div class="text-xs text-gray-500 leading-[1.8]">
                 <div class="row">
-                  <span>审批版本</span>
+                  <span>{{ $t('审批版本') }}</span>
                   <strong>
-                    第 {{ a.workbookVersion }} 版
-                    <span v-if="a.currentVersion && a.currentVersion > a.workbookVersion" class="text-[#B45309] font-normal" title="审批之后工作簿又被修改过">（现在已到第 {{ a.currentVersion }} 版）</span>
+                    {{ $t('第 {0} 版', [a.workbookVersion]) }}
+                    <span v-if="a.currentVersion && a.currentVersion > a.workbookVersion" class="text-[#B45309] font-normal" :title="$t('审批之后工作簿又被修改过')">{{ $t('（现在已到第 {0} 版）', [a.currentVersion]) }}</span>
                   </strong>
                 </div>
                 <template v-if="a.summary?.dataRows !== undefined">
                   <div class="row">
-                    <span>数据行数</span><strong>{{ a.summary.dataRows }} 行</strong>
+                    <span>{{ $t('数据行数') }}</span><strong>{{ $t('{0} 行', [a.summary.dataRows]) }}</strong>
                   </div>
                   <div v-if="a.summary.totalAmount" class="row">
-                    <span>总金额</span><strong>{{ formatCurrency(a.summary.totalAmount) }}</strong>
+                    <span>{{ $t('总金额') }}</span><strong>{{ formatCurrency(a.summary.totalAmount) }}</strong>
                   </div>
                 </template>
                 <div class="row">
-                  <span>发起人</span><strong>{{ a.initiatorName }}</strong>
+                  <span>{{ $t('发起人') }}</span><strong>{{ a.initiatorName }}</strong>
                 </div>
                 <div class="row">
-                  <span>审批人</span><strong>{{ a.approverName }}</strong>
+                  <span>{{ $t('审批人') }}</span><strong>{{ a.approverName }}</strong>
                 </div>
                 <div class="row">
-                  <span>发起时间</span><strong>{{ a.createdAt }}</strong>
+                  <span>{{ $t('发起时间') }}</span><strong>{{ a.createdAt }}</strong>
                 </div>
                 <div class="row">
-                  <span>说明</span><strong class="max-w-[220px] truncate" :title="a.comment">{{ a.comment }}</strong>
+                  <span>{{ $t('说明') }}</span><strong class="max-w-[220px] truncate" :title="a.comment">{{ a.comment }}</strong>
                 </div>
                 <div v-if="a.decidedAt" class="row">
                   <span>{{ STATUS[a.status].label }}</span>
@@ -145,26 +146,26 @@ const TABS = computed<{ name: ApprovalBox, label: string, empty: string }[]>(() 
               </div>
 
               <template v-if="a.status === 'pending' && (a.canDecide || a.canCancel)">
-                <el-input v-model="comments[a.id]" placeholder="填写意见（驳回必填）" size="small" class="my-2" />
+                <el-input v-model="comments[a.id]" :placeholder="$t('填写意见（驳回必填）')" size="small" class="my-2" />
                 <div class="flex justify-end gap-2">
                   <el-button v-if="a.canCancel" size="small" :loading="busy === a.id" @click="act(a, 'cancel')">
-                    撤回
+                    {{ $t('撤回') }}
                   </el-button>
                   <el-button v-if="a.canDecide" size="small" type="danger" :loading="busy === a.id" @click="act(a, 'reject')">
-                    驳回
+                    {{ $t('驳回') }}
                   </el-button>
                   <el-button v-if="a.canDecide" size="small" type="success" :loading="busy === a.id" @click="act(a, 'approve')">
-                    通过
+                    {{ $t('通过') }}
                   </el-button>
                 </div>
               </template>
 
               <div class="mt-2 flex items-center justify-between">
                 <el-button link size="small" @click="openWorkbook(a)">
-                  打开工作簿
+                  {{ $t('打开工作簿') }}
                 </el-button>
                 <el-button link size="small" @click="toggleDetail(a)">
-                  {{ expanded === a.id ? '收起历史' : '审批历史' }}
+                  {{ expanded === a.id ? $t('收起历史') : $t('审批历史') }}
                 </el-button>
               </div>
               <el-timeline v-if="expanded === a.id && detail?.id === a.id" class="mt-2 !pl-1">

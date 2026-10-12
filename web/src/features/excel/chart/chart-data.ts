@@ -2,6 +2,7 @@ import type { FUniver } from '@univerjs/core/facade'
 import type { ChartData, ChartSpec, DatasetSource, RangeSource } from './types'
 import type { DatasetFilter } from '@/api/dataset'
 import { getPivotApi } from '@/api/dataset'
+import { t as tr } from '@/i18n'
 import { MAX_SCATTER_SERIES, MAX_SERIES, MAX_SLICES } from './types'
 
 /** 单元格值 → 数字（文本数字也认：去掉千分位、货币符号、百分号） */
@@ -68,26 +69,26 @@ export function readRange(api: FUniver, src: RangeSource): ChartData {
   const wb = api.getActiveWorkbook()
   const sheet = wb?.getSheetBySheetId(src.sheetId)
   if (!sheet)
-    throw new Error('数据所在的工作表已删除')
+    throw new Error(tr('数据所在的工作表已删除'))
   let range
   try {
     range = sheet.getRange(src.range)
   }
   catch {
-    throw new Error(`数据区域无效：${src.range}`)
+    throw new Error(tr('数据区域无效：{0}', [src.range]))
   }
   const values = range.getValues() as unknown[][]
   const display = (range.getDisplayValues?.() ?? values) as unknown[][]
   const data = fromMatrix(values, display, src)
   if (!data.series.length)
-    throw new Error('选中的区域里没有数字')
+    throw new Error(tr('选中的区域里没有数字'))
   return data
 }
 
 /** 数据集 → 服务端聚合（复用透视引擎，千万行只返回聚合结果） */
 export async function readDataset(src: DatasetSource, signal?: AbortSignal, extraFilters: DatasetFilter[] = []): Promise<ChartData> {
   if (!src.values.length)
-    throw new Error('请选择数值字段')
+    throw new Error(tr('请选择数值字段'))
   const split = src.splitBy && src.values.length === 1 ? src.splitBy : null
   const res = await getPivotApi(src.datasetId, {
     rows: [{ column: src.x.column, granularity: src.x.granularity ?? null }],

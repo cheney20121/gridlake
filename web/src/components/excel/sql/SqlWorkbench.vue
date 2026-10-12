@@ -9,6 +9,7 @@ import { listConnectorsApi } from '@/api/connector'
 import { createQueryApi, deleteQueryApi, listQueriesApi, refreshQueryApi, runSqlApi, updateQueryApi } from '@/api/sql'
 import { buildSql, emptyModel, q } from '@/features/excel/sql/builder'
 import { cleanValues, paramProblems, placeholderNames, syncDefs } from '@/features/excel/sql/params'
+import { t } from '@/i18n'
 import { useLedgerUserStore } from '@/stores/ledger-user'
 import ParamInstanceDialog from './ParamInstanceDialog.vue'
 import QueryBuilder from './QueryBuilder.vue'
@@ -137,7 +138,7 @@ async function run(text?: string) {
 
 function runBuilder() {
   if (!builderSql.value)
-    return ElMessage.warning('请先选择数据集')
+    return ElMessage.warning(t('请先选择数据集'))
   sql.value = builderSql.value
   mode.value = 'sql'
   run(builderSql.value)
@@ -188,7 +189,7 @@ async function openSave(asNew = false) {
   if (!result.value) {
     await run()
     if (!result.value)
-      return ElMessage.warning('请先修正查询中的错误')
+      return ElMessage.warning(t('请先修正查询中的错误'))
   }
   const c = asNew ? null : current.value
   Object.assign(form, {
@@ -209,11 +210,11 @@ async function openSave(asNew = false) {
 
 async function save() {
   if (!form.name.trim())
-    return ElMessage.warning('请填写查询名称')
+    return ElMessage.warning(t('请填写查询名称'))
   if (form.asDataset && !current.value?.datasetId && !form.datasetName.trim())
-    return ElMessage.warning('请填写数据集名称')
+    return ElMessage.warning(t('请填写数据集名称'))
   if (form.scheduleKind === 'after_sync' && !form.connectorId)
-    return ElMessage.warning('请选择数据连接')
+    return ElMessage.warning(t('请选择数据连接'))
   const schedule: SqlSchedule = form.scheduleKind === 'daily' ? { kind: 'daily', at: form.at } : form.scheduleKind === 'after_sync' ? { kind: 'after_sync', connectorId: form.connectorId } : { kind: 'manual' }
   // 只提交与自动推断不同的类型
   const kinds = Object.fromEntries(Object.entries(form.kinds).filter(([n, k]) => result.value?.columns.find(c => c.name === n)?.kind !== k))
@@ -239,7 +240,7 @@ async function save() {
       ElMessage.success(`已保存，并写入数据集「${sq.datasetName}」（${sq.lastRows?.toLocaleString()} 行）${sq.lastMessage ? `：${sq.lastMessage}` : ''}`)
     }
     else {
-      ElMessage.success('已保存')
+      ElMessage.success(t('已保存'))
     }
   }
   finally {
@@ -253,7 +254,7 @@ async function refresh(sq: SavedQuery) {
     const r = await refreshQueryApi(sq.id)
     await loadQueries()
     emit('datasetsChanged', r.datasetId)
-    ElMessage.success(`「${r.datasetName}」已重算：${r.rows.toLocaleString()} 行${r.rebuilt ? '（结构有变化，已重建）' : ''}`)
+    ElMessage.success(t('「{0}」已重算：{1} 行{2}', [r.datasetName, r.rows.toLocaleString(), r.rebuilt ? '（结构有变化，已重建）' : '']))
   }
   finally {
     refreshing.value = false
@@ -261,7 +262,7 @@ async function refresh(sq: SavedQuery) {
 }
 
 async function remove(sq: SavedQuery) {
-  const ok = await ElMessageBox.confirm(`删除查询「${sq.name}」？${sq.datasetName ? `已生成的数据集「${sq.datasetName}」会保留，但不再自动重算。` : ''}`, '删除查询', { type: 'warning', confirmButtonText: '删除' }).then(() => true, () => false)
+  const ok = await ElMessageBox.confirm(`删除查询「${sq.name}」？${sq.datasetName ? `已生成的数据集「${sq.datasetName}」会保留，但不再自动重算。` : ''}`, '删除查询', { type: 'warning', confirmButtonText: t('删除') }).then(() => true, () => false)
   if (!ok)
     return
   await deleteQueryApi(sq.id)
@@ -274,7 +275,7 @@ async function remove(sq: SavedQuery) {
 <template>
   <el-dialog
     :model-value="visible"
-    title="SQL 查询"
+    :title="$t('SQL 查询')"
     width="94vw"
     top="3vh"
     class="sql-dialog"
@@ -292,40 +293,40 @@ async function remove(sq: SavedQuery) {
               SQL
             </el-radio-button>
             <el-radio-button value="builder">
-              查询构建器
+              {{ $t('查询构建器') }}
             </el-radio-button>
           </el-radio-group>
           <span v-if="current" class="min-w-0 truncate text-xs text-gray-500">
-            当前：<b class="text-gray-700">{{ current.name }}</b>
+            {{ $t('当前：') }}<b class="text-gray-700">{{ current.name }}</b>
             <template v-if="current.datasetName">
               → <el-button link type="primary" size="small" class="!p-0 !text-xs" @click="emit('openDataset', current.datasetId!)">{{ current.datasetName }}</el-button>
-              <span v-if="current.lastRunAt"> · 上次重算 {{ current.lastRunAt.slice(5, 16) }}{{ current.lastStatus === 'failed' ? '（失败）' : '' }}</span>
-              <span v-if="current.nextRun"> · 下次 {{ current.nextRun.slice(5, 16) }}</span>
+              <span v-if="current.lastRunAt"> {{ $t('· 上次重算 {0}{1}', [current.lastRunAt.slice(5, 16), current.lastStatus === 'failed' ? $t('（失败）') : '']) }}</span>
+              <span v-if="current.nextRun"> {{ $t('· 下次 {0}', [current.nextRun.slice(5, 16)]) }}</span>
             </template>
           </span>
           <span class="flex-1" />
           <template v-if="current">
             <el-button v-if="current.datasetId" size="small" :loading="refreshing" @click="refresh(current)">
-              立即重算
+              {{ $t('立即重算') }}
             </el-button>
-            <el-button v-if="current.params.length && !current.templateId" size="small" title="用另一组参数值运行，把结果存成新的数据集" @click="instanceVisible = true">
-              生成实例…
+            <el-button v-if="current.params.length && !current.templateId" size="small" :title="$t('用另一组参数值运行，把结果存成新的数据集')" @click="instanceVisible = true">
+              {{ $t('生成实例…') }}
             </el-button>
             <el-button size="small" text type="danger" @click="remove(current)">
-              删除
+              {{ $t('删除') }}
             </el-button>
           </template>
           <el-button v-if="!ledgerUser.restricted" size="small" @click="openSave(false)">
-            {{ current ? '保存' : '保存查询…' }}
+            {{ current ? $t('保存') : $t('保存查询…') }}
           </el-button>
           <el-button v-if="current && !ledgerUser.restricted" size="small" @click="openSave(true)">
-            另存为…
+            {{ $t('另存为…') }}
           </el-button>
           <el-button v-if="running" size="small" type="danger" plain @click="stopRun">
-            停止
+            {{ $t('停止') }}
           </el-button>
           <el-button v-else size="small" type="primary" @click="mode === 'builder' ? runBuilder() : run()">
-            运行 <span class="ml-1 text-xs opacity-70">⌘↵</span>
+            {{ $t('运行') }} <span class="ml-1 text-xs opacity-70">⌘↵</span>
           </el-button>
         </div>
 

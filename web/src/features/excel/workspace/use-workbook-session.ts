@@ -6,6 +6,7 @@ import { computed, ref } from 'vue'
 import { loadDemoWorkbook } from '@/features/excel/data/demo-workbook'
 import { persistenceManager } from '@/features/excel/persistence/manager'
 import { blankWorkbookJson, createServerWorkbook, loadWorkbookJson, openServerWorkbook, resolveInitialWorkbook } from '@/features/excel/persistence/workbook-session'
+import { t } from '@/i18n'
 import { useExcelUIStore } from '@/stores/excel-ui'
 import { useLedgerUserStore } from '@/stores/ledger-user'
 
@@ -44,7 +45,7 @@ export function useWorkbookSession(options: {
     uiStore.setSaveStatus(state)
     if (meta) {
       if (meta.id !== currentWorkbookId.value && ledgerUser.authRequired && ledgerUser.accessLevel(meta) < 2)
-        ElMessage.warning({ message: `「${meta.name}」是 ${meta.ownerName || '其他人'} 共享给你的只读工作簿：可以查看和试算，但修改不会被保存。需要修改请另存为副本，或请所有者开放编辑`, duration: 8000 })
+        ElMessage.warning({ message: t('「{0}」是 {1} 共享给你的只读工作簿：可以查看和试算，但修改不会被保存。需要修改请另存为副本，或请所有者开放编辑', [meta.name, meta.ownerName || '其他人']), duration: 8000 })
       currentMeta.value = meta
       currentWorkbookId.value = meta.id
       uiStore.fileName = meta.name
@@ -59,12 +60,12 @@ export function useWorkbookSession(options: {
   /** 手动保存（Ctrl / ⌘ + S） */
   async function handleSave() {
     if (!persistenceManager.getMeta()) {
-      ElMessage.warning('未连接服务，当前工作簿无法保存到服务端')
+      ElMessage.warning(t('未连接服务，当前工作簿无法保存到服务端'))
       return
     }
-    const r = await persistenceManager.save({ description: '手动保存' })
+    const r = await persistenceManager.save({ description: t('手动保存') })
     if (r.state === 'saved')
-      ElMessage.success({ message: '已保存', duration: 1200 })
+      ElMessage.success({ message: t('已保存'), duration: 1200 })
     else if (r.state === 'error')
       ElMessage.error(uiStore.saveStatus === 'offline' ? '无法连接服务，修改已暂存为本地草稿' : '保存失败')
   }
@@ -77,9 +78,9 @@ export function useWorkbookSession(options: {
     if (r.state === 'conflict')
       return false
     if (r.state === 'error') {
-      return ElMessageBox.confirm('当前修改保存失败，继续将丢失这些修改（已存本地草稿的仍可在重新打开时恢复）。', '保存失败', {
+      return ElMessageBox.confirm(t('当前修改保存失败，继续将丢失这些修改（已存本地草稿的仍可在重新打开时恢复）。'), t('保存失败'), {
         type: 'warning',
-        confirmButtonText: '仍然继续',
+        confirmButtonText: t('仍然继续'),
       }).then(() => true, () => false)
     }
     return true
@@ -90,9 +91,9 @@ export function useWorkbookSession(options: {
     if (!draft || !univerAPI.value)
       return
     const time = new Date(draft.savedAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
-    const ok = await ElMessageBox.confirm(`发现 ${time} 未能保存到服务端的修改（离线草稿），是否恢复？`, '恢复未保存的修改', {
-      confirmButtonText: '恢复',
-      cancelButtonText: '丢弃',
+    const ok = await ElMessageBox.confirm(t('发现 {0} 未能保存到服务端的修改（离线草稿），是否恢复？', [time]), t('恢复未保存的修改'), {
+      confirmButtonText: t('恢复'),
+      cancelButtonText: t('丢弃'),
       type: 'info',
     }).then(() => true, () => false)
     if (ok) {
@@ -146,10 +147,10 @@ export function useWorkbookSession(options: {
   }
 
   async function onConflictOverwrite() {
-    const r = await persistenceManager.save({ force: true, description: '覆盖保存（处理冲突）' })
+    const r = await persistenceManager.save({ force: true, description: t('覆盖保存（处理冲突）') })
     if (r.state === 'saved') {
       conflictVisible.value = false
-      ElMessage.success('已覆盖保存，对方的版本保留在版本历史中')
+      ElMessage.success(t('已覆盖保存，对方的版本保留在版本历史中'))
     }
   }
 
@@ -160,7 +161,7 @@ export function useWorkbookSession(options: {
       return
     await openServerWorkbook(api, meta)
     conflictVisible.value = false
-    ElMessage.success(`已加载第 ${meta.version} 版`)
+    ElMessage.success(t('已加载第 {0} 版', [meta.version]))
     await initLedger()
   }
 
@@ -168,7 +169,7 @@ export function useWorkbookSession(options: {
     const name = `${uiStore.fileName}（我的副本）`
     const meta = await createServerWorkbook(name, operatorName())
     conflictVisible.value = false
-    ElMessage.success(`已另存为「${meta.name}」`)
+    ElMessage.success(t('已另存为「{0}」', [meta.name]))
   }
 
   /** 启动：打开服务端工作簿；服务端没有工作簿时用默认模板创建一个；服务不可用时以本地模式运行 */
@@ -190,7 +191,7 @@ export function useWorkbookSession(options: {
       if (!api.getActiveWorkbook())
         loadDemoWorkbook(api, uiStore.fileName)
       uiStore.setSaveStatus('offline')
-      ElMessage.warning({ message: '无法连接服务，工作簿未保存到服务端', duration: 5000 })
+      ElMessage.warning({ message: t('无法连接服务，工作簿未保存到服务端'), duration: 5000 })
       return false
     }
   }

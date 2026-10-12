@@ -10,6 +10,7 @@ import { datasetById } from '@/features/excel/dashboard/slicer'
 import { insertCellTable, removeCellTable, updateCellTable } from '@/features/excel/datatable/cell-table'
 import { editCount } from '@/features/excel/datatable/edits'
 import { checkTableName, findCellTable, findDataTable, insertDataTable, listCellTables, listDataTables, uniqueTableName } from '@/features/excel/datatable/types'
+import { t as tr } from '@/i18n'
 
 /**
  * AI 对工作簿里数据表的调整：只改数据表定义里的"视图"（筛选、排序、显示列、关键字）与"列样式"（数字格式、条件格式），
@@ -114,9 +115,9 @@ async function save(api: FUniver, spec: DataTableSpec, cells: boolean) {
 export async function applyTableView(api: FUniver, p: TableViewPayload): Promise<Applied> {
   const found = findDataTable(api, p.table)
   if (!found)
-    throw new Error(`工作簿里没有名为「${p.table}」的数据表`)
+    throw new Error(tr('工作簿里没有名为「{0}」的数据表', [p.table]))
   if (found.spec.datasetId !== p.datasetId)
-    throw new Error(`数据表「${p.table}」用的数据集已经变了，请重新提问`)
+    throw new Error(tr('数据表「{0}」用的数据集已经变了，请重新提问', [p.table]))
   const before = viewOf(found.spec)
   const next: DataTableSpec = {
     ...found.spec,
@@ -166,13 +167,13 @@ function withColumnStyle(spec: DataTableSpec, column: string, style: ColumnStyle
 export async function applyColumnFormat(api: FUniver, p: ColumnFormatPayload): Promise<Applied> {
   const found = findDataTable(api, p.table)
   if (!found)
-    throw new Error(`工作簿里没有名为「${p.table}」的数据表`)
+    throw new Error(tr('工作簿里没有名为「{0}」的数据表', [p.table]))
   if (found.spec.datasetId !== p.datasetId)
-    throw new Error(`数据表「${p.table}」用的数据集已经变了，请重新提问`)
+    throw new Error(tr('数据表「{0}」用的数据集已经变了，请重新提问', [p.table]))
   if (found.cells && p.rules?.length)
-    throw new Error(`「${p.table}」是单元格模式的数据表，不支持条件格式；请先把它切换为浮动表格`)
+    throw new Error(tr('「{0}」是单元格模式的数据表，不支持条件格式；请先把它切换为浮动表格', [p.table]))
   if (found.cells && p.numFmt === 'wan')
-    throw new Error(`「${p.table}」是单元格模式的数据表，不支持万元显示；请换成其它数字格式，或先切换为浮动表格`)
+    throw new Error(tr('「{0}」是单元格模式的数据表，不支持万元显示；请换成其它数字格式，或先切换为浮动表格', [p.table]))
   const prev = found.spec.columnStyles?.[p.column] ?? null
   const style: ColumnStyle = { ...prev }
   if (p.numFmt !== undefined)
@@ -188,7 +189,7 @@ export async function applyColumnFormat(api: FUniver, p: ColumnFormatPayload): P
   if (p.rules !== undefined)
     bits.push(p.rules.length ? `${p.rules.length} 条条件格式` : '清除条件格式')
   return {
-    message: `已设置数据表「${p.table}」${p.column}列：${bits.join('、')}`,
+    message: tr('已设置数据表「{0}」{1}列：{2}', [p.table, p.column, bits.join('、')]),
     undo: { kind: 'column_format', tableId: next.id, name: p.table, column: p.column, before: prev, afterKey: styleKey(next, p.column) },
   }
 }

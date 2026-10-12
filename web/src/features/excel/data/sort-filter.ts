@@ -6,6 +6,7 @@
 import type { ICellData, Nullable } from '@univerjs/core'
 import type { FUniver } from '@univerjs/core/facade'
 import type { FWorksheet } from '@univerjs/sheets/facade'
+import { t } from '@/i18n'
 
 /** 排序方向 */
 export type SortOrder = 'asc' | 'desc'
@@ -86,17 +87,17 @@ export class SortFilterEngine {
     conditions: SortCondition[],
   ): SortFilterResult {
     if (!this.univerAPI)
-      return { success: false, message: '未初始化', affectedRows: 0 }
+      return { success: false, message: t('未初始化'), affectedRows: 0 }
 
     const sheet = this.getActiveSheet()
     if (!sheet)
-      return { success: false, message: '无活动工作表', affectedRows: 0 }
+      return { success: false, message: t('无活动工作表'), affectedRows: 0 }
 
     if (conditions.length === 0)
-      return { success: false, message: '未指定排序列', affectedRows: 0 }
+      return { success: false, message: t('未指定排序列'), affectedRows: 0 }
 
     if (startRow >= endRow)
-      return { success: false, message: '无数据可排序', affectedRows: 0 }
+      return { success: false, message: t('无数据可排序'), affectedRows: 0 }
 
     const rowCount = endRow - startRow + 1
     const colCount = endCol - startCol + 1
@@ -147,7 +148,7 @@ export class SortFilterEngine {
 
     return {
       success: true,
-      message: `已按列 ${conditions.map(c => String.fromCharCode(65 + c.column)).join(', ')} 排序`,
+      message: t('已按列 {0} 排序', [conditions.map(c => String.fromCharCode(65 + c.column)).join(', ')]),
       affectedRows: endRow - startRow + 1,
     }
   }
@@ -158,7 +159,7 @@ export class SortFilterEngine {
   sortByColumn(column: number, order: SortOrder, dataStartRow = 1, dataEndRow?: number, startCol = 0, endCol?: number): SortFilterResult {
     const sheet = this.getActiveSheet()
     if (!sheet)
-      return { success: false, message: '无活动工作表', affectedRows: 0 }
+      return { success: false, message: t('无活动工作表'), affectedRows: 0 }
 
     const endRow = dataEndRow ?? sheet.getLastRow()
     const endC = endCol ?? sheet.getLastColumn()
@@ -183,11 +184,11 @@ export class SortFilterEngine {
     endRow?: number,
   ): SortFilterResult {
     if (!this.univerAPI)
-      return { success: false, message: '未初始化', affectedRows: 0 }
+      return { success: false, message: t('未初始化'), affectedRows: 0 }
 
     const sheet = this.getActiveSheet()
     if (!sheet)
-      return { success: false, message: '无活动工作表', affectedRows: 0 }
+      return { success: false, message: t('无活动工作表'), affectedRows: 0 }
 
     const lastRow = endRow ?? sheet.getLastRow()
     if (values.length === 0) {
@@ -210,7 +211,7 @@ export class SortFilterEngine {
 
     return {
       success: true,
-      message: `已筛选列 ${String.fromCharCode(65 + column)}，隐藏 ${hiddenCount} 行`,
+      message: t('已筛选列 {0}，隐藏 {1} 行', [String.fromCharCode(65 + column), hiddenCount]),
       affectedRows: lastRow - startRow + 1 - hiddenCount,
     }
   }
@@ -219,7 +220,7 @@ export class SortFilterEngine {
   clearFilter(startRow: number = 1, endRow?: number): SortFilterResult {
     const sheet = this.getActiveSheet()
     if (!sheet)
-      return { success: false, message: '无活动工作表', affectedRows: 0 }
+      return { success: false, message: t('无活动工作表'), affectedRows: 0 }
 
     const lastRow = endRow ?? sheet.getLastRow()
 
@@ -228,7 +229,7 @@ export class SortFilterEngine {
 
     return {
       success: true,
-      message: '已清除筛选',
+      message: t('已清除筛选'),
       affectedRows: lastRow - startRow + 1,
     }
   }

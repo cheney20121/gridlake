@@ -19,8 +19,8 @@ const { seconds, elapsed, note } = useBusy(toRef(props, 'loading'))
 <template>
   <span v-if="loading" class="inline-flex flex-wrap items-center gap-x-2 text-gray-500" role="status" data-busy="inline">
     <el-icon class="is-loading text-[#217346]"><Loading /></el-icon>
-    <span>{{ text ?? '计算中' }}… <span v-if="seconds >= 1" class="tabular-nums">{{ elapsed }}</span></span>
-    <el-button v-if="cancellable && seconds >= 2" link type="primary" size="small" @click="emit('cancel')">取消</el-button>
+    <span>{{ text ?? $t('计算中') }}… <span v-if="seconds >= 1" class="tabular-nums">{{ elapsed }}</span></span>
+    <el-button v-if="cancellable && seconds >= 2" link type="primary" size="small" @click="emit('cancel')">{{ $t('取消') }}</el-button>
     <span v-if="note" class="w-full text-gray-400 leading-5">{{ note }}</span>
   </span>
 </template>

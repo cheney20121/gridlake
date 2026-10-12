@@ -4,6 +4,7 @@ import type { App, Component } from 'vue'
 import type { ChartSpec } from './types'
 import { createElement } from 'react'
 import { createApp } from 'vue'
+import { i18nPlugin, t } from '@/i18n'
 import { CHART_COMPONENT_KEY } from './types'
 
 /**
@@ -75,6 +76,8 @@ export function registerFloatView(api: FUniver, key: string, view: Component) {
       ref = (el) => {
         if (el && !app) {
           app = createApp(view, { spec, api })
+          // 浮动部件是独立的 Vue 应用，模板里的 $t 需要单独装上
+          app.use(i18nPlugin)
           app.mount(el)
         }
         else if (!el && app) {
@@ -212,7 +215,7 @@ export function newChartId() {
 export function insertChart(api: FUniver, spec: ChartSpec, sheet?: FWorksheet) {
   const target = sheet ?? api.getActiveWorkbook()?.getActiveSheet()
   if (!target)
-    throw new Error('没有打开的工作表')
+    throw new Error(t('没有打开的工作表'))
   // 区域图表放在数据右侧；数据集图表（仪表盘上）放在空位
   const { x, y } = spec.source.kind === 'range' ? besideData(target, spec) : freeSpot(api, target, DEFAULT_SIZE.width, DEFAULT_SIZE.height)
   const r = (target as unknown as { addFloatDomToPosition: (layer: unknown, id?: string) => { id: string } | null }).addFloatDomToPosition({
@@ -222,7 +225,7 @@ export function insertChart(api: FUniver, spec: ChartSpec, sheet?: FWorksheet) {
     allowTransform: true,
   })
   if (!r)
-    throw new Error('插入图表失败')
+    throw new Error(t('插入图表失败'))
   return r.id
 }
 
@@ -259,7 +262,7 @@ export function freeSpot(api: FUniver, sheet: FWorksheet, width: number, height:
 export function insertFloat(api: FUniver, key: string, spec: FloatSpec, size: { width: number, height: number }, sheet?: FWorksheet, at?: { x: number, y: number }) {
   const target = sheet ?? api.getActiveWorkbook()?.getActiveSheet()
   if (!target)
-    throw new Error('没有打开的工作表')
+    throw new Error(t('没有打开的工作表'))
   const { x, y } = at ?? freeSpot(api, target, size.width, size.height)
   const r = (target as unknown as { addFloatDomToPosition: (layer: unknown, id?: string) => { id: string } | null }).addFloatDomToPosition({
     componentKey: key,
@@ -268,7 +271,7 @@ export function insertFloat(api: FUniver, key: string, spec: FloatSpec, size: { 
     allowTransform: true,
   })
   if (!r)
-    throw new Error('插入失败')
+    throw new Error(t('插入失败'))
   return r.id
 }
 
@@ -276,7 +279,7 @@ export function insertFloat(api: FUniver, key: string, spec: FloatSpec, size: { 
 export function updateFloat(api: FUniver, spec: FloatSpec) {
   const loc = findFloat(api, spec.id)
   if (!loc)
-    throw new Error('对象已被删除')
+    throw new Error(t('对象已被删除'))
   const sheet = loc.sheet as unknown as { updateFloatDom: (id: string, cfg: unknown) => void }
   sheet.updateFloatDom(loc.floatId, { data: spec })
   chartBus.emit('spec', spec)
@@ -291,7 +294,7 @@ export function removeFloat(api: FUniver, id: string) {
 export function updateChart(api: FUniver, spec: ChartSpec) {
   const loc = findChart(api, spec.id)
   if (!loc)
-    throw new Error('图表已被删除')
+    throw new Error(t('图表已被删除'))
   const sheet = loc.sheet as unknown as { updateFloatDom: (id: string, cfg: unknown) => void }
   sheet.updateFloatDom(loc.floatId, { data: spec })
   chartBus.emit('spec', spec)

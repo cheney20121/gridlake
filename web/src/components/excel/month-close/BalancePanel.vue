@@ -4,6 +4,7 @@ import { computed, ref, watch } from 'vue'
 import { getLedgerBalancesApi, saveLedgerBalancesApi } from '@/api/ledger'
 import { formatMoney } from '@/components/excel/ledger-detail/columns'
 import { shortEntityName } from '@/features/excel/shop-ledger/summary-template'
+import { t } from '@/i18n'
 
 const props = defineProps<{
   period: string
@@ -58,8 +59,8 @@ const continuityOf = (r: EditRow) => r.editOpening == null || r.prevClosing == n
 function statusOf(r: EditRow) {
   const d = diffOf(r)
   if (d == null)
-    return { label: '未录入', cls: 'st-missing' }
-  return Math.abs(d) < 0.005 ? { label: '已平', cls: 'st-ok' } : { label: '不平', cls: 'st-bad' }
+    return { label: t('未录入'), cls: 'st-missing' }
+  return Math.abs(d) < 0.005 ? { label: t('已平'), cls: 'st-ok' } : { label: t('不平'), cls: 'st-bad' }
 }
 
 const dirty = (r: EditRow) => r.editOpening !== r.opening || r.editClosing !== r.closing || r.editRemark !== (r.remark ?? '')
@@ -79,7 +80,7 @@ function fillOpeningFromPrev() {
 
 async function save() {
   if (!props.operator.trim()) {
-    ElMessage.warning('请先在右上角填写操作人')
+    ElMessage.warning(t('请先在右上角填写操作人'))
     return
   }
   saving.value = true
@@ -93,7 +94,7 @@ async function save() {
       closing: r.editClosing,
       remark: r.editRemark,
     })))
-    ElMessage.success('余额已保存')
+    ElMessage.success(t('余额已保存'))
     await load()
     emit('saved')
   }
@@ -115,18 +116,18 @@ const summary = computed(() => {
 <template>
   <div v-loading="loading" class="h-full flex flex-col gap-3">
     <div class="flex items-center gap-3 text-[13px]">
-      <span class="tag st-ok">已平 {{ summary.balanced }}</span>
-      <span class="tag st-bad">不平 {{ summary.unbalanced }}</span>
-      <span class="tag st-missing">未录入 {{ summary.missing }}</span>
+      <span class="tag st-ok">{{ $t('已平 {0}', [summary.balanced]) }}</span>
+      <span class="tag st-bad">{{ $t('不平 {0}', [summary.unbalanced]) }}</span>
+      <span class="tag st-missing">{{ $t('未录入 {0}', [summary.missing]) }}</span>
       <span class="text-xs text-gray-400">
-        从抖店后台「资金账户」页抄录各主体账户的月初、月末余额。期初 + 入账 − 出账 ≠ 期末，说明流水漏导或多导
+        {{ $t('从抖店后台「资金账户」页抄录各主体账户的月初、月末余额。期初 + 入账 − 出账 ≠ 期末，说明流水漏导或多导') }}
       </span>
       <div class="ml-auto flex gap-2">
         <el-button size="small" @click="fillOpeningFromPrev">
-          期初带入上月期末
+          {{ $t('期初带入上月期末') }}
         </el-button>
         <el-button size="small" type="primary" :disabled="!dirtyRows.length" :loading="saving" @click="save">
-          保存{{ dirtyRows.length ? `（${dirtyRows.length}）` : '' }}
+          {{ $t('保存{0}', [dirtyRows.length ? `（${dirtyRows.length}）` : '']) }}
         </el-button>
       </div>
     </div>
@@ -139,20 +140,20 @@ const summary = computed(() => {
       height="100%"
       :row-key="(r: EditRow) => `${r.shop}|${r.entity}|${r.account}`"
     >
-      <el-table-column label="店铺" prop="shop" min-width="140" show-overflow-tooltip />
-      <el-table-column label="主体 · 账户" min-width="150">
+      <el-table-column :label="$t('店铺')" prop="shop" min-width="140" show-overflow-tooltip />
+      <el-table-column :label="$t('主体 · 账户')" min-width="150">
         <template #default="{ row }">
           <el-tooltip :content="row.entity" placement="top">
             <span>{{ shortEntityName(row.entity) }} · {{ row.account }}</span>
           </el-tooltip>
         </template>
       </el-table-column>
-      <el-table-column label="笔数" align="right" width="90">
+      <el-table-column :label="$t('笔数')" align="right" width="90">
         <template #default="{ row }">
           {{ row.rowCount.toLocaleString() }}
         </template>
       </el-table-column>
-      <el-table-column label="期初余额" align="right" width="150">
+      <el-table-column :label="$t('期初余额')" align="right" width="150">
         <template #default="{ row }">
           <el-input-number
             v-model="row.editOpening"
@@ -161,26 +162,26 @@ const summary = computed(() => {
             :controls="false"
             :disabled="frozenShops.has(row.shop)"
             class="!w-full"
-            placeholder="录入"
+            :placeholder="$t('录入')"
           />
         </template>
       </el-table-column>
-      <el-table-column label="入账" align="right" width="130">
+      <el-table-column :label="$t('入账')" align="right" width="130">
         <template #default="{ row }">
           {{ formatMoney(row.inflow) }}
         </template>
       </el-table-column>
-      <el-table-column label="出账" align="right" width="130">
+      <el-table-column :label="$t('出账')" align="right" width="130">
         <template #default="{ row }">
           {{ formatMoney(row.outflow) }}
         </template>
       </el-table-column>
-      <el-table-column label="应有期末" align="right" width="130">
+      <el-table-column :label="$t('应有期末')" align="right" width="130">
         <template #default="{ row }">
           <span class="text-gray-500">{{ formatMoney(expectedOf(row)) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="期末余额" align="right" width="150">
+      <el-table-column :label="$t('期末余额')" align="right" width="150">
         <template #default="{ row }">
           <el-input-number
             v-model="row.editClosing"
@@ -189,43 +190,43 @@ const summary = computed(() => {
             :controls="false"
             :disabled="frozenShops.has(row.shop)"
             class="!w-full"
-            placeholder="录入"
+            :placeholder="$t('录入')"
           />
         </template>
       </el-table-column>
-      <el-table-column label="差异" align="right" width="120">
+      <el-table-column :label="$t('差异')" align="right" width="120">
         <template #default="{ row }">
           <span :class="statusOf(row).cls === 'st-bad' ? 'font-semibold text-[#B91C1C]' : 'text-gray-400'">
             {{ diffOf(row) == null ? '' : formatMoney(diffOf(row)) }}
           </span>
         </template>
       </el-table-column>
-      <el-table-column label="状态" align="center" width="80">
+      <el-table-column :label="$t('状态')" align="center" width="80">
         <template #default="{ row }">
           <span class="tag" :class="statusOf(row).cls">{{ statusOf(row).label }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="上月期末 / 衔接" align="right" width="150">
+      <el-table-column :label="$t('上月期末 / 衔接')" align="right" width="150">
         <template #default="{ row }">
           <template v-if="row.prevClosing != null">
             <div class="text-gray-500">
               {{ formatMoney(row.prevClosing) }}
             </div>
             <div v-if="continuityOf(row) && Math.abs(continuityOf(row)!) >= 0.005" class="text-xs text-[#92400E]">
-              期初差 {{ formatMoney(continuityOf(row)) }}
+              {{ $t('期初差 {0}', [formatMoney(continuityOf(row))]) }}
             </div>
           </template>
-          <span v-else class="text-xs text-gray-300">上月未录入</span>
+          <span v-else class="text-xs text-gray-300">{{ $t('上月未录入') }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="备注" min-width="160">
+      <el-table-column :label="$t('备注')" min-width="160">
         <template #default="{ row }">
-          <el-input v-model="row.editRemark" size="small" :disabled="frozenShops.has(row.shop)" placeholder="差异说明" />
+          <el-input v-model="row.editRemark" size="small" :disabled="frozenShops.has(row.shop)" :placeholder="$t('差异说明')" />
         </template>
       </el-table-column>
-      <el-table-column label="修改人" width="150">
+      <el-table-column :label="$t('修改人')" width="150">
         <template #default="{ row }">
-          <span v-if="frozenShops.has(row.shop)" class="text-xs text-[#0B5A2E]">🔒 已冻结</span>
+          <span v-if="frozenShops.has(row.shop)" class="text-xs text-[#0B5A2E]">{{ $t('🔒 已冻结') }}</span>
           <span v-else class="text-xs text-gray-400">{{ row.updatedBy ? `${row.updatedBy} ${row.updatedAt?.slice(5, 16)}` : '' }}</span>
         </template>
       </el-table-column>

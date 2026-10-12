@@ -1,6 +1,7 @@
 import type { ParamDef } from '@/api/sql'
 import type { WorkbookMeta } from '@/api/workbook'
 import { LEDGER_BASE } from '@/api/ledger-base'
+import { t } from '@/i18n'
 import request from '@/utils/request'
 
 /** 模板：工作簿发布为模板；使用时把模板引用的数据集换成自己的数据集，生成新工作簿 */
@@ -99,7 +100,7 @@ export const PART_LABEL: Record<string, string> = {
 }
 
 export const KIND_LABEL: Record<ColumnKind, string> = {
-  text: '文本',
+  text: t('文本'),
   id: '编号',
   money: '金额',
   number: '数值',

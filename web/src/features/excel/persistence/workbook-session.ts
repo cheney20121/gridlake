@@ -4,6 +4,7 @@ import type { WorkbookMeta } from '@/api/workbook'
 import { createWorkbookApi, getWorkbookContentApi, getWorkbookMetaApi, listWorkbooksApi } from '@/api/workbook'
 import { disposeWorkbook } from '@/features/excel/data/selection'
 import { setImportRangeContext } from '@/features/excel/formula/import-range'
+import { t } from '@/i18n'
 import { persistenceManager } from './manager'
 
 const LAST_KEY = 'gridlake-last-workbook'
@@ -88,7 +89,7 @@ export async function openServerWorkbook(api: FUniver, meta: WorkbookMeta) {
 export async function createServerWorkbook(name: string, operator: string, folderId?: string | null): Promise<WorkbookMeta> {
   const json = persistenceManager.serialize()
   if (!json)
-    throw new Error('工作簿尚未就绪')
+    throw new Error(t('工作簿尚未就绪'))
   const meta = await createWorkbookApi(name, json, operator, folderId)
   persistenceManager.attach(meta)
   rememberWorkbook(meta.id)

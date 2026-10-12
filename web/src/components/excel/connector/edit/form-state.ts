@@ -1,5 +1,6 @@
 import type { Connector, ConnectorSchedule, ConnectorSource, DbEngine, HttpAuth, HttpPagination, SyncMode } from '@/api/connector'
 import type { DatasetColumnKind } from '@/api/dataset'
+import { t as tr } from '@/i18n'
 
 /** 新建 / 修改连接器对话框的表单状态与转换（表单 ↔ 接口入参） */
 
@@ -51,17 +52,17 @@ export interface ConnectorForm {
 }
 
 export const KIND_OPTIONS: { value: DatasetColumnKind, label: string }[] = [
-  { value: 'text', label: '文本' },
-  { value: 'id', label: '编号' },
-  { value: 'money', label: '金额' },
-  { value: 'number', label: '数值' },
-  { value: 'datetime', label: '日期时间' },
+  { value: 'text', label: tr('文本') },
+  { value: 'id', label: tr('编号') },
+  { value: 'money', label: tr('金额') },
+  { value: 'number', label: tr('数值') },
+  { value: 'datetime', label: tr('日期时间') },
 ]
 
 export const MODE_OPTIONS: { value: SyncMode, label: string, hint: string }[] = [
-  { value: 'replace', label: '全量替换', hint: '每次用最新数据整体替换（商品成本、档案类）；文件夹来源只取最新的文件' },
-  { value: 'append', label: '增量追加', hint: '只加入新数据，按主键跳过已有的行（流水、日报类）' },
-  { value: 'upsert', label: '增量更新', hint: '按主键新增或覆盖已有的行（订单状态、退款等会变化的数据）' },
+  { value: 'replace', label: tr('全量替换'), hint: tr('每次用最新数据整体替换（商品成本、档案类）；文件夹来源只取最新的文件') },
+  { value: 'append', label: tr('增量追加'), hint: tr('只加入新数据，按主键跳过已有的行（流水、日报类）') },
+  { value: 'upsert', label: tr('增量更新'), hint: tr('按主键新增或覆盖已有的行（订单状态、退款等会变化的数据）') },
 ]
 
 /** 占位符（模板里不能直接写双花括号） */

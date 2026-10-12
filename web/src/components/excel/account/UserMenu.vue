@@ -35,13 +35,13 @@ function onCommand(cmd: string) {
     <template #dropdown>
       <el-dropdown-menu>
         <el-dropdown-item disabled>
-          {{ ledgerUser.user.name }}{{ ledgerUser.isAdmin ? '（管理员）' : '' }}
+          {{ ledgerUser.user.name }}{{ ledgerUser.isAdmin ? $t('（管理员）') : '' }}
         </el-dropdown-item>
         <el-dropdown-item v-if="ledgerUser.mode === 'local'" command="password" divided>
-          修改密码
+          {{ $t('修改密码') }}
         </el-dropdown-item>
         <el-dropdown-item v-if="ledgerUser.mode === 'local' || ledgerUser.mode === 'gateway'" command="logout" :divided="ledgerUser.mode !== 'local'">
-          退出登录
+          {{ $t('退出登录') }}
         </el-dropdown-item>
       </el-dropdown-menu>
     </template>

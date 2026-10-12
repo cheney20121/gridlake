@@ -119,67 +119,67 @@ function pathText(path: CellRef[], truncated: boolean) {
 </script>
 
 <template>
-  <el-dialog :model-value="visible" title="公式诊断" width="820px" append-to-body @update:model-value="emit('update:visible', $event)">
+  <el-dialog :model-value="visible" :title="$t('公式诊断')" width="820px" append-to-body @update:model-value="emit('update:visible', $event)">
     <div v-if="report" class="flex flex-col gap-3 text-[13px]">
       <div class="grid grid-cols-5 gap-2">
         <div class="stat">
           <span class="stat-value">{{ report.formulas.toLocaleString() }}</span>
-          <span class="stat-label">公式</span>
+          <span class="stat-label">{{ $t('公式') }}</span>
         </div>
         <div class="stat">
           <span class="stat-value" :class="{ 'text-[#B91C1C]': report.errors.length }">{{ report.errors.length.toLocaleString() }}</span>
-          <span class="stat-label">出错</span>
+          <span class="stat-label">{{ $t('出错') }}</span>
         </div>
         <div class="stat">
           <span class="stat-value" :class="{ 'text-[#B45309]': report.volatileCount }">{{ report.volatileCount.toLocaleString() }}</span>
-          <span class="stat-label">易失函数</span>
+          <span class="stat-label">{{ $t('易失函数') }}</span>
         </div>
         <div class="stat">
           <span class="stat-value">{{ report.serverCount.toLocaleString() }}</span>
-          <span class="stat-label">服务端计算</span>
+          <span class="stat-label">{{ $t('服务端计算') }}</span>
         </div>
         <div class="stat">
           <span v-if="recalcMs === undefined" class="stat-value">
-            <el-button size="small" :loading="measuring" @click="measure">测量</el-button>
+            <el-button size="small" :loading="measuring" @click="measure">{{ $t('测量') }}</el-button>
           </span>
-          <span v-else class="stat-value">{{ recalcMs == null ? '超时' : recalcMs >= 1000 ? `${(recalcMs / 1000).toFixed(1)} 秒` : `${recalcMs} 毫秒` }}</span>
-          <span class="stat-label">全量重算耗时</span>
+          <span v-else class="stat-value">{{ recalcMs == null ? $t('超时') : recalcMs >= 1000 ? $t('{0} 秒', [(recalcMs / 1000).toFixed(1)]) : $t('{0} 毫秒', [recalcMs]) }}</span>
+          <span class="stat-label">{{ $t('全量重算耗时') }}</span>
         </div>
       </div>
       <div class="text-xs text-gray-400">
-        各工作表：{{ report.sheets.filter(s => s.formulas).map(s => `${s.name} ${s.formulas.toLocaleString()}`).join('、') || '没有公式' }}。开销按每个公式引用的格子数估算，向下复制的同形公式合并为一组
+        {{ $t('各工作表：{0}。开销按每个公式引用的格子数估算，向下复制的同形公式合并为一组', [report.sheets.filter(s => s.formulas).map(s => `${s.name} ${s.formulas.toLocaleString()}`).join('、') || $t('没有公式')]) }}
       </div>
 
       <el-radio-group v-model="tab" size="small">
         <el-radio-button value="slow">
-          可能拖慢计算（{{ slow.length }}）
+          {{ $t('可能拖慢计算（{0}）', [slow.length]) }}
         </el-radio-button>
         <el-radio-button value="errors">
-          出错的公式（{{ report.errors.length }}）
+          {{ $t('出错的公式（{0}）', [report.errors.length]) }}
         </el-radio-button>
         <el-radio-button value="cycles">
-          循环引用（{{ report.cycles.length }}）
+          {{ $t('循环引用（{0}）', [report.cycles.length]) }}
         </el-radio-button>
         <el-radio-button value="server">
-          服务端与跨工作簿（{{ serverGroups.length + imports.length }}）
+          {{ $t('服务端与跨工作簿（{0}）', [serverGroups.length + imports.length]) }}
         </el-radio-button>
       </el-radio-group>
 
       <div class="max-h-[52vh] overflow-y-auto">
         <template v-if="tab === 'slow'">
           <div v-if="!slow.length" class="empty">
-            没有发现明显拖慢计算的公式
+            {{ $t('没有发现明显拖慢计算的公式') }}
           </div>
           <div v-for="(g, i) in slow" :key="i" class="item">
             <div class="flex items-center gap-2">
-              <button type="button" class="addr" :title="`定位到 ${g.sheetName}!${g.where}`" @click="locate(g)">
+              <button type="button" class="addr" :title="$t('定位到 {0}!{1}', [g.sheetName, g.where])" @click="locate(g)">
                 {{ g.sheetName }}!{{ g.where }}
               </button>
-              <span v-if="g.count > 1" class="text-xs text-gray-500">{{ g.count.toLocaleString() }} 个同形公式</span>
-              <span v-if="g.wholeColumn" class="tag warn">整列引用</span>
+              <span v-if="g.count > 1" class="text-xs text-gray-500">{{ $t('{0} 个同形公式', [g.count.toLocaleString()]) }}</span>
+              <span v-if="g.wholeColumn" class="tag warn">{{ $t('整列引用') }}</span>
               <span v-for="v in g.volatile" :key="v" class="tag warn">{{ v }}</span>
-              <span v-if="g.server" class="tag">服务端</span>
-              <span class="ml-auto text-xs text-gray-500 tabular-nums" :title="`单个引用 ${g.cellsEach.toLocaleString()} 格 × ${g.count} 个`">约 {{ fmt(g.cost) }} 格</span>
+              <span v-if="g.server" class="tag">{{ $t('服务端') }}</span>
+              <span class="ml-auto text-xs text-gray-500 tabular-nums" :title="$t('单个引用 {0} 格 × {1} 个', [g.cellsEach.toLocaleString(), g.count])">{{ $t('约 {0} 格', [fmt(g.cost)]) }}</span>
             </div>
             <code class="formula">{{ g.formula }}</code>
             <div v-for="(a, ai) in g.advice" :key="ai" class="text-xs text-[#92400E]">
@@ -193,7 +193,7 @@ function pathText(path: CellRef[], truncated: boolean) {
             <span v-for="[k, n] in errorKinds" :key="k" class="tag bad">{{ k }} × {{ n }}</span>
           </div>
           <div v-if="!report.errors.length" class="empty">
-            没有出错的公式
+            {{ $t('没有出错的公式') }}
           </div>
           <div v-for="(e, i) in report.errors.slice(0, 300)" :key="i" class="item">
             <div class="flex items-center gap-2">
@@ -206,43 +206,42 @@ function pathText(path: CellRef[], truncated: boolean) {
             <code class="formula">{{ e.formula }}</code>
           </div>
           <div v-if="report.errors.length > 300" class="empty">
-            只列出前 300 个
+            {{ $t('只列出前 300 个') }}
           </div>
         </template>
 
         <template v-else-if="tab === 'cycles'">
           <div v-if="!report.cycles.length" class="empty">
-            没有发现循环引用{{ report.cyclesPartial ? '（公式之间的引用太多，只检查了一部分）' : '' }}
+            {{ $t('没有发现循环引用{0}', [report.cyclesPartial ? $t('（公式之间的引用太多，只检查了一部分）') : '']) }}
           </div>
           <div v-else class="mb-2 rounded bg-[#FDE2E2] p-2 text-xs text-[#B91C1C] leading-5">
-            循环引用的格子互相依赖，算不出确定的结果，相关的数字都不可信。沿着下面的路径找到该断开的那个引用，改掉后重新扫描。{{ report.cyclesPartial ? '公式之间的引用太多，只检查了一部分。' : '' }}
+            {{ $t('循环引用的格子互相依赖，算不出确定的结果，相关的数字都不可信。沿着下面的路径找到该断开的那个引用，改掉后重新扫描。{0}', [report.cyclesPartial ? $t('公式之间的引用太多，只检查了一部分。') : '']) }}
           </div>
           <div v-for="(c, i) in report.cycles" :key="i" class="item">
             <div class="flex flex-wrap items-center gap-1 text-[13px]">
               <template v-for="(p, pi) in c.path" :key="pi">
                 <span v-if="pi" class="text-gray-400">→</span>
-                <button type="button" class="addr" :title="`定位到 ${p.sheet}!${cellName(p.row, p.col)}`" @click="locateCell(p)">
+                <button type="button" class="addr" :title="$t('定位到 {0}!{1}', [p.sheet, cellName(p.row, p.col)])" @click="locateCell(p)">
                   {{ pathText([p], false) }}
                 </button>
               </template>
               <span v-if="c.truncated" class="text-gray-400">→ …</span>
-              <span class="ml-auto text-xs text-gray-500">{{ c.size > c.path.length - 1 ? `这一组共 ${c.size} 个格子互相牵连` : `${c.size} 个格子` }}</span>
+              <span class="ml-auto text-xs text-gray-500">{{ c.size > c.path.length - 1 ? $t('这一组共 {0} 个格子互相牵连', [c.size]) : $t('{0} 个格子', [c.size]) }}</span>
             </div>
           </div>
         </template>
 
         <template v-else>
           <div class="mb-2 rounded bg-[#F7F7F5] p-2 text-xs text-gray-600 leading-5">
-            数据集 / 数据表函数在服务端计算：本次打开以来请求 {{ server.requests }} 次、算了 {{ server.calls.toLocaleString() }} 个，累计 {{ (server.totalMs / 1000).toFixed(1) }} 秒<template v-if="server.lastAt">
-              ，最近一次 {{ server.lastMs }} 毫秒（{{ server.lastAt }}）
-            </template>。
-            跨工作簿引用取的是对方已保存的最新版本，对方保存后一分钟内自动更新，也可在命令面板执行「刷新跨工作簿引用」
+            {{ $t('数据集 / 数据表函数在服务端计算：本次打开以来请求 {0} 次、算了 {1} 个，累计 {2} 秒', [server.requests, server.calls.toLocaleString(), (server.totalMs / 1000).toFixed(1)]) }}<template v-if="server.lastAt">
+              {{ $t('，最近一次 {0} 毫秒（{1}）', [server.lastMs, server.lastAt]) }}
+            </template>{{ $t('。 跨工作簿引用取的是对方已保存的最新版本，对方保存后一分钟内自动更新，也可在命令面板执行「刷新跨工作簿引用」') }}
           </div>
           <div v-for="(r, i) in imports" :key="`i${i}`" class="item">
             <div class="flex items-center gap-2">
               <span class="tag">IMPORTRANGE</span>
               <span>{{ r.workbook }} · {{ r.range }}</span>
-              <span class="ml-auto text-xs" :class="r.error ? 'text-[#B91C1C]' : 'text-gray-500'">{{ r.error ?? `${r.cells.toLocaleString()} 格` }}</span>
+              <span class="ml-auto text-xs" :class="r.error ? 'text-[#B91C1C]' : 'text-gray-500'">{{ r.error ?? $t('{0} 格', [r.cells.toLocaleString()]) }}</span>
             </div>
           </div>
           <div v-for="(g, i) in serverGroups" :key="`s${i}`" class="item">
@@ -250,20 +249,20 @@ function pathText(path: CellRef[], truncated: boolean) {
               <button type="button" class="addr" @click="locate(g)">
                 {{ g.sheetName }}!{{ g.where }}
               </button>
-              <span v-if="g.count > 1" class="text-xs text-gray-500">{{ g.count.toLocaleString() }} 个</span>
+              <span v-if="g.count > 1" class="text-xs text-gray-500">{{ $t('{0} 个', [g.count.toLocaleString()]) }}</span>
             </div>
             <code class="formula">{{ g.formula }}</code>
           </div>
           <div v-if="!serverGroups.length && !imports.length" class="empty">
-            没有服务端计算的公式和跨工作簿引用
+            {{ $t('没有服务端计算的公式和跨工作簿引用') }}
           </div>
         </template>
       </div>
     </div>
     <template #footer>
-      <span class="mr-auto text-xs text-gray-400">{{ report ? `扫描用时 ${report.elapsedMs} 毫秒` : '' }}</span>
+      <span class="mr-auto text-xs text-gray-400">{{ report ? $t('扫描用时 {0} 毫秒', [report.elapsedMs]) : '' }}</span>
       <el-button size="small" @click="scan">
-        重新扫描
+        {{ $t('重新扫描') }}
       </el-button>
     </template>
   </el-dialog>

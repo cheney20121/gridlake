@@ -17,25 +17,25 @@ const form = defineModel<TableCardSpec>({ required: true })
 <template>
   <div class="contents">
     <div class="row">
-      <span class="label">分组</span>
+      <span class="label">{{ $t('分组') }}</span>
       <el-select v-model="form.row.column" size="small" filterable class="flex-1">
         <el-option v-for="c in groupable" :key="c.key" :label="c.title" :value="c.title" />
       </el-select>
       <el-select v-if="kindOf(form.row.column) === 'datetime'" v-model="form.row.granularity" size="small" class="!w-20">
-        <el-option label="年" value="year" />
-        <el-option label="月" value="month" />
-        <el-option label="日" value="day" />
+        <el-option :label="$t('年')" value="year" />
+        <el-option :label="$t('月')" value="month" />
+        <el-option :label="$t('日')" value="day" />
       </el-select>
     </div>
     <div v-for="(v, i) in form.values" :key="i" class="row">
-      <span class="label">{{ i === 0 ? '数值' : '' }}</span>
+      <span class="label">{{ i === 0 ? $t('数值') : '' }}</span>
       <el-select v-model="v.agg" size="small" class="!w-20">
         <el-option v-for="a in AGGS" :key="a.value" :label="a.label" :value="a.value" />
       </el-select>
       <el-select v-if="v.agg !== 'count'" v-model="v.column" size="small" filterable class="min-w-0 flex-1">
         <el-option v-for="c in (v.agg === 'count_distinct' ? columns : numeric)" :key="c.key" :label="c.title" :value="c.title" />
       </el-select>
-      <el-select v-model="v.show" size="small" class="!w-20" placeholder="原值">
+      <el-select v-model="v.show" size="small" class="!w-20" :placeholder="$t('原值')">
         <el-option v-for="s in SHOWS" :key="s.value" :label="s.label" :value="s.value" />
       </el-select>
       <el-button v-if="form.values.length > 1" link size="small" type="danger" @click="form.values.splice(i, 1)">
@@ -43,22 +43,22 @@ const form = defineModel<TableCardSpec>({ required: true })
       </el-button>
     </div>
     <el-button link size="small" type="primary" class="self-start" @click="form.values.push({ column: numeric[0]?.title ?? null, agg: numeric.length ? 'sum' : 'count' })">
-      + 再加一个数值
+      {{ $t('+ 再加一个数值') }}
     </el-button>
     <div class="row">
-      <span class="label">前 N 项</span>
+      <span class="label">{{ $t('前 N 项') }}</span>
       <el-input-number v-model="form.top" :min="0" :max="200" size="small" :controls="false" class="!w-20" />
       <el-radio-group v-model="form.sort" size="small">
         <el-radio value="value">
-          按数值
+          {{ $t('按数值') }}
         </el-radio>
         <el-radio value="key">
-          按名称
+          {{ $t('按名称') }}
         </el-radio>
       </el-radio-group>
     </div>
     <div class="text-xs text-gray-400">
-      同比 / 环比需要分组字段是日期（按年 / 月 / 日）
+      {{ $t('同比 / 环比需要分组字段是日期（按年 / 月 / 日）') }}
     </div>
   </div>
 </template>

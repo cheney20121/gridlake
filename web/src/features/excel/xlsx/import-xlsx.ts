@@ -4,6 +4,7 @@ import type { FWorkbook } from '@univerjs/sheets/facade'
 import type { Cell, Workbook as ExcelWorkbook, Worksheet } from 'exceljs'
 import type { FeatureStats } from './sheet-features'
 import { emptyOutline, groupsOf, hasOutline, MAX_LEVEL } from '@/features/excel/outline/outline'
+import { t as tr } from '@/i18n'
 import { fromExcelFormula } from './formula-compat'
 import { emptyStats, importSheetFeatures } from './sheet-features'
 import { excelToUniverStyle, excelWidthToPx, ptToPx } from './style-map'
@@ -269,7 +270,7 @@ function uniqueName(name: string, taken: Set<string>) {
 export async function importXlsx(api: FUniver, data: ArrayBuffer): Promise<ImportSummary> {
   const workbook = api.getActiveWorkbook()
   if (!workbook)
-    throw new Error('工作簿尚未就绪')
+    throw new Error(tr('工作簿尚未就绪'))
   const ExcelJS = (await import('exceljs')).default
   const book = new ExcelJS.Workbook()
   await book.xlsx.load(data)

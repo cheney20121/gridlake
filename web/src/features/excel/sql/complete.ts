@@ -1,3 +1,4 @@
+import { t as tr } from '@/i18n'
 import { FUNCTIONS, KEYWORDS, tokenize } from './highlight'
 
 /** SQL 补全：根据光标前的文字给出数据集名、列名、关键字、函数（纯函数，编辑器与单测共用） */
@@ -26,7 +27,7 @@ export interface Completion {
 }
 
 const MAX_ITEMS = 12
-const KIND_LABEL: Record<string, string> = { text: '文本', id: '编号', number: '数值', money: '金额', datetime: '日期时间' }
+const KIND_LABEL: Record<string, string> = { text: tr('文本'), id: '编号', number: '数值', money: '金额', datetime: '日期时间' }
 const WORD_CHAR = /[\p{L}\p{N}_$]/u
 
 /** 名称能直接写就直接写（字母 / 汉字 / 数字 / 下划线，且不以数字开头、不是关键字），否则加双引号 */

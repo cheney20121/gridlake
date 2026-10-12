@@ -24,6 +24,7 @@ import {
   updateInput,
   writeInputRows,
 } from '@/features/excel/writeback/input-table'
+import { t as tr } from '@/i18n'
 import { useLedgerUserStore } from '@/stores/ledger-user'
 import WritebackCreateForm from './WritebackCreateForm.vue'
 import WritebackRecords from './WritebackRecords.vue'
@@ -150,34 +151,34 @@ async function create() {
   if (form.target === 'existing') {
     ds = formDataset.value
     if (!ds)
-      return ElMessage.warning('请选择目标数据集')
+      return ElMessage.warning(tr('请选择目标数据集'))
     // 按数据集的列顺序
     fields = formColumns.value.map(c => c.title).filter(t => form.fields.includes(t))
     mode = form.mode
     keys = mode === 'upsert' ? (formHasPk.value ? [...ds.primaryKey] : form.keys.filter(k => fields.includes(k))) : []
     if (mode === 'upsert' && !keys.length)
-      return ElMessage.warning('按主键更新需要选择主键列')
+      return ElMessage.warning(tr('按主键更新需要选择主键列'))
     if (keys.some(k => !fields.includes(k)))
-      return ElMessage.warning(`主键列「${keys.find(k => !fields.includes(k))}」必须包含在填报列里`)
+      return ElMessage.warning(tr('主键列「{0}」必须包含在填报列里', [keys.find(k => !fields.includes(k))]))
   }
   else {
     if (!form.newName.trim())
-      return ElMessage.warning('请填写数据集名称')
+      return ElMessage.warning(tr('请填写数据集名称'))
     if (!newTitles.value.length)
-      return ElMessage.warning('至少需要一列')
+      return ElMessage.warning(tr('至少需要一列'))
     fields = newTitles.value
     keys = form.newKeys.filter(k => fields.includes(k))
     mode = keys.length ? 'upsert' : 'append'
     ds = null
   }
   if (!fields.length)
-    return ElMessage.warning('至少选择一列')
+    return ElMessage.warning(tr('至少选择一列'))
   const { row, col } = anchor.value
   if (overlaps(s, row, col, fields.length))
-    return ElMessage.warning(`从 ${cellName(row, col)} 开始会与已有的填报区重叠，请换一个位置`)
+    return ElMessage.warning(tr('从 {0} 开始会与已有的填报区重叠，请换一个位置', [cellName(row, col)]))
   const occupied = s.getRange(row, col, 2, fields.length).getValues().flat().some(v => v != null && v !== '')
   if (occupied) {
-    const ok = await ElMessageBox.confirm(`${cellName(row, col)} 开始的位置已有内容，表头会覆盖第一行。继续？`, '新建填报区', { type: 'warning', confirmButtonText: '继续' }).then(() => true, () => false)
+    const ok = await ElMessageBox.confirm(tr('{0} 开始的位置已有内容，表头会覆盖第一行。继续？', [cellName(row, col)]), tr('新建填报区'), { type: 'warning', confirmButtonText: tr('继续') }).then(() => true, () => false)
     if (!ok)
       return
   }
@@ -199,7 +200,7 @@ async function create() {
     creating.value = false
     onSelection()
     emit('changed')
-    ElMessage.success(`已在 ${cellName(row, col)} 放置填报区，从表头下一行开始填写`)
+    ElMessage.success(tr('已在 {0} 放置填报区，从表头下一行开始填写', [cellName(row, col)]))
   }
   finally {
     createBusy.value = false
@@ -210,7 +211,7 @@ async function removeCurrent() {
   const spec = current.value
   if (!spec || !sheet.value)
     return
-  const ok = await ElMessageBox.confirm(`移除填报区「${spec.name}」？表格里的内容保留，已提交到数据集的数据不受影响。`, '移除填报区', { type: 'warning', confirmButtonText: '移除' }).then(() => true, () => false)
+  const ok = await ElMessageBox.confirm(tr('移除填报区「{0}」？表格里的内容保留，已提交到数据集的数据不受影响。', [spec.name]), tr('移除填报区'), { type: 'warning', confirmButtonText: tr('移除') }).then(() => true, () => false)
   if (!ok)
     return
   clearErrorMarks(props.univerApi!, spec.id)
@@ -233,13 +234,13 @@ async function submit() {
   if (!api || !s || !spec)
     return
   if (!ds)
-    return ElMessage.error(`目标数据集「${spec.datasetName}」不存在、已删除或在回收站`)
+    return ElMessage.error(tr('目标数据集「{0}」不存在、已删除或在回收站', [spec.datasetName]))
   clearErrorMarks(api, spec.id)
   const { rows, sheetRows } = readInputRows(s, spec, ds)
   if (!rows.length)
-    return ElMessage.warning('填报区没有数据：从表头下一行开始填写，遇到整行空白即结束')
+    return ElMessage.warning(tr('填报区没有数据：从表头下一行开始填写，遇到整行空白即结束'))
   if (rows.length > MAX_INPUT_ROWS)
-    return ElMessage.warning(`一次最多提交 ${MAX_INPUT_ROWS.toLocaleString()} 行`)
+    return ElMessage.warning(tr('一次最多提交 {0} 行', [MAX_INPUT_ROWS.toLocaleString()]))
   submitting.value = true
   try {
     const outcome = await writebackApi(ds.id, {
@@ -253,7 +254,7 @@ async function submit() {
     result.value = { specId: spec.id, outcome, sheetRows }
     if (outcome.errors.length) {
       markErrors(api, s, spec, sheetRows, outcome.errors)
-      ElMessage.error(`有 ${outcome.errorCount} 处需要修改（已标红），本次没有写入任何数据`)
+      ElMessage.error(tr('有 {0} 处需要修改（已标红），本次没有写入任何数据', [outcome.errorCount]))
       return
     }
     const changed = outcome.inserted + outcome.updated
@@ -295,20 +296,20 @@ async function deleteSelected() {
   if (!api || !s || !spec || !ds || !sel)
     return
   if (!(spec.keys.length || ds.primaryKey.length))
-    return ElMessage.warning('这个填报区没有主键，不能按主键删除')
+    return ElMessage.warning(tr('这个填报区没有主键，不能按主键删除'))
   const first = sel.getRow()
   const last = sel.getLastRow()
   const { rows, sheetRows } = readInputRows(s, spec, ds)
   const picked = sheetRows.flatMap((sr, i) => (sr >= first && sr <= last ? [i] : []))
   if (!picked.length)
-    return ElMessage.warning('先在填报区的数据行里选中要删除的行（可以选多行）')
+    return ElMessage.warning(tr('先在填报区的数据行里选中要删除的行（可以选多行）'))
   const keyCols = spec.keys.length ? spec.keys : ds.primaryKey
   const keyText = (i: number) => keyCols.map(k => String(rows[i]?.[spec.fields.indexOf(k)] ?? '')).join(' / ')
   const sample = picked.slice(0, 5).map(keyText).join('、')
   const ok = await ElMessageBox.confirm(
-    `从数据集「${ds.name}」删除选中的 ${picked.length} 行（${sample}${picked.length > 5 ? ' 等' : ''}）？表格里这些行也会一并删除。删除可以在提交记录里撤销。`,
-    '删除数据集里的记录',
-    { type: 'warning', confirmButtonText: '删除', confirmButtonClass: 'ec-button--danger' },
+    tr('从数据集「{0}」删除选中的 {1} 行（{2}{3}）？表格里这些行也会一并删除。删除可以在提交记录里撤销。', [ds.name, picked.length, sample, picked.length > 5 ? ' 等' : '']),
+    tr('删除数据集里的记录'),
+    { type: 'warning', confirmButtonText: tr('删除'), confirmButtonClass: 'ec-button--danger' },
   ).then(() => true, () => false)
   if (!ok)
     return
@@ -326,7 +327,7 @@ async function deleteSelected() {
     if (outcome.errors.length) {
       result.value = { specId: spec.id, outcome, sheetRows }
       markErrors(api, s, spec, sheetRows, outcome.errors)
-      ElMessage.error(`有 ${outcome.errorCount} 处不能删除（已标红），本次没有删除任何数据`)
+      ElMessage.error(tr('有 {0} 处不能删除（已标红），本次没有删除任何数据', [outcome.errorCount]))
       return
     }
     s.deleteRows(sheetRows[picked[0]!]!, picked.length)
@@ -364,14 +365,14 @@ async function loadExisting() {
   try {
     const cursor = await openCursorApi(ds.id, { filters })
     if (!cursor.total)
-      return ElMessage.info('没有符合条件的数据')
+      return ElMessage.info(tr('没有符合条件的数据'))
     if (cursor.total > LOAD_LIMIT) {
-      const ok = await ElMessageBox.confirm(`符合条件的有 ${cursor.total.toLocaleString()} 行，最多载入前 ${LOAD_LIMIT.toLocaleString()} 行。建议加筛选条件缩小范围。仍然载入？`, '载入现有数据', { type: 'warning', confirmButtonText: '载入' }).then(() => true, () => false)
+      const ok = await ElMessageBox.confirm(tr('符合条件的有 {0} 行，最多载入前 {1} 行。建议加筛选条件缩小范围。仍然载入？', [cursor.total.toLocaleString(), LOAD_LIMIT.toLocaleString()]), tr('载入现有数据'), { type: 'warning', confirmButtonText: tr('载入') }).then(() => true, () => false)
       if (!ok)
         return
     }
     if (dataRowCount(s, spec)) {
-      const ok = await ElMessageBox.confirm('载入会替换填报区里现有的内容（还没提交的修改会丢失）。继续？', '载入现有数据', { type: 'warning', confirmButtonText: '替换' }).then(() => true, () => false)
+      const ok = await ElMessageBox.confirm(tr('载入会替换填报区里现有的内容（还没提交的修改会丢失）。继续？'), tr('载入现有数据'), { type: 'warning', confirmButtonText: tr('替换') }).then(() => true, () => false)
       if (!ok)
         return
     }
@@ -389,7 +390,7 @@ async function loadExisting() {
     result.value = null
     loadForm.open = false
     emit('changed')
-    ElMessage.success(`已载入 ${rows.length.toLocaleString()} 行，修改后点「提交」写回`)
+    ElMessage.success(tr('已载入 {0} 行，修改后点「提交」写回', [rows.length.toLocaleString()]))
   }
   finally {
     loadBusy.value = false
@@ -404,7 +405,7 @@ async function clearRows() {
   const n = dataRowCount(s, spec)
   if (!n)
     return
-  const ok = await ElMessageBox.confirm(`清空填报区里的 ${n} 行？只清空表格，不影响数据集。`, '清空填报区', { type: 'warning', confirmButtonText: '清空' }).then(() => true, () => false)
+  const ok = await ElMessageBox.confirm(tr('清空填报区里的 {0} 行？只清空表格，不影响数据集。', [n]), tr('清空填报区'), { type: 'warning', confirmButtonText: tr('清空') }).then(() => true, () => false)
   if (!ok)
     return
   clearErrorMarks(props.univerApi!, spec.id)
@@ -425,7 +426,7 @@ async function undo(r: WritebackRecord) {
   const ok = await ElMessageBox.confirm(
     `撤销 ${r.createdAt} ${r.operator || ''} 的提交：${r.mode === 'delete' ? `把删除的 ${r.deleted} 行插回数据集` : `${r.inserted ? `删除新增的 ${r.inserted} 行` : ''}${r.inserted && r.updated ? '，' : ''}${r.updated ? `把更新的 ${r.updated} 行恢复为提交前的值` : ''}`}。工作表里的内容不会改变。`,
     '撤销提交',
-    { type: 'warning', confirmButtonText: '撤销' },
+    { type: 'warning', confirmButtonText: tr('撤销') },
   ).then(() => true, () => false)
   if (!ok)
     return
@@ -439,13 +440,13 @@ async function undo(r: WritebackRecord) {
 <template>
   <div class="wb-panel">
     <div v-if="!sheet" class="text-gray-500">
-      工作簿尚未就绪
+      {{ $t('工作簿尚未就绪') }}
     </div>
     <template v-else>
       <!-- 当前页签的填报区 -->
       <div v-if="inputs.length" class="section">
         <div class="section-title">
-          本页填报区
+          {{ $t('本页填报区') }}
         </div>
         <div class="flex flex-wrap gap-1.5">
           <span
@@ -453,7 +454,7 @@ async function undo(r: WritebackRecord) {
             :key="i.id"
             class="tag"
             :class="{ active: i.id === currentId }"
-            :title="`${cellName(i.row, i.col)} 起 · ${i.datasetName}`"
+            :title="$t('{0} 起 · {1}', [cellName(i.row, i.col), i.datasetName])"
             @click="currentId = i.id; sheet?.getRange(i.row, i.col).activate()"
           >{{ i.name }}</span>
         </div>
@@ -462,57 +463,57 @@ async function undo(r: WritebackRecord) {
       <div v-if="current && !creating" class="card">
         <div class="flex items-center gap-2">
           <span class="font-semibold">{{ current.name }}</span>
-          <span class="text-xs text-gray-400">{{ cellName(current.row, current.col) }} 起</span>
+          <span class="text-xs text-gray-400">{{ $t('{0} 起', [cellName(current.row, current.col)]) }}</span>
           <el-button link size="small" type="danger" class="ml-auto" @click="removeCurrent">
-            移除
+            {{ $t('移除') }}
           </el-button>
         </div>
         <div class="grid grid-cols-[72px_1fr] gap-y-1 text-xs text-gray-600">
-          <span>写入</span>
-          <span :class="{ 'text-[#B91C1C]': !currentDataset }">{{ current.datasetName }}{{ currentDataset ? '' : '（不存在或在回收站）' }}</span>
-          <span>方式</span>
-          <span>{{ modeText(current.mode) }}<template v-if="current.mode === 'upsert'">（主键：{{ current.keys.join('、') }}，深绿色表头）</template></span>
-          <span>列</span>
+          <span>{{ $t('写入') }}</span>
+          <span :class="{ 'text-[#B91C1C]': !currentDataset }">{{ current.datasetName }}{{ currentDataset ? '' : $t('（不存在或在回收站）') }}</span>
+          <span>{{ $t('方式') }}</span>
+          <span>{{ modeText(current.mode) }}<template v-if="current.mode === 'upsert'">{{ $t('（主键：{0}，深绿色表头）', [current.keys.join('、')]) }}</template></span>
+          <span>{{ $t('列') }}</span>
           <span class="truncate" :title="current.fields.join('、')">{{ current.fields.join('、') }}</span>
           <template v-if="current.last">
-            <span>上次提交</span>
-            <span>{{ current.last.at }} {{ current.last.by }} · 新增 {{ current.last.inserted }} / 更新 {{ current.last.updated }}</span>
+            <span>{{ $t('上次提交') }}</span>
+            <span>{{ $t('{0} {1} · 新增 {2} / 更新 {3}', [current.last.at, current.last.by, current.last.inserted, current.last.updated]) }}</span>
           </template>
         </div>
         <div class="flex items-center gap-2">
           <el-button type="primary" size="small" :loading="submitting" :disabled="!currentDataset" @click="submit">
-            提交到数据集
+            {{ $t('提交到数据集') }}
           </el-button>
           <el-button size="small" :disabled="!currentDataset" @click="loadForm.open = !loadForm.open">
-            载入现有数据
+            {{ $t('载入现有数据') }}
           </el-button>
           <el-button size="small" link @click="clearRows">
-            清空
+            {{ $t('清空') }}
           </el-button>
-          <el-button v-if="current.mode === 'upsert'" size="small" link type="danger" :loading="deleting" :disabled="!currentDataset" title="选中填报区里的行，同时从数据集删除这些主键对应的记录" @click="deleteSelected">
-            删除选中的行
+          <el-button v-if="current.mode === 'upsert'" size="small" link type="danger" :loading="deleting" :disabled="!currentDataset" :title="$t('选中填报区里的行，同时从数据集删除这些主键对应的记录')" @click="deleteSelected">
+            {{ $t('删除选中的行') }}
           </el-button>
         </div>
 
         <!-- 载入现有数据 -->
         <div v-if="loadForm.open && currentDataset" class="sub">
           <div class="text-xs text-gray-500">
-            把数据集里已有的行载入填报区，修改后再提交（如调整已录入的预算）。不填条件则载入全部（最多 {{ LOAD_LIMIT.toLocaleString() }} 行）
+            {{ $t('把数据集里已有的行载入填报区，修改后再提交（如调整已录入的预算）。不填条件则载入全部（最多 {0} 行）', [LOAD_LIMIT.toLocaleString()]) }}
           </div>
           <div class="flex items-center gap-1.5">
-            <el-select v-model="loadForm.column" size="small" clearable placeholder="筛选列（可选）" class="flex-1">
+            <el-select v-model="loadForm.column" size="small" clearable :placeholder="$t('筛选列（可选）')" class="flex-1">
               <el-option v-for="c in currentDataset.columns" :key="c.key" :label="c.title" :value="c.key" />
             </el-select>
             <el-select v-model="loadForm.op" size="small" class="!w-24">
-              <el-option label="等于" value="in" />
-              <el-option label="开头是" value="prefix" />
-              <el-option label="包含" value="contains" />
+              <el-option :label="$t('等于')" value="in" />
+              <el-option :label="$t('开头是')" value="prefix" />
+              <el-option :label="$t('包含')" value="contains" />
             </el-select>
           </div>
-          <el-input v-model="loadForm.value" size="small" :disabled="!loadForm.column" placeholder="值（等于时多个值用逗号分隔）" />
+          <el-input v-model="loadForm.value" size="small" :disabled="!loadForm.column" :placeholder="$t('值（等于时多个值用逗号分隔）')" />
           <div class="flex justify-end">
             <el-button size="small" type="primary" plain :loading="loadBusy" @click="loadExisting">
-              载入
+              {{ $t('载入') }}
             </el-button>
           </div>
         </div>
@@ -520,7 +521,7 @@ async function undo(r: WritebackRecord) {
         <!-- 提交结果 -->
         <div v-if="currentResult?.outcome.errors.length" class="errors">
           <div class="mb-1 text-xs text-[#B91C1C]">
-            {{ currentResult.outcome.errorCount }} 处需要修改，本次没有写入任何数据（点击定位）：
+            {{ $t('{0} 处需要修改，本次没有写入任何数据（点击定位）：', [currentResult.outcome.errorCount]) }}
           </div>
           <div class="max-h-48 overflow-auto">
             <div
@@ -534,7 +535,7 @@ async function undo(r: WritebackRecord) {
             </div>
           </div>
           <div v-if="currentResult.outcome.errorCount > currentResult.outcome.errors.length" class="text-xs text-gray-400">
-            只列出前 {{ currentResult.outcome.errors.length }} 处
+            {{ $t('只列出前 {0} 处', [currentResult.outcome.errors.length]) }}
           </div>
         </div>
       </div>
@@ -542,10 +543,10 @@ async function undo(r: WritebackRecord) {
       <!-- 新建 -->
       <template v-if="!creating">
         <el-button v-if="!anchorInput" size="small" :type="inputs.length ? 'default' : 'primary'" @click="startCreate">
-          在 {{ cellName(anchor.row, anchor.col) }} 新建填报区
+          {{ $t('在 {0} 新建填报区', [cellName(anchor.row, anchor.col)]) }}
         </el-button>
         <div v-else class="text-xs text-gray-400">
-          要再放一个填报区，先在表格里点选一个空白位置
+          {{ $t('要再放一个填报区，先在表格里点选一个空白位置') }}
         </div>
       </template>
       <WritebackCreateForm v-else v-model="form" :writable="writable" :anchor="anchor" :busy="createBusy" :form-dataset="formDataset" :form-columns="formColumns" :form-has-pk="formHasPk" :new-titles="newTitles" @cancel="creating = false" @create="create" />
@@ -554,10 +555,10 @@ async function undo(r: WritebackRecord) {
       <WritebackRecords v-if="current && records.length" :dataset-name="current.datasetName" :records="records" @refresh="loadRecords" @undo="undo" />
 
       <div v-if="ledgerUser.restricted" class="rounded bg-[#FFF7E6] px-2 py-1.5 text-xs text-[#92400E] leading-5">
-        你的数据范围限定在店铺：{{ ledgerUser.scopeText }}。只能填报按店铺划分范围的数据集，填报区必须包含范围列（店铺），并且只能新增、修改、删除自己范围内的行。
+        {{ $t('你的数据范围限定在店铺：{0}。只能填报按店铺划分范围的数据集，填报区必须包含范围列（店铺），并且只能新增、修改、删除自己范围内的行。', [ledgerUser.scopeText]) }}
       </div>
       <div class="text-xs text-gray-400 leading-5">
-        在表头下方逐行填写（可以用公式），遇到整行空白即结束。提交时整批校验：数字、日期格式不对或主键为空 / 重复时会标红，一行都不写入。只有最近一次提交、且之后数据集没有别的改动时可以撤销。
+        {{ $t('在表头下方逐行填写（可以用公式），遇到整行空白即结束。提交时整批校验：数字、日期格式不对或主键为空 / 重复时会标红，一行都不写入。只有最近一次提交、且之后数据集没有别的改动时可以撤销。') }}
       </div>
     </template>
   </div>

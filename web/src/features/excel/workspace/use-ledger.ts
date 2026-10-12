@@ -11,6 +11,7 @@ import { drillFromTarget } from '@/components/excel/big-grid/drill'
 import { persistenceManager } from '@/features/excel/persistence/manager'
 import { loadLedgerPeriod } from '@/features/excel/shop-ledger/ledger-workbook'
 import { SUMMARY_SHEET_NAME } from '@/features/excel/shop-ledger/summary-template'
+import { t } from '@/i18n'
 
 export type LedgerCommand = 'import' | 'detail' | 'shops' | 'coverage' | 'close'
 
@@ -84,9 +85,9 @@ export function useLedger(options: {
   function notifyLedgerError(e: unknown, action: string) {
     console.error(`[ledger] ${action}失败:`, e)
     if (isAxiosError(e) && !e.response)
-      ElMessage.error(`${action}失败：无法连接资金流水服务，请确认 gridlake 已启动`)
+      ElMessage.error(t('{0}失败：无法连接资金流水服务，请确认 gridlake 已启动', [action]))
     else if (!isAxiosError(e))
-      ElMessage.error(`${action}失败：${e instanceof Error ? e.message : String(e)}`)
+      ElMessage.error(t('{0}失败：{1}', [action, e instanceof Error ? e.message : String(e)]))
   }
 
   async function refreshPeriods() {
@@ -147,7 +148,7 @@ export function useLedger(options: {
     else if (command === 'detail') {
       // 全部流水明细（当前月份）
       if (!currentPeriod.value) {
-        ElMessage.warning('还没有导入店铺资金流水')
+        ElMessage.warning(t('还没有导入店铺资金流水'))
         return
       }
       datasetDrill.value = drillFromTarget(null, currentPeriod.value)

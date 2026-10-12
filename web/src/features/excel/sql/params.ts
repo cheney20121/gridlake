@@ -1,11 +1,12 @@
 import type { ParamDef, ParamKind } from '@/api/sql'
+import { t } from '@/i18n'
 
 /** 参数化查询的纯函数：SQL 里的 {{名称}} 与参数定义、取值的对应（与服务端 sqlq/params.rs 同一套规则） */
 
 export const KIND_OPTIONS: { value: ParamKind, label: string }[] = [
-  { value: 'text', label: '文本' },
-  { value: 'number', label: '数字' },
-  { value: 'date', label: '日期' },
+  { value: 'text', label: t('文本') },
+  { value: 'number', label: t('数字') },
+  { value: 'date', label: t('日期') },
 ]
 
 /** SQL 里出现的占位符名称（去重，按出现顺序） */

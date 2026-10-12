@@ -149,13 +149,13 @@ onBeforeUnmount(() => {
   <div ref="menuRef" class="menu" :style="style">
     <div v-if="!hideSort" class="flex flex-col gap-0.5 border-b border-[#eee] border-b-solid pb-1.5">
       <button class="item" :class="{ active: sortDesc === false }" @click="emit('sort', false)">
-        ↑ {{ numeric ? '升序（从小到大）' : '升序（A → Z）' }}
+        ↑ {{ numeric ? $t('升序（从小到大）') : $t('升序（A → Z）') }}
       </button>
       <button class="item" :class="{ active: sortDesc === true }" @click="emit('sort', true)">
-        ↓ {{ numeric ? '降序（从大到小）' : '降序（Z → A）' }}
+        ↓ {{ numeric ? $t('降序（从大到小）') : $t('降序（Z → A）') }}
       </button>
       <button v-if="sortDesc != null" class="item text-gray-500" @click="emit('sort', null)">
-        清除排序
+        {{ $t('清除排序') }}
       </button>
     </div>
 
@@ -163,47 +163,47 @@ onBeforeUnmount(() => {
       <!-- 数值区间 -->
       <template v-if="numeric || isContribution">
         <div class="text-xs text-gray-500">
-          数值区间{{ distinct?.min != null ? `（当前 ${distinct.min} ~ ${distinct.max}）` : '' }}
+          {{ $t('数值区间{0}', [distinct?.min != null ? $t('（当前 {0} ~ {1}）', [distinct.min, distinct.max]) : '']) }}
         </div>
         <div class="flex items-center gap-1.5">
-          <el-input-number v-model="rangeMin as number" size="small" :controls="false" placeholder="最小" class="!w-full" />
+          <el-input-number v-model="rangeMin as number" size="small" :controls="false" :placeholder="$t('最小')" class="!w-full" />
           <span class="text-gray-400">~</span>
-          <el-input-number v-model="rangeMax as number" size="small" :controls="false" placeholder="最大" class="!w-full" />
+          <el-input-number v-model="rangeMax as number" size="small" :controls="false" :placeholder="$t('最大')" class="!w-full" />
         </div>
       </template>
 
       <!-- 日期区间 -->
       <template v-if="isDate">
         <div class="text-xs text-gray-500">
-          时间区间
+          {{ $t('时间区间') }}
         </div>
         <el-date-picker
           v-model="dateRange"
           type="datetimerange"
           size="small"
           value-format="YYYY-MM-DD HH:mm:ss"
-          start-placeholder="开始"
-          end-placeholder="结束"
+          :start-placeholder="$t('开始')"
+          :end-placeholder="$t('结束')"
           class="!w-full"
         />
       </template>
 
       <!-- 按值勾选 -->
       <template v-if="!isContribution">
-        <el-input v-model="containsText" size="small" clearable placeholder="包含文字（优先于勾选）" @keydown.enter="apply" />
+        <el-input v-model="containsText" size="small" clearable :placeholder="$t('包含文字（优先于勾选）')" @keydown.enter="apply" />
         <button v-if="valuesCollapsible" class="text-left text-xs text-[#217346]" @click="valuesOpen = !valuesOpen">
-          {{ valuesOpen ? '▾' : '▸' }} 按值勾选（共 {{ distinct!.totalDistinct.toLocaleString() }} 个不同的值）
+          {{ $t('{0} 按值勾选（共 {1} 个不同的值）', [valuesOpen ? '▾' : '▸', distinct!.totalDistinct.toLocaleString()]) }}
         </button>
         <template v-if="showValues">
-          <el-input v-model="search" size="small" clearable placeholder="搜索候选值" @input="debouncedLoad" />
+          <el-input v-model="search" size="small" clearable :placeholder="$t('搜索候选值')" @input="debouncedLoad" />
           <div class="flex items-center gap-3 text-xs">
             <button class="text-[#217346] disabled:text-gray-300" :disabled="listLocked" @click="checkAll(true)">
-              全选
+              {{ $t('全选') }}
             </button>
             <button class="text-[#217346] disabled:text-gray-300" :disabled="listLocked" @click="checkAll(false)">
-              清空
+              {{ $t('清空') }}
             </button>
-            <span v-if="distinct && !valuesCollapsible" class="ml-auto text-gray-400">共 {{ distinct.totalDistinct.toLocaleString() }} 个值</span>
+            <span v-if="distinct && !valuesCollapsible" class="ml-auto text-gray-400">{{ $t('共 {0} 个值', [distinct.totalDistinct.toLocaleString()]) }}</span>
           </div>
           <div v-loading="loading" class="values" :class="{ locked: listLocked }">
             <label v-for="v in distinct?.values ?? []" :key="v.value" class="value-row" :class="{ 'cursor-not-allowed': listLocked }">
@@ -213,7 +213,7 @@ onBeforeUnmount(() => {
             </label>
           </div>
           <div v-if="truncated" class="rounded bg-[#FEF3C7] px-2 py-1.5 text-xs text-[#92400E] leading-5">
-            值太多（共 {{ distinct!.totalDistinct.toLocaleString() }} 个），只列出前 {{ distinct!.values.length }} 个，暂不能勾选。请在上面输入文字搜索，缩小后再勾选；或直接用「包含文字」{{ numeric || isDate ? '、区间' : '' }}筛选
+            {{ $t('值太多（共 {0} 个），只列出前 {1} 个，暂不能勾选。请在上面输入文字搜索，缩小后再勾选；或直接用「包含文字」{2}筛选', [distinct!.totalDistinct.toLocaleString(), distinct!.values.length, numeric || isDate ? $t('、区间') : '']) }}
           </div>
         </template>
       </template>
@@ -221,10 +221,10 @@ onBeforeUnmount(() => {
 
     <div class="mt-3 flex justify-end gap-2">
       <el-button size="small" @click="emit('apply', null)">
-        清除筛选
+        {{ $t('清除筛选') }}
       </el-button>
       <el-button size="small" type="primary" @click="apply">
-        确定
+        {{ $t('确定') }}
       </el-button>
     </div>
   </div>

@@ -2,6 +2,7 @@
 import type { DetailColumnDef } from './columns'
 import type { DetailRow } from './useDetailWindow'
 import { computed } from 'vue'
+import { t } from '@/i18n'
 import { CONTRIBUTION_COLUMN, DETAIL_COLUMNS, formatMoney } from './columns'
 
 const props = defineProps<{
@@ -18,8 +19,8 @@ const groups = computed(() => {
   const cols: DetailColumnDef[] = props.withContribution ? [CONTRIBUTION_COLUMN, ...DETAIL_COLUMNS] : DETAIL_COLUMNS
   const value = (c: DetailColumnDef) => props.row[c.key]
   return [
-    { title: '基本信息', items: cols.filter(c => c.kind !== 'money' || c.key === '动账金额' || c === CONTRIBUTION_COLUMN) },
-    { title: '金额拆分（非零项）', items: cols.filter(c => c.kind === 'money' && c.key !== '动账金额' && c !== CONTRIBUTION_COLUMN && value(c)) },
+    { title: t('基本信息'), items: cols.filter(c => c.kind !== 'money' || c.key === '动账金额' || c === CONTRIBUTION_COLUMN) },
+    { title: t('金额拆分（非零项）'), items: cols.filter(c => c.kind === 'money' && c.key !== '动账金额' && c !== CONTRIBUTION_COLUMN && value(c)) },
   ]
 })
 
@@ -35,16 +36,16 @@ async function copy(c: DetailColumnDef) {
   if (v == null || v === '')
     return
   await navigator.clipboard.writeText(String(v))
-  ElMessage.success(`已复制${c.title}`)
+  ElMessage.success(t('已复制{0}', [c.title]))
 }
 </script>
 
 <template>
   <div class="h-full flex flex-col border-0 border-l border-solid border-[#e6e6e6] pl-3">
     <div class="mb-2 flex items-center justify-between">
-      <span class="text-sm font-semibold text-gray-800">第 {{ (row.__index + 1).toLocaleString() }} 行</span>
+      <span class="text-sm font-semibold text-gray-800">{{ $t('第 {0} 行', [(row.__index + 1).toLocaleString()]) }}</span>
       <el-button text size="small" @click="emit('close')">
-        关闭
+        {{ $t('关闭') }}
       </el-button>
     </div>
     <div class="min-h-0 flex-1 overflow-y-auto">
@@ -66,7 +67,7 @@ async function copy(c: DetailColumnDef) {
               'cursor-pointer hover:text-[#107C41]': c.kind === 'id',
               'font-semibold': c === CONTRIBUTION_COLUMN,
             }"
-            :title="c.kind === 'id' ? '点击复制' : undefined"
+            :title="c.kind === 'id' ? $t('点击复制') : undefined"
             @click="c.kind === 'id' && copy(c)"
           >{{ display(c) }}</span>
         </div>

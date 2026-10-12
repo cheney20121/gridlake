@@ -31,30 +31,30 @@ const form = defineModel<SaveForm>('form', { required: true })
 </script>
 
 <template>
-  <el-dialog v-model="visible" :title="current ? `保存查询 · ${current.name}` : '保存查询'" width="600px" append-to-body :close-on-click-modal="false">
+  <el-dialog v-model="visible" :title="current ? $t('保存查询 · {0}', [current.name]) : $t('保存查询')" width="600px" append-to-body :close-on-click-modal="false">
     <el-form label-width="96px" @submit.prevent>
-      <el-form-item label="查询名称" required>
-        <el-input v-model="form.name" maxlength="60" placeholder="如：店铺月度 ROI" />
+      <el-form-item :label="$t('查询名称')" required>
+        <el-input v-model="form.name" maxlength="60" :placeholder="$t('如：店铺月度 ROI')" />
       </el-form-item>
-      <el-form-item label="说明">
-        <el-input v-model="form.description" maxlength="200" placeholder="口径说明（可选）" />
+      <el-form-item :label="$t('说明')">
+        <el-input v-model="form.description" maxlength="200" :placeholder="$t('口径说明（可选）')" />
       </el-form-item>
-      <el-form-item label="另存为数据集">
+      <el-form-item :label="$t('另存为数据集')">
         <div class="w-full">
           <el-checkbox v-model="form.asDataset" :disabled="!!current?.datasetId">
-            把查询结果保存为数据集（全部结果，不限 1,000 行）
+            {{ $t('把查询结果保存为数据集（全部结果，不限 1,000 行）') }}
           </el-checkbox>
           <div class="text-xs text-gray-500 leading-5">
-            之后可像导入的数据一样做透视、图表、仪表盘、DSUMIFS；源数据更新后按计划重算
+            {{ $t('之后可像导入的数据一样做透视、图表、仪表盘、DSUMIFS；源数据更新后按计划重算') }}
           </div>
         </div>
       </el-form-item>
       <template v-if="form.asDataset">
-        <el-form-item label="数据集名称" required>
-          <el-input v-if="!current?.datasetId" v-model="form.datasetName" maxlength="40" placeholder="如：店铺月度ROI" />
-          <span v-else>{{ current.datasetName }}（保存后立即按新 SQL 重算）</span>
+        <el-form-item :label="$t('数据集名称')" required>
+          <el-input v-if="!current?.datasetId" v-model="form.datasetName" maxlength="40" :placeholder="$t('如：店铺月度ROI')" />
+          <span v-else>{{ $t('{0}（保存后立即按新 SQL 重算）', [current.datasetName]) }}</span>
         </el-form-item>
-        <el-form-item label="列类型">
+        <el-form-item :label="$t('列类型')">
           <div class="max-h-48 w-full overflow-y-auto">
             <div v-for="(k, name) in form.kinds" :key="name" class="mb-1 flex items-center gap-2">
               <span class="w-40 truncate" :title="String(name)">{{ name }}</span>
@@ -64,15 +64,15 @@ const form = defineModel<SaveForm>('form', { required: true })
             </div>
           </div>
         </el-form-item>
-        <el-form-item label="重算">
+        <el-form-item :label="$t('重算')">
           <div class="w-full flex flex-wrap items-center gap-2">
             <el-select v-model="form.scheduleKind" class="!w-36">
-              <el-option label="手动" value="manual" />
-              <el-option label="每天" value="daily" />
-              <el-option label="数据同步后" value="after_sync" />
+              <el-option :label="$t('手动')" value="manual" />
+              <el-option :label="$t('每天')" value="daily" />
+              <el-option :label="$t('数据同步后')" value="after_sync" />
             </el-select>
             <el-time-select v-if="form.scheduleKind === 'daily'" v-model="form.at" class="!w-28" start="00:00" step="00:30" end="23:30" :clearable="false" />
-            <el-select v-if="form.scheduleKind === 'after_sync'" v-model="form.connectorId" class="flex-1" placeholder="选择数据连接" no-data-text="还没有数据连接">
+            <el-select v-if="form.scheduleKind === 'after_sync'" v-model="form.connectorId" class="flex-1" :placeholder="$t('选择数据连接')" :no-data-text="$t('还没有数据连接')">
               <el-option v-for="c in connectors" :key="c.id" :label="c.name" :value="c.id" />
             </el-select>
           </div>
@@ -81,10 +81,10 @@ const form = defineModel<SaveForm>('form', { required: true })
     </el-form>
     <template #footer>
       <el-button @click="visible = false">
-        取消
+        {{ $t('取消') }}
       </el-button>
       <el-button type="primary" :loading="saving" @click="emit('save')">
-        {{ form.asDataset ? '保存并写入数据集' : '保存' }}
+        {{ form.asDataset ? $t('保存并写入数据集') : $t('保存') }}
       </el-button>
     </template>
   </el-dialog>

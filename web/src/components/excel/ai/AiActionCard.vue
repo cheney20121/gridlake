@@ -38,10 +38,10 @@ const emit = defineEmits<{
     <div class="mt-2 flex items-center gap-2">
       <template v-if="action.status === 'proposed'">
         <el-button size="small" type="primary" :loading="applying" @click="emit('apply')">
-          {{ action.kind === 'plan' ? `应用方案（${action.payload.steps.length} 步）` : '应用' }}
+          {{ action.kind === 'plan' ? $t('应用方案（{0} 步）', [action.payload.steps.length]) : $t('应用') }}
         </el-button>
         <el-button size="small" text @click="emit('dismiss')">
-          忽略
+          {{ $t('忽略') }}
         </el-button>
       </template>
       <template v-else-if="action.status === 'applied'">
@@ -49,11 +49,11 @@ const emit = defineEmits<{
           ✓ {{ action.result }}<span class="text-gray-400">{{ action.decidedBy ? ` · ${action.decidedBy}` : '' }}</span>
         </span>
         <el-button v-if="action.undo" size="small" text :loading="applying" @click="emit('undo')">
-          撤销
+          {{ $t('撤销') }}
         </el-button>
       </template>
-      <span v-else-if="action.status === 'undone'" class="text-xs text-gray-500">已撤销：{{ action.result }}</span>
-      <span v-else class="text-xs text-gray-400">已忽略</span>
+      <span v-else-if="action.status === 'undone'" class="text-xs text-gray-500">{{ $t('已撤销：{0}', [action.result]) }}</span>
+      <span v-else class="text-xs text-gray-400">{{ $t('已忽略') }}</span>
     </div>
   </div>
 </template>

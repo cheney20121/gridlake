@@ -2,6 +2,7 @@ import type { FUniver } from '@univerjs/core/facade'
 import type { ShallowRef } from 'vue'
 import { ref } from 'vue'
 import { datasetFormulasBusy } from '@/features/excel/formula/dataset-functions'
+import { t } from '@/i18n'
 import { useExcelUIStore } from '@/stores/excel-ui'
 import { escapeHtml } from './html'
 
@@ -44,7 +45,7 @@ export function useXlsx(options: {
       })
     }
     catch (e) {
-      ElMessage.error(`导出失败：${e instanceof Error ? e.message : String(e)}`)
+      ElMessage.error(t('导出失败：{0}', [e instanceof Error ? e.message : String(e)]))
     }
     finally {
       xlsxBusy.value = false
@@ -82,11 +83,11 @@ export function useXlsx(options: {
         lines.push(`<span style="color:#B91C1C">${r.unknownFunctions} 个公式使用了当前不支持的函数（显示 #NAME?）</span>`)
       await ElMessageBox.alert(lines.join('<br>') || '文件中没有可导入的页签', `已导入「${escapeHtml(file.name)}」`, {
         dangerouslyUseHTMLString: true,
-        confirmButtonText: '知道了',
+        confirmButtonText: t('知道了'),
       }).catch(() => {})
     }
     catch (err) {
-      ElMessage.error(`导入失败：${err instanceof Error ? err.message : String(err)}`)
+      ElMessage.error(t('导入失败：{0}', [err instanceof Error ? err.message : String(err)]))
     }
     finally {
       xlsxBusy.value = false

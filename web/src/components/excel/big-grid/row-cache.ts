@@ -1,5 +1,6 @@
 import type { CellValue } from '@/api/dataset'
 import { getRowsApi } from '@/api/dataset'
+import { t } from '@/i18n'
 
 const CHUNK = 200
 /** 约 3 万行常驻内存，足够来回滚动 */
@@ -101,7 +102,7 @@ export class RowCache {
       const limit = Math.min(2000, to - start + 1)
       const res = await getRowsApi(this.datasetId, this.cursorId, start, limit, undefined, this.fields)
       if (res.expired)
-        throw new Error('数据已更新，请重新选择后复制')
+        throw new Error(t('数据已更新，请重新选择后复制'))
       out.push(...res.rows)
     }
     return out

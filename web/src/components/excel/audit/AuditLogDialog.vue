@@ -62,47 +62,47 @@ function target(row: AuditItem) {
 </script>
 
 <template>
-  <el-dialog :model-value="visible" title="操作审计" width="980px" append-to-body @update:model-value="emit('update:visible', $event)">
+  <el-dialog :model-value="visible" :title="$t('操作审计')" width="980px" append-to-body @update:model-value="emit('update:visible', $event)">
     <div class="mb-3 flex flex-wrap items-center gap-2">
-      <el-input v-model="user" size="small" clearable placeholder="用户名 / 用户 ID" class="!w-40" @keyup.enter="search" @clear="search" />
-      <el-input v-model="action" size="small" clearable placeholder="操作，如 删除" class="!w-40" @keyup.enter="search" @clear="search" />
-      <el-date-picker v-model="range" type="daterange" size="small" value-format="YYYY-MM-DD" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" class="!w-64" @change="search" />
+      <el-input v-model="user" size="small" clearable :placeholder="$t('用户名 / 用户 ID')" class="!w-40" @keyup.enter="search" @clear="search" />
+      <el-input v-model="action" size="small" clearable :placeholder="$t('操作，如 删除')" class="!w-40" @keyup.enter="search" @clear="search" />
+      <el-date-picker v-model="range" type="daterange" size="small" value-format="YYYY-MM-DD" :range-separator="$t('至')" :start-placeholder="$t('开始日期')" :end-placeholder="$t('结束日期')" class="!w-64" @change="search" />
       <el-checkbox v-model="failed" size="small" @change="search">
-        只看失败 / 被拒绝
+        {{ $t('只看失败 / 被拒绝') }}
       </el-checkbox>
       <el-button size="small" type="primary" @click="search">
-        查询
+        {{ $t('查询') }}
       </el-button>
-      <span class="ml-auto text-xs text-gray-400">共 {{ total.toLocaleString() }} 条{{ days ? `，保留 ${days} 天` : '' }}</span>
+      <span class="ml-auto text-xs text-gray-400">{{ $t('共 {0} 条{1}', [total.toLocaleString(), days ? $t('，保留 {0} 天', [days]) : '']) }}</span>
     </div>
-    <el-table v-loading="loading" :data="items" size="small" max-height="460" empty-text="没有符合条件的记录">
-      <el-table-column label="时间" prop="at" width="150" />
-      <el-table-column label="用户" width="130">
+    <el-table v-loading="loading" :data="items" size="small" max-height="460" :empty-text="$t('没有符合条件的记录')">
+      <el-table-column :label="$t('时间')" prop="at" width="150" />
+      <el-table-column :label="$t('用户')" width="130">
         <template #default="{ row }">
           <span :title="`ID：${row.userId}`">{{ row.userName }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" prop="action" min-width="150" show-overflow-tooltip />
-      <el-table-column label="对象" min-width="160" show-overflow-tooltip>
+      <el-table-column :label="$t('操作')" prop="action" min-width="150" show-overflow-tooltip />
+      <el-table-column :label="$t('对象')" min-width="160" show-overflow-tooltip>
         <template #default="{ row }">
           {{ target(row) }}
         </template>
       </el-table-column>
-      <el-table-column label="结果" width="90">
+      <el-table-column :label="$t('结果')" width="90">
         <template #default="{ row }">
           <el-tag v-if="row.status < 400" size="small" type="success">
-            成功
+            {{ $t('成功') }}
           </el-tag>
-          <el-tag v-else-if="row.status === 403" size="small" type="warning" title="权限不足被拒绝">
-            被拒绝
+          <el-tag v-else-if="row.status === 403" size="small" type="warning" :title="$t('权限不足被拒绝')">
+            {{ $t('被拒绝') }}
           </el-tag>
           <el-tag v-else size="small" type="danger" :title="`HTTP ${row.status}`">
-            失败
+            {{ $t('失败') }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="来源 IP" prop="ip" width="120" />
-      <el-table-column label="耗时" width="70" align="right">
+      <el-table-column :label="$t('来源 IP')" prop="ip" width="120" />
+      <el-table-column :label="$t('耗时')" width="70" align="right">
         <template #default="{ row }">
           {{ row.ms >= 1000 ? `${(row.ms / 1000).toFixed(1)} s` : `${row.ms} ms` }}
         </template>

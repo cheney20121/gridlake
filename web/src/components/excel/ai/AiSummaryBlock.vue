@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { aiSetSummaryApi } from '@/api/ai'
 import { renderMarkdown } from '@/features/excel/ai/markdown'
+import { t } from '@/i18n'
 
 /**
  * 较早对话的摘要：点分隔线查看；可以手动改写（修正整理错的数字、补充约定），也可以清除，清除后下次提问时服务端重新整理
@@ -42,7 +43,7 @@ async function save(text: string | null) {
 }
 
 async function clear() {
-  const ok = await ElMessageBox.confirm('清除后，下次提问时会把较早的对话重新整理成摘要。', '清除摘要', { type: 'warning', confirmButtonText: '清除' }).then(() => true, () => false)
+  const ok = await ElMessageBox.confirm(t('清除后，下次提问时会把较早的对话重新整理成摘要。'), t('清除摘要'), { type: 'warning', confirmButtonText: t('清除') }).then(() => true, () => false)
   if (ok)
     await save(null)
 }
@@ -50,20 +51,20 @@ async function clear() {
 
 <template>
   <div class="summary">
-    <button type="button" class="summary-bar" :title="show ? '收起摘要' : '查看摘要'" @click="show = !show">
+    <button type="button" class="summary-bar" :title="show ? $t('收起摘要') : $t('查看摘要')" @click="show = !show">
       <span class="line" />
-      <span>以上较早的对话已整理为摘要，继续提问时带摘要 {{ show ? '▴' : '▾' }}</span>
+      <span>{{ $t('以上较早的对话已整理为摘要，继续提问时带摘要 {0}', [show ? '▴' : '▾']) }}</span>
       <span class="line" />
     </button>
     <template v-if="show">
       <template v-if="editing">
-        <el-input v-model="draft" type="textarea" :autosize="{ minRows: 4, maxRows: 14 }" :maxlength="MAX" show-word-limit class="mt-1" placeholder="用几条要点写下之前问过什么、得出的结论和约定" />
+        <el-input v-model="draft" type="textarea" :autosize="{ minRows: 4, maxRows: 14 }" :maxlength="MAX" show-word-limit class="mt-1" :placeholder="$t('用几条要点写下之前问过什么、得出的结论和约定')" />
         <div class="mt-1 flex justify-end gap-1">
           <el-button size="small" @click="editing = false">
-            取消
+            {{ $t('取消') }}
           </el-button>
           <el-button size="small" type="primary" :loading="saving" :disabled="!draft.trim()" @click="save(draft)">
-            保存
+            {{ $t('保存') }}
           </el-button>
         </div>
       </template>
@@ -72,10 +73,10 @@ async function clear() {
         <div class="summary-text" v-html="renderMarkdown(summary)" />
         <div class="mt-1 flex justify-end gap-1">
           <el-button size="small" text :disabled="busy" @click="startEdit">
-            编辑摘要
+            {{ $t('编辑摘要') }}
           </el-button>
           <el-button size="small" text :disabled="busy" @click="clear">
-            清除
+            {{ $t('清除') }}
           </el-button>
         </div>
       </template>

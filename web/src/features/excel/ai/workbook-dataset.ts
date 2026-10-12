@@ -2,6 +2,7 @@ import type { Applied } from './workbook'
 import type { DatasetUsage } from '@/api/dataset'
 import { deleteDatasetApi, getDatasetUsageApi } from '@/api/dataset'
 import { createQueryApi, deleteQueryApi } from '@/api/sql'
+import { t } from '@/i18n'
 
 /**
  * AI 把一条 SQL 的结果另存为数据集：走 SQL 面板同一个接口（保存查询 + 立即物化为数据集），权限、行数上限、列名规则都与手动保存一致。
@@ -34,7 +35,7 @@ export async function applyDatasetSave(p: DatasetSavePayload, onDatasetsChanged:
     operator,
   })
   if (!q.datasetId)
-    throw new Error('数据集没有创建成功')
+    throw new Error(t('数据集没有创建成功'))
   onDatasetsChanged()
   return {
     message: `已另存为数据集「${p.name}」${q.lastRows != null ? `（${q.lastRows.toLocaleString()} 行）` : ''}`,

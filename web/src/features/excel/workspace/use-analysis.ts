@@ -16,6 +16,7 @@ import { CellTableBlockedError, refreshCellTables, watchCellTables } from '@/fea
 import { cellTableArea, cellTableAt, insertDataTable, listCellTables } from '@/features/excel/datatable/types'
 import { persistenceManager } from '@/features/excel/persistence/manager'
 import { createPivotSheet, getPivotSpec, hasLayout, refreshPivot } from '@/features/excel/pivot/pivot-sheet'
+import { t } from '@/i18n'
 import { useExcelUIStore } from '@/stores/excel-ui'
 
 /**
@@ -104,7 +105,7 @@ export function useAnalysis(options: {
       persistenceManager.markDirty()
       dashboardEditId.value = spec.id
       uiStore.openPanel('dashboard')
-      ElMessage.success(`已在选中的单元格处插入数据表「${spec.name}」，公式可用 =TSUM("${spec.name}[列名]") 引用`)
+      ElMessage.success(t('已在选中的单元格处插入数据表「{0}」，公式可用 =TSUM("{1}[列名]") 引用', [spec.name, spec.name]))
     }
     catch (e) {
       ElMessage.error(e instanceof Error ? e.message : String(e))
@@ -127,7 +128,7 @@ export function useAnalysis(options: {
     try {
       const spec = insertDataTable(api, { datasetId, datasetName: ds.name })
       persistenceManager.markDirty()
-      ElMessage.success(`已转为数据表「${spec.name}」：表头可按值筛选、排序；在数据面板里可给「${ds.name}」加计算列`)
+      ElMessage.success(t('已转为数据表「{0}」：表头可按值筛选、排序；在数据面板里可给「{1}」加计算列', [spec.name, ds.name]))
     }
     catch (e) {
       ElMessage.error(e instanceof Error ? e.message : String(e))

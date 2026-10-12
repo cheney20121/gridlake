@@ -1,4 +1,5 @@
 import type { DatasetFilter, PivotAgg, PivotShow } from '@/api/dataset'
+import { t } from '@/i18n'
 
 /**
  * 仪表盘部件：与图表一样是浮动在工作表上的对象，定义存放在工作簿快照里
@@ -71,13 +72,13 @@ export interface TableCardSpec {
 export type DashboardSpec = SlicerSpec | KpiSpec | TableCardSpec
 
 export const DATE_PRESETS: { value: DatePreset, label: string }[] = [
-  { value: 'this_month', label: '本月' },
-  { value: 'last_month', label: '上月' },
-  { value: 'this_quarter', label: '本季度' },
-  { value: 'last_quarter', label: '上季度' },
-  { value: 'this_year', label: '今年' },
-  { value: 'last_year', label: '去年' },
-  { value: 'last_7', label: '近 7 天' },
-  { value: 'last_30', label: '近 30 天' },
-  { value: 'last_90', label: '近 90 天' },
+  { value: 'this_month', label: t('本月') },
+  { value: 'last_month', label: t('上月') },
+  { value: 'this_quarter', label: t('本季度') },
+  { value: 'last_quarter', label: t('上季度') },
+  { value: 'this_year', label: t('今年') },
+  { value: 'last_year', label: t('去年') },
+  { value: 'last_7', label: t('近 7 天') },
+  { value: 'last_30', label: t('近 30 天') },
+  { value: 'last_90', label: t('近 90 天') },
 ]

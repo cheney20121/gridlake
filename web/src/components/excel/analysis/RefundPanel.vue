@@ -6,6 +6,7 @@ import { computed, ref, watch } from 'vue'
 import { getAnalysisBreakdownApi } from '@/api/ledger'
 import { formatMoney } from '@/components/excel/ledger-detail/columns'
 import { buildDrillTarget, dimensionLabel, formatPct, rateOf } from '@/features/excel/shop-ledger/analysis'
+import { t as tr } from '@/i18n'
 import AmountLink from './AmountLink.vue'
 
 const props = defineProps<{
@@ -20,9 +21,9 @@ const emit = defineEmits<{
 
 type Dim = 'channel' | 'product' | 'talent'
 const DIMS: { by: Dim, label: string }[] = [
-  { by: 'channel', label: '渠道' },
-  { by: 'product', label: '商品' },
-  { by: 'talent', label: '达人' },
+  { by: 'channel', label: tr('渠道') },
+  { by: 'product', label: tr('商品') },
+  { by: 'talent', label: tr('达人') },
 ]
 const TOP = 10
 
@@ -68,12 +69,12 @@ function exportSheet() {
     name: `退款分析_${props.period}`,
     title: `退款分析 ${props.period}${props.shop ? ` · ${props.shop}` : ' · 全部店铺'}（各维度前 ${TOP}）`,
     columns: [
-      { title: '维度', width: 70 },
-      { title: '名称', width: 300 },
-      { title: '退款', kind: 'money' },
-      { title: '售后单数', kind: 'int' },
-      { title: '退款率', kind: 'percent' },
-      { title: '占全部退款', kind: 'percent' },
+      { title: tr('维度'), width: 70 },
+      { title: tr('名称'), width: 300 },
+      { title: tr('退款'), kind: 'money' },
+      { title: tr('售后单数'), kind: 'int' },
+      { title: tr('退款率'), kind: 'percent' },
+      { title: tr('占全部退款'), kind: 'percent' },
     ],
     rows,
   })
@@ -85,7 +86,7 @@ function exportSheet() {
     <div v-if="total" class="flex items-center gap-6 rounded bg-[#F7F8FA] px-4 py-3">
       <div>
         <div class="text-xs text-gray-500">
-          退款合计
+          {{ $t('退款合计') }}
         </div>
         <div class="text-xl text-gray-900 font-semibold tabular-nums">
           {{ formatMoney(total.values.refund) }}
@@ -93,7 +94,7 @@ function exportSheet() {
       </div>
       <div>
         <div class="text-xs text-gray-500">
-          退款率（退款 / 结算实付）
+          {{ $t('退款率（退款 / 结算实付）') }}
         </div>
         <div class="text-xl text-gray-900 font-semibold tabular-nums">
           {{ formatPct(rateOf(total, 'refund')) }}
@@ -101,22 +102,22 @@ function exportSheet() {
       </div>
       <div>
         <div class="text-xs text-gray-500">
-          售后单数
+          {{ $t('售后单数') }}
         </div>
         <div class="text-xl text-gray-900 font-semibold tabular-nums">
           {{ total.refundCount.toLocaleString() }}
         </div>
       </div>
-      <span class="text-xs text-gray-400">退款含结算时扣减与结算后退给用户；按退款金额排序，各维度显示前 {{ TOP }}</span>
+      <span class="text-xs text-gray-400">{{ $t('退款含结算时扣减与结算后退给用户；按退款金额排序，各维度显示前 {0}', [TOP]) }}</span>
       <el-button size="small" class="ml-auto" @click="exportSheet">
-        写入工作表
+        {{ $t('写入工作表') }}
       </el-button>
     </div>
 
     <div class="grid grid-cols-3 gap-3">
       <div v-for="d in DIMS" :key="d.by" class="rounded border border-[#e6e6e6] border-solid p-3">
         <div class="mb-2 text-gray-800 font-semibold">
-          按{{ d.label }}
+          {{ $t('按{0}', [d.label]) }}
         </div>
         <div v-for="r in topRows(d.by)" :key="r.key" class="py-1.5 text-[13px] leading-5">
           <div class="flex gap-2">
@@ -128,11 +129,11 @@ function exportSheet() {
             <div class="h-full rounded-full bg-[#d4544f]" :style="{ width: `${Math.min(100, (share(r) ?? 0) * 100)}%` }" />
           </div>
           <div class="mt-0.5 text-xs text-gray-400">
-            占 {{ formatPct(share(r)) }} · 退款率 <span :class="{ 'text-[#B91C1C] font-medium': (rateOf(r, 'refund') ?? 0) >= 2 * (rateOf(total!, 'refund') ?? 0) }">{{ formatPct(rateOf(r, 'refund')) }}</span>
-            · {{ r.refundCount }} 笔售后
+            {{ $t('占 {0} · 退款率', [formatPct(share(r))]) }} <span :class="{ 'text-[#B91C1C] font-medium': (rateOf(r, 'refund') ?? 0) >= 2 * (rateOf(total!, 'refund') ?? 0) }">{{ formatPct(rateOf(r, 'refund')) }}</span>
+            {{ $t('· {0} 笔售后', [r.refundCount]) }}
           </div>
         </div>
-        <el-empty v-if="!topRows(d.by).length" :image-size="60" description="无退款" />
+        <el-empty v-if="!topRows(d.by).length" :image-size="60" :description="$t('无退款')" />
       </div>
     </div>
   </div>

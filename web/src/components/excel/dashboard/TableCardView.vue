@@ -7,6 +7,7 @@ import { chartBus, sheetIdOf } from '@/features/excel/chart/chart-manager'
 import { crossFilterAffecting, dashboardFiltersFor } from '@/features/excel/dashboard/cross-filter'
 import { full, loadTable } from '@/features/excel/dashboard/data'
 import { saveWidgetImage } from '@/features/excel/dashboard/export-image'
+import { t } from '@/i18n'
 
 /** 表格卡片：按一个字段分组汇总（如销售额前 10 的店铺），带合计行；切片器变化时重算 */
 const props = defineProps<{
@@ -55,10 +56,10 @@ function fmt(v: number | null | undefined, vi: number) {
 async function saveImage(e: MouseEvent) {
   e.stopPropagation()
   try {
-    ElMessage.success(`已保存图片：${await saveWidgetImage(e, '.card', spec.value.title || '汇总表')}`)
+    ElMessage.success(t('已保存图片：{0}', [await saveWidgetImage(e, '.card', spec.value.title || '汇总表')]))
   }
   catch (err) {
-    ElMessage.error(`保存图片失败：${err instanceof Error ? err.message : String(err)}`)
+    ElMessage.error(t('保存图片失败：{0}', [err instanceof Error ? err.message : String(err)]))
   }
 }
 
@@ -96,10 +97,10 @@ onBeforeUnmount(() => {
 <template>
   <div class="card" @dblclick="edit">
     <div class="head">
-      <span class="title">{{ spec.title || '汇总表' }}</span>
-      <span v-if="cross" class="cross" :title="`按图表点选的「${cross.label}」筛选；在图表上再点一次或点空白处取消`">联动</span>
-      <span class="edit" title="保存为图片" @pointerdown.stop @mousedown.stop @click="saveImage">📷</span>
-      <span class="edit" title="编辑表格" @pointerdown.stop @mousedown.stop @click="edit">⚙</span>
+      <span class="title">{{ spec.title || $t('汇总表') }}</span>
+      <span v-if="cross" class="cross" :title="$t('按图表点选的「{0}」筛选；在图表上再点一次或点空白处取消', [cross.label])">{{ $t('联动') }}</span>
+      <span class="edit" :title="$t('保存为图片')" @pointerdown.stop @mousedown.stop @click="saveImage">📷</span>
+      <span class="edit" :title="$t('编辑表格')" @pointerdown.stop @mousedown.stop @click="edit">⚙</span>
     </div>
     <div v-if="error" class="state text-[#B91C1C]">
       {{ error }}
@@ -117,7 +118,7 @@ onBeforeUnmount(() => {
         <tbody>
           <tr v-for="(r, ri) in result.rows" :key="ri" :class="{ total: r.kind === 'total' }">
             <td class="key">
-              {{ r.kind === 'total' ? (spec.top > 0 ? `前 ${spec.top} 项合计` : '合计') : (r.keys[0] ?? '（空白）') }}
+              {{ r.kind === 'total' ? (spec.top > 0 ? $t('前 {0} 项合计', [spec.top]) : $t('合计')) : (r.keys[0] ?? $t('（空白）')) }}
             </td>
             <td v-for="(_, vi) in result.values" :key="vi">
               {{ fmt(r.cells[r.cells.length - 1]?.[vi], vi) }}
@@ -127,7 +128,7 @@ onBeforeUnmount(() => {
       </table>
     </div>
     <div v-else class="state">
-      正在计算…
+      {{ $t('正在计算…') }}
     </div>
   </div>
 </template>

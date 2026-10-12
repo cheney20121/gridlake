@@ -4,6 +4,7 @@ import type { LedgerUserItem } from '@/api/approval'
 import { computed, ref, watch } from 'vue'
 import { listLedgerUsersApi } from '@/api/approval'
 import { persistenceManager } from '@/features/excel/persistence/manager'
+import { t } from '@/i18n'
 import { useApprovalStore } from '@/stores/excel-approval'
 import { useExcelUIStore } from '@/stores/excel-ui'
 import { useLedgerUserStore } from '@/stores/ledger-user'
@@ -116,16 +117,16 @@ const canSubmit = computed(() => (ledgerUser.authRequired ? !!approverId.value :
 async function handleSubmit() {
   const meta = persistenceManager.getMeta()
   if (!meta) {
-    ElMessage.warning('当前工作簿还没有保存到服务端，不能发起审批')
+    ElMessage.warning(t('当前工作簿还没有保存到服务端，不能发起审批'))
     return
   }
   submitting.value = true
   try {
     // 审批的是已保存的版本：有未保存的修改先保存，保存不成功就不发起
     if (persistenceManager.isDirty()) {
-      const r = await persistenceManager.save({ description: '发起审批前保存' })
+      const r = await persistenceManager.save({ description: t('发起审批前保存') })
       if (r.state !== 'saved') {
-        ElMessage.error('保存当前修改失败，没有发起审批')
+        ElMessage.error(t('保存当前修改失败，没有发起审批'))
         return
       }
     }
@@ -137,7 +138,7 @@ async function handleSubmit() {
       comment: comment.value.trim(),
       summary: preview.value ?? undefined,
     })
-    ElMessage.success(`已发起审批：${a.approverName} 将审批「${a.workbookName}」的第 ${v ?? a.workbookVersion} 版`)
+    ElMessage.success(t('已发起审批：{0} 将审批「{1}」的第 {2} 版', [a.approverName, a.workbookName, v ?? a.workbookVersion]))
     visible.value = false
     approvalStore.toggleDrawer(true)
     approvalStore.drawerTab = 'started'
@@ -150,35 +151,35 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <el-dialog v-model="visible" title="发起文件审批" width="480px" :close-on-click-modal="false">
+  <el-dialog v-model="visible" :title="$t('发起文件审批')" width="480px" :close-on-click-modal="false">
     <div v-if="preview" class="flex flex-col gap-4">
       <div>
         <div class="mb-2 text-[13px] text-gray-800 font-semibold">
-          文件信息预览
+          {{ $t('文件信息预览') }}
         </div>
         <div class="rounded-md bg-[#f5f7fa] p-3">
           <div class="preview-row">
-            <span>文件名</span><strong>{{ preview.fileName }}</strong>
+            <span>{{ $t('文件名') }}</span><strong>{{ preview.fileName }}</strong>
           </div>
           <div class="preview-row">
-            <span>数据行数</span><strong>{{ preview.dataRows }} 行</strong>
+            <span>{{ $t('数据行数') }}</span><strong>{{ $t('{0} 行', [preview.dataRows]) }}</strong>
           </div>
           <div class="preview-row">
-            <span>订单总数</span><strong>{{ preview.orderCount }}</strong>
+            <span>{{ $t('订单总数') }}</span><strong>{{ preview.orderCount }}</strong>
           </div>
           <div class="preview-row">
-            <span>总金额</span>
+            <span>{{ $t('总金额') }}</span>
             <strong>¥ {{ preview.totalAmount.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</strong>
           </div>
         </div>
         <div class="mt-1 text-xs text-gray-400">
-          审批的是已保存的版本；发起时会先保存当前修改，之后再改动不影响审批人看到的内容
+          {{ $t('审批的是已保存的版本；发起时会先保存当前修改，之后再改动不影响审批人看到的内容') }}
         </div>
       </div>
 
       <div>
         <div class="mb-2 text-[13px] text-gray-800 font-semibold">
-          选择审批人
+          {{ $t('选择审批人') }}
         </div>
         <el-select
           v-if="ledgerUser.authRequired"
@@ -187,29 +188,29 @@ async function handleSubmit() {
           remote
           :remote-method="searchUsers"
           :loading="searching"
-          placeholder="输入姓名搜索（审批人需要登录过本系统）"
+          :placeholder="$t('输入姓名搜索（审批人需要登录过本系统）')"
           class="w-full"
-          no-data-text="没有找到：对方需要先登录过本系统"
+          :no-data-text="$t('没有找到：对方需要先登录过本系统')"
         >
           <el-option v-for="u in candidates" :key="u.id" :label="u.name" :value="u.id" />
         </el-select>
-        <el-input v-else v-model="approverName" placeholder="审批人姓名" />
+        <el-input v-else v-model="approverName" :placeholder="$t('审批人姓名')" />
       </div>
 
       <div>
         <div class="mb-2 text-[13px] text-gray-800 font-semibold">
-          审批意见
+          {{ $t('审批意见') }}
         </div>
-        <el-input v-model="comment" type="textarea" :rows="3" placeholder="请填写审批发起说明..." />
+        <el-input v-model="comment" type="textarea" :rows="3" :placeholder="$t('请填写审批发起说明...')" />
       </div>
     </div>
 
     <template #footer>
       <el-button @click="visible = false">
-        取消
+        {{ $t('取消') }}
       </el-button>
       <el-button type="primary" :disabled="!canSubmit" :loading="submitting" @click="handleSubmit">
-        确认发起
+        {{ $t('确认发起') }}
       </el-button>
     </template>
   </el-dialog>

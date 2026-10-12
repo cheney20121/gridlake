@@ -16,6 +16,7 @@ import { renameTableFormulas } from '@/features/excel/datatable/formula-input'
 import { checkTableName, DATA_TABLE_KEY, findCellTable, getCellTables, insertDataTable, MAX_CELL_ROWS } from '@/features/excel/datatable/types'
 import { recalculateTableFormulas } from '@/features/excel/formula/dataset-functions'
 import { cellName } from '@/features/excel/writeback/input-table'
+import { t } from '@/i18n'
 import AddPartsSection from './AddPartsSection.vue'
 import DataTableEditor from './editors/DataTableEditor.vue'
 import KpiEditor from './editors/KpiEditor.vue'
@@ -143,7 +144,7 @@ const apply = useDebounceFn(() => {
     if (renamed && form.value.kind === 'datatable') {
       const n = renameTableFormulas(props.univerApi, oldName!, form.value.name)
       if (n)
-        ElMessage.success(`已把 ${n} 个引用「${oldName}」的公式改为「${form.value.name}」`)
+        ElMessage.success(t('已把 {0} 个引用「{1}」的公式改为「{2}」', [n, oldName, form.value.name]))
     }
     // 公式按表名引用：改名后重算（引用旧名的公式会提示找不到）
     if (renamed)
@@ -197,7 +198,7 @@ async function applyCells(force = false) {
     if (oldName !== next.name) {
       const n = renameTableFormulas(api, oldName, next.name)
       if (n)
-        ElMessage.success(`已把 ${n} 个引用「${oldName}」的公式改为「${next.name}」`)
+        ElMessage.success(t('已把 {0} 个引用「{1}」的公式改为「{2}」', [n, oldName, next.name]))
     }
     // 只带回写入结果（区域、总行数）；写入期间表单又改过的话，保留改动，稍后再写一次
     if (form.value?.id === next.id) {
@@ -227,13 +228,13 @@ async function switchMode(mode: 'cells' | 'float') {
     if (mode === 'cells') {
       const loc = findFloat<DataTableSpec>(api, f.id)
       if (!loc)
-        throw new Error('数据表已被删除')
+        throw new Error(t('数据表已被删除'))
       const spec = await floatToCells(api, { ...loc, spec: { ...f } })
       loadForm(spec, true)
       if ((spec.total ?? 0) > MAX_CELL_ROWS)
-        ElMessage.warning({ message: `共 ${spec.total!.toLocaleString()} 行，单元格模式只写入前 ${MAX_CELL_ROWS.toLocaleString()} 行；要看全部请用浮动模式`, duration: 6000 })
+        ElMessage.warning({ message: t('共 {0} 行，单元格模式只写入前 {1} 行；要看全部请用浮动模式', [spec.total!.toLocaleString(), MAX_CELL_ROWS.toLocaleString()]), duration: 6000 })
       else
-        ElMessage.success(`已写入 ${spec.extent!.rows - 1} 行，可以像普通单元格一样引用`)
+        ElMessage.success(t('已写入 {0} 行，可以像普通单元格一样引用', [spec.extent!.rows - 1]))
     }
     else {
       const spec = cellsToFloat(api, f.id)
@@ -256,7 +257,7 @@ async function detachCells() {
   const f = form.value
   if (!api || !f)
     return
-  const ok = await ElMessageBox.confirm('解除后这些单元格成为普通数据，不再随数据集、切片器刷新；引用这个表名的公式会提示找不到数据表。', '转为普通单元格', { type: 'warning', confirmButtonText: '解除关联' }).then(() => true, () => false)
+  const ok = await ElMessageBox.confirm(t('解除后这些单元格成为普通数据，不再随数据集、切片器刷新；引用这个表名的公式会提示找不到数据表。'), t('转为普通单元格'), { type: 'warning', confirmButtonText: t('解除关联') }).then(() => true, () => false)
   if (!ok)
     return
   removeCellTable(api, f.id, true)
@@ -283,7 +284,7 @@ async function resetEdits() {
   const f = form.value
   if (!api || !f)
     return
-  const ok = await ElMessageBox.confirm('表里手改过的格子会恢复成数据集里的值。', '恢复数据集的值', { type: 'warning', confirmButtonText: '恢复' }).then(() => true, () => false)
+  const ok = await ElMessageBox.confirm(t('表里手改过的格子会恢复成数据集里的值。'), t('恢复数据集的值'), { type: 'warning', confirmButtonText: t('恢复') }).then(() => true, () => false)
   if (!ok)
     return
   cellBusy.value = true
@@ -336,14 +337,14 @@ function createDashboardSheet() {
   wb.setActiveSheet(sheet)
   refreshParts()
   emit('changed')
-  ElMessage.success(`已新建「仪表盘${n}」：从下方添加切片器、指标卡、图表、表格`)
+  ElMessage.success(t('已新建「仪表盘{0}」：从下方添加切片器、指标卡、图表、表格', [n]))
 }
 
 function add(kind: 'slicer' | 'kpi' | 'table' | 'datatable') {
   const api = props.univerApi
   const ds = props.datasets.find(d => d.id === datasetId.value)
   if (!api || !ds) {
-    ElMessage.warning('请先选择数据集')
+    ElMessage.warning(t('请先选择数据集'))
     return
   }
   if (kind === 'datatable') {
@@ -419,7 +420,7 @@ function add(kind: 'slicer' | 'kpi' | 'table' | 'datatable') {
 
 async function remove(id: string) {
   const isCells = !!(props.univerApi && findCellTable(props.univerApi, id))
-  const ok = await ElMessageBox.confirm(isCells ? '删除这个数据表？写入的单元格会被清空。' : '删除这个部件？', '删除', { type: 'warning', confirmButtonText: '删除' }).then(() => true, () => false)
+  const ok = await ElMessageBox.confirm(isCells ? '删除这个数据表？写入的单元格会被清空。' : '删除这个部件？', '删除', { type: 'warning', confirmButtonText: t('删除') }).then(() => true, () => false)
   if (!ok || !props.univerApi)
     return
   if (isCells) {
@@ -486,13 +487,13 @@ defineExpose({ refreshParts })
   <div class="flex flex-col gap-3 text-[13px]">
     <div class="flex gap-2">
       <el-button size="small" type="primary" @click="createDashboardSheet">
-        新建仪表盘页
+        {{ $t('新建仪表盘页') }}
       </el-button>
-      <el-button size="small" title="全屏展示当前工作表，隐藏工具栏（Esc 退出）" @click="emit('present')">
-        演示
+      <el-button size="small" :title="$t('全屏展示当前工作表，隐藏工具栏（Esc 退出）')" @click="emit('present')">
+        {{ $t('演示') }}
       </el-button>
-      <el-button size="small" title="按计划把当前仪表盘页推送到企业微信 / 钉钉 / 飞书群或邮箱" @click="emit('schedule')">
-        定时推送
+      <el-button size="small" :title="$t('按计划把当前仪表盘页推送到企业微信 / 钉钉 / 飞书群或邮箱')" @click="emit('schedule')">
+        {{ $t('定时推送') }}
       </el-button>
     </div>
 
@@ -502,18 +503,18 @@ defineExpose({ refreshParts })
     <!-- 编辑 -->
     <div v-if="form" class="section">
       <div class="section-title flex items-center justify-between">
-        <span>编辑{{ FORM_LABEL[form.kind] }}</span>
+        <span>{{ $t('编辑{0}', [FORM_LABEL[form.kind]]) }}</span>
         <el-button link size="small" @click="emit('update:editId', null)">
-          完成
+          {{ $t('完成') }}
         </el-button>
       </div>
       <div v-if="form.kind !== 'datatable'" class="row">
-        <span class="label">标题</span>
+        <span class="label">{{ $t('标题') }}</span>
         <el-input v-model="form.title" size="small" maxlength="40" />
       </div>
       <template v-else>
         <div class="row">
-          <span class="label">表名</span>
+          <span class="label">{{ $t('表名') }}</span>
           <el-input v-model="form.name" size="small" maxlength="30" />
         </div>
         <div v-if="nameError" class="text-xs text-[#B91C1C]">
@@ -521,7 +522,7 @@ defineExpose({ refreshParts })
         </div>
       </template>
       <div class="row">
-        <span class="label">数据集</span>
+        <span class="label">{{ $t('数据集') }}</span>
         <el-select v-model="form.datasetId" size="small" filterable class="flex-1" @change="onDatasetChange">
           <el-option v-for="d in datasets" :key="d.id" :label="d.name" :value="d.id" />
         </el-select>

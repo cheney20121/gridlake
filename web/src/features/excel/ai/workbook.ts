@@ -9,6 +9,7 @@ import { addCalcApi, removeCalcApi } from '@/api/dataset'
 import { colName } from '@/features/excel/chart/chart-defaults'
 import { insertChart, newChartId, removeChart } from '@/features/excel/chart/chart-manager'
 import { createPivotSheet, getPivotSpec, refreshPivot } from '@/features/excel/pivot/pivot-sheet'
+import { t } from '@/i18n'
 import { applyDatasetSave, undoDatasetSave } from './workbook-dataset'
 import { applyColumnFormat, applyTableCreate, applyTableView, collectTableContext, undoColumnFormat, undoTableCreate, undoTableView } from './workbook-table'
 
@@ -89,36 +90,36 @@ async function applyOne(api: FUniver, kind: string, p: Record<string, any>, onDa
       const name = uniqueSheetName(api, p.title)
       sheet.setName(name)
       await refreshPivot(sheet, spec)
-      return { message: `已新建透视表页签「${name}」`, undo: { kind: 'pivot', sheetId: sheet.getSheetId(), name } }
+      return { message: t('已新建透视表页签「{0}」', [name]), undo: { kind: 'pivot', sheetId: sheet.getSheetId(), name } }
     }
     case 'chart': {
       const sheet = api.getActiveWorkbook()?.getActiveSheet()
       if (!sheet)
-        throw new Error('没有打开的工作表')
+        throw new Error(t('没有打开的工作表'))
       const spec = { ...p.spec, id: newChartId(), v: 1 } as ChartSpec
       insertChart(api, spec, sheet)
-      return { message: `已在「${sheet.getSheetName()}」插入图表「${spec.title}」`, undo: { kind: 'chart', chartId: spec.id, sheetId: sheet.getSheetId(), title: spec.title } }
+      return { message: t('已在「{0}」插入图表「{1}」', [sheet.getSheetName(), spec.title]), undo: { kind: 'chart', chartId: spec.id, sheetId: sheet.getSheetId(), title: spec.title } }
     }
     case 'formula': {
       const sheet = api.getActiveWorkbook()?.getActiveSheet()
       if (!sheet)
-        throw new Error('没有打开的工作表')
+        throw new Error(t('没有打开的工作表'))
       const range = sheet.getRange(p.cell as string)
       const oldFormula = range.getFormula() || null
       const oldValue = oldFormula ? null : range.getValue()
       if (oldFormula || (oldValue != null && oldValue !== '')) {
-        const ok = await ElMessageBox.confirm(`单元格 ${p.cell} 已有内容「${String(oldFormula ?? oldValue).slice(0, 40)}」，覆盖为 AI 建议的公式？`, '覆盖单元格', { type: 'warning', confirmButtonText: '覆盖' }).then(() => true, () => false)
+        const ok = await ElMessageBox.confirm(t('单元格 {0} 已有内容「{1}」，覆盖为 AI 建议的公式？', [p.cell, String(oldFormula ?? oldValue).slice(0, 40)]), t('覆盖单元格'), { type: 'warning', confirmButtonText: t('覆盖') }).then(() => true, () => false)
         if (!ok)
-          throw new Error('已取消')
+          throw new Error(t('已取消'))
       }
       range.setValue(p.formula)
       sheet.getRange(p.cell as string).activate()
-      return { message: `已在「${sheet.getSheetName()}」${p.cell} 写入 ${p.formula}`, undo: { kind: 'formula', sheetId: sheet.getSheetId(), cell: p.cell, written: p.formula, oldFormula, oldValue } }
+      return { message: t('已在「{0}」{1} 写入 {2}', [sheet.getSheetName(), p.cell, p.formula]), undo: { kind: 'formula', sheetId: sheet.getSheetId(), cell: p.cell, written: p.formula, oldFormula, oldValue } }
     }
     case 'calc': {
       await addCalcApi(p.datasetId, p.name, p.formula, (p.columnKind || null) as DatasetColumnKind | null)
       onDatasetsChanged()
-      return { message: `已给「${p.datasetName}」添加计算列「${p.name}」`, undo: { kind: 'calc', datasetId: p.datasetId, name: p.name } }
+      return { message: t('已给「{0}」添加计算列「{1}」', [p.datasetName, p.name]), undo: { kind: 'calc', datasetId: p.datasetId, name: p.name } }
     }
     case 'table_view':
       return applyTableView(api, p as TableViewPayload)
@@ -129,7 +130,7 @@ async function applyOne(api: FUniver, kind: string, p: Record<string, any>, onDa
     case 'dataset_save':
       return applyDatasetSave(p as DatasetSavePayload, onDatasetsChanged, operator)
   }
-  throw new Error(`不支持的建议类型：${kind}`)
+  throw new Error(t('不支持的建议类型：{0}', [kind]))
 }
 
 /** 执行建议或方案卡；方案里任何一步失败（或用户取消覆盖）都会撤回已完成的步骤，工作簿回到应用前的样子 */
@@ -154,11 +155,11 @@ export async function applyAction(api: FUniver, action: AiAction, onDatasetsChan
       const reason = e instanceof Error ? e.message : String(e)
       await undoApplied(api, { kind: 'plan', steps: done }, onDatasetsChanged, operator)
       if (reason === '已取消')
-        throw new Error('已取消')
+        throw new Error(t('已取消'))
       throw new Error(`第 ${i + 1} 步（${KIND_NAME[step.kind] ?? step.kind}）失败：${reason}${done.length ? `；已撤回前面 ${done.length} 步` : ''}`)
     }
   }
-  return { message: `已应用方案「${action.payload.title}」（${steps.length} 步）：${messages.join('；')}`, undo: { kind: 'plan', steps: done } }
+  return { message: t('已应用方案「{0}」（{1} 步）：{2}', [action.payload.title, steps.length, messages.join('；')]), undo: { kind: 'plan', steps: done } }
 }
 
 function sheetById(api: FUniver, id: string) {
@@ -202,7 +203,7 @@ export async function undoApplied(api: FUniver, undo: UndoStep, onDatasetsChange
     }
     case 'calc': {
       await removeCalcApi(undo.datasetId, undo.name).catch((e) => {
-        throw new Error(`删除计算列「${undo.name}」失败：${e instanceof Error ? e.message : String(e)}`)
+        throw new Error(t('删除计算列「{0}」失败：{1}', [undo.name, e instanceof Error ? e.message : String(e)]))
       })
       onDatasetsChanged()
       return `已删除计算列「${undo.name}」`

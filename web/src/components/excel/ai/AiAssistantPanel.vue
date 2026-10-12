@@ -6,6 +6,7 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { aiAttachStream, aiChatStream, aiCreateThreadApi, aiDecideApi, aiDeleteThreadApi, aiStatusApi, aiStopApi, aiThreadApi, aiThreadsApi } from '@/api/ai'
 import { renderMarkdown } from '@/features/excel/ai/markdown'
 import { applyAction, collectContext, undoApplied } from '@/features/excel/ai/workbook'
+import { t as tr } from '@/i18n'
 import { useExcelUIStore } from '@/stores/excel-ui'
 import AiActionCard from './AiActionCard.vue'
 import AiSummaryBlock from './AiSummaryBlock.vue'
@@ -108,7 +109,7 @@ async function loadThread(id: string, attach = true) {
 async function explainMissingLink(id: string) {
   const other = await aiThreadApi(id).then(d => d.thread.workbookId !== props.workbookId, () => false)
   if (other)
-    ElMessage.warning('链接里的对话不属于这个工作簿')
+    ElMessage.warning(tr('链接里的对话不属于这个工作簿'))
 }
 
 async function loadThreads() {
@@ -173,7 +174,7 @@ async function removeThread() {
   const t = threads.value.find(x => x.id === threadId.value)
   if (!t)
     return
-  const ok = await ElMessageBox.confirm(`删除对话「${t.title}」？已应用到工作簿的透视表、图表不受影响。`, '删除对话', { type: 'warning', confirmButtonText: '删除' }).then(() => true, () => false)
+  const ok = await ElMessageBox.confirm(tr('删除对话「{0}」？已应用到工作簿的透视表、图表不受影响。', [t.title]), tr('删除对话'), { type: 'warning', confirmButtonText: tr('删除') }).then(() => true, () => false)
   if (!ok)
     return
   await aiDeleteThreadApi(t.id)
@@ -361,7 +362,7 @@ async function copyLink() {
   u.searchParams.set('wb', props.workbookId)
   u.searchParams.set('ai', threadId.value)
   await navigator.clipboard.writeText(u.toString())
-  ElMessage.success('已复制对话链接')
+  ElMessage.success(tr('已复制对话链接'))
 }
 
 function onKeydown(e: Event | KeyboardEvent) {
@@ -386,7 +387,7 @@ async function apply(a: AiAction) {
   catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     if (msg !== '已取消')
-      ElMessage.error(`应用失败：${msg}`)
+      ElMessage.error(tr('应用失败：{0}', [msg]))
   }
   finally {
     applying.value = null
@@ -412,7 +413,7 @@ async function undo(a: AiAction) {
     ElMessage.success(note || '已撤销')
   }
   catch (e) {
-    ElMessage.error(`撤销失败：${e instanceof Error ? e.message : String(e)}`)
+    ElMessage.error(tr('撤销失败：{0}', [e instanceof Error ? e.message : String(e)]))
   }
   finally {
     applying.value = null
@@ -427,11 +428,11 @@ onBeforeUnmount(() => controller?.abort())
   <div class="ai flex flex-col">
     <!-- 未配置 -->
     <div v-if="status && !status.configured" class="m-3 rounded-md bg-[#FFF7E6] p-3 text-xs text-[#92400E] leading-5">
-      服务端尚未配置 AI 模型。管理员在服务配置中设置
-      <code>LEDGER_AI_BASE_URL</code>（OpenAI 兼容接口地址，可为内网的 DeepSeek / Qwen）、<code>LEDGER_AI_MODEL</code>，需要时设置 <code>LEDGER_AI_API_KEY</code>，重启服务后即可使用。详见部署手册。
+      {{ $t('服务端尚未配置 AI 模型。管理员在服务配置中设置') }}
+      <code>LEDGER_AI_BASE_URL</code>{{ $t('（OpenAI 兼容接口地址，可为内网的 DeepSeek / Qwen）、') }}<code>LEDGER_AI_MODEL</code>{{ $t('，需要时设置') }} <code>LEDGER_AI_API_KEY</code>{{ $t('，重启服务后即可使用。详见部署手册。') }}
     </div>
     <div v-else-if="!workbookId" class="m-3 rounded-md bg-[#f9f9f7] p-3 text-xs text-gray-500">
-      工作簿保存到服务端后即可使用 AI 助手（对话按工作簿保存）。
+      {{ $t('工作簿保存到服务端后即可使用 AI 助手（对话按工作簿保存）。') }}
     </div>
 
     <template v-else>
@@ -440,10 +441,10 @@ onBeforeUnmount(() => controller?.abort())
       <div ref="listRef" class="min-h-0 flex-1 overflow-y-auto px-3 py-2" @wheel.stop>
         <div v-if="!items.length" class="py-4 text-[13px] text-gray-600">
           <div class="mb-1 font-medium">
-            用中文提问，我会查询数据集后回答
+            {{ $t('用中文提问，我会查询数据集后回答') }}
           </div>
           <div class="mb-3 text-xs text-gray-500 leading-5">
-            数字都来自服务端查询；需要保留的结果会生成透视表、图表、公式建议，确认后才写入工作簿。{{ status?.model ? `模型：${status.model}` : '' }}
+            {{ $t('数字都来自服务端查询；需要保留的结果会生成透视表、图表、公式建议，确认后才写入工作簿。{0}', [status?.model ? $t('模型：{0}', [status.model]) : '']) }}
           </div>
           <div v-for="q in EXAMPLES" :key="q" class="example" @click="send(q)">
             {{ q }}
@@ -479,24 +480,24 @@ onBeforeUnmount(() => controller?.abort())
           <span class="w-3 text-center">…</span><span class="text-gray-500">{{ statusText }}</span>
         </div>
         <div v-else-if="sending && items[items.length - 1]?.role === 'user'" class="step">
-          <span class="w-3 text-center">…</span><span class="text-gray-500">思考中</span>
+          <span class="w-3 text-center">…</span><span class="text-gray-500">{{ $t('思考中') }}</span>
         </div>
         <div v-if="sending" class="mt-1 text-[11px] text-gray-400">
-          回答在服务端进行，关掉面板或页面也会继续，回来后自动接上
+          {{ $t('回答在服务端进行，关掉面板或页面也会继续，回来后自动接上') }}
         </div>
       </div>
 
       <div v-if="interrupted && !sending" class="interrupted">
-        <span>上一次回答被中断了（服务重启），已有的提问和查询结果都保留着。</span>
+        <span>{{ $t('上一次回答被中断了（服务重启），已有的提问和查询结果都保留着。') }}</span>
         <el-button size="small" type="primary" @click="resume">
-          继续回答
+          {{ $t('继续回答') }}
         </el-button>
       </div>
 
       <div class="border-t border-t-[#eef0f3] border-t-solid p-2">
         <div class="mb-1 flex items-center gap-2 text-xs text-gray-500">
           <el-checkbox v-model="withContext" size="small" @change="refreshContext">
-            附带当前界面
+            {{ $t('附带当前界面') }}
           </el-checkbox>
           <span v-if="withContext" class="min-w-0 truncate" :title="contextText">{{ contextText }}</span>
         </div>
@@ -506,17 +507,17 @@ onBeforeUnmount(() => controller?.abort())
             type="textarea"
             :autosize="{ minRows: 2, maxRows: 6 }"
             resize="none"
-            placeholder="问问数据，如：9 月退款为什么变多了？（Enter 发送，Shift+Enter 换行）"
+            :placeholder="$t('问问数据，如：9 月退款为什么变多了？（Enter 发送，Shift+Enter 换行）')"
             :disabled="status?.configured === false"
             @keydown="onKeydown"
             @focus="refreshContext"
             @keydown.stop
           />
           <el-button v-if="sending" type="danger" plain :loading="stopping" @click="stop">
-            停止
+            {{ $t('停止') }}
           </el-button>
           <el-button v-else type="primary" :disabled="!input.trim()" @click="send()">
-            发送
+            {{ $t('发送') }}
           </el-button>
         </div>
       </div>

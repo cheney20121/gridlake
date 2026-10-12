@@ -174,27 +174,27 @@ onBeforeUnmount(() => {
 <template>
   <div class="dt" @dblclick.self="edit">
     <div class="head" @dblclick="edit">
-      <span class="name" :title="`公式引用：=TSUM(&quot;${spec.name}[列名]&quot;)`">{{ spec.name }}</span>
+      <span class="name" :title="$t('公式引用：=TSUM(&quot;{0}[列名]&quot;)', [spec.name])">{{ spec.name }}</span>
       <span class="meta">{{ dataset?.name ?? '' }}</span>
-      <span class="meta tabular-nums">{{ cursor ? `${cursor.total.toLocaleString()} 行` : '…' }}</span>
+      <span class="meta tabular-nums">{{ cursor ? $t('{0} 行', [cursor.total.toLocaleString()]) : '…' }}</span>
       <div class="chips" @pointerdown.stop @mousedown.stop>
         <span v-for="(f, i) in spec.filters" :key="i" class="chip" :title="filterLabel(f)">
           <span class="t">{{ filterLabel(f) }}</span>
-          <span class="x" title="去掉这个筛选" @click="removeFilter(i)">×</span>
+          <span class="x" :title="$t('去掉这个筛选')" @click="removeFilter(i)">×</span>
         </span>
       </div>
       <input
         v-if="dataset?.searchable"
         v-model="keyword"
         class="search"
-        placeholder="搜索"
+        :placeholder="$t('搜索')"
         @input="onKeyword"
         @pointerdown.stop
         @mousedown.stop
         @keydown.stop
       >
-      <span class="btn" title="复制选中的单元格" @pointerdown.stop @mousedown.stop @click="gridRef?.copySelection()">复制</span>
-      <span class="btn" title="编辑数据表" @pointerdown.stop @mousedown.stop @click="edit">⚙</span>
+      <span class="btn" :title="$t('复制选中的单元格')" @pointerdown.stop @mousedown.stop @click="gridRef?.copySelection()">{{ $t('复制') }}</span>
+      <span class="btn" :title="$t('编辑数据表')" @pointerdown.stop @mousedown.stop @click="edit">⚙</span>
     </div>
     <div class="body" @pointerdown.stop @mousedown.stop @wheel.stop @keydown.stop @dblclick.stop>
       <BigGrid
@@ -217,10 +217,10 @@ onBeforeUnmount(() => {
         {{ error }}
       </div>
       <div v-else-if="!cursor" class="state">
-        正在查询…
+        {{ $t('正在查询…') }}
       </div>
       <div v-else-if="!cursor.total" class="state">
-        没有符合条件的数据
+        {{ $t('没有符合条件的数据') }}
       </div>
       <div v-if="loading && cursor" class="busy" />
     </div>

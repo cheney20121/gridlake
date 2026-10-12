@@ -52,16 +52,16 @@ function save() {
 </script>
 
 <template>
-  <el-dialog :model-value="visible" :title="initial ? '修改计算值' : '添加计算值'" width="520px" append-to-body @update:model-value="emit('update:visible', $event)">
+  <el-dialog :model-value="visible" :title="initial ? $t('修改计算值') : $t('添加计算值')" width="520px" append-to-body @update:model-value="emit('update:visible', $event)">
     <div class="flex flex-col gap-3 text-[13px]">
       <div class="flex items-center gap-2">
-        <span class="w-14 shrink-0 text-gray-500">名称</span>
-        <el-input v-model="form.label" size="small" placeholder="如：毛利率" maxlength="30" />
+        <span class="w-14 shrink-0 text-gray-500">{{ $t('名称') }}</span>
+        <el-input v-model="form.label" size="small" :placeholder="$t('如：毛利率')" maxlength="30" />
       </div>
       <div class="flex gap-2">
-        <span class="w-14 shrink-0 pt-1 text-gray-500">公式</span>
+        <span class="w-14 shrink-0 pt-1 text-gray-500">{{ $t('公式') }}</span>
         <div class="min-w-0 flex-1">
-          <el-input ref="input" v-model="form.formula" type="textarea" :rows="3" placeholder="例：([金额（求和）] - [成本（求和）]) / [金额（求和）]" @keydown.ctrl.enter="save" @keydown.meta.enter="save" />
+          <el-input ref="input" v-model="form.formula" type="textarea" :rows="3" :placeholder="$t('例：([金额（求和）] - [成本（求和）]) / [金额（求和）]')" @keydown.ctrl.enter="save" @keydown.meta.enter="save" />
           <div class="mt-1.5 flex gap-1">
             <button v-for="op in operators" :key="op" class="op" @click="insert(op === '(' || op === ')' ? op : ` ${op} `)">
               {{ op }}
@@ -70,39 +70,39 @@ function save() {
         </div>
       </div>
       <div class="flex gap-2">
-        <span class="w-14 shrink-0 pt-0.5 text-gray-500">可引用</span>
+        <span class="w-14 shrink-0 pt-0.5 text-gray-500">{{ $t('可引用') }}</span>
         <div class="min-w-0 flex flex-1 flex-wrap gap-1.5">
-          <button v-for="n in names" :key="n" class="chip-ref" :title="`插入 [${n}]`" @click="insert(`[${n}]`)">
+          <button v-for="n in names" :key="n" class="chip-ref" :title="$t('插入 [{0}]', [n])" @click="insert(`[${n}]`)">
             {{ n }}
           </button>
-          <span v-if="!names.length" class="text-xs text-[#92400E]">还没有普通的值字段：请先把字段拖入「值」，再添加计算值</span>
+          <span v-if="!names.length" class="text-xs text-[#92400E]">{{ $t('还没有普通的值字段：请先把字段拖入「值」，再添加计算值') }}</span>
         </div>
       </div>
       <div class="flex items-center gap-2">
-        <span class="w-14 shrink-0 text-gray-500">格式</span>
+        <span class="w-14 shrink-0 text-gray-500">{{ $t('格式') }}</span>
         <el-radio-group v-model="form.format" size="small">
           <el-radio-button value="number">
-            数字
+            {{ $t('数字') }}
           </el-radio-button>
           <el-radio-button value="money">
-            金额
+            {{ $t('金额') }}
           </el-radio-button>
           <el-radio-button value="percent">
-            百分比
+            {{ $t('百分比') }}
           </el-radio-button>
         </el-radio-group>
-        <span class="text-xs text-gray-400">{{ form.format === 'percent' ? '结果 0.25 显示为 25%' : form.format === 'money' ? '两位小数、千分位' : '' }}</span>
+        <span class="text-xs text-gray-400">{{ form.format === 'percent' ? $t('结果 0.25 显示为 25%') : form.format === 'money' ? $t('两位小数、千分位') : '' }}</span>
       </div>
       <div class="rounded bg-[#F4F9F6] px-3 py-2 text-xs text-gray-600 leading-5">
-        公式在汇总之后逐格计算：毛利率 = 总毛利 ÷ 总金额，小计、总计行也是这样算（不是各行比率的平均）。支持 + − × ÷ 与括号；任一值为空或除数为 0 时该格显示空白。
+        {{ $t('公式在汇总之后逐格计算：毛利率 = 总毛利 ÷ 总金额，小计、总计行也是这样算（不是各行比率的平均）。支持 + − × ÷ 与括号；任一值为空或除数为 0 时该格显示空白。') }}
       </div>
     </div>
     <template #footer>
       <el-button @click="emit('update:visible', false)">
-        取消
+        {{ $t('取消') }}
       </el-button>
       <el-button type="primary" :disabled="!ready" @click="save">
-        {{ initial ? '保存' : '添加' }}
+        {{ initial ? $t('保存') : $t('添加') }}
       </el-button>
     </template>
   </el-dialog>

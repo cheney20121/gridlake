@@ -36,14 +36,14 @@ const { seconds, elapsed, note } = useBusy(toRef(props, 'loading'))
       </el-icon>
       <div class="min-w-0 flex-1">
         <div class="font-medium text-gray-800">
-          {{ title }}… <span class="text-gray-500 font-normal tabular-nums">已用 {{ elapsed }}</span>
+          {{ title }}… <span class="text-gray-500 font-normal tabular-nums">{{ $t('已用 {0}', [elapsed]) }}</span>
         </div>
         <div v-if="note" class="mt-1 text-xs text-gray-500 leading-5">
           {{ note }}
         </div>
       </div>
       <el-button v-if="cancellable && seconds >= 2" size="small" @click="emit('cancel')">
-        取消
+        {{ $t('取消') }}
       </el-button>
     </div>
   </div>
@@ -54,7 +54,7 @@ const { seconds, elapsed, note } = useBusy(toRef(props, 'loading'))
       </el-icon>
       <div class="min-w-0 flex-1">
         <div class="font-medium text-gray-800">
-          没有查询成功
+          {{ $t('没有查询成功') }}
         </div>
         <div class="mt-1 text-xs text-gray-600 leading-5">
           {{ error }}
@@ -62,10 +62,10 @@ const { seconds, elapsed, note } = useBusy(toRef(props, 'loading'))
       </div>
       <div class="flex shrink-0 gap-2">
         <el-button v-if="revertable" size="small" @click="emit('revert')">
-          还原条件
+          {{ $t('还原条件') }}
         </el-button>
         <el-button size="small" type="primary" @click="emit('retry')">
-          重试
+          {{ $t('重试') }}
         </el-button>
       </div>
     </div>

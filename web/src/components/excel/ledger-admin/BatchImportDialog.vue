@@ -5,6 +5,7 @@ import { isAxiosError } from 'axios'
 import { computed, reactive, ref, watch } from 'vue'
 import { commitLedgerImportApi, getLedgerShopsApi, previewLedgerImportApi } from '@/api/ledger'
 import { validateShopName } from '@/features/excel/shop-ledger/ledger-workbook'
+import { t } from '@/i18n'
 
 const props = defineProps<{
   visible: boolean
@@ -69,11 +70,11 @@ function onFileChange(upload: UploadFile) {
   if (!file)
     return
   if (!/\.csv$/i.test(file.name)) {
-    ElMessage.warning(`「${file.name}」不是 CSV 文件，已忽略`)
+    ElMessage.warning(t('「{0}」不是 CSV 文件，已忽略', [file.name]))
     return
   }
   if (items.value.some(i => i.file.name === file.name && i.file.size === file.size)) {
-    ElMessage.info(`「${file.name}」已在列表中`)
+    ElMessage.info(t('「{0}」已在列表中', [file.name]))
     return
   }
   items.value.push(reactive<ImportItem>({ uid: ++uid, file, status: 'uploading', progress: 0, shop: '', mode: 'merge', confirmed: false }))
@@ -143,42 +144,42 @@ function checks(item: ImportItem): Check[] {
   const nameError = item.shop ? validateShopName(item.shop) : null
 
   if (!item.shop)
-    out.push({ level: 'warning', text: '请选择或输入店铺' })
+    out.push({ level: 'warning', text: t('请选择或输入店铺') })
   if (nameError)
     out.push({ level: 'danger', text: nameError })
   if (item.shop && top && isStrong(p, top) && top.shop !== item.shop) {
     out.push({
       level: 'danger',
-      text: `疑似串店：文件与「${top.shop}」更匹配（流水重合 ${percent(dupRatio(p, top))}，商品重合 ${percent(top.productRatio)}）`,
+      text: t('疑似串店：文件与「{0}」更匹配（流水重合 {1}，商品重合 {2}）', [top.shop, percent(dupRatio(p, top)), percent(top.productRatio)]),
     })
   }
   const close = ambiguousCandidates(p)
   if (close.length > 1 && top?.shop === item.shop)
-    out.push({ level: 'warning', text: `多个店铺匹配度相近：${close.map(c => c.shop).join('、')}，请确认` })
+    out.push({ level: 'warning', text: t('多个店铺匹配度相近：{0}，请确认', [close.map(c => c.shop).join('、')]) })
   const frozen = frozenPeriods(item)
   if (frozen.length)
-    out.push({ level: 'danger', text: `「${item.shop}」${frozen.join('、')} 已锁账或审批中，不能导入（需先在月结中心反结账 / 撤回）` })
+    out.push({ level: 'danger', text: t('「{0}」{1} 已锁账或审批中，不能导入（需先在月结中心反结账 / 撤回）', [item.shop, frozen.join('、')]) })
   if (item.shop && !shop && !nameError)
-    out.push({ level: 'info', text: `将新建店铺「${item.shop}」` })
+    out.push({ level: 'info', text: t('将新建店铺「{0}」', [item.shop]) })
   if (shop?.status === 'closed')
-    out.push({ level: 'warning', text: `「${item.shop}」已标记为关店` })
+    out.push({ level: 'warning', text: t('「{0}」已标记为关店', [item.shop]) })
   if (shop && shop.entities.length) {
     const fresh = p.entities.filter(e => e.name && !shop.entities.includes(e.name))
     if (fresh.length)
-      out.push({ level: 'warning', text: `出现该店铺以前没有的商户主体：${fresh.map(e => e.name).join('、')}（主体变更或文件导错？）` })
+      out.push({ level: 'warning', text: t('出现该店铺以前没有的商户主体：{0}（主体变更或文件导错？）', [fresh.map(e => e.name).join('、')]) })
   }
   if (p.sameFile)
-    out.push({ level: 'info', text: `此文件已于 ${p.sameFile.importedAt} 导入到「${p.sameFile.shop}」` })
+    out.push({ level: 'info', text: t('此文件已于 {0} 导入到「{1}」', [p.sameFile.importedAt, p.sameFile.shop]) })
   if (item.mode === 'merge' && chosen?.duplicateRows)
-    out.push({ level: 'info', text: `${chosen.duplicateRows.toLocaleString()} 条流水已存在，将自动跳过` })
+    out.push({ level: 'info', text: t('{0} 条流水已存在，将自动跳过', [chosen.duplicateRows.toLocaleString()]) })
   if (item.mode === 'replace' && shop)
-    out.push({ level: 'warning', text: `将先删除「${item.shop}」在 ${p.timeFrom} ~ ${p.timeTo} 的已有数据再写入` })
+    out.push({ level: 'warning', text: t('将先删除「{0}」在 {1} ~ {2} 的已有数据再写入', [item.shop, p.timeFrom, p.timeTo]) })
   if (p.duplicateInFile)
-    out.push({ level: 'info', text: `文件内有 ${p.duplicateInFile} 条重复流水，只保留一条` })
+    out.push({ level: 'info', text: t('文件内有 {0} 条重复流水，只保留一条', [p.duplicateInFile]) })
   if (p.missingColumns.length)
-    out.push({ level: 'warning', text: `缺少列：${p.missingColumns.join('、')}（相关汇总项按 0 计算）` })
+    out.push({ level: 'warning', text: t('缺少列：{0}（相关汇总项按 0 计算）', [p.missingColumns.join('、')]) })
   for (const n of p.invalidNumbers)
-    out.push({ level: 'warning', text: `「${n.column}」有 ${n.count} 个无法识别的金额（如「${n.sample}」），按空值入库` })
+    out.push({ level: 'warning', text: t('「{0}」有 {1} 个无法识别的金额（如「{2}」），按空值入库', [n.column, n.count, n.sample]) })
   return out
 }
 
@@ -239,7 +240,7 @@ async function importAll() {
   const done = items.value.filter(i => i.status === 'done')
   if (done.length) {
     const inserted = done.reduce((s, i) => s + (i.result?.insertedRows ?? 0), 0)
-    ElMessage.success(`已导入 ${done.length} 个文件，新增 ${inserted.toLocaleString()} 条流水`)
+    ElMessage.success(t('已导入 {0} 个文件，新增 {1} 条流水', [done.length, inserted.toLocaleString()]))
     emit('imported', [...periods].sort())
   }
 }
@@ -254,7 +255,7 @@ const levelClass = { danger: 'check-danger', warning: 'check-warning', info: 'ch
 <template>
   <el-dialog
     :model-value="visible"
-    title="批量导入店铺资金流水"
+    :title="$t('批量导入店铺资金流水')"
     width="1240px"
     top="5vh"
     :close-on-click-modal="false"
@@ -271,15 +272,15 @@ const levelClass = { danger: 'check-danger', warning: 'check-warning', info: 'ch
       :class="{ compact: items.length > 0 }"
     >
       <div class="text-sm text-gray-600">
-        拖入抖店「资金流水」CSV，或<em class="text-[#107C41] not-italic">点击选择</em>（可一次选择多个店铺、多个月份的文件）
+        {{ $t('拖入抖店「资金流水」CSV，或') }}<em class="text-[#107C41] not-italic">{{ $t('点击选择') }}</em>{{ $t('（可一次选择多个店铺、多个月份的文件）') }}
       </div>
       <div v-if="!items.length" class="mt-1 text-xs text-gray-400">
-        系统会根据商品与流水自动识别所属店铺；同一笔流水重复导入会自动跳过
+        {{ $t('系统会根据商品与流水自动识别所属店铺；同一笔流水重复导入会自动跳过') }}
       </div>
     </el-upload>
 
     <el-table v-if="items.length" :data="items" row-key="uid" class="mt-3" max-height="56vh">
-      <el-table-column label="文件" min-width="230">
+      <el-table-column :label="$t('文件')" min-width="230">
         <template #default="{ row }">
           <div class="truncate font-medium text-gray-800" :title="row.file.name">
             {{ row.file.name }}
@@ -287,7 +288,7 @@ const levelClass = { danger: 'check-danger', warning: 'check-warning', info: 'ch
           <div class="text-xs text-gray-400">
             {{ formatSize(row.file.size) }}
             <template v-if="row.preview">
-              · {{ row.preview.rowCount.toLocaleString() }} 行 · {{ row.preview.periods.join('、') }}
+              {{ $t('· {0} 行 · {1}', [row.preview.rowCount.toLocaleString(), row.preview.periods.join('、')]) }}
             </template>
           </div>
           <div v-if="row.preview" class="text-xs text-gray-400">
@@ -296,7 +297,7 @@ const levelClass = { danger: 'check-danger', warning: 'check-warning', info: 'ch
         </template>
       </el-table-column>
 
-      <el-table-column label="商户主体" min-width="170">
+      <el-table-column :label="$t('商户主体')" min-width="170">
         <template #default="{ row }">
           <div v-for="e in row.preview?.entities ?? []" :key="e.name" class="truncate text-xs" :title="e.name">
             {{ e.name }} <span class="text-gray-400">{{ e.rowCount.toLocaleString() }}</span>
@@ -304,14 +305,14 @@ const levelClass = { danger: 'check-danger', warning: 'check-warning', info: 'ch
         </template>
       </el-table-column>
 
-      <el-table-column label="导入到店铺" width="230">
+      <el-table-column :label="$t('导入到店铺')" width="230">
         <template #default="{ row }">
           <el-select
             v-model="row.shop"
             filterable
             allow-create
             default-first-option
-            placeholder="选择或输入新店铺"
+            :placeholder="$t('选择或输入新店铺')"
             :disabled="row.status !== 'ready'"
             class="w-full"
           >
@@ -323,57 +324,57 @@ const levelClass = { danger: 'check-danger', warning: 'check-warning', info: 'ch
         </template>
       </el-table-column>
 
-      <el-table-column label="方式" width="118">
+      <el-table-column :label="$t('方式')" width="118">
         <template #default="{ row }">
           <el-select v-model="row.mode" :disabled="row.status !== 'ready'" size="small">
-            <el-option label="合并去重" value="merge" />
-            <el-option label="替换时间段" value="replace" />
+            <el-option :label="$t('合并去重')" value="merge" />
+            <el-option :label="$t('替换时间段')" value="replace" />
           </el-select>
         </template>
       </el-table-column>
 
-      <el-table-column label="检查结果" min-width="300">
+      <el-table-column :label="$t('检查结果')" min-width="300">
         <template #default="{ row }">
           <div v-for="(c, i) in checks(row)" :key="i" class="check" :class="levelClass[c.level]">
             {{ c.text }}
           </div>
           <el-checkbox v-if="row.status === 'ready' && needsConfirm(row)" v-model="row.confirmed" size="small" class="mt-1">
-            我已核对，确认导入到「{{ row.shop }}」
+            {{ $t('我已核对，确认导入到「{0}」', [row.shop]) }}
           </el-checkbox>
         </template>
       </el-table-column>
 
-      <el-table-column label="状态" width="170">
+      <el-table-column :label="$t('状态')" width="170">
         <template #default="{ row }">
           <el-progress v-if="row.status === 'uploading'" :percentage="row.progress" :stroke-width="6" />
-          <span v-else-if="row.status === 'ready'" class="text-xs text-gray-500">待导入</span>
-          <span v-else-if="row.status === 'importing'" class="text-xs text-[#107C41]">导入中…</span>
+          <span v-else-if="row.status === 'ready'" class="text-xs text-gray-500">{{ $t('待导入') }}</span>
+          <span v-else-if="row.status === 'importing'" class="text-xs text-[#107C41]">{{ $t('导入中…') }}</span>
           <div v-else-if="row.status === 'done' && row.result" class="text-xs leading-5">
             <div class="text-[#107C41]">
-              ✓ 新增 {{ row.result.insertedRows.toLocaleString() }}
+              {{ $t('✓ 新增 {0}', [row.result.insertedRows.toLocaleString()]) }}
             </div>
             <div v-if="row.result.skippedRows" class="text-gray-500">
-              跳过 {{ row.result.skippedRows.toLocaleString() }}
+              {{ $t('跳过 {0}', [row.result.skippedRows.toLocaleString()]) }}
             </div>
             <div v-if="row.result.replacedRows" class="text-gray-500">
-              替换删除 {{ row.result.replacedRows.toLocaleString() }}
+              {{ $t('替换删除 {0}', [row.result.replacedRows.toLocaleString()]) }}
             </div>
             <el-popover v-if="row.result.changedRows" trigger="click" :width="420">
               <template #reference>
                 <button class="text-[#D97706] underline">
-                  变更 {{ row.result.changedRows }} 条（未覆盖）
+                  {{ $t('变更 {0} 条（未覆盖）', [row.result.changedRows]) }}
                 </button>
               </template>
               <div class="mb-1 text-xs text-gray-500">
-                流水号已存在但内容不同。如确认平台已修正数据，请用「替换时间段」重新导入。
+                {{ $t('流水号已存在但内容不同。如确认平台已修正数据，请用「替换时间段」重新导入。') }}
               </div>
               <div v-for="c in row.result.changedSamples" :key="c.id" class="border-0 border-t border-solid border-[#f0f0f0] py-1 text-xs">
                 <div class="text-gray-500">
                   {{ c.time }} · {{ c.id }}
                 </div>
-                <div>原：{{ c.before }}</div>
+                <div>{{ $t('原：{0}', [c.before]) }}</div>
                 <div class="text-[#D97706]">
-                  新：{{ c.after }}
+                  {{ $t('新：{0}', [c.after]) }}
                 </div>
               </div>
             </el-popover>
@@ -385,7 +386,7 @@ const levelClass = { danger: 'check-danger', warning: 'check-warning', info: 'ch
       <el-table-column width="64" align="center">
         <template #default="{ row }">
           <el-button v-if="row.status !== 'importing'" link size="small" @click="remove(row)">
-            移除
+            {{ $t('移除') }}
           </el-button>
         </template>
       </el-table-column>
@@ -395,14 +396,14 @@ const levelClass = { danger: 'check-danger', warning: 'check-warning', info: 'ch
       <div class="flex items-center justify-between">
         <span class="text-xs text-gray-500">
           <template v-if="items.length">
-            共 {{ items.length }} 个文件，可导入 {{ importable.length }} 个
-            <template v-if="pendingPreview">（预览中…）</template>
+            {{ $t('共 {0} 个文件，可导入 {1} 个', [items.length, importable.length]) }}
+            <template v-if="pendingPreview">{{ $t('（预览中…）') }}</template>
           </template>
         </span>
         <span>
-          <el-button @click="emit('update:visible', false)">关闭</el-button>
+          <el-button @click="emit('update:visible', false)">{{ $t('关闭') }}</el-button>
           <el-button type="primary" :loading="importing" :disabled="!importable.length" @click="importAll">
-            开始导入（{{ importable.length }}）
+            {{ $t('开始导入（{0}）', [importable.length]) }}
           </el-button>
         </span>
       </div>

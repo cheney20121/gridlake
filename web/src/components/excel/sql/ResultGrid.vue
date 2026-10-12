@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { SqlResult } from '@/api/sql'
 import BusyInline from '@/components/excel/common/BusyInline.vue'
+import { t as tr } from '@/i18n'
 import { fmt, KIND_LABEL } from './format'
 
 /** 查询结果：错误提示 / 空状态 / 结果表格与底部状态栏 */
@@ -19,10 +20,10 @@ function tsv() {
 async function copyResult() {
   try {
     await navigator.clipboard.writeText(tsv())
-    ElMessage.success(`已复制 ${props.result!.rows.length.toLocaleString()} 行（含表头），可直接粘贴到 Excel`)
+    ElMessage.success(tr('已复制 {0} 行（含表头），可直接粘贴到 Excel', [props.result!.rows.length.toLocaleString()]))
   }
   catch {
-    ElMessage.error('复制失败：浏览器不允许访问剪贴板')
+    ElMessage.error(tr('复制失败：浏览器不允许访问剪贴板'))
   }
 }
 
@@ -45,13 +46,13 @@ function downloadCsv() {
 <template>
   <div class="result">
     <div v-if="error" class="m-3 flex gap-2 rounded-md bg-[#FEF2F2] px-3 py-2.5 text-[13px] text-[#B91C1C] leading-6" role="alert">
-      <span class="shrink-0 font-medium">出错了</span>
+      <span class="shrink-0 font-medium">{{ $t('出错了') }}</span>
       <span class="min-w-0 break-all">{{ error }}</span>
     </div>
     <div v-else-if="!result" class="p-3 text-[13px] text-gray-400">
-      <BusyInline v-if="running" :loading="running" text="正在查询" />
+      <BusyInline v-if="running" :loading="running" :text="$t('正在查询')" />
       <template v-else>
-        运行后在这里查看结果
+        {{ $t('运行后在这里查看结果') }}
       </template>
     </div>
     <template v-else>
@@ -80,12 +81,11 @@ function downloadCsv() {
         </table>
       </div>
       <div class="status">
-        {{ result.rows.length.toLocaleString() }} 行{{ result.truncated ? '（结果更多，只显示前 1,000 行；另存为数据集可保存全部结果）' : '' }}
-        · {{ result.elapsedMs }} ms
-        <span v-if="result.datasets.length"> · 用到：{{ result.datasets.join('、') }}</span>
+        {{ $t('{0} 行{1} · {2} ms', [result.rows.length.toLocaleString(), result.truncated ? $t('（结果更多，只显示前 1,000 行；另存为数据集可保存全部结果）') : '', result.elapsedMs]) }}
+        <span v-if="result.datasets.length"> {{ $t('· 用到：{0}', [result.datasets.join('、')]) }}</span>
         <span class="ml-auto flex shrink-0 gap-1">
-          <el-button link size="small" type="primary" :disabled="!result.rows.length" @click="copyResult">复制</el-button>
-          <el-button link size="small" type="primary" :disabled="!result.rows.length" @click="downloadCsv">下载 CSV</el-button>
+          <el-button link size="small" type="primary" :disabled="!result.rows.length" @click="copyResult">{{ $t('复制') }}</el-button>
+          <el-button link size="small" type="primary" :disabled="!result.rows.length" @click="downloadCsv">{{ $t('下载 CSV') }}</el-button>
         </span>
       </div>
     </template>

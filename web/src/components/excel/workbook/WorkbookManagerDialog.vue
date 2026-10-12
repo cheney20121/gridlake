@@ -18,6 +18,7 @@ import {
   starWorkbookApi,
   updateFolderApi,
 } from '@/api/workbook'
+import { t as tr } from '@/i18n'
 import { useLedgerUserStore } from '@/stores/ledger-user'
 import { ROOT } from './manager/folder-model'
 import FolderSidebar from './manager/FolderSidebar.vue'
@@ -102,7 +103,7 @@ const tree = computed<TreeNode[]>(() => {
     .filter(f => f.parentId === parent)
     .sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
     .map(f => ({ id: f.id, label: f.name, count: directCount.value.get(f.id) ?? 0, children: build(f.id) }))
-  return [{ id: ROOT, label: '我的工作簿', count: directCount.value.get(ROOT) ?? 0, children: build(null) }]
+  return [{ id: ROOT, label: tr('我的工作簿'), count: directCount.value.get(ROOT) ?? 0, children: build(null) }]
 })
 
 const folderById = computed(() => new Map(folders.value.map(f => [f.id, f])))
@@ -208,7 +209,7 @@ async function promptName(title: string, value: string, max = 80) {
   return ElMessageBox.prompt('', title, {
     inputValue: value,
     inputValidator: v => (!!v.trim() && v.trim().length <= max) || `名称不能为空，且不超过 ${max} 个字符`,
-    confirmButtonText: '确定',
+    confirmButtonText: tr('确定'),
   }).then(r => r.value.trim(), () => null)
 }
 
@@ -244,7 +245,7 @@ async function duplicate(w: WorkbookMeta) {
   if (!name)
     return
   await duplicateWorkbookApi(w.id, name, props.operator)
-  ElMessage.success('已复制（放在同一个文件夹）')
+  ElMessage.success(tr('已复制（放在同一个文件夹）'))
   await load()
 }
 
@@ -261,7 +262,7 @@ async function toggleStar(w: WorkbookMeta) {
 
 async function remove(items: WorkbookMeta[]) {
   if (items.some(w => w.id === props.currentId)) {
-    ElMessage.warning('不能删除当前打开的工作簿，请先打开其他工作簿')
+    ElMessage.warning(tr('不能删除当前打开的工作簿，请先打开其他工作簿'))
     return
   }
   const what = items.length === 1 ? `「${items[0]!.name}」` : `选中的 ${items.length} 个工作簿`
@@ -269,7 +270,7 @@ async function remove(items: WorkbookMeta[]) {
     return
   for (const w of items)
     await deleteWorkbookApi(w.id, props.operator)
-  ElMessage.success('已移到回收站')
+  ElMessage.success(tr('已移到回收站'))
   selected.value = []
   await load()
 }
@@ -311,7 +312,7 @@ function moveWorkbooks(items: WorkbookMeta[]) {
     exclude: new Set(),
     run: async (folderId) => {
       await moveWorkbooksApi(items.map(w => w.id), folderId)
-      ElMessage.success(`已移到「${folderId ? pathOf(folderId) : '我的工作簿'}」`)
+      ElMessage.success(tr('已移到「{0}」', [folderId ? pathOf(folderId) : '我的工作簿']))
       selected.value = []
     },
   }
@@ -347,12 +348,12 @@ async function renameFolder(f: WorkbookFolder) {
 
 function moveFolder(f: WorkbookFolder) {
   moveDialog.value = {
-    title: `移动文件夹「${f.name}」到`,
+    title: tr('移动文件夹「{0}」到', [f.name]),
     target: f.parentId ?? ROOT,
     exclude: subtree(f.id),
     run: async (parentId) => {
       await updateFolderApi(f.id, f.name, parentId)
-      ElMessage.success('已移动')
+      ElMessage.success(tr('已移动'))
     },
   }
 }
@@ -361,7 +362,7 @@ async function deleteFolder(f: WorkbookFolder) {
   const ids = subtree(f.id)
   const inside = list.value.filter(w => w.folderId && ids.has(w.folderId))
   if (inside.some(w => w.id === props.currentId)) {
-    ElMessage.warning('当前打开的工作簿在这个文件夹里，请先把它移出或打开其他工作簿')
+    ElMessage.warning(tr('当前打开的工作簿在这个文件夹里，请先把它移出或打开其他工作簿'))
     return
   }
   const msg = inside.length
@@ -396,7 +397,7 @@ function onFolderCommand(id: string, cmd: 'new' | 'rename' | 'move' | 'delete') 
 
 async function restore(t: TrashedWorkbook) {
   const meta = await restoreFromTrashApi(t.id)
-  ElMessage.success(`已恢复到「${meta.folderId ? pathOf(meta.folderId) : '我的工作簿'}」`)
+  ElMessage.success(tr('已恢复到「{0}」', [meta.folderId ? pathOf(meta.folderId) : '我的工作簿']))
   await load()
 }
 
@@ -404,7 +405,7 @@ async function purge(t: TrashedWorkbook) {
   if (!(await confirm(`彻底删除「${t.name}」及其全部历史版本，删除后不可恢复。`, '彻底删除', '彻底删除')))
     return
   await purgeWorkbookApi(t.id)
-  ElMessage.success('已彻底删除')
+  ElMessage.success(tr('已彻底删除'))
   await load()
 }
 
@@ -412,27 +413,27 @@ async function emptyTrash() {
   if (!(await confirm(`彻底删除回收站里的 ${trash.value.length} 个工作簿及其全部历史版本，删除后不可恢复。`, '清空回收站', '清空')))
     return
   const n = await emptyTrashApi()
-  ElMessage.success(`已彻底删除 ${n} 个工作簿`)
+  ElMessage.success(tr('已彻底删除 {0} 个工作簿', [n]))
   await load()
 }
 </script>
 
 <template>
-  <el-dialog :model-value="visible" title="工作簿" width="1200px" append-to-body @update:model-value="emit('update:visible', $event)">
+  <el-dialog :model-value="visible" :title="$t('工作簿')" width="1200px" append-to-body @update:model-value="emit('update:visible', $event)">
     <div class="mb-3 flex items-center gap-2">
-      <el-input v-model="keyword" size="small" clearable placeholder="搜索全部工作簿（名称、文件夹）" class="!w-72" />
+      <el-input v-model="keyword" size="small" clearable :placeholder="$t('搜索全部工作簿（名称、文件夹）')" class="!w-72" />
       <div class="ml-auto flex gap-2">
-        <el-button size="small" :disabled="!currentId" title="把当前工作簿发布为模板，供同事一键使用" @click="emit('update:visible', false); emit('publish')">
-          发布为模板…
+        <el-button size="small" :disabled="!currentId" :title="$t('把当前工作簿发布为模板，供同事一键使用')" @click="emit('update:visible', false); emit('publish')">
+          {{ $t('发布为模板…') }}
         </el-button>
-        <el-button size="small" title="另存到当前浏览的文件夹" @click="create('copy')">
-          另存为…
+        <el-button size="small" :title="$t('另存到当前浏览的文件夹')" @click="create('copy')">
+          {{ $t('另存为…') }}
         </el-button>
         <el-button size="small" type="primary" plain @click="emit('update:visible', false); emit('template')">
-          从模板新建
+          {{ $t('从模板新建') }}
         </el-button>
-        <el-button size="small" type="primary" title="新建到当前浏览的文件夹" @click="create('blank')">
-          新建空白工作簿
+        <el-button size="small" type="primary" :title="$t('新建到当前浏览的文件夹')" @click="create('blank')">
+          {{ $t('新建空白工作簿') }}
         </el-button>
       </div>
     </div>
@@ -455,22 +456,22 @@ async function emptyTrash() {
         <div class="flex items-center gap-2 border-b border-b-[#ebeef5] border-b-solid px-3 py-2 text-[13px]">
           <span class="font-medium text-gray-700">{{ breadcrumb }}</span>
           <template v-if="view.kind === 'trash' && !keyword.trim()">
-            <span class="text-xs text-gray-400">{{ trashDays ? `删除的工作簿保留 ${trashDays} 天后自动彻底删除` : '删除的工作簿先放在这里，可以恢复' }}</span>
+            <span class="text-xs text-gray-400">{{ trashDays ? $t('删除的工作簿保留 {0} 天后自动彻底删除', [trashDays]) : $t('删除的工作簿先放在这里，可以恢复') }}</span>
             <el-button class="ml-auto" size="small" type="danger" plain :disabled="!trash.length" @click="emptyTrash">
-              清空回收站
+              {{ $t('清空回收站') }}
             </el-button>
           </template>
           <template v-else-if="selected.length">
-            <span class="ml-auto text-xs text-gray-500">已选 {{ selected.length }} 个</span>
+            <span class="ml-auto text-xs text-gray-500">{{ $t('已选 {0} 个', [selected.length]) }}</span>
             <el-button size="small" :disabled="selected.some(w => !canEdit(w))" @click="moveWorkbooks(selected)">
-              移动到…
+              {{ $t('移动到…') }}
             </el-button>
             <el-button size="small" type="danger" plain :disabled="selected.some(w => !canManage(w))" @click="remove(selected)">
-              删除
+              {{ $t('删除') }}
             </el-button>
           </template>
           <el-button v-else-if="view.kind === 'folder' && !keyword.trim()" class="ml-auto" size="small" @click="newFolder(currentFolderId)">
-            新建文件夹
+            {{ $t('新建文件夹') }}
           </el-button>
         </div>
 
@@ -503,7 +504,7 @@ async function emptyTrash() {
       </main>
     </div>
     <div class="mt-2 text-xs text-gray-400">
-      工作簿保存在服务端：修改后自动保存，每次保存都会留下版本，可在「快照」面板中查看与恢复。双击打开；删除的工作簿先进回收站
+      {{ $t('工作簿保存在服务端：修改后自动保存，每次保存都会留下版本，可在「快照」面板中查看与恢复。双击打开；删除的工作簿先进回收站') }}
     </div>
 
     <MoveFolderDialog v-model:target="moveTarget" :open="!!moveDialog" :title="moveDialog?.title" :tree="moveTree" @cancel="moveDialog = null" @confirm="confirmMove" />

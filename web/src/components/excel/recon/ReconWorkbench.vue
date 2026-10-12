@@ -3,6 +3,7 @@ import type { DatasetInfo } from '@/api/dataset'
 import type { ReconInfo, ReconItem, ReconSideSummary, ReconSummary } from '@/api/recon'
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { autoMatchReconApi, getReconApi, getReconSummaryApi, matchReconApi, unmatchReconApi } from '@/api/recon'
+import { t } from '@/i18n'
 import { errorText } from '@/utils/busy-hint'
 import { autoConfirmText, formatMoney, summarizeSelection } from './recon-pure'
 import ReconGroupList from './ReconGroupList.vue'
@@ -117,7 +118,7 @@ async function match() {
     const text = `${labels.value.left} 合计 ${formatMoney(s.leftTotal)}，${labels.value.right} 合计 ${formatMoney(s.rightTotal)}，相差 ${formatMoney(s.diff)}`
       + `${tolerance.value ? `，超过了容差 ${formatMoney(tolerance.value)}` : ''}。仍要勾对的话，请写明差额的原因（如银行手续费、汇率差）：`
     note = await ElMessageBox.prompt(text, '合计不相等', {
-      confirmButtonText: '确认勾对',
+      confirmButtonText: t('确认勾对'),
       inputPlaceholder: '差额原因（必填）',
       inputValidator: v => !!v?.trim() || '请写明原因',
     }).then(r => r.value.trim(), () => undefined)
@@ -146,7 +147,7 @@ async function autoMatch() {
     busy.value = ''
     const text = autoConfirmText(dry, labels.value)
     if (!dry.groups && !dry.clearedBroken) {
-      ElMessageBox.alert(text, '自动勾对', { confirmButtonText: '知道了' })
+      ElMessageBox.alert(text, '自动勾对', { confirmButtonText: t('知道了') })
       return
     }
     const ok = await ElMessageBox.confirm(text, '自动勾对', { confirmButtonText: dry.groups ? '执行勾对' : '清理', dangerouslyUseHTMLString: false, customClass: 'pre-wrap-box' }).then(() => true, () => false)
@@ -154,7 +155,7 @@ async function autoMatch() {
       return
     busy.value = '正在勾对…'
     const r = await autoMatchReconApi(id.value, false)
-    ElMessage.success(`已自动勾对 ${r.groups.toLocaleString()} 组（${r.matchedRows.toLocaleString()} 笔）`)
+    ElMessage.success(t('已自动勾对 {0} 组（{1} 笔）', [r.groups.toLocaleString(), r.matchedRows.toLocaleString()]))
     await refresh()
   }
   finally {
@@ -164,13 +165,13 @@ async function autoMatch() {
 
 async function unmatchAll(mode: 'auto' | 'all') {
   const what = mode === 'auto' ? '全部自动勾对的结果' : '全部勾对（含手工勾对）'
-  const ok = await ElMessageBox.confirm(`取消${what}？这些行会回到未勾对，可以重新勾对。`, '取消勾对', { type: 'warning', confirmButtonText: '取消勾对', confirmButtonClass: 'ec-button--danger' }).then(() => true, () => false)
+  const ok = await ElMessageBox.confirm(t('取消{0}？这些行会回到未勾对，可以重新勾对。', [what]), t('取消勾对'), { type: 'warning', confirmButtonText: t('取消勾对'), confirmButtonClass: 'ec-button--danger' }).then(() => true, () => false)
   if (!ok)
     return
   busy.value = '正在取消…'
   try {
     const r = await unmatchReconApi(id.value, { mode })
-    ElMessage.success(`已取消 ${r.groups.toLocaleString()} 组`)
+    ElMessage.success(t('已取消 {0} 组', [r.groups.toLocaleString()]))
     await refresh()
   }
   finally {
@@ -187,35 +188,35 @@ const g = computed(() => summary.value?.groups)
     <!-- 标题与操作 -->
     <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
       <span class="text-base text-gray-800 font-semibold">{{ dataset.name }}</span>
-      <span class="rounded bg-[#E7F4EC] px-1.5 py-0.5 text-xs text-[#0E5A31]">对账</span>
+      <span class="rounded bg-[#E7F4EC] px-1.5 py-0.5 text-xs text-[#0E5A31]">{{ $t('对账') }}</span>
       <span v-if="info" class="text-xs text-gray-500">
-        {{ labels.left }} ⇄ {{ labels.right }}&emsp;金额容差 {{ formatMoney(tolerance) }}{{ info.def.days != null ? `，日期窗口 ${info.def.days} 天` : '' }}{{ info.def.groupByKey ? '，按键汇总' : '' }}
+        {{ $t('{0} ⇄ {1}', [labels.left, labels.right]) }}&emsp;{{ $t('金额容差 {0}{1}{2}', [formatMoney(tolerance), info.def.days != null ? $t('，日期窗口 {0} 天', [info.def.days]) : '', info.def.groupByKey ? $t('，按键汇总') : '']) }}
       </span>
       <div class="ml-auto flex flex-wrap items-center gap-2">
-        <el-date-picker v-model="asOf" type="date" value-format="YYYY-MM-DD" size="small" clearable placeholder="截至日期（空 = 全部）" class="!w-44" :disabled-date="(d: Date) => d.getTime() > Date.now() + 366 * 864e5" />
+        <el-date-picker v-model="asOf" type="date" value-format="YYYY-MM-DD" size="small" clearable :placeholder="$t('截至日期（空 = 全部）')" class="!w-44" :disabled-date="(d: Date) => d.getTime() > Date.now() + 366 * 864e5" />
         <el-button size="small" type="primary" :disabled="!info || !!busy" @click="autoMatch">
-          自动勾对
+          {{ $t('自动勾对') }}
         </el-button>
         <el-dropdown trigger="click" :disabled="!info || !g?.total" @command="unmatchAll">
           <el-button size="small" :disabled="!info || !g?.total">
-            取消勾对 ▾
+            {{ $t('取消勾对 ▾') }}
           </el-button>
           <template #dropdown>
             <el-dropdown-menu>
               <el-dropdown-item command="auto" :disabled="!g?.total || g.total === g.manual">
-                取消全部自动勾对的
+                {{ $t('取消全部自动勾对的') }}
               </el-dropdown-item>
               <el-dropdown-item command="all">
-                <span class="text-[#B91C1C]">取消全部勾对（含手工）</span>
+                <span class="text-[#B91C1C]">{{ $t('取消全部勾对（含手工）') }}</span>
               </el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
-        <el-button size="small" :disabled="!info" title="修改数据集、列对应、容差与日期窗口" @click="emit('edit', id)">
-          对账设置
+        <el-button size="small" :disabled="!info" :title="$t('修改数据集、列对应、容差与日期窗口')" @click="emit('edit', id)">
+          {{ $t('对账设置') }}
         </el-button>
-        <el-button size="small" title="结果数据集的全部明细：透视、图表、导出" @click="emit('detail')">
-          结果明细
+        <el-button size="small" :title="$t('结果数据集的全部明细：透视、图表、导出')" @click="emit('detail')">
+          {{ $t('结果明细') }}
         </el-button>
       </div>
     </div>
@@ -223,7 +224,7 @@ const g = computed(() => summary.value?.groups)
     <div v-if="error" class="flex flex-1 flex-col items-center justify-center gap-2 text-sm text-[#B91C1C]">
       <span>{{ error }}</span>
       <el-button size="small" @click="init">
-        重试
+        {{ $t('重试') }}
       </el-button>
     </div>
 
@@ -233,40 +234,40 @@ const g = computed(() => summary.value?.groups)
         <div v-for="(s, i) in [summary.left, summary.right]" :key="i" class="card">
           <div class="flex items-baseline gap-2">
             <b class="text-sm text-gray-800">{{ s.label }}</b>
-            <span class="text-xs text-gray-500 tabular-nums">{{ s.all.rows.toLocaleString() }} 笔，合计 {{ formatMoney(s.all.total) }}</span>
+            <span class="text-xs text-gray-500 tabular-nums">{{ $t('{0} 笔，合计 {1}', [s.all.rows.toLocaleString(), formatMoney(s.all.total)]) }}</span>
           </div>
           <div class="mt-1 text-xs text-gray-500">
-            已勾对 <span class="tabular-nums">{{ s.matched.rows.toLocaleString() }}</span> 笔
+            {{ $t('已勾对') }} <span class="tabular-nums">{{ s.matched.rows.toLocaleString() }}</span> {{ $t('笔') }}
             <template v-if="s.minDate">
-              &emsp;日期 {{ s.minDate }} ~ {{ s.maxDate }}
+              &emsp;{{ $t('日期 {0} ~ {1}', [s.minDate, s.maxDate]) }}
             </template>
           </div>
           <div class="mt-1.5 grid grid-cols-[auto_1fr_1fr] items-baseline gap-x-3 text-xs">
-            <span class="text-gray-500">未达账项{{ summary.asOf ? `（截至 ${summary.asOf}）` : '' }}</span>
-            <span class="text-right tabular-nums">增加 {{ s.openIn.rows.toLocaleString() }} 笔&emsp;<b>{{ formatMoney(s.openIn.total) }}</b></span>
-            <span class="text-right tabular-nums">减少 {{ s.openOut.rows.toLocaleString() }} 笔&emsp;<b class="text-[#B91C1C]">{{ formatMoney(s.openOut.total) }}</b></span>
+            <span class="text-gray-500">{{ $t('未达账项{0}', [summary.asOf ? $t('（截至 {0}）', [summary.asOf]) : '']) }}</span>
+            <span class="text-right tabular-nums">{{ $t('增加 {0} 笔', [s.openIn.rows.toLocaleString()]) }}&emsp;<b>{{ formatMoney(s.openIn.total) }}</b></span>
+            <span class="text-right tabular-nums">{{ $t('减少 {0} 笔', [s.openOut.rows.toLocaleString()]) }}&emsp;<b class="text-[#B91C1C]">{{ formatMoney(s.openOut.total) }}</b></span>
           </div>
           <div class="mt-0.5 text-right text-xs text-gray-500 tabular-nums">
-            净额 <b :class="net(s) < 0 ? 'text-[#B91C1C]' : ''">{{ formatMoney(net(s)) }}</b>
-            <span v-if="summary.asOf && s.undated" class="ml-2 text-[#B45309]" title="没有日期的行不在截至日范围内">{{ s.undated.toLocaleString() }} 笔没有日期</span>
+            {{ $t('净额') }} <b :class="net(s) < 0 ? 'text-[#B91C1C]' : ''">{{ formatMoney(net(s)) }}</b>
+            <span v-if="summary.asOf && s.undated" class="ml-2 text-[#B45309]" :title="$t('没有日期的行不在截至日范围内')">{{ $t('{0} 笔没有日期', [s.undated.toLocaleString()]) }}</span>
           </div>
         </div>
         <div class="card">
           <div class="flex items-baseline gap-2">
-            <b class="text-sm text-gray-800">勾对</b>
-            <span class="text-xs text-gray-500 tabular-nums">{{ g?.total.toLocaleString() }} 组</span>
+            <b class="text-sm text-gray-800">{{ $t('勾对') }}</b>
+            <span class="text-xs text-gray-500 tabular-nums">{{ $t('{0} 组', [g?.total.toLocaleString()]) }}</span>
           </div>
           <div class="mt-1 text-xs text-gray-500 leading-5 tabular-nums">
-            自动 {{ g?.exact }}&emsp;容差 {{ g?.tolerance }}&emsp;汇总 {{ g?.sum }}&emsp;手工 {{ g?.manual }}
+            {{ $t('自动 {0}', [g?.exact]) }}&emsp;{{ $t('容差 {0}', [g?.tolerance]) }}&emsp;{{ $t('汇总 {0}', [g?.sum]) }}&emsp;{{ $t('手工 {0}', [g?.manual]) }}
           </div>
           <div v-if="g?.withDiff" class="mt-0.5 text-xs text-[#B45309] tabular-nums">
-            {{ g.withDiff }} 组有差额，合计 {{ formatMoney(g.diffTotal) }}
+            {{ $t('{0} 组有差额，合计 {1}', [g.withDiff, formatMoney(g.diffTotal)]) }}
           </div>
           <div v-if="g?.broken" class="mt-1 cursor-pointer text-xs text-[#B91C1C]" @click="tab = 'matched'">
-            ⚠ {{ g.broken }} 组已失效（行被改过或删了），点「自动勾对」清理
+            {{ $t('⚠ {0} 组已失效（行被改过或删了），点「自动勾对」清理', [g.broken]) }}
           </div>
           <div class="mt-1 text-[11px] text-gray-400 leading-4">
-            未达账项 = 截至日未勾对的 + 已勾对但对方日期晚于截至日的
+            {{ $t('未达账项 = 截至日未勾对的 + 已勾对但对方日期晚于截至日的') }}
           </div>
         </div>
       </div>
@@ -298,21 +299,21 @@ const g = computed(() => summary.value?.groups)
             </div>
             <!-- 勾对条：选了什么、差多少 -->
             <div class="flex flex-wrap items-center gap-x-5 gap-y-1 border border-[#e5e7eb] rounded-lg border-solid bg-white px-3 py-2">
-              <span class="text-gray-600">{{ labels.left }} 已选 <b class="tabular-nums">{{ sel.leftCount }}</b> 笔&emsp;<b class="tabular-nums">{{ formatMoney(sel.leftTotal) }}</b></span>
-              <span class="text-gray-600">{{ labels.right }} 已选 <b class="tabular-nums">{{ sel.rightCount }}</b> 笔&emsp;<b class="tabular-nums">{{ formatMoney(sel.rightTotal) }}</b></span>
+              <span class="text-gray-600">{{ $t('{0} 已选', [labels.left]) }} <b class="tabular-nums">{{ sel.leftCount }}</b> {{ $t('笔') }}&emsp;<b class="tabular-nums">{{ formatMoney(sel.leftTotal) }}</b></span>
+              <span class="text-gray-600">{{ $t('{0} 已选', [labels.right]) }} <b class="tabular-nums">{{ sel.rightCount }}</b> {{ $t('笔') }}&emsp;<b class="tabular-nums">{{ formatMoney(sel.rightTotal) }}</b></span>
               <span v-if="sel.ready" class="tabular-nums" :class="sel.balanced ? 'text-[#0B5A2E]' : 'text-[#B91C1C]'">
-                {{ sel.balanced ? '✓ 合计相等' : `差额 ${formatMoney(sel.diff)}` }}
+                {{ sel.balanced ? $t('✓ 合计相等') : $t('差额 {0}', [formatMoney(sel.diff)]) }}
               </span>
-              <span v-else-if="sel.leftCount || sel.rightCount" class="text-xs text-gray-400">两边各选至少一笔才能勾对；只在一边的是未达账项，不用勾对</span>
-              <span v-else class="text-xs text-gray-400">点行选择；一笔可以对多笔</span>
+              <span v-else-if="sel.leftCount || sel.rightCount" class="text-xs text-gray-400">{{ $t('两边各选至少一笔才能勾对；只在一边的是未达账项，不用勾对') }}</span>
+              <span v-else class="text-xs text-gray-400">{{ $t('点行选择；一笔可以对多笔') }}</span>
               <el-button v-if="canFind" link size="small" type="primary" @click="findCounterpart">
-                找金额相同的
+                {{ $t('找金额相同的') }}
               </el-button>
               <el-button v-if="sel.leftCount || sel.rightCount" link size="small" @click="selL.clear(); selR.clear()">
-                清空选择
+                {{ $t('清空选择') }}
               </el-button>
               <el-button class="ml-auto" size="small" type="primary" :disabled="!sel.ready || !!busy" :loading="busy === '正在勾对…'" @click="match">
-                勾对{{ sel.ready && !sel.balanced ? '（有差额）' : '' }}
+                {{ $t('勾对{0}', [sel.ready && !sel.balanced ? $t('（有差额）') : '']) }}
               </el-button>
             </div>
           </div>
@@ -323,7 +324,7 @@ const g = computed(() => summary.value?.groups)
       </el-tabs>
     </template>
     <div v-else class="flex flex-1 items-center justify-center text-gray-400">
-      加载中…
+      {{ $t('加载中…') }}
     </div>
 
     <div v-if="busy && busy !== '正在勾对…'" class="absolute inset-0 z-10 flex items-center justify-center bg-white/60 text-sm text-gray-600">

@@ -8,6 +8,7 @@ import { dashboardFiltersFor } from '@/features/excel/dashboard/cross-filter'
 import { saveWidgetImage } from '@/features/excel/dashboard/export-image'
 import { slicerRange } from '@/features/excel/dashboard/slicer'
 import { DATE_PRESETS } from '@/features/excel/dashboard/types'
+import { t } from '@/i18n'
 
 /**
  * 切片器：按值多选，或按日期范围（相对时间 / 自定义起止）
@@ -102,10 +103,10 @@ function setCustom(which: 'min' | 'max', v: string) {
 async function saveImage(e: MouseEvent) {
   e.stopPropagation()
   try {
-    ElMessage.success(`已保存图片：${await saveWidgetImage(e, '.slicer', spec.value.title || spec.value.column)}`)
+    ElMessage.success(t('已保存图片：{0}', [await saveWidgetImage(e, '.slicer', spec.value.title || spec.value.column)]))
   }
   catch (err) {
-    ElMessage.error(`保存图片失败：${err instanceof Error ? err.message : String(err)}`)
+    ElMessage.error(t('保存图片失败：{0}', [err instanceof Error ? err.message : String(err)]))
   }
 }
 
@@ -147,9 +148,9 @@ onBeforeUnmount(() => {
   <div class="slicer" @dblclick="edit">
     <div class="head">
       <span class="title" :title="spec.title || spec.column">{{ spec.title || spec.column }}</span>
-      <span v-if="active" class="clear" title="清除筛选（显示全部）" @pointerdown.stop @mousedown.stop @click.stop="clear">清除</span>
-      <span class="edit" title="保存为图片" @pointerdown.stop @mousedown.stop @click="saveImage">📷</span>
-      <span class="edit" title="编辑切片器" @pointerdown.stop @mousedown.stop @click="edit">⚙</span>
+      <span v-if="active" class="clear" :title="$t('清除筛选（显示全部）')" @pointerdown.stop @mousedown.stop @click.stop="clear">{{ $t('清除') }}</span>
+      <span class="edit" :title="$t('保存为图片')" @pointerdown.stop @mousedown.stop @click="saveImage">📷</span>
+      <span class="edit" :title="$t('编辑切片器')" @pointerdown.stop @mousedown.stop @click="edit">⚙</span>
     </div>
 
     <template v-if="spec.mode === 'values'">
@@ -157,7 +158,7 @@ onBeforeUnmount(() => {
         v-if="options.length > 8"
         v-model="search"
         class="search"
-        placeholder="搜索"
+        :placeholder="$t('搜索')"
         @pointerdown.stop @mousedown.stop
         @keydown.stop
       >
@@ -166,23 +167,23 @@ onBeforeUnmount(() => {
           {{ error }}
         </div>
         <div v-else-if="!options.length && !loading" class="state">
-          没有可选的值
+          {{ $t('没有可选的值') }}
         </div>
         <div
           v-for="o in shown"
           :key="o.value"
           class="item"
           :class="{ on: selected.has(o.value) }"
-          :title="`点选：多选；双击：只看「${o.value || '（空白）'}」`"
+          :title="$t('点选：多选；双击：只看「{0}」', [o.value || '（空白）'])"
           @click="toggle(o.value)"
           @dblclick.stop="only(o.value)"
         >
           <span class="box">{{ selected.has(o.value) ? '✓' : '' }}</span>
-          <span class="label">{{ o.value || '（空白）' }}</span>
+          <span class="label">{{ o.value || $t('（空白）') }}</span>
           <span class="count">{{ o.count.toLocaleString() }}</span>
         </div>
         <div v-if="total > options.length" class="state">
-          共 {{ total.toLocaleString() }} 项，仅显示前 {{ options.length }} 项，可搜索
+          {{ $t('共 {0} 项，仅显示前 {1} 项，可搜索', [total.toLocaleString(), options.length]) }}
         </div>
       </div>
     </template>
@@ -197,7 +198,7 @@ onBeforeUnmount(() => {
         <input type="date" :value="range?.max ?? ''" @change="setCustom('max', ($event.target as HTMLInputElement).value)">
       </div>
       <div class="range-text">
-        {{ range ? `${range.min} ~ ${range.max}` : '全部日期' }}
+        {{ range ? `${range.min} ~ ${range.max}` : $t('全部日期') }}
       </div>
     </template>
   </div>

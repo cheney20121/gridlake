@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { DatasetInfo } from '@/api/dataset'
 import { computed, ref, watch } from 'vue'
+import { t } from '@/i18n'
 import { useLedgerUserStore } from '@/stores/ledger-user'
 import { formatRowCount } from '@/utils/format-count'
 
@@ -48,10 +49,10 @@ const groups = computed(() => {
     : props.datasets
   const sorted = [...list].sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind])
   return [
-    { key: 'table', title: '数据集', items: sorted.filter(d => d.kind === 'builtin' || d.kind === 'table') },
-    { key: 'view', title: '关联视图', items: sorted.filter(d => d.kind === 'view') },
-    { key: 'summary', title: '汇总（透视转成）', items: sorted.filter(d => d.kind === 'summary') },
-    { key: 'recon', title: '对账', items: sorted.filter(d => d.kind === 'recon') },
+    { key: 'table', title: t('数据集'), items: sorted.filter(d => d.kind === 'builtin' || d.kind === 'table') },
+    { key: 'view', title: t('关联视图'), items: sorted.filter(d => d.kind === 'view') },
+    { key: 'summary', title: t('汇总（透视转成）'), items: sorted.filter(d => d.kind === 'summary') },
+    { key: 'recon', title: t('对账'), items: sorted.filter(d => d.kind === 'recon') },
   ].filter(g => g.items.length)
 })
 
@@ -60,32 +61,32 @@ const rows = formatRowCount
 
 <template>
   <aside v-if="collapsed" class="data-panel w-8 flex shrink-0 flex-col items-center gap-2 border-r border-[#e6e6e6] border-r-solid bg-[#FAFAFA] py-2">
-    <button type="button" class="rail-btn" title="展开数据面板" @click="collapsed = false">
+    <button type="button" class="rail-btn" :title="$t('展开数据面板')" @click="collapsed = false">
       »
     </button>
-    <button type="button" class="rail-btn [writing-mode:vertical-rl]" :class="{ active: view === 'workbook' }" title="工作簿" @click="emit('openWorkbook')">
-      工作簿
+    <button type="button" class="rail-btn [writing-mode:vertical-rl]" :class="{ active: view === 'workbook' }" :title="$t('工作簿')" @click="emit('openWorkbook')">
+      {{ $t('工作簿') }}
     </button>
-    <button type="button" class="rail-btn [writing-mode:vertical-rl]" :class="{ active: view === 'dataset' }" :title="`数据集 ${datasets.length} 个`" @click="collapsed = false">
-      数据 {{ datasets.length }}
+    <button type="button" class="rail-btn [writing-mode:vertical-rl]" :class="{ active: view === 'dataset' }" :title="$t('数据集 {0} 个', [datasets.length])" @click="collapsed = false">
+      {{ $t('数据 {0}', [datasets.length]) }}
     </button>
   </aside>
 
   <aside v-else class="data-panel w-56 flex shrink-0 flex-col border-r border-[#e6e6e6] border-r-solid bg-[#FAFAFA] text-[13px]">
     <div class="flex items-center justify-between px-3 pb-1 pt-2">
-      <span class="text-xs text-gray-500 font-semibold">数据</span>
-      <button type="button" class="rail-btn" title="收起" @click="collapsed = true">
+      <span class="text-xs text-gray-500 font-semibold">{{ $t('数据') }}</span>
+      <button type="button" class="rail-btn" :title="$t('收起')" @click="collapsed = true">
         «
       </button>
     </div>
 
     <button type="button" class="item mx-2" :class="{ active: view === 'workbook' }" :title="workbookName" @click="emit('openWorkbook')">
       <svg viewBox="0 0 16 16" width="14" height="14" class="shrink-0"><rect x="2" y="2" width="12" height="12" rx="2" fill="#107C41" /><path d="M2 6h12M2 10h12M6 6v8" stroke="#fff" stroke-width="1" /></svg>
-      <span class="min-w-0 flex-1 truncate text-left">{{ workbookName || '工作簿' }}</span>
+      <span class="min-w-0 flex-1 truncate text-left">{{ workbookName || $t('工作簿') }}</span>
     </button>
 
     <div v-if="datasets.length > 6" class="px-2 pt-2">
-      <el-input v-model="keyword" size="small" clearable placeholder="搜索数据集 / 列名" />
+      <el-input v-model="keyword" size="small" clearable :placeholder="$t('搜索数据集 / 列名')" />
     </div>
 
     <div class="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
@@ -98,12 +99,12 @@ const rows = formatRowCount
           :key="d.id"
           class="item group"
           :class="{ active: view === 'dataset' && activeDatasetId === d.id }"
-          :title="`${d.name}：${d.rowCount.toLocaleString()} 行，${d.columns.length} 列`"
+          :title="$t('{0}：{1} 行，{2} 列', [d.name, d.rowCount.toLocaleString(), d.columns.length])"
           @click="emit('openDataset', d.id)"
         >
           <span v-if="d.kind === 'view'" class="w-3.5 shrink-0 text-center text-xs text-[#3b7dd8]">⟕</span>
           <span v-else-if="d.kind === 'recon'" class="w-3.5 shrink-0 text-center text-xs text-[#107C41]">⇄</span>
-          <span v-else-if="d.kind === 'summary'" class="w-3.5 shrink-0 text-center text-xs text-[#7c3aed]" title="由透视表转成的汇总数据集，随源数据实时变化">Σ</span>
+          <span v-else-if="d.kind === 'summary'" class="w-3.5 shrink-0 text-center text-xs text-[#7c3aed]" :title="$t('由透视表转成的汇总数据集，随源数据实时变化')">Σ</span>
           <svg v-else viewBox="0 0 16 16" width="14" height="14" class="shrink-0" :class="d.kind === 'builtin' ? 'text-[#107C41]' : 'text-gray-500'" fill="none" stroke="currentColor" stroke-width="1.3"><ellipse cx="8" cy="4" rx="5" ry="2" /><path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2" /></svg>
           <span class="min-w-0 flex-1 truncate">{{ d.name }}</span>
           <span class="shrink-0 text-[11px] text-gray-400 tabular-nums" :class="{ 'group-hover:hidden': !ledgerUser.restricted }">{{ rows(d.rowCount) }}</span>
@@ -112,13 +113,13 @@ const rows = formatRowCount
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item v-if="!ledgerUser.restricted" command="usage">
-                  使用情况
+                  {{ $t('使用情况') }}
                 </el-dropdown-item>
                 <el-dropdown-item v-if="canManage(d)" command="rename">
-                  重命名
+                  {{ $t('重命名') }}
                 </el-dropdown-item>
                 <el-dropdown-item v-if="canManage(d)" command="delete" divided>
-                  <span class="text-[#B91C1C]">删除数据集</span>
+                  <span class="text-[#B91C1C]">{{ $t('删除数据集') }}</span>
                 </el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -126,67 +127,67 @@ const rows = formatRowCount
         </div>
       </template>
       <div v-if="keyword && !groups.length" class="px-2 py-4 text-center text-xs text-gray-400">
-        没有匹配的数据集
+        {{ $t('没有匹配的数据集') }}
       </div>
     </div>
 
     <div class="flex flex-col gap-0.5 border-t border-[#e6e6e6] border-t-solid p-2">
-      <button v-if="!ledgerUser.restricted" type="button" class="item text-[#217346]" title="导入任意 CSV / XLSX 为数据集（支持千万行）" @click="emit('importData')">
+      <button v-if="!ledgerUser.restricted" type="button" class="item text-[#217346]" :title="$t('导入任意 CSV / XLSX 为数据集（支持千万行）')" @click="emit('importData')">
         <span class="w-3.5 shrink-0 text-center">+</span>
-        导入数据
+        {{ $t('导入数据') }}
       </button>
-      <button v-if="!ledgerUser.restricted" type="button" class="item text-[#217346]" title="两个数据集逐笔勾对（银行流水与企业账、往来对账等），得到未达账项" @click="emit('newRecon')">
+      <button v-if="!ledgerUser.restricted" type="button" class="item text-[#217346]" :title="$t('两个数据集逐笔勾对（银行流水与企业账、往来对账等），得到未达账项')" @click="emit('newRecon')">
         <span class="w-3.5 shrink-0 text-center">⇄</span>
-        新建对账
+        {{ $t('新建对账') }}
       </button>
       <el-dropdown trigger="click" placement="top-start" class="w-full" @command="(c: DataCenterCommand) => emit('dataCenter', c)">
-        <button type="button" class="item relative w-full" title="SQL 查询、数据连接、定时推送、外部 AI 接入、模板">
+        <button type="button" class="item relative w-full" :title="$t('SQL 查询、数据连接、定时推送、外部 AI 接入、模板')">
           <span class="w-3.5 shrink-0 text-center text-gray-500">⊞</span>
-          <span class="flex-1 text-left">数据中心</span>
-          <span v-if="connectorFailures" class="h-1.5 w-1.5 rounded-full bg-[#DC2626]" :title="`${connectorFailures} 个连接最近一次同步失败`" />
+          <span class="flex-1 text-left">{{ $t('数据中心') }}</span>
+          <span v-if="connectorFailures" class="h-1.5 w-1.5 rounded-full bg-[#DC2626]" :title="$t('{0} 个连接最近一次同步失败', [connectorFailures])" />
           <span class="text-xs text-gray-400">▴</span>
         </button>
         <template #dropdown>
           <el-dropdown-menu>
             <el-dropdown-item command="sql">
-              SQL 查询
+              {{ $t('SQL 查询') }}
             </el-dropdown-item>
             <el-dropdown-item command="anomaly">
-              异常发现
+              {{ $t('异常发现') }}
             </el-dropdown-item>
             <el-dropdown-item v-if="!ledgerUser.restricted" command="connector">
-              数据连接<span v-if="connectorFailures" class="ml-1 text-xs text-[#DC2626]">{{ connectorFailures }} 个同步失败</span>
+              {{ $t('数据连接') }}<span v-if="connectorFailures" class="ml-1 text-xs text-[#DC2626]">{{ $t('{0} 个同步失败', [connectorFailures]) }}</span>
             </el-dropdown-item>
             <el-dropdown-item v-if="!ledgerUser.restricted" command="report">
-              定时推送
+              {{ $t('定时推送') }}
             </el-dropdown-item>
             <el-dropdown-item v-if="ledgerUser.isAdmin" command="mcp">
-              外部 AI 接入（MCP）
+              {{ $t('外部 AI 接入（MCP）') }}
             </el-dropdown-item>
             <el-dropdown-item v-if="ledgerUser.authRequired && ledgerUser.isAdmin" command="audit">
-              操作审计
+              {{ $t('操作审计') }}
             </el-dropdown-item>
             <el-dropdown-item v-if="ledgerUser.authRequired && ledgerUser.isAdmin" command="datascope">
-              数据权限（按店铺）
+              {{ $t('数据权限（按店铺）') }}
             </el-dropdown-item>
             <el-dropdown-item command="template">
-              模板库
+              {{ $t('模板库') }}
             </el-dropdown-item>
             <el-dropdown-item v-if="trashCount && !ledgerUser.restricted" command="trash">
-              <span class="text-gray-500">数据集回收站（{{ trashCount }}）</span>
+              <span class="text-gray-500">{{ $t('数据集回收站（{0}）', [trashCount]) }}</span>
             </el-dropdown-item>
             <template v-if="!isLedgerWorkbook">
               <li class="menu-group">
-                店铺资金台账
+                {{ $t('店铺资金台账') }}
               </li>
               <el-dropdown-item v-if="!ledgerUser.restricted" command="import">
-                导入店铺明细…
+                {{ $t('导入店铺明细…') }}
               </el-dropdown-item>
               <el-dropdown-item v-if="!ledgerUser.restricted" command="shops">
-                店铺档案
+                {{ $t('店铺档案') }}
               </el-dropdown-item>
               <el-dropdown-item command="close">
-                月结中心
+                {{ $t('月结中心') }}
               </el-dropdown-item>
             </template>
           </el-dropdown-menu>

@@ -4,6 +4,7 @@ import type { Connector, ConnectorInput, ConnectorPreview, ConnectorSchedule, Co
 import type { DatasetInfo } from '@/api/dataset'
 import { computed, reactive, ref, watch } from 'vue'
 import { createConnectorApi, previewConnectorApi, testConnectorApi, updateConnectorApi } from '@/api/connector'
+import { t as tr } from '@/i18n'
 import { buildSource, DEFAULT_PORT, defaultForm, formFromConnector, hostOf, usedPlaceholders } from './edit/form-state'
 import SourceDatabaseForm from './edit/SourceDatabaseForm.vue'
 import SourceFolderForm from './edit/SourceFolderForm.vue'
@@ -193,9 +194,9 @@ async function save() {
   }
   if (form.targetType === 'existing' && form.mode === 'replace' && targetDataset.value) {
     const ok = await ElMessageBox.confirm(
-      `「全量替换」每次同步都会先删除数据集「${targetDataset.value.name}」的全部数据（当前 ${targetDataset.value.rowCount.toLocaleString()} 行），再写入来源的最新数据。`,
-      '全量替换已有数据集',
-      { type: 'warning', confirmButtonText: '确定' },
+      tr('「全量替换」每次同步都会先删除数据集「{0}」的全部数据（当前 {1} 行），再写入来源的最新数据。', [targetDataset.value.name, targetDataset.value.rowCount.toLocaleString()]),
+      tr('全量替换已有数据集'),
+      { type: 'warning', confirmButtonText: tr('确定') },
     ).then(() => true, () => false)
     if (!ok)
       return
@@ -222,29 +223,29 @@ async function save() {
 <template>
   <el-dialog
     :model-value="visible"
-    :title="editing ? `修改连接器 · ${connector?.name}` : '新建数据连接'"
+    :title="editing ? $t('修改连接器 · {0}', [connector?.name]) : $t('新建数据连接')"
     width="920px"
     :close-on-click-modal="false"
     append-to-body
     @update:model-value="emit('update:visible', $event)"
   >
     <el-steps :active="step" finish-status="success" simple class="mb-4">
-      <el-step title="数据来源" />
-      <el-step title="预览与目标" />
-      <el-step title="同步计划" />
+      <el-step :title="$t('数据来源')" />
+      <el-step :title="$t('预览与目标')" />
+      <el-step :title="$t('同步计划')" />
     </el-steps>
 
     <!-- ① 来源 -->
     <div v-show="step === 0" class="flex flex-col gap-3 text-[13px]">
       <div class="row">
-        <span class="label">名称</span>
-        <el-input v-model="form.name" class="!w-72" placeholder="如：ERP 订单、抖店资金流水收件" maxlength="40" />
+        <span class="label">{{ $t('名称') }}</span>
+        <el-input v-model="form.name" class="!w-72" :placeholder="$t('如：ERP 订单、抖店资金流水收件')" maxlength="40" />
       </div>
       <div class="row">
-        <span class="label">来源类型</span>
+        <span class="label">{{ $t('来源类型') }}</span>
         <el-radio-group v-model="form.sourceKind">
           <el-radio-button value="folder">
-            文件夹
+            {{ $t('文件夹') }}
           </el-radio-button>
           <el-radio-button value="mysql">
             MySQL / MariaDB
@@ -256,7 +257,7 @@ async function save() {
             ClickHouse
           </el-radio-button>
           <el-radio-button value="http">
-            HTTP 接口
+            {{ $t('HTTP 接口') }}
           </el-radio-button>
         </el-radio-group>
       </div>
@@ -268,7 +269,7 @@ async function save() {
       <div class="row">
         <span class="label" />
         <el-button :disabled="!sourceReady" :loading="testing" @click="runTest">
-          测试连接
+          {{ $t('测试连接') }}
         </el-button>
         <span v-if="testResult" class="text-[#0B5A2E]">✓ {{ testResult.message }}</span>
       </div>
@@ -301,16 +302,16 @@ async function save() {
 
     <template #footer>
       <el-button v-if="step > 0" @click="step = (step - 1) as Step">
-        上一步
+        {{ $t('上一步') }}
       </el-button>
       <el-button @click="emit('update:visible', false)">
-        取消
+        {{ $t('取消') }}
       </el-button>
       <el-button v-if="step < 2" type="primary" :disabled="(step === 0 && !sourceReady) || (step === 1 && !!targetError)" @click="next">
-        下一步
+        {{ $t('下一步') }}
       </el-button>
       <el-button v-else type="primary" :loading="saving" :disabled="!form.name.trim() || !!targetError" @click="save">
-        {{ editing ? '保存' : '创建' }}
+        {{ editing ? $t('保存') : $t('创建') }}
       </el-button>
     </template>
   </el-dialog>

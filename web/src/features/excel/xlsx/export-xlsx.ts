@@ -13,6 +13,7 @@ import { datasetById } from '@/features/excel/dashboard/slicer'
 import { TABLE_FUNCTION, tableColumnsUsed, toExcelFormula } from '@/features/excel/datatable/formula-syntax'
 import { listCellTables, listDataTables, tableColumns, tableQuery } from '@/features/excel/datatable/types'
 import { groupsOf, maxLevel } from '@/features/excel/outline/outline'
+import { t as tr } from '@/i18n'
 import { planCellTables } from './cell-tables'
 import { toExcelCompatFormula } from './formula-compat'
 import { emptyStats, exportSheetFeatures, resource } from './sheet-features'
@@ -161,7 +162,7 @@ async function fetchTable(api: FUniver, loc: FloatLocation<DataTableSpec>, sheet
   for (let off = 0; off < limit; off += 2000) {
     const r = await getRowsApi(ds.id, cur.cursorId, off, Math.min(2000, limit - off), undefined, fields)
     if (r.expired)
-      throw new Error(`数据表「${loc.spec.name}」的数据在导出期间有更新，请重试`)
+      throw new Error(tr('数据表「{0}」的数据在导出期间有更新，请重试', [loc.spec.name]))
     rows.push(...r.rows)
   }
   return {
@@ -195,7 +196,7 @@ export function downloadBlob(blob: Blob, fileName: string) {
 export async function buildWorkbookXlsx(api: FUniver, fileName: string): Promise<{ blob: Blob, summary: ExportSummary }> {
   const workbook = api.getActiveWorkbook()
   if (!workbook)
-    throw new Error('工作簿尚未就绪')
+    throw new Error(tr('工作簿尚未就绪'))
   const ExcelJS = (await import('exceljs')).default
   const snapshot = workbook.save() as IWorkbookData
   const out = new ExcelJS.Workbook()
@@ -431,7 +432,7 @@ export async function buildWorkbookXlsx(api: FUniver, fileName: string): Promise
       if (existing && (existing.v != null || existing.f))
         continue
       const cell = ws.getCell(r + 1, c + 1)
-      cell.value = { text: `▸ 数据表「${t.loc.spec.name}」${t.total.toLocaleString()} 行，见页签「${t.sheetName}」`, hyperlink: `#'${t.sheetName.replace(/'/g, '\'\'')}'!A1` } as ExcelCellValue
+      cell.value = { text: tr('▸ 数据表「{0}」{1} 行，见页签「{2}」', [t.loc.spec.name, t.total.toLocaleString(), t.sheetName]), hyperlink: `#'${t.sheetName.replace(/'/g, '\'\'')}'!A1` } as ExcelCellValue
       cell.font = { color: { argb: 'FF217346' }, underline: true }
     }
   }

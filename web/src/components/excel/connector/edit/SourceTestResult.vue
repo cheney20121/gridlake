@@ -17,18 +17,18 @@ const sizeText = (n: number) => n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Mat
         <span class="text-gray-400">{{ sizeText(f.size) }}</span>
         <span class="text-gray-400">{{ f.mtime }}</span>
         <span :class="f.imported ? 'text-gray-400' : f.settling ? 'text-[#92400E]' : 'text-[#0B5A2E]'">
-          {{ f.imported ? '已导入' : f.settling ? '写入中' : '待导入' }}
+          {{ f.imported ? $t('已导入') : f.settling ? $t('写入中') : $t('待导入') }}
         </span>
       </div>
     </div>
     <div v-if="result?.database?.columns.length" class="ml-[92px] text-xs text-gray-500">
-      查询结果的列：{{ result.database.columns.join('、') }}
+      {{ $t('查询结果的列：{0}', [result.database.columns.join('、')]) }}
     </div>
     <div v-if="result?.http" class="ml-[92px] flex flex-col gap-1 text-xs text-gray-500">
-      <span v-if="result.http.fields.length">字段：{{ result.http.fields.join('、') }}</span>
+      <span v-if="result.http.fields.length">{{ $t('字段：{0}', [result.http.fields.join('、')]) }}</span>
       <details>
         <summary class="cursor-pointer">
-          查看响应开头
+          {{ $t('查看响应开头') }}
         </summary>
         <pre class="mt-1 max-h-48 overflow-auto rounded bg-[#F7F8FA] p-2 text-[11px] leading-4">{{ result.http.sample }}</pre>
       </details>

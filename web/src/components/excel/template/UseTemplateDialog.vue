@@ -146,7 +146,7 @@ async function create() {
 <template>
   <el-dialog
     :model-value="visible"
-    :title="`使用模板 · ${template?.name ?? ''}`"
+    :title="$t('使用模板 · {0}', [template?.name ?? ''])"
     width="760px"
     :close-on-click-modal="false"
     append-to-body
@@ -154,75 +154,75 @@ async function create() {
   >
     <template v-if="template">
       <div class="mb-3 flex items-center gap-3 text-[13px]">
-        <span class="shrink-0 text-gray-600">新工作簿名称</span>
+        <span class="shrink-0 text-gray-600">{{ $t('新工作簿名称') }}</span>
         <el-input v-model="name" maxlength="80" class="flex-1" />
       </div>
 
       <div v-if="!template.datasets.length" class="rounded-md bg-[#f9f9f7] p-3 text-[13px] text-gray-600">
-        这个模板不引用数据集，直接创建即可。
+        {{ $t('这个模板不引用数据集，直接创建即可。') }}
       </div>
 
       <div v-if="noDatasets" class="mb-3 rounded-md bg-[#FFF7E6] p-3 text-[13px] text-[#92400E]">
-        还没有可用的数据集。先导入数据（CSV / Excel，或设置数据连接自动同步），再回来使用模板。
+        {{ $t('还没有可用的数据集。先导入数据（CSV / Excel，或设置数据连接自动同步），再回来使用模板。') }}
         <el-button link type="primary" size="small" @click="emit('importData')">
-          去导入数据
+          {{ $t('去导入数据') }}
         </el-button>
       </div>
 
       <div v-for="need in template.datasets" :key="need.key" class="need">
         <div class="flex items-center gap-2">
           <span class="font-medium">{{ need.name }}</span>
-          <span class="text-xs text-gray-400">用于 {{ partsText(need) }}</span>
+          <span class="text-xs text-gray-400">{{ $t('用于 {0}', [partsText(need)]) }}</span>
           <span v-if="problems[need.key]" class="ml-auto text-xs text-[#B91C1C]">{{ problems[need.key] }}</span>
-          <span v-else class="ml-auto text-xs text-[#0B5A2E]">✓ 已对应</span>
+          <span v-else class="ml-auto text-xs text-[#0B5A2E]">{{ $t('✓ 已对应') }}</span>
         </div>
         <div v-if="need.description" class="mt-0.5 text-xs text-gray-500">
           {{ need.description }}
         </div>
 
         <div v-if="need.paramSource" class="mt-2 flex items-center gap-2 text-[13px]" data-testid="param-mode">
-          <span class="w-20 shrink-0 text-gray-600">数据来源</span>
+          <span class="w-20 shrink-0 text-gray-600">{{ $t('数据来源') }}</span>
           <el-radio-group v-model="byParams[need.key]" size="small">
             <el-radio-button :value="true" :disabled="userStore.restricted">
-              按参数生成
+              {{ $t('按参数生成') }}
             </el-radio-button>
             <el-radio-button :value="false">
-              选择数据集
+              {{ $t('选择数据集') }}
             </el-radio-button>
           </el-radio-group>
-          <span class="text-xs text-gray-400">{{ userStore.restricted ? '按参数生成需要完整的数据权限' : `来自参数化查询「${need.paramSource.queryName}」` }}</span>
+          <span class="text-xs text-gray-400">{{ userStore.restricted ? $t('按参数生成需要完整的数据权限') : $t('来自参数化查询「{0}」', [need.paramSource.queryName]) }}</span>
         </div>
         <div v-if="need.paramSource && byParams[need.key]" class="params" data-testid="param-values">
           <div v-for="p in need.paramSource.params" :key="p.name" class="flex items-center gap-2">
             <span class="w-20 shrink-0 truncate text-gray-600" :title="p.name">{{ p.name }}</span>
-            <el-select v-if="p.choices?.length" v-model="paramValues[need.key]![p.name]" size="small" class="flex-1" :placeholder="p.default ? `默认 ${p.default}` : '请选择'">
+            <el-select v-if="p.choices?.length" v-model="paramValues[need.key]![p.name]" size="small" class="flex-1" :placeholder="p.default ? $t('默认 {0}', [p.default]) : $t('请选择')">
               <el-option v-for="c in p.choices" :key="c" :label="c" :value="c" />
             </el-select>
-            <el-date-picker v-else-if="p.kind === 'date'" v-model="paramValues[need.key]![p.name]" type="date" value-format="YYYY-MM-DD" size="small" class="!flex-1" :placeholder="p.default ? `默认 ${p.default}` : '选择日期'" />
-            <el-input v-else v-model="paramValues[need.key]![p.name]" size="small" class="flex-1" :inputmode="p.kind === 'number' ? 'decimal' : undefined" :placeholder="p.default ? `默认 ${p.default}` : (p.kind === 'number' ? '数字' : '文本')" />
+            <el-date-picker v-else-if="p.kind === 'date'" v-model="paramValues[need.key]![p.name]" type="date" value-format="YYYY-MM-DD" size="small" class="!flex-1" :placeholder="p.default ? $t('默认 {0}', [p.default]) : $t('选择日期')" />
+            <el-input v-else v-model="paramValues[need.key]![p.name]" size="small" class="flex-1" :inputmode="p.kind === 'number' ? 'decimal' : undefined" :placeholder="p.default ? $t('默认 {0}', [p.default]) : (p.kind === 'number' ? $t('数字') : $t('文本'))" />
           </div>
           <div class="text-xs text-gray-400 leading-5">
-            按这组参数生成一份数据集（已有同样参数的就直接用，并按最新数据重算），模板里的部件都改用它，列自动对应。
+            {{ $t('按这组参数生成一份数据集（已有同样参数的就直接用，并按最新数据重算），模板里的部件都改用它，列自动对应。') }}
           </div>
         </div>
 
         <div v-if="!byParams[need.key]" class="mt-2 flex items-center gap-2 text-[13px]">
-          <span class="w-20 shrink-0 text-gray-600">使用数据集</span>
+          <span class="w-20 shrink-0 text-gray-600">{{ $t('使用数据集') }}</span>
           <template v-if="need.builtinId">
-            <span>内置「{{ datasetOf(need.builtinId)?.name ?? need.name }}」</span>
-            <span class="text-xs text-gray-400">{{ (datasetOf(need.builtinId)?.rowCount ?? 0).toLocaleString() }} 行</span>
-            <span v-if="datasetOf(need.builtinId)?.rowCount === 0" class="text-xs text-[#92400E]">暂无数据：导入店铺资金明细后自动有数</span>
+            <span>{{ $t('内置「{0}」', [datasetOf(need.builtinId)?.name ?? need.name]) }}</span>
+            <span class="text-xs text-gray-400">{{ $t('{0} 行', [(datasetOf(need.builtinId)?.rowCount ?? 0).toLocaleString()]) }}</span>
+            <span v-if="datasetOf(need.builtinId)?.rowCount === 0" class="text-xs text-[#92400E]">{{ $t('暂无数据：导入店铺资金明细后自动有数') }}</span>
           </template>
           <el-select
             v-else
             :model-value="binds[need.key]?.datasetId"
             class="flex-1"
             filterable
-            placeholder="选择数据集"
+            :placeholder="$t('选择数据集')"
             @update:model-value="(id: string) => onDatasetChange(need, id)"
           >
             <el-option v-for="d in datasets" :key="d.id" :label="d.name" :value="d.id">
-              {{ d.name }} <span class="text-xs text-gray-400">{{ d.rowCount.toLocaleString() }} 行</span>
+              {{ d.name }} <span class="text-xs text-gray-400">{{ $t('{0} 行', [d.rowCount.toLocaleString()]) }}</span>
             </el-option>
           </el-select>
         </div>
@@ -231,9 +231,9 @@ async function create() {
           <thead>
             <tr>
               <th class="w-[40%]">
-                模板需要的列
+                {{ $t('模板需要的列') }}
               </th>
-              <th>对应到</th>
+              <th>{{ $t('对应到') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -251,7 +251,7 @@ async function create() {
                     v-model="binds[need.key]!.columns[col.title]"
                     size="small"
                     class="flex-1"
-                    placeholder="选择列"
+                    :placeholder="$t('选择列')"
                     :class="{ missing: !binds[need.key]!.columns[col.title] }"
                     @change="binds[need.key]!.guessed[col.title] = false"
                   >
@@ -259,7 +259,7 @@ async function create() {
                       {{ c.title }} <span class="text-xs text-gray-400">{{ KIND_LABEL[c.kind as keyof typeof KIND_LABEL] ?? c.kind }}</span>
                     </el-option>
                   </el-select>
-                  <span v-if="binds[need.key]!.guessed[col.title]" class="shrink-0 text-xs text-[#92400E]" title="列名不同，按常见同义词自动对应，请确认">自动对应</span>
+                  <span v-if="binds[need.key]!.guessed[col.title]" class="shrink-0 text-xs text-[#92400E]" :title="$t('列名不同，按常见同义词自动对应，请确认')">{{ $t('自动对应') }}</span>
                 </div>
               </td>
             </tr>
@@ -269,9 +269,9 @@ async function create() {
 
       <div class="mt-3 flex items-center gap-4 text-[13px]">
         <el-checkbox v-model="clearSlicers">
-          清空切片器中模板预选的值
+          {{ $t('清空切片器中模板预选的值') }}
         </el-checkbox>
-        <span class="text-xs text-gray-400">日期切片器的「今年」「本月」等保留</span>
+        <span class="text-xs text-gray-400">{{ $t('日期切片器的「今年」「本月」等保留') }}</span>
       </div>
       <div v-if="template.warnings.length" class="mt-2 text-xs text-[#92400E] leading-5">
         <div v-for="w in template.warnings" :key="w">
@@ -282,10 +282,10 @@ async function create() {
 
     <template #footer>
       <el-button @click="emit('update:visible', false)">
-        取消
+        {{ $t('取消') }}
       </el-button>
       <el-button type="primary" :disabled="!ready" :loading="creating" @click="create">
-        创建工作簿
+        {{ $t('创建工作簿') }}
       </el-button>
     </template>
   </el-dialog>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { reactive, ref, watch } from 'vue'
 import { changePasswordApi } from '@/api/auth'
+import { t } from '@/i18n'
 
 /** 修改自己的密码（内置账号）：核对原密码；其他设备上的登录随之失效 */
 const visible = defineModel<boolean>('visible', { default: false })
@@ -24,7 +25,7 @@ async function save() {
   saving.value = true
   try {
     await changePasswordApi(form.old, form.next)
-    ElMessage.success('密码已修改，其他设备上的登录已失效')
+    ElMessage.success(t('密码已修改，其他设备上的登录已失效'))
     visible.value = false
   }
   catch (e) {
@@ -37,15 +38,15 @@ async function save() {
 </script>
 
 <template>
-  <el-dialog v-model="visible" title="修改密码" width="380px" append-to-body>
+  <el-dialog v-model="visible" :title="$t('修改密码')" width="380px" append-to-body>
     <el-form label-width="80px">
-      <el-form-item label="原密码">
+      <el-form-item :label="$t('原密码')">
         <el-input v-model="form.old" type="password" show-password autocomplete="current-password" />
       </el-form-item>
-      <el-form-item label="新密码">
-        <el-input v-model="form.next" type="password" show-password autocomplete="new-password" placeholder="至少 8 位" />
+      <el-form-item :label="$t('新密码')">
+        <el-input v-model="form.next" type="password" show-password autocomplete="new-password" :placeholder="$t('至少 8 位')" />
       </el-form-item>
-      <el-form-item label="确认">
+      <el-form-item :label="$t('确认')">
         <el-input v-model="form.confirm" type="password" show-password autocomplete="new-password" @keyup.enter="save" />
       </el-form-item>
     </el-form>
@@ -54,10 +55,10 @@ async function save() {
     </div>
     <template #footer>
       <el-button @click="visible = false">
-        取消
+        {{ $t('取消') }}
       </el-button>
       <el-button type="primary" :loading="saving" @click="save">
-        保存
+        {{ $t('保存') }}
       </el-button>
     </template>
   </el-dialog>

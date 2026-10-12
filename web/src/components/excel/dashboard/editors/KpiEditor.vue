@@ -16,69 +16,69 @@ const form = defineModel<KpiSpec>({ required: true })
 <template>
   <div class="contents">
     <div class="row">
-      <span class="label">数值</span>
+      <span class="label">{{ $t('数值') }}</span>
       <el-select v-model="form.value.agg" size="small" class="!w-24">
         <el-option v-for="a in AGGS" :key="a.value" :label="a.label" :value="a.value" />
       </el-select>
       <el-select v-if="form.value.agg !== 'count'" v-model="form.value.column" size="small" filterable class="flex-1">
         <el-option v-for="c in (form.value.agg === 'count_distinct' ? columns : numeric)" :key="c.key" :label="c.title" :value="c.title" />
       </el-select>
-      <span v-else class="flex-1 text-xs text-gray-400">按行数</span>
+      <span v-else class="flex-1 text-xs text-gray-400">{{ $t('按行数') }}</span>
     </div>
     <div class="row">
-      <span class="label">日期字段</span>
-      <el-select v-model="form.dateColumn" size="small" clearable class="flex-1" placeholder="无（不比较、无趋势）">
+      <span class="label">{{ $t('日期字段') }}</span>
+      <el-select v-model="form.dateColumn" size="small" clearable class="flex-1" :placeholder="$t('无（不比较、无趋势）')">
         <el-option v-for="c in dates" :key="c.key" :label="c.title" :value="c.title" />
       </el-select>
     </div>
     <template v-if="form.dateColumn">
       <div class="row">
-        <span class="label">比较</span>
+        <span class="label">{{ $t('比较') }}</span>
         <el-radio-group v-model="form.compare" size="small">
           <el-radio-button value="none">
-            不比较
+            {{ $t('不比较') }}
           </el-radio-button>
           <el-radio-button value="mom">
-            环比
+            {{ $t('环比') }}
           </el-radio-button>
           <el-radio-button value="yoy">
-            同比
+            {{ $t('同比') }}
           </el-radio-button>
         </el-radio-group>
       </div>
       <div class="row">
-        <span class="label">按</span>
+        <span class="label">{{ $t('按') }}</span>
         <el-radio-group v-model="form.granularity" size="small">
           <el-radio-button value="day">
-            日
+            {{ $t('日') }}
           </el-radio-button>
           <el-radio-button value="month">
-            月
+            {{ $t('月') }}
           </el-radio-button>
           <el-radio-button value="year">
-            年
+            {{ $t('年') }}
           </el-radio-button>
         </el-radio-group>
       </div>
       <div class="row">
         <el-checkbox v-model="form.sparkline" size="small">
-          趋势小图（最近 12 期）
+          {{ $t('趋势小图（最近 12 期）') }}
         </el-checkbox>
       </div>
     </template>
     <div class="row">
-      <span class="label">上升表示</span>
+      <span class="label">{{ $t('上升表示') }}</span>
       <el-radio-group v-model="form.upIsGood" size="small">
         <el-radio-button :value="true">
-          好（销售额）
+          {{ $t('好（销售额）') }}
         </el-radio-button>
         <el-radio-button :value="false">
-          坏（成本、退款）
+          {{ $t('坏（成本、退款）') }}
         </el-radio-button>
       </el-radio-group>
     </div>
     <div class="text-xs text-gray-400 leading-5">
-      没有按日期筛选时显示最近一期（如本月）并与上期比较；本页有日期切片器时按切片器的范围计算
+      {{ $t('没有按日期筛选时显示最近一期（如本月）并与上期比较；本页有日期切片器时按切片器的范围计算') }}
     </div>
   </div>
 </template>

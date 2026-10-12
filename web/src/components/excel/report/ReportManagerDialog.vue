@@ -14,6 +14,7 @@ import {
   updateChannelApi,
   updateReportApi,
 } from '@/api/report'
+import { t } from '@/i18n'
 import ReportEditDialog from './ReportEditDialog.vue'
 
 /** 定时推送管理：推送任务（立即发送、记录、启停）与推送渠道（群机器人 / 邮箱） */
@@ -77,7 +78,7 @@ function openCreate() {
   if (!channels.value.length) {
     tab.value = 'channels'
     openChannel(null)
-    ElMessage.info('先添加一个推送渠道（群机器人或邮箱）')
+    ElMessage.info(t('先添加一个推送渠道（群机器人或邮箱）'))
     return
   }
   editing.value = null
@@ -103,11 +104,11 @@ async function sendNow(r: Report) {
   try {
     const run = await sendReportApi(r.id)
     if (run.status === 'success')
-      ElMessage.success(`「${r.name}」已发送`)
+      ElMessage.success(t('「{0}」已发送', [r.name]))
     else if (run.status === 'partial')
-      ElMessage.warning({ message: `「${r.name}」部分发送失败：${resultText(run)}`, duration: 6000 })
+      ElMessage.warning({ message: t('「{0}」部分发送失败：{1}', [r.name, resultText(run)]), duration: 6000 })
     else
-      ElMessage.error({ message: `「${r.name}」发送失败：${resultText(run)}`, duration: 6000 })
+      ElMessage.error({ message: t('「{0}」发送失败：{1}', [r.name, resultText(run)]), duration: 6000 })
     await load(true)
     if (expanded.value === r.id)
       loadRuns(r.id)
@@ -132,11 +133,11 @@ async function toggle(r: Report) {
 }
 
 async function remove(r: Report) {
-  const ok = await ElMessageBox.confirm(`删除推送任务「${r.name}」及其推送记录？仪表盘本身不受影响。`, '删除推送任务', { type: 'warning', confirmButtonText: '删除' }).then(() => true, () => false)
+  const ok = await ElMessageBox.confirm(t('删除推送任务「{0}」及其推送记录？仪表盘本身不受影响。', [r.name]), t('删除推送任务'), { type: 'warning', confirmButtonText: t('删除') }).then(() => true, () => false)
   if (!ok)
     return
   await deleteReportApi(r.id)
-  ElMessage.success('已删除')
+  ElMessage.success(t('已删除'))
   if (expanded.value === r.id)
     expanded.value = null
   load(true)
@@ -178,10 +179,10 @@ function channelNames(r: Report) {
 }
 
 const STATUS: Record<ReportRun['status'], { text: string, cls: string }> = {
-  running: { text: '发送中', cls: 'text-[#1D4ED8]' },
-  success: { text: '成功', cls: 'text-[#0B5A2E]' },
-  partial: { text: '部分失败', cls: 'text-[#92400E]' },
-  failed: { text: '失败', cls: 'text-[#B91C1C]' },
+  running: { text: t('发送中'), cls: 'text-[#1D4ED8]' },
+  success: { text: t('成功'), cls: 'text-[#0B5A2E]' },
+  partial: { text: t('部分失败'), cls: 'text-[#92400E]' },
+  failed: { text: t('失败'), cls: 'text-[#B91C1C]' },
 }
 const TRIGGER: Record<ReportRun['trigger'], string> = { manual: '手动', schedule: '定时', after_sync: '同步后' }
 
@@ -194,10 +195,10 @@ const testing = ref<string | null>(null)
 const channelForm = reactive({ name: '', kind: 'wecom' as ChannelKind, target: '', secret: '', clearSecret: false })
 
 const KIND_HINT: Record<ChannelKind, { placeholder: string, hint: string }> = {
-  wecom: { placeholder: 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=…', hint: '群设置 → 群机器人 → 添加机器人，复制 Webhook 地址；支持附带 Excel' },
-  dingtalk: { placeholder: 'https://oapi.dingtalk.com/robot/send?access_token=…', hint: '群设置 → 机器人 → 自定义机器人；安全设置建议选「加签」并填写下方密钥' },
-  feishu: { placeholder: 'https://open.feishu.cn/open-apis/bot/v2/hook/…', hint: '群设置 → 群机器人 → 自定义机器人；开启「签名校验」时填写下方密钥' },
-  email: { placeholder: 'cfo@example.com, finance@example.com', hint: '多个收件人用逗号分隔；发件服务器由管理员在服务端配置' },
+  wecom: { placeholder: 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=…', hint: t('群设置 → 群机器人 → 添加机器人，复制 Webhook 地址；支持附带 Excel') },
+  dingtalk: { placeholder: 'https://oapi.dingtalk.com/robot/send?access_token=…', hint: t('群设置 → 机器人 → 自定义机器人；安全设置建议选「加签」并填写下方密钥') },
+  feishu: { placeholder: 'https://open.feishu.cn/open-apis/bot/v2/hook/…', hint: t('群设置 → 群机器人 → 自定义机器人；开启「签名校验」时填写下方密钥') },
+  email: { placeholder: 'cfo@example.com, finance@example.com', hint: t('多个收件人用逗号分隔；发件服务器由管理员在服务端配置') },
 }
 
 function openChannel(c: ReportChannel | null) {
@@ -208,7 +209,7 @@ function openChannel(c: ReportChannel | null) {
 
 async function saveChannel() {
   if (!channelForm.name.trim())
-    return ElMessage.warning('请填写渠道名称')
+    return ElMessage.warning(t('请填写渠道名称'))
   if (!channelEditing.value && !channelForm.target.trim())
     return ElMessage.warning(channelForm.kind === 'email' ? '请填写收件人' : '请填写 Webhook 地址')
   const withSecret = channelForm.kind === 'dingtalk' || channelForm.kind === 'feishu'
@@ -224,7 +225,7 @@ async function saveChannel() {
       await updateChannelApi(channelEditing.value.id, input)
     else
       await createChannelApi(input)
-    ElMessage.success('已保存')
+    ElMessage.success(t('已保存'))
     channelVisible.value = false
     await load(true)
   }
@@ -237,7 +238,7 @@ async function testChannel(c: ReportChannel) {
   testing.value = c.id
   try {
     await testChannelApi(c.id)
-    ElMessage.success(`已向「${c.name}」发送测试消息，请到${c.kind === 'email' ? '邮箱' : '群里'}查看`)
+    ElMessage.success(t('已向「{0}」发送测试消息，请到{1}查看', [c.name, c.kind === 'email' ? '邮箱' : '群里']))
   }
   finally {
     testing.value = null
@@ -245,11 +246,11 @@ async function testChannel(c: ReportChannel) {
 }
 
 async function removeChannel(c: ReportChannel) {
-  const ok = await ElMessageBox.confirm(`删除推送渠道「${c.name}」？`, '删除渠道', { type: 'warning', confirmButtonText: '删除' }).then(() => true, () => false)
+  const ok = await ElMessageBox.confirm(t('删除推送渠道「{0}」？', [c.name]), t('删除渠道'), { type: 'warning', confirmButtonText: t('删除') }).then(() => true, () => false)
   if (!ok)
     return
   await deleteChannelApi(c.id)
-  ElMessage.success('已删除')
+  ElMessage.success(t('已删除'))
   load(true)
 }
 </script>
@@ -257,7 +258,7 @@ async function removeChannel(c: ReportChannel) {
 <template>
   <el-dialog
     :model-value="visible"
-    title="定时推送"
+    :title="$t('定时推送')"
     width="1040px"
     append-to-body
     @update:model-value="emit('update:visible', $event)"
@@ -265,21 +266,21 @@ async function removeChannel(c: ReportChannel) {
     <div class="mb-3 flex items-center gap-3 text-[13px]">
       <el-radio-group v-model="tab">
         <el-radio-button value="reports">
-          推送任务
+          {{ $t('推送任务') }}
         </el-radio-button>
         <el-radio-button value="channels">
-          推送渠道 {{ channels.length || '' }}
+          {{ $t('推送渠道 {0}', [channels.length || '']) }}
         </el-radio-button>
       </el-radio-group>
       <span class="flex-1 text-xs text-gray-500 leading-5">
-        把仪表盘的指标、排行按计划发到企业微信 / 钉钉 / 飞书群或邮箱
-        <template v-if="!publicUrl">；配置 LEDGER_PUBLIC_URL 后消息里会带「查看完整看板」链接</template>
+        {{ $t('把仪表盘的指标、排行按计划发到企业微信 / 钉钉 / 飞书群或邮箱') }}
+        <template v-if="!publicUrl">{{ $t('；配置 LEDGER_PUBLIC_URL 后消息里会带「查看完整看板」链接') }}</template>
       </span>
       <el-button v-if="tab === 'reports'" type="primary" @click="openCreate">
-        + 新建推送
+        {{ $t('+ 新建推送') }}
       </el-button>
       <el-button v-else type="primary" @click="openChannel(null)">
-        + 添加渠道
+        {{ $t('+ 添加渠道') }}
       </el-button>
     </div>
 
@@ -287,13 +288,13 @@ async function removeChannel(c: ReportChannel) {
       <template v-if="tab === 'reports'">
         <div v-if="!items.length && !loading" class="empty">
           <div class="text-[15px] text-gray-800 font-medium">
-            还没有推送任务
+            {{ $t('还没有推送任务') }}
           </div>
           <div class="text-xs text-gray-500 leading-5">
-            例：每天 9:00 把「经营日报」仪表盘发到老板群；每周一发周报邮件并附 Excel；订单数据同步完成后立即推送
+            {{ $t('例：每天 9:00 把「经营日报」仪表盘发到老板群；每周一发周报邮件并附 Excel；订单数据同步完成后立即推送') }}
           </div>
           <el-button type="primary" class="mt-2" @click="openCreate">
-            新建推送
+            {{ $t('新建推送') }}
           </el-button>
         </div>
 
@@ -303,23 +304,23 @@ async function removeChannel(c: ReportChannel) {
               <div class="flex items-center gap-2">
                 <span class="text-gray-900 font-medium">{{ r.name }}</span>
                 <el-tag v-if="!r.enabled" size="small" type="info">
-                  已停用
+                  {{ $t('已停用') }}
                 </el-tag>
                 <el-button v-if="r.workbookName && r.sheetName" link type="primary" size="small" class="!p-0 !text-xs" @click="emit('open', r.workbookId, r.sheetId)">
                   {{ r.workbookName }} / {{ r.sheetName }}
                 </el-button>
-                <span v-else class="text-xs text-[#B91C1C]">仪表盘页已删除</span>
+                <span v-else class="text-xs text-[#B91C1C]">{{ $t('仪表盘页已删除') }}</span>
               </div>
               <div class="mt-0.5 flex flex-wrap items-center gap-x-3 text-xs text-gray-500">
                 <span>{{ scheduleText(r) }}</span>
                 <span>→ {{ channelNames(r) }}</span>
-                <span v-if="r.attachExcel">附 Excel</span>
-                <span v-if="r.nextRun">下次 {{ r.nextRun.slice(5, 16) }}</span>
+                <span v-if="r.attachExcel">{{ $t('附 Excel') }}</span>
+                <span v-if="r.nextRun">{{ $t('下次 {0}', [r.nextRun.slice(5, 16)]) }}</span>
               </div>
             </div>
             <div class="w-72 text-right text-xs leading-5">
               <template v-if="r.running || sending.has(r.id)">
-                <span class="text-[#1D4ED8]">发送中…</span>
+                <span class="text-[#1D4ED8]">{{ $t('发送中…') }}</span>
               </template>
               <template v-else-if="r.lastRun">
                 <div>
@@ -330,41 +331,41 @@ async function removeChannel(c: ReportChannel) {
                   {{ resultText(r.lastRun) }}
                 </div>
               </template>
-              <span v-else class="text-gray-400">尚未发送</span>
+              <span v-else class="text-gray-400">{{ $t('尚未发送') }}</span>
             </div>
             <div class="flex shrink-0 items-center">
               <el-button size="small" type="primary" plain :loading="sending.has(r.id)" @click="sendNow(r)">
-                立即发送
+                {{ $t('立即发送') }}
               </el-button>
               <el-button link size="small" @click="toggleRuns(r)">
-                记录
+                {{ $t('记录') }}
               </el-button>
               <el-button link size="small" @click="openEdit(r)">
-                修改
+                {{ $t('修改') }}
               </el-button>
               <el-button link size="small" @click="toggle(r)">
-                {{ r.enabled ? '停用' : '启用' }}
+                {{ r.enabled ? $t('停用') : $t('启用') }}
               </el-button>
               <el-button link size="small" type="danger" :disabled="sending.has(r.id)" @click="remove(r)">
-                删除
+                {{ $t('删除') }}
               </el-button>
             </div>
           </div>
 
           <div v-if="expanded === r.id" v-loading="runsLoading" class="mt-2 border-t border-[#eef0f3] border-t-solid pt-2">
-            <el-table :data="runs" size="small" max-height="280" empty-text="暂无推送记录">
-              <el-table-column label="时间" prop="startedAt" width="150" />
-              <el-table-column label="方式" width="66">
+            <el-table :data="runs" size="small" max-height="280" :empty-text="$t('暂无推送记录')">
+              <el-table-column :label="$t('时间')" prop="startedAt" width="150" />
+              <el-table-column :label="$t('方式')" width="66">
                 <template #default="{ row }">
                   {{ TRIGGER[row.trigger as ReportRun['trigger']] }}
                 </template>
               </el-table-column>
-              <el-table-column label="结果" width="80">
+              <el-table-column :label="$t('结果')" width="80">
                 <template #default="{ row }">
                   <span :class="STATUS[row.status as ReportRun['status']].cls">{{ STATUS[row.status as ReportRun['status']].text }}</span>
                 </template>
               </el-table-column>
-              <el-table-column label="各渠道" min-width="420">
+              <el-table-column :label="$t('各渠道')" min-width="420">
                 <template #default="{ row }">
                   <div v-if="!row.results.length" class="text-[#B91C1C]">
                     {{ row.message }}
@@ -387,10 +388,10 @@ async function removeChannel(c: ReportChannel) {
       <template v-else>
         <div v-if="!channels.length && !loading" class="empty">
           <div class="text-[15px] text-gray-800 font-medium">
-            还没有推送渠道
+            {{ $t('还没有推送渠道') }}
           </div>
           <div class="text-xs text-gray-500 leading-5">
-            在企业微信 / 钉钉 / 飞书群里添加「自定义机器人」，把 Webhook 地址填到这里；或填写收件人邮箱
+            {{ $t('在企业微信 / 钉钉 / 飞书群里添加「自定义机器人」，把 Webhook 地址填到这里；或填写收件人邮箱') }}
           </div>
         </div>
         <div v-for="c in channels" :key="c.id" class="card flex items-center gap-3">
@@ -400,21 +401,21 @@ async function removeChannel(c: ReportChannel) {
               {{ c.name }}
             </div>
             <div class="truncate text-xs text-gray-500">
-              {{ c.target }}<span v-if="c.hasSecret"> · 已设置加签</span>
+              {{ c.target }}<span v-if="c.hasSecret"> {{ $t('· 已设置加签') }}</span>
             </div>
           </div>
           <el-button size="small" plain :loading="testing === c.id" @click="testChannel(c)">
-            发送测试
+            {{ $t('发送测试') }}
           </el-button>
           <el-button link size="small" @click="openChannel(c)">
-            修改
+            {{ $t('修改') }}
           </el-button>
           <el-button link size="small" type="danger" @click="removeChannel(c)">
-            删除
+            {{ $t('删除') }}
           </el-button>
         </div>
         <div v-if="!smtpConfigured" class="mt-2 text-xs text-gray-500">
-          邮件渠道需要管理员在服务端配置发件服务器（LEDGER_SMTP_HOST / PORT / USER / PASSWORD / FROM），见部署手册
+          {{ $t('邮件渠道需要管理员在服务端配置发件服务器（LEDGER_SMTP_HOST / PORT / USER / PASSWORD / FROM），见部署手册') }}
         </div>
       </template>
     </div>
@@ -430,48 +431,48 @@ async function removeChannel(c: ReportChannel) {
       @add-channel="openChannel(null)"
     />
 
-    <el-dialog v-model="channelVisible" :title="channelEditing ? `修改渠道 · ${channelEditing.name}` : '添加推送渠道'" width="560px" append-to-body :close-on-click-modal="false">
+    <el-dialog v-model="channelVisible" :title="channelEditing ? $t('修改渠道 · {0}', [channelEditing.name]) : $t('添加推送渠道')" width="560px" append-to-body :close-on-click-modal="false">
       <el-form label-width="84px" @submit.prevent>
-        <el-form-item label="类型">
+        <el-form-item :label="$t('类型')">
           <el-radio-group v-model="channelForm.kind">
             <el-radio-button v-for="(label, k) in CHANNEL_LABEL" :key="k" :value="k">
               {{ label }}
             </el-radio-button>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="名称" required>
-          <el-input v-model="channelForm.name" maxlength="30" placeholder="如：财务群、老板邮箱" />
+        <el-form-item :label="$t('名称')" required>
+          <el-input v-model="channelForm.name" maxlength="30" :placeholder="$t('如：财务群、老板邮箱')" />
         </el-form-item>
-        <el-form-item :label="channelForm.kind === 'email' ? '收件人' : 'Webhook'" :required="!channelEditing">
+        <el-form-item :label="channelForm.kind === 'email' ? $t('收件人') : 'Webhook'" :required="!channelEditing">
           <el-input
             v-model="channelForm.target"
             :type="channelForm.kind === 'email' ? 'textarea' : 'text'"
             :rows="2"
-            :placeholder="channelEditing ? `留空沿用：${channelEditing.target}` : KIND_HINT[channelForm.kind].placeholder"
+            :placeholder="channelEditing ? $t('留空沿用：{0}', [channelEditing.target]) : KIND_HINT[channelForm.kind].placeholder"
           />
           <div class="mt-1 text-xs text-gray-500 leading-5">
             {{ KIND_HINT[channelForm.kind].hint }}
           </div>
         </el-form-item>
-        <el-form-item v-if="channelForm.kind === 'dingtalk' || channelForm.kind === 'feishu'" label="加签密钥">
+        <el-form-item v-if="channelForm.kind === 'dingtalk' || channelForm.kind === 'feishu'" :label="$t('加签密钥')">
           <el-input
             v-model="channelForm.secret"
             type="password"
             show-password
             :disabled="channelForm.clearSecret"
-            :placeholder="channelEditing?.hasSecret ? '已设置，留空沿用' : '未开启加签可不填'"
+            :placeholder="channelEditing?.hasSecret ? $t('已设置，留空沿用') : $t('未开启加签可不填')"
           />
           <el-checkbox v-if="channelEditing?.hasSecret" v-model="channelForm.clearSecret" class="mt-1">
-            清除已保存的密钥
+            {{ $t('清除已保存的密钥') }}
           </el-checkbox>
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="channelVisible = false">
-          取消
+          {{ $t('取消') }}
         </el-button>
         <el-button type="primary" :loading="channelSaving" @click="saveChannel">
-          保存
+          {{ $t('保存') }}
         </el-button>
       </template>
     </el-dialog>

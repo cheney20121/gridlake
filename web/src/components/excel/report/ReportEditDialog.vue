@@ -6,6 +6,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { listConnectorsApi } from '@/api/connector'
 import { CHANNEL_LABEL, createReportApi, previewReportApi, reportSheetsApi, updateReportApi } from '@/api/report'
 import { listWorkbooksApi } from '@/api/workbook'
+import { t } from '@/i18n'
 
 /** 新建 / 修改推送任务：选择仪表盘页、计划、渠道；右侧预览推送内容（按当前数据实时计算） */
 const props = defineProps<{
@@ -139,13 +140,13 @@ const attachUnsupported = computed(() => form.attachExcel && props.channels.some
 
 async function save(sendNow: boolean) {
   if (!form.name.trim())
-    return ElMessage.warning('请填写任务名称')
+    return ElMessage.warning(t('请填写任务名称'))
   if (!form.sheetId)
-    return ElMessage.warning('请选择要推送的仪表盘页')
+    return ElMessage.warning(t('请选择要推送的仪表盘页'))
   if (!form.channelIds.length)
-    return ElMessage.warning('请至少选择一个推送渠道')
+    return ElMessage.warning(t('请至少选择一个推送渠道'))
   if (form.scheduleKind === 'after_sync' && !form.connectorId)
-    return ElMessage.warning('请选择数据连接')
+    return ElMessage.warning(t('请选择数据连接'))
   const input: ReportInput = {
     name: form.name.trim(),
     workbookId: form.workbookId,
@@ -159,7 +160,7 @@ async function save(sendNow: boolean) {
   saving.value = true
   try {
     const id = props.report ? (await updateReportApi(props.report.id, input), props.report.id) : await createReportApi(input)
-    ElMessage.success('已保存')
+    ElMessage.success(t('已保存'))
     emit('update:visible', false)
     emit('saved', id, sendNow)
   }
@@ -172,7 +173,7 @@ async function save(sendNow: boolean) {
 <template>
   <el-dialog
     :model-value="visible"
-    :title="editing ? `修改推送 · ${report?.name}` : '新建定时推送'"
+    :title="editing ? $t('修改推送 · {0}', [report?.name]) : $t('新建定时推送')"
     width="1080px"
     :close-on-click-modal="false"
     append-to-body
@@ -180,58 +181,58 @@ async function save(sendNow: boolean) {
   >
     <div class="flex gap-4">
       <el-form label-width="84px" class="w-[440px] shrink-0" @submit.prevent>
-        <el-form-item label="任务名称" required>
-          <el-input v-model="form.name" maxlength="40" placeholder="如：经营日报" />
+        <el-form-item :label="$t('任务名称')" required>
+          <el-input v-model="form.name" maxlength="40" :placeholder="$t('如：经营日报')" />
         </el-form-item>
-        <el-form-item label="仪表盘" required>
+        <el-form-item :label="$t('仪表盘')" required>
           <div class="w-full flex gap-2">
-            <el-select v-model="form.workbookId" class="flex-1" placeholder="工作簿" filterable @change="onWorkbookChange">
+            <el-select v-model="form.workbookId" class="flex-1" :placeholder="$t('工作簿')" filterable @change="onWorkbookChange">
               <el-option v-for="w in workbooks" :key="w.id" :label="w.name" :value="w.id" />
             </el-select>
-            <el-select v-model="form.sheetId" class="w-36" placeholder="工作表" @change="refreshPreview">
+            <el-select v-model="form.sheetId" class="w-36" :placeholder="$t('工作表')" @change="refreshPreview">
               <el-option v-for="s in dashboardSheets" :key="s.id" :label="s.name" :value="s.id">
-                {{ s.name }} <span class="text-xs text-gray-400">{{ s.parts }} 个部件</span>
+                {{ s.name }} <span class="text-xs text-gray-400">{{ $t('{0} 个部件', [s.parts]) }}</span>
               </el-option>
             </el-select>
           </div>
           <div v-if="form.workbookId && !dashboardSheets.length" class="hint text-[#92400E]">
-            该工作簿没有已保存的仪表盘页：先在「仪表盘」里添加指标卡 / 明细卡并保存工作簿
+            {{ $t('该工作簿没有已保存的仪表盘页：先在「仪表盘」里添加指标卡 / 明细卡并保存工作簿') }}
           </div>
           <div v-else class="hint">
-            按仪表盘上保存的切片器选择计算；「本月」「近 30 天」等按发送当天计算
+            {{ $t('按仪表盘上保存的切片器选择计算；「本月」「近 30 天」等按发送当天计算') }}
           </div>
         </el-form-item>
-        <el-form-item label="消息标题">
-          <el-input v-model="form.title" maxlength="60" :placeholder="form.name || '默认用任务名称'" @change="refreshPreview" />
+        <el-form-item :label="$t('消息标题')">
+          <el-input v-model="form.title" maxlength="60" :placeholder="form.name || $t('默认用任务名称')" @change="refreshPreview" />
         </el-form-item>
-        <el-form-item label="推送时间">
+        <el-form-item :label="$t('推送时间')">
           <div class="w-full flex flex-wrap items-center gap-2">
             <el-select v-model="form.scheduleKind" class="w-36">
-              <el-option label="每天" value="daily" />
-              <el-option label="每周" value="weekly" />
-              <el-option label="每月" value="monthly" />
-              <el-option label="数据同步后" value="after_sync" />
-              <el-option label="仅手动发送" value="manual" />
+              <el-option :label="$t('每天')" value="daily" />
+              <el-option :label="$t('每周')" value="weekly" />
+              <el-option :label="$t('每月')" value="monthly" />
+              <el-option :label="$t('数据同步后')" value="after_sync" />
+              <el-option :label="$t('仅手动发送')" value="manual" />
             </el-select>
             <el-select v-if="form.scheduleKind === 'weekly'" v-model="form.weekday" class="w-24">
               <el-option v-for="(w, i) in WEEKDAYS" :key="w" :label="w" :value="i + 1" />
             </el-select>
             <el-select v-if="form.scheduleKind === 'monthly'" v-model="form.day" class="w-24">
-              <el-option v-for="d in 31" :key="d" :label="`${d} 号`" :value="d" />
+              <el-option v-for="d in 31" :key="d" :label="$t('{0} 号', [d])" :value="d" />
             </el-select>
             <el-time-select v-if="['daily', 'weekly', 'monthly'].includes(form.scheduleKind)" v-model="form.at" class="!w-28" start="00:00" step="00:15" end="23:45" :clearable="false" />
-            <el-select v-if="form.scheduleKind === 'after_sync'" v-model="form.connectorId" class="flex-1" placeholder="选择数据连接" no-data-text="还没有数据连接">
+            <el-select v-if="form.scheduleKind === 'after_sync'" v-model="form.connectorId" class="flex-1" :placeholder="$t('选择数据连接')" :no-data-text="$t('还没有数据连接')">
               <el-option v-for="c in connectors" :key="c.id" :label="c.name" :value="c.id" />
             </el-select>
           </div>
           <div v-if="form.scheduleKind === 'monthly' && form.day > 28" class="hint">
-            没有 {{ form.day }} 号的月份在月末发送
+            {{ $t('没有 {0} 号的月份在月末发送', [form.day]) }}
           </div>
           <div v-if="form.scheduleKind === 'after_sync'" class="hint">
-            该连接每次同步到新数据后推送（没有新数据不推送）
+            {{ $t('该连接每次同步到新数据后推送（没有新数据不推送）') }}
           </div>
         </el-form-item>
-        <el-form-item label="推送到" required>
+        <el-form-item :label="$t('推送到')" required>
           <div class="w-full">
             <el-checkbox-group v-if="channels.length" v-model="form.channelIds" class="flex flex-col">
               <el-checkbox v-for="c in channels" :key="c.id" :value="c.id" class="!mr-0 !h-7">
@@ -239,43 +240,43 @@ async function save(sendNow: boolean) {
               </el-checkbox>
             </el-checkbox-group>
             <div v-else class="text-xs text-gray-500">
-              还没有推送渠道
+              {{ $t('还没有推送渠道') }}
             </div>
             <el-button link type="primary" size="small" @click="emit('addChannel')">
-              + 添加渠道
+              {{ $t('+ 添加渠道') }}
             </el-button>
             <div v-if="emailWithoutSmtp" class="hint text-[#B91C1C]">
-              服务端尚未配置邮件发送（LEDGER_SMTP_HOST 等），邮件渠道会发送失败
+              {{ $t('服务端尚未配置邮件发送（LEDGER_SMTP_HOST 等），邮件渠道会发送失败') }}
             </div>
           </div>
         </el-form-item>
-        <el-form-item label="附件">
+        <el-form-item :label="$t('附件')">
           <el-checkbox v-model="form.attachExcel">
-            附带 Excel（指标与明细的原始数值）
+            {{ $t('附带 Excel（指标与明细的原始数值）') }}
           </el-checkbox>
           <div v-if="attachUnsupported" class="hint">
-            钉钉、飞书群机器人不支持文件，只有企业微信和邮件会带附件
+            {{ $t('钉钉、飞书群机器人不支持文件，只有企业微信和邮件会带附件') }}
           </div>
         </el-form-item>
-        <el-form-item label="状态">
-          <el-switch v-model="form.enabled" active-text="启用" inactive-text="停用" inline-prompt />
+        <el-form-item :label="$t('状态')">
+          <el-switch v-model="form.enabled" :active-text="$t('启用')" :inactive-text="$t('停用')" inline-prompt />
         </el-form-item>
       </el-form>
 
       <div class="min-w-0 flex flex-1 flex-col border border-[#e5e7eb] rounded-md border-solid">
         <div class="flex items-center gap-2 border-b border-b-[#e5e7eb] border-b-solid px-3 py-2 text-[13px]">
-          <span class="font-medium">内容预览</span>
+          <span class="font-medium">{{ $t('内容预览') }}</span>
           <el-radio-group v-model="previewTab" size="small">
             <el-radio-button value="email">
-              邮件
+              {{ $t('邮件') }}
             </el-radio-button>
             <el-radio-button value="bot">
-              群机器人
+              {{ $t('群机器人') }}
             </el-radio-button>
           </el-radio-group>
-          <span class="flex-1 truncate text-xs text-gray-400">按当前数据计算{{ preview ? ` · ${preview.content.generatedAt.slice(11, 16)}` : '' }}</span>
+          <span class="flex-1 truncate text-xs text-gray-400">{{ $t('按当前数据计算{0}', [preview ? ` · ${preview.content.generatedAt.slice(11, 16)}` : '']) }}</span>
           <el-button link size="small" :loading="previewing" @click="refreshPreview">
-            刷新
+            {{ $t('刷新') }}
           </el-button>
         </div>
         <div v-loading="previewing && !preview" class="relative h-[460px] min-h-0">
@@ -283,10 +284,10 @@ async function save(sendNow: boolean) {
             {{ previewError }}
           </div>
           <div v-else-if="!preview" class="p-4 text-[13px] text-gray-400">
-            选择仪表盘页后显示推送内容
+            {{ $t('选择仪表盘页后显示推送内容') }}
           </div>
           <template v-else>
-            <iframe v-if="previewTab === 'email'" class="h-full w-full border-0" sandbox="allow-same-origin" :srcdoc="preview.html" title="邮件预览" />
+            <iframe v-if="previewTab === 'email'" class="h-full w-full border-0" sandbox="allow-same-origin" :srcdoc="preview.html" :title="$t('邮件预览')" />
             <pre v-else class="m-0 h-full overflow-auto whitespace-pre-wrap bg-[#f9f9f7] p-3 text-xs leading-5">{{ preview.markdown }}</pre>
           </template>
         </div>
@@ -295,13 +296,13 @@ async function save(sendNow: boolean) {
 
     <template #footer>
       <el-button @click="emit('update:visible', false)">
-        取消
+        {{ $t('取消') }}
       </el-button>
       <el-button :loading="saving" @click="save(false)">
-        保存
+        {{ $t('保存') }}
       </el-button>
       <el-button type="primary" :loading="saving" @click="save(true)">
-        保存并立即发送
+        {{ $t('保存并立即发送') }}
       </el-button>
     </template>
   </el-dialog>

@@ -7,6 +7,7 @@ import { refreshDatasetCharts } from '@/features/excel/chart/chart-manager'
 import { setDatasetCatalog } from '@/features/excel/dashboard/slicer'
 import { impactSummary, partsText } from '@/features/excel/dataset/usage-text'
 import { invalidateDatasetFormulas } from '@/features/excel/formula/dataset-functions'
+import { t } from '@/i18n'
 import { useLedgerUserStore } from '@/stores/ledger-user'
 import { escapeHtml } from './html'
 
@@ -109,12 +110,12 @@ export function useDatasets(options: {
         : '没有公式按名称引用它；透视表、图表、仪表盘、数据表按 ID 引用，改名不受影响'
       const name = await ElMessageBox.prompt(hint, '重命名数据集', {
         inputValue: d.name,
-        confirmButtonText: '保存',
+        confirmButtonText: t('保存'),
       }).then(r => r.value, () => null)
       if (!name || name.trim() === d.name)
         return
       await renameDatasetApi(d.id, name.trim())
-      ElMessage.success('已重命名')
+      ElMessage.success(t('已重命名'))
     }
     else {
       const u = await datasetUsage(d.id)
@@ -128,12 +129,12 @@ export function useDatasets(options: {
             : '<p style="margin-top:8px;color:#0B5A2E">没有工作簿、推送、视图、SQL 查询或数据连接在用它。</p>'
         }${access}`,
         '删除数据集',
-        { type: 'warning', dangerouslyUseHTMLString: true, confirmButtonText: '移到回收站', confirmButtonClass: 'ec-button--danger' },
+        { type: 'warning', dangerouslyUseHTMLString: true, confirmButtonText: t('移到回收站'), confirmButtonClass: 'ec-button--danger' },
       ).then(() => true, () => false)
       if (!ok)
         return
       await deleteDatasetApi(d.id, operatorName())
-      ElMessage.success('已移到回收站，可在数据集栏末尾的「回收站」恢复')
+      ElMessage.success(t('已移到回收站，可在数据集栏末尾的「回收站」恢复'))
       if (activeDatasetId.value === d.id)
         workspaceView.value = 'workbook'
     }

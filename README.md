@@ -2,7 +2,7 @@
 
 **开源、可私有部署的亿级数据表格**：像 Excel 一样用公式和透视表分析上亿行数据。表格界面基于 [Univer](https://github.com/dream-num/univer)，数据放在服务端的 [DuckDB](https://github.com/duckdb/duckdb) 里，浏览器只取看到的那一屏。
 
-> An open-source, self-hosted spreadsheet for 100M-row datasets — Excel-style formulas and pivot tables on top of DuckDB. The UI is Chinese-only for now. **English overview: [README.en.md](README.en.md)**
+> An open-source, self-hosted spreadsheet for 100M-row datasets — Excel-style formulas and pivot tables on top of DuckDB. The UI is available in Chinese and English (switch in the top bar; most screens are translated, some runtime messages are still Chinese). **English overview: [README.en.md](README.en.md)**
 
 ![200 万行订单数据集：打开整张表只要几毫秒，筛选 / 排序 / 搜索都在服务端完成](docs/images/big-grid.png)
 

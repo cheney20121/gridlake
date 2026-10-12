@@ -10,6 +10,7 @@ import { isCancel } from 'axios'
 import { TableV2SortOrder } from 'element-plus'
 import { computed, h, nextTick, reactive, ref, watch } from 'vue'
 import { exportLedgerDetailsApi, getLedgerDetailSummaryApi } from '@/api/ledger'
+import { t as tr } from '@/i18n'
 import { CONTRIBUTION_COLUMN, CONTRIBUTION_KEY, DETAIL_COLUMNS, FACETS, formatMoney, SEARCH_KEYS } from './columns'
 import FacetPanel from './FacetPanel.vue'
 import RowInspector from './RowInspector.vue'
@@ -290,7 +291,7 @@ async function exportCsv() {
     return
   if (count > 300_000) {
     try {
-      await ElMessageBox.confirm(`将导出 ${count.toLocaleString()} 行，文件较大，确定继续？`, '导出明细', { type: 'warning' })
+      await ElMessageBox.confirm(tr('将导出 {0} 行，文件较大，确定继续？', [count.toLocaleString()]), tr('导出明细'), { type: 'warning' })
     }
     catch {
       return
@@ -324,7 +325,7 @@ async function exportCsv() {
     <div class="h-full flex flex-col gap-2">
       <!-- 标题 -->
       <div class="flex items-center gap-3">
-        <span class="text-base font-semibold text-gray-900">流水明细 · {{ period }}</span>
+        <span class="text-base font-semibold text-gray-900">{{ $t('流水明细 · {0}', [period]) }}</span>
         <el-tag v-if="target" type="success" effect="light" round>
           {{ target.title }}
         </el-tag>
@@ -332,11 +333,11 @@ async function exportCsv() {
           v-if="target?.rule"
           v-model="useRule"
           size="small"
-          active-text="只看对该项有贡献的流水"
+          :active-text="$t('只看对该项有贡献的流水')"
         />
         <div class="flex-1" />
         <el-button text @click="emit('update:visible', false)">
-          关闭
+          {{ $t('关闭') }}
         </el-button>
       </div>
 
@@ -348,8 +349,8 @@ async function exportCsv() {
       >
         <span>{{ check.label }}：<b class="tabular-nums">{{ check.expected }}</b></span>
         <span>{{ check.actualLabel }}：<b class="tabular-nums">{{ check.actual }}</b></span>
-        <b>{{ check.ok ? '✓ 一致' : '✗ 不一致' }}</b>
-        <span v-if="hasExtraFilters" class="text-xs opacity-75">已叠加筛选，对比仅供参考</span>
+        <b>{{ check.ok ? $t('✓ 一致') : $t('✗ 不一致') }}</b>
+        <span v-if="hasExtraFilters" class="text-xs opacity-75">{{ $t('已叠加筛选，对比仅供参考') }}</span>
       </div>
 
       <!-- 筛选工具栏 -->
@@ -358,48 +359,48 @@ async function exportCsv() {
           v-model="keyword"
           clearable
           class="w-80"
-          placeholder="搜索订单号 / 流水号 / 售后编号 / 商品 / 达人 / 备注"
+          :placeholder="$t('搜索订单号 / 流水号 / 售后编号 / 商品 / 达人 / 备注')"
         />
         <el-date-picker
           v-model="timeRange"
           type="datetimerange"
           value-format="YYYY-MM-DD HH:mm:ss"
-          start-placeholder="动账开始时间"
-          end-placeholder="结束时间"
+          :start-placeholder="$t('动账开始时间')"
+          :end-placeholder="$t('结束时间')"
           :disabled-date="disabledDate"
           :default-time="[new Date(2000, 0, 1, 0, 0, 0), new Date(2000, 0, 1, 23, 59, 59)]"
           class="!w-90"
         />
         <div class="flex items-center gap-1">
-          <el-input-number v-model="amountMin" :controls="false" placeholder="金额 ≥" class="!w-24" />
+          <el-input-number v-model="amountMin" :controls="false" :placeholder="$t('金额 ≥')" class="!w-24" />
           <span class="text-gray-400">~</span>
-          <el-input-number v-model="amountMax" :controls="false" placeholder="金额 ≤" class="!w-24" />
+          <el-input-number v-model="amountMax" :controls="false" :placeholder="$t('金额 ≤')" class="!w-24" />
         </div>
         <div class="flex-1" />
         <el-radio-group v-model="columnMode" size="small">
           <el-radio-button value="common">
-            常用列
+            {{ $t('常用列') }}
           </el-radio-button>
           <el-radio-button value="all">
-            全部列
+            {{ $t('全部列') }}
           </el-radio-button>
         </el-radio-group>
         <el-button size="small" :loading="exporting" :disabled="!summary?.totalCount" @click="exportCsv">
-          导出 CSV
+          {{ $t('导出 CSV') }}
         </el-button>
       </div>
 
       <!-- 统计 -->
       <div class="flex items-center gap-5 border-0 border-y border-solid border-[#f0f0f0] py-1.5 text-[13px] text-gray-600">
-        <span>共 <b class="text-gray-900 tabular-nums">{{ (summary?.totalCount ?? 0).toLocaleString() }}</b> 笔</span>
-        <span>入账 <b class="text-[#107C41] tabular-nums">{{ formatMoney(summary?.inAmount ?? 0) }}</b></span>
-        <span>出账 <b class="text-[#DC2626] tabular-nums">{{ formatMoney(summary?.outAmount ?? 0) }}</b></span>
-        <span>净额 <b class="text-gray-900 tabular-nums">{{ formatMoney(summary?.netAmount ?? 0) }}</b></span>
-        <span v-if="ruleActive && summary?.contribution != null">贡献合计 <b class="text-gray-900 tabular-nums">{{ formatMoney(summary.contribution) }}</b></span>
+        <span>{{ $t('共') }} <b class="text-gray-900 tabular-nums">{{ (summary?.totalCount ?? 0).toLocaleString() }}</b> {{ $t('笔') }}</span>
+        <span>{{ $t('入账') }} <b class="text-[#107C41] tabular-nums">{{ formatMoney(summary?.inAmount ?? 0) }}</b></span>
+        <span>{{ $t('出账') }} <b class="text-[#DC2626] tabular-nums">{{ formatMoney(summary?.outAmount ?? 0) }}</b></span>
+        <span>{{ $t('净额') }} <b class="text-gray-900 tabular-nums">{{ formatMoney(summary?.netAmount ?? 0) }}</b></span>
+        <span v-if="ruleActive && summary?.contribution != null">{{ $t('贡献合计') }} <b class="text-gray-900 tabular-nums">{{ formatMoney(summary.contribution) }}</b></span>
         <el-popover trigger="click" placement="bottom-start" :width="300">
           <template #reference>
             <button class="text-[#107C41] hover:underline">
-              各金额列合计
+              {{ $t('各金额列合计') }}
             </button>
           </template>
           <div class="max-h-80 overflow-y-auto text-[12px]">
@@ -408,11 +409,11 @@ async function exportCsv() {
               <span class="tabular-nums" :class="{ 'text-[#DC2626]': v < 0 }">{{ formatMoney(v) }}</span>
             </div>
             <div v-if="!nonZeroSums.length" class="text-gray-400">
-              无
+              {{ $t('无') }}
             </div>
           </div>
         </el-popover>
-        <span v-if="loading || win.pending.value" class="text-xs text-gray-400">加载中…</span>
+        <span v-if="loading || win.pending.value" class="text-xs text-gray-400">{{ $t('加载中…') }}</span>
       </div>
 
       <!-- 主体：分面 | 表格 | 行详情 -->
@@ -449,7 +450,7 @@ async function exportCsv() {
           </el-auto-resizer>
           <el-empty
             v-if="summary && !summary.totalCount && !loading"
-            description="没有符合条件的流水"
+            :description="$t('没有符合条件的流水')"
             class="absolute inset-0 bg-white/80"
           />
         </div>

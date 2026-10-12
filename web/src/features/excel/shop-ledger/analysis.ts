@@ -1,5 +1,6 @@
 import type { DrillTarget } from './ledger-workbook'
 import type { AnalysisDimension, AnalysisMetricDef, AnalysisMetricKey, AnalysisRow } from '@/api/ledger'
+import { t } from '@/i18n'
 
 /** 资金瀑布：结算实付起，逐项加减，落到资金净额 */
 export const WATERFALL_KEYS: AnalysisMetricKey[] = ['gmv', 'freight', 'subsidy', 'refund', 'platformFee', 'commission', 'otherFee', 'other']
@@ -51,7 +52,7 @@ export function buildDrillTarget(metric: AnalysisMetricDef, value: number, ctx: 
     title: `${metric.label} · ${ctx.scope}${ctx.shop ? ` / ${ctx.shop}` : ''}`,
     filter,
     rule: metric.terms,
-    expected: { label: `分析表 ${metric.label}`, value, kind: 'contribution' },
+    expected: { label: t('分析表 {0}', [metric.label]), value, kind: 'contribution' },
   }
 }
 

@@ -79,6 +79,7 @@ import { useLedger } from '@/features/excel/workspace/use-ledger'
 import { usePlatformDialogs } from '@/features/excel/workspace/use-platform-dialogs'
 import { useWorkbookSession } from '@/features/excel/workspace/use-workbook-session'
 import { useXlsx } from '@/features/excel/workspace/use-xlsx'
+import { t } from '@/i18n'
 import { useApprovalStore } from '@/stores/excel-approval'
 import { useExcelUIStore } from '@/stores/excel-ui'
 import { useLedgerUserStore } from '@/stores/ledger-user'
@@ -181,7 +182,7 @@ function initEngines() {
 
   // 汇总表第 1 行（主体简称）修改后保存到后端
   const aliasWatcher = watchEntityAliasEdits(api, {
-    onSaved: items => ElMessage.success(`主体简称已保存：${items.map(i => i.alias ?? '（恢复默认）').join('、')}`),
+    onSaved: items => ElMessage.success(t('主体简称已保存：{0}', [items.map(i => i.alias ?? '（恢复默认）').join('、')])),
     onError: e => notifyLedgerError(e, '保存主体简称'),
   })
 
@@ -559,7 +560,7 @@ const openApproval = computed(() => approvalStore.pendingFor(currentWorkbookId.v
 
 function handleStartApproval() {
   if (openApproval.value) {
-    ElMessage.info(`这个工作簿已有一张审批中的单据（审批人：${openApproval.value.approverName}），请在审批中心查看或撤回`)
+    ElMessage.info(t('这个工作簿已有一张审批中的单据（审批人：{0}），请在审批中心查看或撤回', [openApproval.value.approverName]))
     return
   }
   approvalModalVisible.value = true
@@ -653,9 +654,9 @@ let dataLoaded = false
 <template>
   <div class="excel-workspace" :class="{ presenting }">
     <div v-if="presenting" class="exit-present">
-      <span class="text-gray-400">演示中 · 只读</span>
+      <span class="text-gray-400">{{ $t('演示中 · 只读') }}</span>
       <button type="button" class="exit-btn" @click="exitPresent">
-        退出演示 <kbd>Esc</kbd>
+        {{ $t('退出演示') }} <kbd>Esc</kbd>
       </button>
     </div>
     <ExcelTopbar
@@ -757,7 +758,7 @@ let dataLoaded = false
 
     <!-- Error -->
     <div v-if="error" class="error-banner">
-      <el-alert :title="`Univer 初始化失败: ${error}`" type="error" :closable="false" />
+      <el-alert :title="$t('Univer 初始化失败: {0}', [error])" type="error" :closable="false" />
     </div>
 
     <!-- Approval Modal -->

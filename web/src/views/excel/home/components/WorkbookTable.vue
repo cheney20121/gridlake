@@ -47,22 +47,22 @@ function size(bytes: number) {
       <h2 class="section-title">
         {{ title }}
       </h2>
-      <span class="pill">{{ items.length }} 个</span>
+      <span class="pill">{{ $t('{0} 个', [items.length]) }}</span>
       <div class="flex-1" />
-      <el-input v-model="keyword" clearable placeholder="搜索工作簿" :prefix-icon="Search" class="!w-60" />
+      <el-input v-model="keyword" clearable :placeholder="$t('搜索工作簿')" :prefix-icon="Search" class="!w-60" />
     </div>
 
     <div v-loading="loading" class="table-card">
       <div class="list-row head">
         <span class="w-6" />
-        <span class="min-w-40 flex-1">名称</span>
-        <span v-if="authRequired" class="w-36">所有者 / 共享</span>
-        <span class="hidden w-28 lg:block">修改人</span>
-        <span class="w-28">修改时间</span>
-        <span class="hidden w-20 text-right lg:block">大小</span>
+        <span class="min-w-40 flex-1">{{ $t('名称') }}</span>
+        <span v-if="authRequired" class="w-36">{{ $t('所有者 / 共享') }}</span>
+        <span class="hidden w-28 lg:block">{{ $t('修改人') }}</span>
+        <span class="w-28">{{ $t('修改时间') }}</span>
+        <span class="hidden w-20 text-right lg:block">{{ $t('大小') }}</span>
       </div>
       <div v-for="w in items" :key="w.id" class="list-row group" @click="emit('open', w.id)">
-        <button type="button" class="star w-6" :class="{ on: w.starred }" :title="w.starred ? '取消星标' : '加星标'" @click.stop="emit('star', w)">
+        <button type="button" class="star w-6" :class="{ on: w.starred }" :title="w.starred ? $t('取消星标') : $t('加星标')" @click.stop="emit('star', w)">
           {{ w.starred ? '★' : '☆' }}
         </button>
         <span class="min-w-40 flex flex-1 items-center gap-2.5">
@@ -72,7 +72,7 @@ function size(bytes: number) {
           <span class="truncate font-medium group-hover:text-[#0E5A31]">{{ w.name }}</span>
         </span>
         <span v-if="authRequired" class="w-36 flex flex-col gap-0.5" @click.stop>
-          <span class="truncate text-gray-500" :title="w.ownerName || '没有所有者（仅管理员可管理）'">{{ w.ownerName || '—' }}</span>
+          <span class="truncate text-gray-500" :title="w.ownerName || $t('没有所有者（仅管理员可管理）')">{{ w.ownerName || '—' }}</span>
           <WorkbookShare :workbook="w" @changed="(m: WorkbookMeta) => emit('changed', w, m)" />
         </span>
         <span class="hidden w-28 truncate text-gray-500 lg:block">{{ w.updatedBy || w.createdBy || '—' }}</span>

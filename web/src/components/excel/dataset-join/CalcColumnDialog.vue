@@ -5,6 +5,7 @@ import { isCancel } from 'axios'
 import { computed, ref, watch } from 'vue'
 import { addCalcApi, previewCalcApi, removeCalcApi, updateCalcApi } from '@/api/dataset'
 import { formatMoney } from '@/components/excel/ledger-detail/columns'
+import { t } from '@/i18n'
 
 /** 计算列：用 Excel 风格公式在数据集上新增一列（千万行上按需计算，筛选 / 透视 / DSUMIFS 都能用） */
 const props = defineProps<{
@@ -120,7 +121,7 @@ const sampleKeys = computed(() => {
 })
 
 const resultKind = computed(() => kind.value || preview.value?.kind || '')
-const KIND_LABEL: Record<string, string> = { money: '金额', number: '数值', text: '文本' }
+const KIND_LABEL: Record<string, string> = { money: '金额', number: '数值', text: t('文本') }
 
 function display(v: unknown) {
   if (v == null || v === '')
@@ -137,11 +138,11 @@ async function save() {
   try {
     if (editing.value) {
       await updateCalcApi(props.dataset.id, editing.value, formula.value.trim(), kind.value || null)
-      ElMessage.success(`已修改计算列「${editing.value}」，引用它的列已同步更新`)
+      ElMessage.success(t('已修改计算列「{0}」，引用它的列已同步更新', [editing.value]))
     }
     else {
       await addCalcApi(props.dataset.id, name.value.trim(), formula.value.trim(), kind.value || null)
-      ElMessage.success(`已添加计算列「${name.value.trim()}」`)
+      ElMessage.success(t('已添加计算列「{0}」', [name.value.trim()]))
     }
     emit('changed')
     reset()
@@ -152,11 +153,11 @@ async function save() {
 }
 
 async function remove(col: string) {
-  const ok = await ElMessageBox.confirm(`删除计算列「${col}」？引用它的透视表 / 公式会失效。`, '删除计算列', { type: 'warning', confirmButtonText: '删除' }).then(() => true, () => false)
+  const ok = await ElMessageBox.confirm(t('删除计算列「{0}」？引用它的透视表 / 公式会失效。', [col]), t('删除计算列'), { type: 'warning', confirmButtonText: t('删除') }).then(() => true, () => false)
   if (!ok)
     return
   await removeCalcApi(props.dataset.id, col)
-  ElMessage.success('已删除')
+  ElMessage.success(t('已删除'))
   if (editing.value === col)
     reset()
   emit('changed')
@@ -164,17 +165,17 @@ async function remove(col: string) {
 </script>
 
 <template>
-  <el-dialog :model-value="visible" :title="`计算列 · ${dataset.name}`" width="820px" append-to-body @update:model-value="emit('update:visible', $event)">
+  <el-dialog :model-value="visible" :title="$t('计算列 · {0}', [dataset.name])" width="820px" append-to-body @update:model-value="emit('update:visible', $event)">
     <div class="grid grid-cols-[1fr_220px] gap-4 text-[13px]">
       <div class="flex flex-col gap-2">
         <div class="flex items-center gap-2">
-          <span class="w-12 text-gray-500">列名</span>
-          <el-input v-model="name" size="small" placeholder="如：毛利" class="!w-48" :disabled="!!editing" />
-          <span class="ml-2 text-gray-500">类型</span>
+          <span class="w-12 text-gray-500">{{ $t('列名') }}</span>
+          <el-input v-model="name" size="small" :placeholder="$t('如：毛利')" class="!w-48" :disabled="!!editing" />
+          <span class="ml-2 text-gray-500">{{ $t('类型') }}</span>
           <el-select v-model="kind" size="small" class="!w-28" :disabled="preview?.kind === 'text'">
-            <el-option label="自动" value="" />
-            <el-option label="金额" value="money" />
-            <el-option label="数值" value="number" />
+            <el-option :label="$t('自动')" value="" />
+            <el-option :label="$t('金额')" value="money" />
+            <el-option :label="$t('数值')" value="number" />
           </el-select>
         </div>
         <el-input
@@ -182,16 +183,16 @@ async function remove(col: string) {
           v-model="formula"
           type="textarea"
           :rows="3"
-          placeholder="=[订单实付应结]-[成本价]"
+          :placeholder="$t('=[订单实付应结]-[成本价]')"
           class="formula"
         />
         <div v-if="error" class="text-xs text-[#B91C1C]">
           {{ error }}
         </div>
         <div v-else-if="preview" class="text-xs leading-5 text-gray-600">
-          结果类型：<b>{{ KIND_LABEL[resultKind] ?? resultKind }}</b>
+          {{ $t('结果类型：') }}<b>{{ KIND_LABEL[resultKind] ?? resultKind }}</b>
           <span v-if="preview.nullRows" class="ml-2 text-[#92400E]">
-            {{ preview.nullRows.toLocaleString() }} / {{ preview.totalRows.toLocaleString() }} 行结果为空（引用的列为空，如关联不到成本价）；需要按 0 计算时用 IFNULL
+            {{ $t('{0} / {1} 行结果为空（引用的列为空，如关联不到成本价）；需要按 0 计算时用 IFNULL', [preview.nullRows.toLocaleString(), preview.totalRows.toLocaleString()]) }}
           </span>
         </div>
         <el-table v-if="preview?.samples.length" v-loading="loading" :data="preview.samples" size="small" max-height="220">
@@ -204,7 +205,7 @@ async function remove(col: string) {
 
         <div v-if="calcColumns.length" class="mt-2">
           <div class="mb-1 text-xs text-gray-500">
-            已有计算列
+            {{ $t('已有计算列') }}
           </div>
           <div
             v-for="c in calcColumns"
@@ -214,13 +215,13 @@ async function remove(col: string) {
           >
             <span class="font-medium">{{ c.title }}</span>
             <code class="min-w-0 flex-1 truncate text-gray-500" :title="c.formula">{{ c.formula }}</code>
-            <span v-if="c.origin" class="text-gray-400" :title="`在「${c.origin}」上定义，关联视图自动继承；请到「${c.origin}」中修改`">来自「{{ c.origin }}」</span>
+            <span v-if="c.origin" class="text-gray-400" :title="$t('在「{0}」上定义，关联视图自动继承；请到「{1}」中修改', [c.origin, c.origin])">{{ $t('来自「{0}」', [c.origin]) }}</span>
             <template v-else>
               <el-button link size="small" type="primary" :disabled="editing === c.title" @click="startEdit(c)">
-                修改
+                {{ $t('修改') }}
               </el-button>
               <el-button link size="small" type="danger" @click="remove(c.title)">
-                删除
+                {{ $t('删除') }}
               </el-button>
             </template>
           </div>
@@ -229,34 +230,34 @@ async function remove(col: string) {
 
       <div class="flex flex-col gap-2">
         <div class="text-xs text-gray-500">
-          点击插入列
+          {{ $t('点击插入列') }}
         </div>
-        <el-input v-model="columnSearch" size="small" clearable placeholder="搜索列" />
+        <el-input v-model="columnSearch" size="small" clearable :placeholder="$t('搜索列')" />
         <div class="max-h-48 overflow-auto rounded border border-[#e5e7eb] border-solid p-1">
           <button v-for="c in columns" :key="c.key" class="col-btn" @click="insert(`[${c.title}]`)">
             {{ c.title }}<span v-if="c.formula" class="ml-1 text-gray-400">ƒ</span>
           </button>
         </div>
         <div class="text-xs text-gray-500">
-          函数（点击插入示例）
+          {{ $t('函数（点击插入示例）') }}
         </div>
         <button v-for="f in FUNCTIONS" :key="f.name" class="fn-btn" :title="f.example" @click="insert(f.example)">
           {{ f.name }}
         </button>
         <div class="text-xs text-gray-400 leading-5">
-          运算：+ − × ÷（除数为 0 得空）、& 连接文本、比较 = &lt;&gt; &gt; &lt;；空值参与运算结果为空
+          {{ $t('运算：+ − × ÷（除数为 0 得空）、& 连接文本、比较 = <> > <；空值参与运算结果为空') }}
         </div>
       </div>
     </div>
     <template #footer>
       <el-button v-if="editing" @click="reset">
-        取消修改
+        {{ $t('取消修改') }}
       </el-button>
       <el-button @click="emit('update:visible', false)">
-        关闭
+        {{ $t('关闭') }}
       </el-button>
       <el-button type="primary" :disabled="!name.trim() || !preview || !!error" :loading="saving" @click="save">
-        {{ editing ? '保存修改' : '添加计算列' }}
+        {{ editing ? $t('保存修改') : $t('添加计算列') }}
       </el-button>
     </template>
   </el-dialog>

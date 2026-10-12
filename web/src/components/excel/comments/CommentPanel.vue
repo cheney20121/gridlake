@@ -7,6 +7,7 @@ import { addCommentApi, deleteCommentApi, editCommentApi, resolveCommentApi } fr
 import { activeMention, insertMention, mentionsIn, splitMentions } from '@/features/excel/comments/mention'
 import { commentFocus, commentThreads, reloadComments } from '@/features/excel/comments/state'
 import { cellName } from '@/features/excel/writeback/input-table'
+import { t as tr } from '@/i18n'
 import { useLedgerUserStore } from '@/stores/ledger-user'
 
 /**
@@ -142,7 +143,7 @@ async function submit(key: string, parentId?: string) {
       ? { parentId, body, mentions, operator: props.operator }
       : { sheetId: sheetId.value, row: cell.value.row, col: cell.value.col, body, mentions, operator: props.operator })
     if (r.notNotified.length)
-      ElMessage.warning(`${r.notNotified.join('、')} 没有这个工作簿的查看权限，没有通知到。可以先在「文件 → 打开 / 新建 / 管理工作簿」里调整共享范围`)
+      ElMessage.warning(tr('{0} 没有这个工作簿的查看权限，没有通知到。可以先在「文件 → 打开 / 新建 / 管理工作簿」里调整共享范围', [r.notNotified.join('、')]))
     drafts.value[key] = { text: '', picked: [], caret: 0 }
     if (parentId)
       replyTo.value = null
@@ -168,7 +169,7 @@ async function saveEdit(c: CommentItem) {
   try {
     const r = await editCommentApi(c.id, d.text.trim(), mentionsIn(d.text, d.picked).map(m => m.id))
     if (r.notNotified.length)
-      ElMessage.warning(`${r.notNotified.join('、')} 没有这个工作簿的查看权限，没有通知到`)
+      ElMessage.warning(tr('{0} 没有这个工作簿的查看权限，没有通知到', [r.notNotified.join('、')]))
     editing.value = null
     await reloadComments(props.workbookId)
   }
@@ -178,7 +179,7 @@ async function saveEdit(c: CommentItem) {
 }
 
 async function remove(c: CommentItem, isThread: boolean) {
-  const ok = await ElMessageBox.confirm(isThread ? '删除这条评论线程？其中的回复一并删除。' : '删除这条回复？', '删除评论', { type: 'warning', confirmButtonText: '删除' }).then(() => true, () => false)
+  const ok = await ElMessageBox.confirm(isThread ? '删除这条评论线程？其中的回复一并删除。' : '删除这条回复？', '删除评论', { type: 'warning', confirmButtonText: tr('删除') }).then(() => true, () => false)
   if (!ok)
     return
   await deleteCommentApi(c.id)
@@ -198,19 +199,19 @@ const canDelete = (c: CommentItem) => mine(c) || me.isAdmin
 <template>
   <div class="comments flex h-full flex-col text-[13px]">
     <div v-if="!workbookId" class="m-3 rounded-md bg-[#f9f9f7] p-3 text-xs text-gray-500">
-      工作簿保存到服务端后即可评论。
+      {{ $t('工作簿保存到服务端后即可评论。') }}
     </div>
     <template v-else>
       <div class="border-b border-b-[#eef0f3] border-b-solid px-3 py-2">
         <div class="mb-1 text-xs text-gray-500">
-          {{ sheetName }} · 选中的格子 <b class="text-[#0E5A31]">{{ address }}</b>
+          {{ $t('{0} · 选中的格子', [sheetName]) }} <b class="text-[#0E5A31]">{{ address }}</b>
         </div>
         <div class="relative">
           <textarea
             class="box"
             rows="3"
             :value="draftOf(NEW).text"
-            placeholder="写评论，输入 @ 提醒同事（Ctrl+Enter 发送）"
+            :placeholder="$t('写评论，输入 @ 提醒同事（Ctrl+Enter 发送）')"
             @input="onInput(NEW, $event)"
             @keydown="onKey($event, NEW)"
           />
@@ -222,7 +223,7 @@ const canDelete = (c: CommentItem) => mine(c) || me.isAdmin
         </div>
         <div class="mt-1 flex justify-end">
           <el-button size="small" type="primary" :disabled="!draftOf(NEW).text.trim()" :loading="busy" @click="submit(NEW)">
-            评论
+            {{ $t('评论') }}
           </el-button>
         </div>
       </div>
@@ -230,15 +231,15 @@ const canDelete = (c: CommentItem) => mine(c) || me.isAdmin
       <div class="min-h-0 flex-1 overflow-y-auto px-3 py-2" @wheel.stop>
         <template v-if="here.length">
           <div class="mb-1 text-xs text-gray-500">
-            {{ address }} 的评论
+            {{ $t('{0} 的评论', [address]) }}
           </div>
           <article v-for="t in here" :key="t.id" class="thread" :class="{ done: t.resolved }" data-thread>
             <template v-for="(c, i) in [t, ...t.replies]" :key="c.id">
               <div class="cm" :class="{ reply: i > 0 }">
                 <div class="meta">
                   <b>{{ c.authorName }}</b>
-                  <span class="text-gray-400">{{ c.createdAt.slice(5, 16) }}{{ c.editedAt ? '（已编辑）' : '' }}</span>
-                  <span v-if="i === 0 && t.resolved" class="tag">已解决</span>
+                  <span class="text-gray-400">{{ c.createdAt.slice(5, 16) }}{{ c.editedAt ? $t('（已编辑）') : '' }}</span>
+                  <span v-if="i === 0 && t.resolved" class="tag">{{ $t('已解决') }}</span>
                 </div>
                 <template v-if="editing === c.id">
                   <textarea class="box" rows="2" :value="draftOf(`edit:${c.id}`).text" @input="onInput(`edit:${c.id}`, $event)" @keydown.stop />
@@ -249,10 +250,10 @@ const canDelete = (c: CommentItem) => mine(c) || me.isAdmin
                   </div>
                   <div class="mt-1 flex justify-end gap-1">
                     <el-button size="small" @click="editing = null">
-                      取消
+                      {{ $t('取消') }}
                     </el-button>
                     <el-button size="small" type="primary" :loading="busy" @click="saveEdit(c)">
-                      保存
+                      {{ $t('保存') }}
                     </el-button>
                   </div>
                 </template>
@@ -265,16 +266,16 @@ const canDelete = (c: CommentItem) => mine(c) || me.isAdmin
                 </div>
                 <div v-if="editing !== c.id" class="acts">
                   <button v-if="i === 0" type="button" @click="replyTo = replyTo === t.id ? null : t.id">
-                    回复
+                    {{ $t('回复') }}
                   </button>
                   <button v-if="i === 0" type="button" @click="toggleResolved(t)">
-                    {{ t.resolved ? '重新打开' : '标记已解决' }}
+                    {{ t.resolved ? $t('重新打开') : $t('标记已解决') }}
                   </button>
                   <button v-if="mine(c)" type="button" @click="startEdit(c)">
-                    编辑
+                    {{ $t('编辑') }}
                   </button>
                   <button v-if="canDelete(c)" type="button" class="danger" @click="remove(c, i === 0)">
-                    删除
+                    {{ $t('删除') }}
                   </button>
                 </div>
               </div>
@@ -284,7 +285,7 @@ const canDelete = (c: CommentItem) => mine(c) || me.isAdmin
                 class="box"
                 rows="2"
                 :value="draftOf(`reply:${t.id}`).text"
-                placeholder="回复…（Ctrl+Enter 发送）"
+                :placeholder="$t('回复…（Ctrl+Enter 发送）')"
                 @input="onInput(`reply:${t.id}`, $event)"
                 @keydown="onKey($event, `reply:${t.id}`, t.id)"
               />
@@ -295,29 +296,29 @@ const canDelete = (c: CommentItem) => mine(c) || me.isAdmin
               </div>
               <div class="mt-1 flex justify-end">
                 <el-button size="small" type="primary" :disabled="!draftOf(`reply:${t.id}`).text.trim()" :loading="busy" @click="submit(`reply:${t.id}`, t.id)">
-                  回复
+                  {{ $t('回复') }}
                 </el-button>
               </div>
             </div>
           </article>
         </template>
         <div v-else class="mb-2 text-xs text-gray-400">
-          {{ address }} 还没有评论
+          {{ $t('{0} 还没有评论', [address]) }}
         </div>
 
         <div class="mb-1 mt-3 flex items-center justify-between text-xs text-gray-500">
-          <span>本页其他评论（{{ onSheet.length }}）</span>
+          <span>{{ $t('本页其他评论（{0}）', [onSheet.length]) }}</span>
           <el-checkbox v-if="resolvedCount" v-model="showResolved" size="small">
-            含已解决（{{ resolvedCount }}）
+            {{ $t('含已解决（{0}）', [resolvedCount]) }}
           </el-checkbox>
         </div>
         <button v-for="t in onSheet" :key="t.id" type="button" class="row" :class="{ done: t.resolved }" @click="locate(t)">
           <span class="addr">{{ cellName(t.row, t.col) }}</span>
           <span class="min-w-0 flex-1 truncate">{{ t.authorName }}：{{ t.body }}</span>
-          <span v-if="t.replies.length" class="text-gray-400">{{ t.replies.length }} 回复</span>
+          <span v-if="t.replies.length" class="text-gray-400">{{ $t('{0} 回复', [t.replies.length]) }}</span>
         </button>
         <div v-if="!onSheet.length" class="text-xs text-gray-400">
-          没有
+          {{ $t('没有') }}
         </div>
       </div>
     </template>

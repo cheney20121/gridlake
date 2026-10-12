@@ -1,5 +1,6 @@
 import type { ICellData, IWorksheetData } from '@univerjs/core'
 import type { FUniver } from '@univerjs/core/facade'
+import { t } from '@/i18n'
 
 export type SheetCell = string | number | null
 
@@ -37,7 +38,7 @@ function safeSheetName(name: string) {
 export function writeAnalysisSheet(api: FUniver, name: string, title: string, columns: AnalysisColumn[], rows: SheetCell[][]) {
   const workbook = api.getActiveWorkbook()
   if (!workbook)
-    throw new Error('工作簿尚未就绪')
+    throw new Error(t('工作簿尚未就绪'))
   const sheetName = safeSheetName(name)
 
   const cellData: Record<number, Record<number, ICellData>> = {

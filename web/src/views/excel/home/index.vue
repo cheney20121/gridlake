@@ -21,6 +21,7 @@ import TemplateGalleryDialog from '@/components/excel/template/TemplateGalleryDi
 import { useBodyClass } from '@/composables/useBodyClass'
 import { blankWorkbookJson } from '@/features/excel/persistence/workbook-session'
 import { useLedgerOperator } from '@/features/excel/shop-ledger/month-close'
+import { t } from '@/i18n'
 import { useLedgerUserStore } from '@/stores/ledger-user'
 import DatasetTable from './components/DatasetTable.vue'
 import HomeCard from './components/HomeCard.vue'
@@ -91,7 +92,7 @@ const openDataset = (id: string) => goEditor({ ds: id })
 
 const creating = ref(false)
 async function createBlank() {
-  const value = await ElMessageBox.prompt('工作簿名称', '新建空白工作簿', { inputValue: '未命名工作簿', inputPattern: /\S/, inputErrorMessage: '请输入名称' })
+  const value = await ElMessageBox.prompt(t('工作簿名称'), t('新建空白工作簿'), { inputValue: t('未命名工作簿'), inputPattern: /\S/, inputErrorMessage: t('请输入名称') })
     .then(r => r.value, () => null)
   if (!value)
     return
@@ -137,7 +138,7 @@ function onTemplateCreated(meta: WorkbookMeta, warnings: string[]) {
 }
 
 function onPublishHint() {
-  ElMessage.info('请先打开要发布的工作簿，在文件菜单中选「发布为模板」')
+  ElMessage.info(t('请先打开要发布的工作簿，在文件菜单中选「发布为模板」'))
 }
 </script>
 
@@ -152,7 +153,7 @@ function onPublishHint() {
     />
 
     <div v-if="ledgerUser.restricted" class="shrink-0 border-b border-[#f3d9a4] border-b-solid bg-[#fff8e6] px-6 py-2 text-xs text-[#8a5a00]">
-      你的数据范围被限制在店铺：<b>{{ ledgerUser.scopeText }}</b>。读取、透视、公式、导出都只含这些店铺；导入数据、建视图、定时推送等会绕过过滤的功能不可用。需要调整请联系管理员。
+      {{ $t('你的数据范围被限制在店铺：') }}<b>{{ ledgerUser.scopeText }}</b>{{ $t('。读取、透视、公式、导出都只含这些店铺；导入数据、建视图、定时推送等会绕过过滤的功能不可用。需要调整请联系管理员。') }}
     </div>
 
     <div class="min-h-0 flex flex-1">
@@ -167,9 +168,9 @@ function onPublishHint() {
                 {{ greeting }}
               </h1>
               <div class="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] mb-8 mt-4 gap-4">
-                <HomeCard title="空白工作簿" desc="从一张空表开始" :icon="Plus" tone="green" :disabled="creating" @click="createBlank" />
-                <HomeCard title="从模板新建" desc="资金台账、销售看板…" :icon="Collection" tone="blue" @click="templateVisible = true" />
-                <HomeCard title="导入数据" desc="CSV / XLSX，支持千万行" :icon="Upload" tone="amber" @click="importVisible = true" />
+                <HomeCard :title="$t('空白工作簿')" :desc="$t('从一张空表开始')" :icon="Plus" tone="green" :disabled="creating" @click="createBlank" />
+                <HomeCard :title="$t('从模板新建')" :desc="$t('资金台账、销售看板…')" :icon="Collection" tone="blue" @click="templateVisible = true" />
+                <HomeCard :title="$t('导入数据')" :desc="$t('CSV / XLSX，支持千万行')" :icon="Upload" tone="amber" @click="importVisible = true" />
               </div>
             </template>
             <WorkbookTable
@@ -177,8 +178,8 @@ function onPublishHint() {
               :items="visibleWorkbooks"
               :loading="loading"
               :auth-required="ledgerUser.authRequired"
-              :title="section === 'recent' ? '最近的工作簿' : '已加星标'"
-              :empty-text="keyword ? '没有匹配的工作簿' : section === 'starred' ? '还没有加星标的工作簿' : '还没有工作簿，新建一个吧'"
+              :title="section === 'recent' ? $t('最近的工作簿') : $t('已加星标')"
+              :empty-text="keyword ? $t('没有匹配的工作簿') : section === 'starred' ? $t('还没有加星标的工作簿') : $t('还没有工作簿，新建一个吧')"
               @open="openWorkbook"
               @star="toggleStar"
               @changed="(w, meta) => Object.assign(w, meta)"
@@ -188,10 +189,10 @@ function onPublishHint() {
           <!-- 数据中心 -->
           <template v-else-if="section === 'data'">
             <div class="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] mb-8 gap-4">
-              <HomeCard v-if="!ledgerUser.restricted" title="导入数据" desc="上传 CSV / XLSX 或填链接，生成可分析的数据集" :icon="Upload" tone="amber" @click="importVisible = true" />
-              <HomeCard title="SQL 查询" desc="跨数据集查询，结果可另存为新数据集" :icon="Tickets" tone="blue" @click="sqlVisible = true" />
-              <HomeCard v-if="!ledgerUser.restricted" title="数据连接" desc="接入数据库、接口，按计划自动同步" :icon="Connection" tone="green" :badge="connectorFailures ? `${connectorFailures} 个同步失败` : undefined" @click="connectorVisible = true" />
-              <HomeCard v-if="!ledgerUser.restricted" title="回收站" :desc="trashCount ? `${trashCount} 个已删除的数据集` : '删除的数据集可在此恢复'" :icon="Delete" tone="slate" @click="trashVisible = true" />
+              <HomeCard v-if="!ledgerUser.restricted" :title="$t('导入数据')" :desc="$t('上传 CSV / XLSX 或填链接，生成可分析的数据集')" :icon="Upload" tone="amber" @click="importVisible = true" />
+              <HomeCard :title="$t('SQL 查询')" :desc="$t('跨数据集查询，结果可另存为新数据集')" :icon="Tickets" tone="blue" @click="sqlVisible = true" />
+              <HomeCard v-if="!ledgerUser.restricted" :title="$t('数据连接')" :desc="$t('接入数据库、接口，按计划自动同步')" :icon="Connection" tone="green" :badge="connectorFailures ? $t('{0} 个同步失败', [connectorFailures]) : undefined" @click="connectorVisible = true" />
+              <HomeCard v-if="!ledgerUser.restricted" :title="$t('回收站')" :desc="trashCount ? $t('{0} 个已删除的数据集', [trashCount]) : $t('删除的数据集可在此恢复')" :icon="Delete" tone="slate" @click="trashVisible = true" />
             </div>
             <DatasetTable :items="datasets" :auth-required="ledgerUser.authRequired" :restricted="ledgerUser.restricted" @open="openDataset" @usage="showUsage" />
           </template>
@@ -199,18 +200,18 @@ function onPublishHint() {
           <!-- 自动化 -->
           <template v-else>
             <h2 class="mb-4 mt-0 text-base text-gray-800 font-semibold">
-              自动化
+              {{ $t('自动化') }}
             </h2>
             <div v-if="ledgerUser.restricted" class="mb-4 text-gray-400">
-              你的数据范围受限，定时推送、数据同步等自动化功能需要完整的数据权限，请联系管理员。
+              {{ $t('你的数据范围受限，定时推送、数据同步等自动化功能需要完整的数据权限，请联系管理员。') }}
             </div>
             <div class="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4">
-              <HomeCard v-if="!ledgerUser.restricted" title="定时推送" desc="把仪表盘按日 / 周 / 月发到飞书、企业微信、邮件" :icon="Timer" tone="green" @click="reportVisible = true" />
-              <HomeCard v-if="!ledgerUser.restricted" title="数据同步" desc="数据连接按计划拉取，看板与公式自动更新" :icon="Refresh" tone="blue" :badge="connectorFailures ? `${connectorFailures} 个失败` : undefined" @click="connectorVisible = true" />
-              <HomeCard v-if="ledgerUser.isAdmin" title="外部 AI 接入（MCP）" desc="让 Claude 等 AI 助手按令牌权限查询数据集" :icon="Cpu" tone="violet" @click="mcpVisible = true" />
-              <HomeCard v-if="ledgerUser.authRequired && ledgerUser.isAdmin" title="数据权限（按店铺）" desc="限制用户只能看到自己店铺的数据；数据集按哪一列过滤" :icon="Lock" tone="amber" @click="dataScopeVisible = true" />
-              <HomeCard v-if="ledgerUser.mode === 'local' && ledgerUser.isAdmin" title="账号管理" desc="新建账号、设为管理员、停用、重置密码" :icon="User" tone="green" data-testid="home-accounts" @click="accountVisible = true" />
-              <HomeCard v-if="ledgerUser.authRequired && ledgerUser.isAdmin" title="操作审计" desc="谁在什么时候改了什么：写操作、导出，含被拒绝的" :icon="Document" tone="slate" @click="auditVisible = true" />
+              <HomeCard v-if="!ledgerUser.restricted" :title="$t('定时推送')" :desc="$t('把仪表盘按日 / 周 / 月发到飞书、企业微信、邮件')" :icon="Timer" tone="green" @click="reportVisible = true" />
+              <HomeCard v-if="!ledgerUser.restricted" :title="$t('数据同步')" :desc="$t('数据连接按计划拉取，看板与公式自动更新')" :icon="Refresh" tone="blue" :badge="connectorFailures ? $t('{0} 个失败', [connectorFailures]) : undefined" @click="connectorVisible = true" />
+              <HomeCard v-if="ledgerUser.isAdmin" :title="$t('外部 AI 接入（MCP）')" :desc="$t('让 Claude 等 AI 助手按令牌权限查询数据集')" :icon="Cpu" tone="violet" @click="mcpVisible = true" />
+              <HomeCard v-if="ledgerUser.authRequired && ledgerUser.isAdmin" :title="$t('数据权限（按店铺）')" :desc="$t('限制用户只能看到自己店铺的数据；数据集按哪一列过滤')" :icon="Lock" tone="amber" @click="dataScopeVisible = true" />
+              <HomeCard v-if="ledgerUser.mode === 'local' && ledgerUser.isAdmin" :title="$t('账号管理')" :desc="$t('新建账号、设为管理员、停用、重置密码')" :icon="User" tone="green" data-testid="home-accounts" @click="accountVisible = true" />
+              <HomeCard v-if="ledgerUser.authRequired && ledgerUser.isAdmin" :title="$t('操作审计')" :desc="$t('谁在什么时候改了什么：写操作、导出，含被拒绝的')" :icon="Document" tone="slate" @click="auditVisible = true" />
             </div>
           </template>
         </div>

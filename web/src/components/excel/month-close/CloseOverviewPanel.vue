@@ -6,6 +6,7 @@ import { listLedgerUsersApi } from '@/api/approval'
 import { getLedgerCloseApi, ledgerCloseActionApi } from '@/api/ledger'
 import { formatMoney } from '@/components/excel/ledger-detail/columns'
 import { CHECK_LEVEL, CLOSE_STATUS } from '@/features/excel/shop-ledger/month-close'
+import { t } from '@/i18n'
 import { useLedgerUserStore } from '@/stores/ledger-user'
 
 const props = defineProps<{
@@ -123,7 +124,7 @@ async function confirm() {
       comment: dialog.comment,
       acceptRisk: dialog.acceptRisk,
     })
-    ElMessage.success(`${shop.shop} ${props.period}：${DIALOG_TITLE[dialog.action]}成功`)
+    ElMessage.success(t('{0} {1}：{2}成功', [shop.shop, props.period, DIALOG_TITLE[dialog.action]]))
     dialog.visible = false
     await load()
     emit('changed')
@@ -146,20 +147,20 @@ function gotoFor(key: string): 'balance' | 'withdraw' | null {
   <div v-loading="loading" class="flex flex-col gap-3">
     <div class="flex items-center gap-3 text-[13px]">
       <el-tag type="success" effect="plain">
-        已锁账 {{ counts.locked }}
+        {{ $t('已锁账 {0}', [counts.locked]) }}
       </el-tag>
       <el-tag type="warning" effect="plain">
-        审批中 {{ counts.pending }}
+        {{ $t('审批中 {0}', [counts.pending]) }}
       </el-tag>
       <el-tag type="info" effect="plain">
-        未结账 {{ counts.open }}
+        {{ $t('未结账 {0}', [counts.open]) }}
       </el-tag>
       <span class="text-xs text-gray-400">
-        体检全部通过才能直接提交；有不通过项时需填写差异说明后「带差异提交」。提交后数据冻结（禁止导入、删除、改余额、改配对），审批通过即锁账
+        {{ $t('体检全部通过才能直接提交；有不通过项时需填写差异说明后「带差异提交」。提交后数据冻结（禁止导入、删除、改余额、改配对），审批通过即锁账') }}
       </span>
     </div>
 
-    <el-empty v-if="!loading && !shops.length" description="该月没有需要结账的店铺" :image-size="80" />
+    <el-empty v-if="!loading && !shops.length" :description="$t('该月没有需要结账的店铺')" :image-size="80" />
 
     <div v-for="s in shops" :key="s.shop" class="shop-card">
       <div class="flex items-center gap-2">
@@ -168,36 +169,35 @@ function gotoFor(key: string): 'balance' | 'withdraw' | null {
           {{ CLOSE_STATUS[s.status].label }}
         </el-tag>
         <el-tag v-if="s.shopStatus === 'closed'" size="small" type="info">
-          已关店
+          {{ $t('已关店') }}
         </el-tag>
         <span class="text-xs text-gray-400">
-          {{ s.report.figures.rowCount.toLocaleString() }} 条流水 · 入账 {{ formatMoney(s.report.figures.inflow) }} · 出账 {{ formatMoney(s.report.figures.outflow) }}
-          · 提现 {{ s.report.figures.withdrawCount }} 笔 {{ formatMoney(s.report.figures.withdrawAmount) }}
+          {{ $t('{0} 条流水 · 入账 {1} · 出账 {2} · 提现 {3} 笔 {4}', [s.report.figures.rowCount.toLocaleString(), formatMoney(s.report.figures.inflow), formatMoney(s.report.figures.outflow), s.report.figures.withdrawCount, formatMoney(s.report.figures.withdrawAmount)]) }}
         </span>
         <div class="ml-auto flex gap-2">
           <template v-if="s.status === 'open' || s.status === 'rejected'">
             <el-button size="small" :type="failCount(s) ? 'warning' : 'primary'" @click="open('submit', s)">
-              {{ failCount(s) ? '带差异提交' : '提交月结' }}
+              {{ failCount(s) ? $t('带差异提交') : $t('提交月结') }}
             </el-button>
           </template>
           <template v-else-if="s.status === 'pending'">
             <el-button v-if="s.can.cancel" size="small" @click="open('cancel', s)">
-              撤回
+              {{ $t('撤回') }}
             </el-button>
             <template v-if="s.can.decide">
               <el-button size="small" type="danger" plain @click="open('reject', s)">
-                驳回
+                {{ $t('驳回') }}
               </el-button>
               <el-button size="small" type="success" @click="open('approve', s)">
-                审批通过
+                {{ $t('审批通过') }}
               </el-button>
             </template>
             <span v-else-if="s.can.decideBlocked" class="self-center text-xs text-gray-400">{{ s.can.decideBlocked }}</span>
           </template>
           <el-button v-else-if="s.can.reopen" size="small" type="danger" plain @click="open('reopen', s)">
-            反结账
+            {{ $t('反结账') }}
           </el-button>
-          <span v-else class="self-center text-xs text-gray-400">反结账需要审批人或管理员</span>
+          <span v-else class="self-center text-xs text-gray-400">{{ $t('反结账需要审批人或管理员') }}</span>
         </div>
       </div>
 
@@ -218,7 +218,7 @@ function gotoFor(key: string): 'balance' | 'withdraw' | null {
               size="small"
               @click="emit('goto', gotoFor(c.key)!, s.shop)"
             >
-              去处理 →
+              {{ $t('去处理 →') }}
             </el-button>
           </div>
         </template>
@@ -227,14 +227,14 @@ function gotoFor(key: string): 'balance' | 'withdraw' | null {
       <!-- 审批单 -->
       <div v-if="s.record && s.status !== 'open'" class="record">
         <div>
-          <span class="text-gray-500">提交：</span>{{ s.record.submittedBy }} · {{ s.record.submittedAt }}
-          <span class="ml-3 text-gray-500">审批人：</span>{{ s.record.approver }}
+          <span class="text-gray-500">{{ $t('提交：') }}</span>{{ s.record.submittedBy }} · {{ s.record.submittedAt }}
+          <span class="ml-3 text-gray-500">{{ $t('审批人：') }}</span>{{ s.record.approver }}
         </div>
         <div v-if="s.record.comment">
-          <span class="text-gray-500">说明：</span>{{ s.record.comment }}
+          <span class="text-gray-500">{{ $t('说明：') }}</span>{{ s.record.comment }}
         </div>
         <div v-if="s.record.decidedAt">
-          <span class="text-gray-500">{{ s.status === 'locked' ? '通过' : '驳回' }}：</span>{{ s.record.decidedBy }} · {{ s.record.decidedAt }}
+          <span class="text-gray-500">{{ s.status === 'locked' ? $t('通过') : $t('驳回') }}：</span>{{ s.record.decidedBy }} · {{ s.record.decidedAt }}
           <span v-if="s.record.decisionComment">「{{ s.record.decisionComment }}」</span>
         </div>
       </div>
@@ -254,7 +254,7 @@ function gotoFor(key: string): 'balance' | 'withdraw' | null {
             </div>
           </div>
           <el-form label-width="72px" size="small">
-            <el-form-item label="审批人">
+            <el-form-item :label="$t('审批人')">
               <el-select
                 v-if="ledgerUser.authRequired"
                 v-model="dialog.approverId"
@@ -262,40 +262,40 @@ function gotoFor(key: string): 'balance' | 'withdraw' | null {
                 remote
                 :remote-method="searchUsers"
                 :loading="searching"
-                placeholder="输入姓名搜索（需登录过本系统）"
+                :placeholder="$t('输入姓名搜索（需登录过本系统）')"
                 class="w-full"
-                no-data-text="没有找到：对方需要先登录过本系统"
+                :no-data-text="$t('没有找到：对方需要先登录过本系统')"
               >
                 <el-option v-for="u in candidates" :key="u.id" :label="u.name" :value="u.id" />
               </el-select>
-              <el-input v-else v-model="dialog.approverName" placeholder="审批人姓名" />
+              <el-input v-else v-model="dialog.approverName" :placeholder="$t('审批人姓名')" />
             </el-form-item>
           </el-form>
           <el-checkbox v-if="failCount(dialog.shop)" v-model="dialog.acceptRisk">
-            体检有 {{ failCount(dialog.shop) }} 项不通过，我已核实原因，带差异提交
+            {{ $t('体检有 {0} 项不通过，我已核实原因，带差异提交', [failCount(dialog.shop)]) }}
           </el-checkbox>
         </template>
 
         <div v-if="dialog.action === 'approve' || dialog.action === 'reject'" class="text-xs text-gray-500">
-          以「{{ actingUser }}」的身份处理，记入月结日志。通过后该店铺 {{ period }} 锁账，不能再导入或修改。
+          {{ $t('以「{0}」的身份处理，记入月结日志。通过后该店铺 {1} 锁账，不能再导入或修改。', [actingUser, period]) }}
         </div>
         <div v-if="dialog.action === 'reopen'" class="text-xs text-[#B91C1C]">
-          反结账会解除锁定，允许重新导入和修改数据，之后需要重新提交审批。操作将记录在日志中。
+          {{ $t('反结账会解除锁定，允许重新导入和修改数据，之后需要重新提交审批。操作将记录在日志中。') }}
         </div>
 
         <el-input
           v-model="dialog.comment"
           type="textarea"
           :rows="3"
-          :placeholder="commentRequired ? '必填：请说明原因 / 差异情况' : '备注（可选）'"
+          :placeholder="commentRequired ? $t('必填：请说明原因 / 差异情况') : $t('备注（可选）')"
         />
         <div v-if="!actingUser.trim()" class="text-xs text-[#B91C1C]">
-          {{ ledgerUser.authRequired ? '未取得登录账号，请刷新页面' : '请先在右上角填写操作人' }}
+          {{ ledgerUser.authRequired ? $t('未取得登录账号，请刷新页面') : $t('请先在右上角填写操作人') }}
         </div>
       </div>
       <template #footer>
         <el-button @click="dialog.visible = false">
-          取消
+          {{ $t('取消') }}
         </el-button>
         <el-button
           :type="dialog.action === 'reject' || dialog.action === 'reopen' ? 'danger' : 'primary'"
@@ -303,7 +303,7 @@ function gotoFor(key: string): 'balance' | 'withdraw' | null {
           :loading="dialog.submitting"
           @click="confirm"
         >
-          确定
+          {{ $t('确定') }}
         </el-button>
       </template>
     </el-dialog>
