@@ -128,7 +128,7 @@ fn validate_target(kind: ChannelKind, target: &str) -> AppResult<String> {
         return Ok(list.join(", "));
     }
     let url = reqwest::Url::parse(target).map_err(|_| AppError::bad("Webhook 地址格式不正确"))?;
-    crate::import_source::check_url(&url).map_err(|e| AppError::bad(e.message().replace("导入", "推送")))?;
+    crate::netguard::check_url(&url).map_err(|e| AppError::bad(e.message().replace("导入", "推送")))?;
     if kind == ChannelKind::Wecom && !url.query_pairs().any(|(k, _)| k == "key") {
         return Err(AppError::bad("企业微信 Webhook 地址应包含 key 参数"));
     }

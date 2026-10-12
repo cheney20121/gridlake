@@ -43,6 +43,7 @@ mod import;
 mod import_source;
 mod mcp;
 mod metrics;
+mod netguard;
 mod pivot;
 mod pivot_calc;
 mod query;

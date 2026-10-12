@@ -5,6 +5,8 @@
 ## [未发布]
 
 ### 新增
+- SSRF 防护：网址导入和定时推送的 Webhook 统一经 `netguard.rs` 检查。修复了几处绕过：IPv4 映射的 IPv6 写法（`::ffff:127.0.0.1`）、NAT64、阿里云元数据地址、推送 Webhook 发送时跟随重定向到本机、DNS 重绑定；新增 `LEDGER_URL_BLOCK_PRIVATE`。
+- 端到端测试公共库：测试文件忘记在末尾调用 `finish()` 时，有失败项也会以失败退出。
 - 社区文件：CONTRIBUTING、SECURITY、CODE_OF_CONDUCT、Issue / PR 模板。
 - 发布流水线：推送 `v*` 标签自动构建 Linux x86_64 / aarch64、macOS arm64 安装包并发布 GitHub Release，同时推送多架构镜像到 GHCR；`scripts/check-version.sh` 校验版本一致；`scripts/set-repo.sh` 替换文档里的仓库占位符。
 - README：截图、一分钟体验、英文简介（`README.en.md`）；`scripts/seed-demo.py` 一键导入示例订单数据。

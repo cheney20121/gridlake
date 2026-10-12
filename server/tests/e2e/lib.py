@@ -3,6 +3,7 @@
 约定：每个 test_*.py 对应一个全新的服务与临时数据库（见 run.sh），所以测试可以假定库是空的、
 也不用清理；用 check(名称, 条件) 记录结果，最后 finish() 汇总并以退出码反映成败。
 """
+import atexit
 import gzip  # noqa: F401  测试脚本里直接用
 import json
 import os
@@ -100,6 +101,19 @@ def stop_gateway():
     time.sleep(0.5)
 
 
+_finished = False
+
+
 def finish():
+    global _finished
+    _finished = True
     print(f"\n{_total - _fails}/{_total} 通过" + (f"，{_fails} 项失败" if _fails else ""))
     sys.exit(1 if _fails else 0)
+
+
+@atexit.register
+def _fail_if_unreported():
+    """测试文件忘了在末尾调用 finish() 时，有失败项也要让进程以失败退出，不能悄悄算通过"""
+    if _fails and not _finished:
+        print(f"\n{_total - _fails}/{_total} 通过，{_fails} 项失败（测试文件末尾缺少 finish()）", flush=True)
+        os._exit(1)

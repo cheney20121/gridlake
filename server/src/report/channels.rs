@@ -179,7 +179,8 @@ pub fn email_html(msg: &Message<'_>) -> String {
 // ── 发送 ──
 
 fn client() -> AppResult<reqwest::Client> {
-    reqwest::Client::builder()
+    // 推送地址是用户填的：连接时过滤本机 / 元数据地址，重定向每一跳重新检查（见 netguard.rs）
+    crate::netguard::client_builder()
         .timeout(std::time::Duration::from_secs(30))
         .build()
         .map_err(|e| AppError::bad(format!("无法创建网络客户端：{e}")))

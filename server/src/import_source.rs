@@ -190,29 +190,6 @@ fn prepare_inner(conn: &Connection, dir: &Path, token: &str, uploads: &[Upload])
 
 // ── 网址导入 ──────────────────────────────────────────
 
-/// 校验网址：http / https，且不指向本机（回环、未指定、链路本地地址）
-pub(crate) fn check_url(url: &reqwest::Url) -> AppResult<()> {
-    if !matches!(url.scheme(), "http" | "https") {
-        return Err(AppError::bad("只支持 http / https 网址"));
-    }
-    if std::env::var("LEDGER_URL_IMPORT_ALLOW_LOCAL").is_ok_and(|v| v == "1") {
-        return Ok(());
-    }
-    let host = url.host_str().ok_or_else(|| AppError::bad("网址缺少主机名"))?;
-    let port = url.port_or_known_default().unwrap_or(80);
-    let addrs: Vec<std::net::SocketAddr> = std::net::ToSocketAddrs::to_socket_addrs(&(host.trim_matches(['[', ']']), port))
-        .map_err(|e| AppError::bad(format!("无法解析主机「{host}」：{e}")))?
-        .collect();
-    let local = |ip: std::net::IpAddr| match ip {
-        std::net::IpAddr::V4(v) => v.is_loopback() || v.is_unspecified() || v.is_link_local() || v.is_broadcast(),
-        std::net::IpAddr::V6(v) => v.is_loopback() || v.is_unspecified() || (v.segments()[0] & 0xffc0) == 0xfe80,
-    };
-    if addrs.is_empty() || addrs.iter().any(|a| local(a.ip())) {
-        return Err(AppError::bad("不能从本机地址导入（如 127.0.0.1、localhost）"));
-    }
-    Ok(())
-}
-
 /// 从网址取文件名：Content-Disposition，其次网址路径最后一段
 fn file_name_of(url: &reqwest::Url, headers: &reqwest::header::HeaderMap) -> String {
     let from_header = headers
@@ -267,20 +244,10 @@ pub async fn download(url: &str, dir: &Path, token: &str, max_bytes: u64) -> App
         return Err(AppError::bad("服务端已关闭网址导入（LEDGER_URL_IMPORT=off）"));
     }
     let parsed = reqwest::Url::parse(url.trim()).map_err(|_| AppError::bad("网址格式不正确"))?;
-    check_url(&parsed)?;
-    let client = reqwest::Client::builder()
+    crate::netguard::check_url(&parsed)?;
+    let client = crate::netguard::client_builder()
         .connect_timeout(std::time::Duration::from_secs(15))
         .timeout(std::time::Duration::from_secs(10 * 60))
-        // 每一跳重定向都重新校验，防止跳转到本机地址
-        .redirect(reqwest::redirect::Policy::custom(|attempt| {
-            if attempt.previous().len() >= 5 {
-                attempt.error("重定向次数过多")
-            } else if check_url(attempt.url()).is_err() {
-                attempt.stop()
-            } else {
-                attempt.follow()
-            }
-        }))
         .user_agent("gridlake-import/1.0")
         .build()
         .map_err(|e| AppError::bad(format!("无法创建下载客户端：{e}")))?;
@@ -375,9 +342,9 @@ mod tests {
     #[test]
     fn rejects_unsupported_and_local_urls() {
         assert!(kind_of("a.docx").is_none());
-        assert!(check_url(&reqwest::Url::parse("http://127.0.0.1:8787/api/ledger/datasets").unwrap()).is_err());
-        assert!(check_url(&reqwest::Url::parse("http://localhost/x.csv").unwrap()).is_err());
-        assert!(check_url(&reqwest::Url::parse("ftp://example.com/x.csv").unwrap()).is_err());
+        assert!(crate::netguard::check_url(&reqwest::Url::parse("http://127.0.0.1:8787/api/ledger/datasets").unwrap()).is_err());
+        assert!(crate::netguard::check_url(&reqwest::Url::parse("http://localhost/x.csv").unwrap()).is_err());
+        assert!(crate::netguard::check_url(&reqwest::Url::parse("ftp://example.com/x.csv").unwrap()).is_err());
         assert_eq!(percent_decode("%E8%AE%A2%E5%8D%95.csv"), "订单.csv");
     }
 }
