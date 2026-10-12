@@ -80,7 +80,7 @@ def rust():
 
 
 def web():
-    raw = subprocess.check_output(["pnpm", "licenses", "list", "--prod", "--json"], cwd=ROOT / "demo-web-vue3", text=True)
+    raw = subprocess.check_output(["pnpm", "licenses", "list", "--prod", "--json"], cwd=ROOT / "web", text=True)
     out = []
     for lic, pkgs in json.loads(raw).items():
         for p in pkgs:

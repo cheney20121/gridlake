@@ -9,9 +9,9 @@ FROM node:22-bookworm-slim AS web
 ARG NPM_REGISTRY=https://registry.npmjs.org
 WORKDIR /src
 RUN corepack enable
-COPY demo-web-vue3/package.json demo-web-vue3/pnpm-lock.yaml ./
+COPY web/package.json web/pnpm-lock.yaml ./
 RUN pnpm config set registry "$NPM_REGISTRY" && pnpm install --frozen-lockfile
-COPY demo-web-vue3/ ./
+COPY web/ ./
 RUN node_modules/.bin/vite build --outDir /out/web --emptyOutDir \
  && find /out/web -type f \( -name '*.js' -o -name '*.css' -o -name '*.html' -o -name '*.svg' -o -name '*.json' -o -name '*.wasm' \) \
       -size +1k ! -path '*/config/*' -exec gzip -k -9 -f {} \;

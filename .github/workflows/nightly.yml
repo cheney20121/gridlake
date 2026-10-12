@@ -1,0 +1,61 @@
+name: 夜间规模与浸泡测试
+
+# 在 Linux 上用 2000 万行数据跑混合负载，找内存泄漏、性能退步、偶发 5xx。
+# 每晚一次，也可以手动触发（可调整行数和时长）。结果存成构件，并与上一次成功的结果对比
+on:
+  schedule:
+    - cron: '0 18 * * *'    # UTC，北京时间凌晨 2 点
+  workflow_dispatch:
+    inputs:
+      target_rows:
+        description: 目标行数
+        default: '20000000'
+      soak_minutes:
+        description: 混合负载时长（分钟）
+        default: '15'
+
+permissions:
+  contents: read
+
+jobs:
+  soak:
+    name: 浸泡测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: ledger-server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ledger-server
+      - name: 编译（release）
+        run: cargo build --release --locked && cargo build --release --locked --example inflate
+      - name: 取上一次的结果
+        uses: actions/cache/restore@v4
+        with:
+          path: ledger-server/soak-prev.json
+          key: soak-result-${{ github.run_id }}
+          restore-keys: soak-result-
+      - name: 运行
+        env:
+          TARGET_ROWS: ${{ inputs.target_rows || '20000000' }}
+          SOAK_MINUTES: ${{ inputs.soak_minutes || '15' }}
+          BASE_ROWS: '2000000'
+          PREV: soak-prev.json
+        run: tests/bench/nightly.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: soak-result
+          path: ledger-server/soak-result.json
+      - name: 记住这次的结果作为下次的对比基线
+        if: success()
+        run: cp soak-result.json soak-prev.json
+      - uses: actions/cache/save@v4
+        if: success()
+        with:
+          path: ledger-server/soak-prev.json
+          key: soak-result-${{ github.run_id }}

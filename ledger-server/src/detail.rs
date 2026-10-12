@@ -485,6 +485,7 @@ pub fn export_csv(conn: &Connection, req: &ExportRequest) -> AppResult<Vec<u8>> 
     let mut stmt = conn.prepare(&sql)?;
     let mut rows = stmt.query(params_from_iter(q.args.iter()))?;
     while let Some(row) = rows.next()? {
+        #[allow(clippy::needless_range_loop)] // i 同时是 get_ref 的列下标
         for i in 0..columns.len() {
             if i > 0 {
                 out.push(b',');

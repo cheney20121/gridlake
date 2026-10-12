@@ -1,0 +1,29 @@
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /ledger-server
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      rust-minor-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: npm
+    directory: /demo-web-vue3
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      web-minor-patch:
+        update-types: [minor, patch]
+    ignore:
+      # Univer 各个包必须保持同一版本，升级时手动一起改
+      - dependency-name: "@univerjs/*"
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+  - package-ecosystem: docker
+    directory: /deploy
+    schedule:
+      interval: monthly

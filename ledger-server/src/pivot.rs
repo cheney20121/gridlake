@@ -847,7 +847,7 @@ pub fn pivot(conn: &Connection, dataset_id: &str, req: &PivotRequest) -> AppResu
         } else if let Some(map) = req.rows.get(prefix.len()).and_then(|f| req.aliases.get(&f.column)) {
             // 按名称排序时用别名（空值仍排最后）
             let text = |c: &Option<String>| map.get(c.as_deref().unwrap_or("")).cloned().or_else(|| c.clone());
-            kids.sort_by(|a, b| (a.is_none(), text(a)).cmp(&(b.is_none(), text(b))));
+            kids.sort_by_key(|a| (a.is_none(), text(a)));
         }
         // 名称排序：BTreeSet 已升序（空值在最前，挪到最后）
         if req.sort.by != "value" && kids.first().is_some_and(|x| x.is_none()) {

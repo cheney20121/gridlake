@@ -12,11 +12,18 @@
 - 内置账号登录：会话令牌改为服务端写入的 `HttpOnly` cookie（`SameSite=Lax`，HTTPS 代理下加 `Secure`），用 cookie 的写请求要求 `x-requested-with`（防跨站请求伪造）；`x-user-token` 请求头方式保持兼容。
 - 环境变量 `LEDGER_ALLOW_NO_AUTH`、`LEDGER_COOKIE_SECURE`。
 
+- 可观测性：`GET /api/admin/metrics`（Prometheus 文本格式：请求数、耗时直方图、进行中请求、重计算排队、数据文件大小、备份状态），支持 `Authorization: Bearer`；慢请求日志（`LEDGER_SLOW_REQUEST_MS`）；`LEDGER_LOG_FORMAT=json` 结构化日志。
+- 夜间规模与浸泡测试：`tests/bench/nightly.sh`、`soak.py`、`compare.py` 与 `nightly.yml`（2000 万行混合负载、内存增长与性能退步检测）。
+- CI：`cargo clippy -D warnings`、macOS 单元测试、每周依赖审计（`security.yml`）、Dependabot；生产代码禁用 `unwrap()`（`clippy::unwrap_used`）。
+- 数据文件结构版本（`ledger_meta`）：被更新版本写过的数据文件，旧版程序拒绝打开并提示用备份恢复；`/api/admin/status` 返回 `schemaVersion`。
+- 文档：`docs/architecture.md`、`docs/formulas.md`（平台函数与 Excel 兼容）、`docs/api.md`（REST 接口参考，由源码注释与权限表生成，CI 检查是否最新）。
+
 ### 变更
 - **安全默认值（可能影响现有部署）：** 没有开启登录（`LEDGER_AUTH_MODE=off`）却监听非本机地址、或设置了 `LEDGER_CORS=*` 时，服务拒绝启动，提示改用 `local` 登录；确认已有其他保护时设置 `LEDGER_ALLOW_NO_AUTH=1`。`deploy/ledger.env.example` 默认启用 `LEDGER_AUTH_MODE=local`。
 - **数据范围受限用户的接口权限改为白名单：** `auth.rs` 新增 `RESTRICTED_OK`，未登记的接口默认对受限用户关闭；测试要求每个接口明确归类。
 - `LEDGER_CORS=*` 不再回显来源并允许携带凭据，改为任意来源、不带凭据。
 - 登录失败计数改存数据库，重启服务不会清零。
+- 前端依赖升级以修复已知高危漏洞：axios 1.20、vue 3.5.43、js-cookie 3.0.8，并用 pnpm overrides 固定 lodash / brace-expansion / minimatch / nanoid / postcss / form-data / source-map-js 的安全版本（`pnpm audit --prod` 不再有高危）。
 - 前端版本号与后端统一为 0.1.0；`docker-compose.yml` 改为拉取发布镜像（`WEBEXCEL_IMAGE` 可覆盖）。
 
 ## [0.1.0]

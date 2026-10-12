@@ -98,7 +98,7 @@ fn money(v: f64) -> String {
     let int = (cents / 100).to_string();
     let mut grouped = String::new();
     for (i, ch) in int.chars().enumerate() {
-        if i > 0 && (int.len() - i) % 3 == 0 {
+        if i > 0 && (int.len() - i).is_multiple_of(3) {
             grouped.push(',');
         }
         grouped.push(ch);

@@ -46,7 +46,7 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-          cache-dependency-path: demo-web-vue3/pnpm-lock.yaml
+          cache-dependency-path: web/pnpm-lock.yaml
       - name: 构建安装包
         run: |
           if [ "$RUNNER_OS" = macOS ]; then export CXXFLAGS="-isystem $(xcrun --show-sdk-path)/usr/include/c++/v1"; fi

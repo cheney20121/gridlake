@@ -234,7 +234,7 @@ pub fn preview(conn: &Connection, path: &Path, token: &str, file_name: &str) -> 
             })
         })
         .collect();
-    matches.sort_by(|a, b| (b.matched * 1000 / b.total.max(1)).cmp(&(a.matched * 1000 / a.total.max(1))));
+    matches.sort_by_key(|m| std::cmp::Reverse(m.matched * 1000 / m.total.max(1)));
 
     Ok(ImportPreview {
         token: token.to_string(),

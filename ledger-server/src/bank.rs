@@ -126,6 +126,7 @@ fn find(headers: &[String], used: &HashSet<usize>, keys: &[&str], exclude: &[&st
     None
 }
 
+#[allow(clippy::field_reassign_with_default)] // 各列按顺序取，后取的不能与先取的重复（used 在变）
 fn detect_cols(raw: &[String]) -> Cols {
     let headers: Vec<String> = raw.iter().map(|h| norm(h)).collect();
     let mut used = HashSet::new();
@@ -193,7 +194,7 @@ pub(crate) fn parse_date_time(s: &str) -> Option<NaiveDateTime> {
         let base = NaiveDate::from_ymd_opt(1899, 12, 30)?.and_hms_opt(0, 0, 0)?;
         return Some(base + Duration::seconds((serial * 86400.0).round() as i64));
     }
-    let t: String = s.replace(['/', '.', '年', '月'], "-").replace('日', " ").replace('T', " ");
+    let t: String = s.replace(['/', '.', '年', '月'], "-").replace(['日', 'T'], " ");
     let t = t.split_whitespace().collect::<Vec<_>>().join(" ");
     for f in ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y%m%d %H:%M:%S", "%Y%m%d %H%M%S", "%Y%m%d%H%M%S"] {
         if let Ok(v) = NaiveDateTime::parse_from_str(&t, f) {
@@ -201,7 +202,7 @@ pub(crate) fn parse_date_time(s: &str) -> Option<NaiveDateTime> {
         }
     }
     // 带毫秒
-    if let Some((head, _)) = t.split_once(|c| c == '.' || c == ',')
+    if let Some((head, _)) = t.split_once(['.', ','])
         && let Ok(v) = NaiveDateTime::parse_from_str(head, "%Y-%m-%d %H:%M:%S")
     {
         return Some(v);
@@ -270,9 +271,7 @@ fn row_amount(row: &[String], c: &Cols) -> Option<f64> {
         if outflow != 0.0 {
             return Some(-outflow.abs());
         }
-        if c.amount.is_none() {
-            return None;
-        }
+        c.amount?;
     }
     let v = parse_amount(get(c.amount))?;
     match is_inflow_flag(get(c.direction)) {

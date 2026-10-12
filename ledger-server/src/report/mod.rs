@@ -663,7 +663,7 @@ pub fn excel_of(title: &str, c: &ReportContent) -> AppResult<Vec<u8>> {
             Block::Kpi(_) => {}
         }
     }
-    Ok(wb.save_to_buffer().map_err(e)?)
+    wb.save_to_buffer().map_err(e)
 }
 
 fn file_name(title: &str) -> String {

@@ -127,13 +127,12 @@ impl Grid {
                 // 行：同一「去掉该字段」的前缀下，兄弟取值各是一个桶；对每个列组合分别算
                 let mut groups: HashMap<Key, HashMap<&str, &Bucket>> = HashMap::new();
                 for (p, b) in &self.buckets {
-                    if let Some(Some(x)) = p.get(t).filter(|_| p.len() > t) {
-                        if item.refs.contains(x) {
+                    if let Some(Some(x)) = p.get(t).filter(|_| p.len() > t)
+                        && item.refs.contains(x) {
                             let mut rest = p.clone();
                             rest.remove(t);
                             groups.entry(rest).or_default().insert(x.as_str(), b);
                         }
-                    }
                 }
                 let mut made: Vec<(Key, Bucket)> = Vec::new();
                 for (rest, sibs) in &groups {
@@ -158,13 +157,12 @@ impl Grid {
                     let mut groups: HashMap<Key, HashMap<&str, &Vec<Option<f64>>>> = HashMap::new();
                     for (ck, v) in &b.by_col {
                         let Some(ck) = ck else { continue };
-                        if let Some(Some(x)) = ck.get(tc) {
-                            if item.refs.contains(x) {
+                        if let Some(Some(x)) = ck.get(tc)
+                            && item.refs.contains(x) {
                                 let mut rest = ck.clone();
                                 rest.remove(tc);
                                 groups.entry(rest).or_default().insert(x.as_str(), v);
                             }
-                        }
                     }
                     for (rest, sibs) in groups {
                         let mut nck = rest;

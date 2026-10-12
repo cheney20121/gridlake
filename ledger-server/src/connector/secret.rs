@@ -19,7 +19,7 @@ fn to_hex(bytes: &[u8]) -> String {
 
 fn from_hex(s: &str) -> anyhow::Result<Vec<u8>> {
     let s = s.trim();
-    if s.len() % 2 != 0 || !s.chars().all(|c| c.is_ascii_hexdigit()) {
+    if !s.len().is_multiple_of(2) || !s.chars().all(|c| c.is_ascii_hexdigit()) {
         bail!("不是有效的十六进制字符串");
     }
     (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).map_err(Into::into)).collect()

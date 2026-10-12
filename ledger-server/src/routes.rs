@@ -161,10 +161,12 @@ pub async fn api_not_found(axum::extract::OriginalUri(uri): axum::extract::Origi
 /// 未配置时只允许本机直接访问（经过反向代理转发的请求带 X-Forwarded-For 等头，一律拒绝）
 fn require_admin(db: &AppState, headers: &axum::http::HeaderMap, peer: std::net::SocketAddr) -> AppResult<()> {
     if let Some(token) = &db.config.admin_token {
-        let given = headers.get("x-admin-token").and_then(|v| v.to_str().ok()).unwrap_or("");
+        // x-admin-token 请求头，或 Authorization: Bearer <令牌>（Prometheus 抓取指标时用后者）
+        let bearer = headers.get("authorization").and_then(|v| v.to_str().ok()).and_then(|v| v.strip_prefix("Bearer "));
+        let given = headers.get("x-admin-token").and_then(|v| v.to_str().ok()).or(bearer).map(str::trim).unwrap_or("");
         // 定长比较，避免按字节提前返回泄露令牌长度 / 前缀
         let same = given.len() == token.len() && given.bytes().zip(token.bytes()).fold(0u8, |acc, (a, b)| acc | (a ^ b)) == 0;
-        return if same { Ok(()) } else { Err(AppError::Forbidden("运维令牌无效（请求头 x-admin-token）".into())) };
+        return if same { Ok(()) } else { Err(AppError::Forbidden("运维令牌无效（请求头 x-admin-token 或 Authorization: Bearer）".into())) };
     }
     let proxied = ["x-forwarded-for", "x-real-ip", "forwarded"].iter().any(|h| headers.contains_key(*h));
     if peer.ip().is_loopback() && !proxied {
@@ -195,6 +197,40 @@ pub async fn admin_status(
     let status = blocking(&db, move |conn| Ok(crate::admin::status(conn, &st.config.db_path, &st.config.backup_dir)?)).await?;
     let last_backup = db.last_backup.lock().ok().and_then(|l| l.clone());
     Ok(ok(AdminStatus { status, uptime_sec: db.started.elapsed().as_secs(), config: db.config.summary(), last_backup }))
+}
+
+/// GET /api/admin/metrics  Prometheus 文本格式的运行指标（见 metrics.rs）
+pub async fn admin_metrics(
+    State(db): State<AppState>,
+    axum::extract::ConnectInfo(peer): axum::extract::ConnectInfo<std::net::SocketAddr>,
+    headers: axum::http::HeaderMap,
+) -> AppResult<axum::response::Response> {
+    use axum::response::IntoResponse;
+    require_admin(&db, &headers, peer)?;
+    let size = |p: &std::path::Path| std::fs::metadata(p).map_or(0, |m| m.len());
+    let mut wal = db.config.db_path.clone().into_os_string();
+    wal.push(".wal");
+    let heavy = db.heavy.status();
+    let backup = db.last_backup.lock().ok().and_then(|l| l.clone()).map(|b| {
+        let age = chrono::NaiveDateTime::parse_from_str(&b.at, "%Y-%m-%d %H:%M:%S")
+            .ok()
+            .and_then(|t| t.and_local_timezone(chrono::Local).single())
+            .map_or(0, |t| (chrono::Local::now() - t).num_seconds());
+        (b.error.is_none(), age, b.size)
+    });
+    let snap = crate::metrics::Snapshot {
+        version: crate::admin::VERSION,
+        uptime_secs: db.started.elapsed().as_secs(),
+        active_queries: db.active_queries.load(std::sync::atomic::Ordering::SeqCst),
+        heavy_limit: heavy.limit,
+        heavy_running: heavy.running,
+        heavy_waiting: heavy.waiting,
+        db_bytes: size(&db.config.db_path),
+        wal_bytes: size(std::path::Path::new(&wal)),
+        backup,
+    };
+    let body = crate::metrics::render(&crate::metrics::METRICS, &snap);
+    Ok(([(axum::http::header::CONTENT_TYPE, "text/plain; version=0.0.4; charset=utf-8")], body).into_response())
 }
 
 /// POST /api/admin/backup  立即备份（与导入等写操作串行）
@@ -1523,7 +1559,7 @@ pub async fn ai_threads(State(db): State<AppState>, Extension(user): Extension<C
 /// POST /api/ledger/ai/threads  { workbookId, operator? }  新会话
 pub async fn ai_create_thread(State(db): State<AppState>, Extension(user): Extension<CurrentUser>, body: axum::body::Bytes) -> AppResult<Json<Envelope<crate::ai::Thread>>> {
     let mut input: crate::ai::NewThread = parse_json(&body)?;
-    input.owner_id = Some(user.id).filter(|_| user.enforced);
+    input.owner_id = user.enforced.then_some(user.id);
     Ok(ok(blocking(&db, move |conn| crate::ai::create_thread(conn, input)).await?))
 }
 
@@ -1722,7 +1758,8 @@ fn mcp_json(status: axum::http::StatusCode, body: serde_json::Value) -> axum::re
     (status, [(axum::http::header::CONTENT_TYPE, "application/json")], body.to_string()).into_response()
 }
 
-/// GET / DELETE /api/mcp：本服务不提供服务端推送流，也不维护会话
+/// GET /api/mcp  405：本服务不提供服务端推送流（Streamable HTTP 的可选部分）
+/// DELETE /api/mcp  405：本服务不维护会话
 pub async fn mcp_get() -> axum::response::Response {
     use axum::response::IntoResponse;
     (axum::http::StatusCode::METHOD_NOT_ALLOWED, [(axum::http::header::ALLOW, "POST")], "").into_response()

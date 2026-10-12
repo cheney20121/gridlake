@@ -60,7 +60,7 @@ Build from source: Rust 1.85+, Node 20+ with pnpm, a C++ compiler (DuckDB is bun
 
 ```bash
 cd ledger-server && cargo run                 # backend on http://127.0.0.1:8787
-cd demo-web-vue3 && pnpm install && pnpm dev  # frontend on http://localhost:5173/excel/home
+cd web && pnpm install && pnpm dev  # frontend on http://localhost:5173/excel/home
 ```
 
 ## Security defaults

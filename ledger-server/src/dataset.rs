@@ -435,12 +435,11 @@ pub fn derived_views<'a>(defs: &'a [DatasetDef], id: &str) -> Vec<&'a DatasetDef
     let mut ids = vec![id.to_string()];
     let mut out = Vec::new();
     for d in defs {
-        if let Some(v) = &d.view {
-            if ids.contains(&v.left) || ids.contains(&v.right) {
+        if let Some(v) = &d.view
+            && (ids.contains(&v.left) || ids.contains(&v.right)) {
                 ids.push(d.id.clone());
                 out.push(d);
             }
-        }
     }
     out
 }

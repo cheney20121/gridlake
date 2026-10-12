@@ -150,6 +150,8 @@ pub struct DatasetStatus {
 #[serde(rename_all = "camelCase")]
 pub struct Status {
     pub version: &'static str,
+    /// 数据文件的结构版本（见 schema::SCHEMA_VERSION）
+    pub schema_version: i64,
     pub db_file: String,
     pub db_size: u64,
     pub wal_size: u64,
@@ -180,6 +182,7 @@ pub fn status(conn: &Connection, db_path: &Path, backup_dir: &Path) -> anyhow::R
     let workbooks = conn.query_row("SELECT count(*) FROM ledger_workbook WHERE deleted_at IS NULL", [], |r| r.get(0)).unwrap_or(0);
     Ok(Status {
         version: VERSION,
+        schema_version: conn.query_row("SELECT value FROM ledger_meta WHERE key = 'schema_version'", [], |r| r.get::<_, String>(0)).ok().and_then(|v| v.parse().ok()).unwrap_or(0),
         db_file: db_path.display().to_string(),
         db_size: file_size(db_path),
         wal_size: file_size(&PathBuf::from(format!("{}.wal", db_path.display()))),

@@ -24,6 +24,8 @@ jobs:
         run: scripts/check-forbidden.sh
       - name: 版本号一致性（后端与前端）
         run: scripts/check-version.sh
+      - name: 接口文档是最新的（docs/api.md 由源码生成）
+        run: python3 -I scripts/gen-api-docs.py --check
 
   licenses:
     name: 第三方许可证检查
@@ -38,9 +40,9 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-          cache-dependency-path: demo-web-vue3/pnpm-lock.yaml
+          cache-dependency-path: web/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
-        working-directory: demo-web-vue3
+        working-directory: web
       - name: 依赖的许可证都在允许清单里（后端 + 前端）
         run: python3 -I scripts/gen-third-party.py --check
       - uses: EmbarkStudios/cargo-deny-action@v2
@@ -57,20 +59,42 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: ledger-server
+      - name: Clippy（警告视为错误）
+        run: cargo clippy --all-targets --locked -- -D warnings
       - name: 单元测试
         run: cargo test --locked
       - name: 端到端测试
         run: tests/e2e/run.sh
+
+  backend-macos:
+    name: 后端（macOS 单元测试）
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: ledger-server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ledger-server
+      - name: 单元测试
+        # macOS 上编译内置的 DuckDB 需要显式指定 C++ 标准库头文件目录
+        run: |
+          export CXXFLAGS="-isystem $(xcrun --show-sdk-path)/usr/include/c++/v1"
+          cargo test --locked
 
   frontend:
     name: 前端（检查 + 单元 + 构建）
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: demo-web-vue3
+        working-directory: web
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -80,7 +104,7 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-          cache-dependency-path: demo-web-vue3/pnpm-lock.yaml
+          cache-dependency-path: web/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - name: ESLint
         run: pnpm lint
@@ -111,12 +135,12 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-          cache-dependency-path: demo-web-vue3/pnpm-lock.yaml
+          cache-dependency-path: web/pnpm-lock.yaml
       - name: 安装前端依赖
-        working-directory: demo-web-vue3
+        working-directory: web
         run: pnpm install --frozen-lockfile
       - name: 界面测试
-        working-directory: demo-web-vue3
+        working-directory: web
         env:
           LEDGER_BIN: ../ledger-server/target/debug/ledger-server
           CHROME_BIN: /usr/bin/google-chrome
@@ -126,4 +150,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ui-screenshots
-          path: demo-web-vue3/tests/ui/.artifacts/
+          path: web/tests/ui/.artifacts/

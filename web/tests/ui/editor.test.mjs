@@ -7,7 +7,7 @@ import path from 'node:path'
 import { after, before, describe, it } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { findChrome, launchChrome } from './cdp.mjs'
-import { api, llm, startServices, TOKEN, WEB } from './infra.mjs'
+import { api, API, llm, startServices, TOKEN, WEB } from './infra.mjs'
 
 const ARTIFACTS = path.join(path.dirname(fileURLToPath(import.meta.url)), '.artifacts')
 const COOKIE = 'webexcel-token'
@@ -154,7 +154,7 @@ describe('在线表格编辑器（界面）', { skip }, () => {
       const after = await api.workbookMeta(TOKEN.alice, wb.alice)
       assert.equal(after.version, before + 1)
       assert.equal(after.updatedBy, 'Alice')
-      const r = await fetch(`http://127.0.0.1:18901/api/ledger/workbooks/${wb.alice}/content`, { headers: { 'x-user-token': TOKEN.alice } })
+      const r = await fetch(`${API}/ledger/workbooks/${wb.alice}/content`, { headers: { 'x-user-token': TOKEN.alice } })
       assert.match(JSON.stringify(await r.json()), /界面测试写入/)
     })
   })

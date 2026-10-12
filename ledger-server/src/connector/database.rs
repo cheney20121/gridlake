@@ -234,11 +234,10 @@ pub async fn test(src: &DbSource, password: &str) -> AppResult<TestResult> {
             (format!("PostgreSQL {v}"), cols)
         }
     };
-    if let Some(col) = src.incremental_column.as_deref().filter(|c| !c.trim().is_empty()) {
-        if !columns.is_empty() && !columns.iter().any(|c| c == col.trim()) {
+    if let Some(col) = src.incremental_column.as_deref().filter(|c| !c.trim().is_empty())
+        && !columns.is_empty() && !columns.iter().any(|c| c == col.trim()) {
             return Err(AppError::bad(format!("查询结果中没有增量列「{}」（可用的列：{}）", col.trim(), columns.join("、"))));
         }
-    }
     Ok(TestResult { server_version, columns })
 }
 

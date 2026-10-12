@@ -47,7 +47,7 @@
 | 3 | README 加截图或 GIF、在线 Demo（带示例数据集一键体验）、英文简介 | README 无任何图 | S | ✅ 截图、`seed-demo.py`、英文 README；在线 Demo 需自行部署 |
 | 4 | **权限从黑名单改白名单。** `auth.rs` 的 `FULL_ONLY` 是“受限用户不能调用的接口”清单，新增路由默认对受限用户开放，容易漏。改成默认拒绝，或加测试断言每条路由都已分类 | `ledger-server/src/auth.rs` 的 `FULL_ONLY` | M | ✅ `RESTRICTED_OK` 白名单 + 分类测试 |
 | 5 | **安全默认值：** `AUTH_MODE=off` 同时监听 `0.0.0.0` 时启动即警告或拒绝；`LEDGER_CORS=*` 用了 `very_permissive`，加警告 | `config.rs`、`main.rs` | S | ✅ 拒绝启动 + 警告，`LEDGER_ALLOW_NO_AUTH` |
-| 6 | **登录令牌放在 JS 可读的 cookie 里**（用于 WebSocket 和下载链接）。改为服务端下发 HttpOnly cookie，并补 CSRF 防护；登录失败锁定目前存在内存里，重启清零，可持久化 | `demo-web-vue3/src/utils/auth.ts`、`account.rs` | M | ✅ HttpOnly cookie + `x-requested-with` + 失败计数入库 |
+| 6 | **登录令牌放在 JS 可读的 cookie 里**（用于 WebSocket 和下载链接）。改为服务端下发 HttpOnly cookie，并补 CSRF 防护；登录失败锁定目前存在内存里，重启清零，可持久化 | `web/src/utils/auth.ts`、`account.rs` | M | ✅ HttpOnly cookie + `x-requested-with` + 失败计数入库 |
 | 7 | 开源合规：用 cargo-deny / license-checker 生成第三方许可证清单和 NOTICE，查“WebExcel”重名与商标，复查 `templates/*.json` 里的业务示例数据是否脱敏 | 仓库内无 NOTICE | S | ✅ NOTICE / 许可证清单 / CI 检查；重名见下 |
 
 **P0 落地后的遗留事项（需要人工决定 / 操作）：**
@@ -65,7 +65,7 @@
 | 9 | 国际化：前端接 vue-i18n，后端错误返回错误码加参数，至少补英文 | 目前后端报错直接写中文字符串 | L |
 | 10 | 建 `docs/`：架构说明、平台函数手册（`DSUMIFS` 等）、Excel 公式兼容矩阵、REST API 参考（OpenAPI）、配置项参考；部署手册文件名改英文 | 现在配置只在 `deploy/` 手册里 | M |
 | 11 | CI 增强：`cargo fmt` / `clippy -D warnings`、`cargo audit`、`pnpm audit`、Dependabot / Renovate、macOS / Linux 矩阵、覆盖率徽章 | 当前 CI 只有测试和构建 | S |
-| 12 | 代码拆分：`routes.rs`（2030 行）、`ai/tools.rs`（1836）、`views/excel/index.vue`（934）；目录 `demo-web-vue3` 改名为 `web`，去掉 “demo” 字样 | 降低贡献门槛 | M |
+| 12 | 代码拆分：`routes.rs`（2030 行）、`ai/tools.rs`（1836）、`views/excel/index.vue`（934）；目录 `demo-web-vue3` 已改名为 `web`（拆分尚未做） | 降低贡献门槛 | M |
 | 13 | 评估 452 处 `unwrap/expect`（含测试代码）：生产路径换成错误传播，或加 `#![deny(clippy::unwrap_used)]` | 只统计了总数，未区分生产和测试 | M |
 | 14 | Linux 长时间运行验证（soak test）：把 `tests/bench` 的亿级压测做成 nightly CI，建立性能回归基线 | README 自述“没在 Linux 生产长期运行过” | M |
 | 15 | 数据文件升级 / 回滚策略：schema 版本号、迁移说明、备份校验、一键恢复界面 | 升级章节只有手册里的几行 | M |

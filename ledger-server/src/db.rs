@@ -120,8 +120,14 @@ impl Db {
             conn.execute_batch(&format!("SET GLOBAL threads = {n}"))?;
         }
 
+        // 先看数据文件是不是比本程序更新的版本写的（是就拒绝，不做任何改动），再建表 / 升级 / 记录版本
+        let from = schema::check_version(&conn)?;
         conn.execute_batch(&schema::create_tables_sql())?;
         conn.execute_batch(&schema::migrate_sql())?;
+        schema::stamp_version(&conn, crate::admin::VERSION)?;
+        if from < schema::SCHEMA_VERSION {
+            tracing::info!("数据文件结构已升级：版本 {from} → {}", schema::SCHEMA_VERSION);
+        }
         // 查询游标的位置表放在单独的临时库：不让主库文件膨胀、不进备份；进程重启后全部作废
         // （旧版本放在主库的 cursors schema 里，这里一并清掉）
         conn.execute_batch("DROP SCHEMA IF EXISTS cursors CASCADE")?;

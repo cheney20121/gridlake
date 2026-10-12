@@ -16,22 +16,22 @@
 git config core.hooksPath .githooks      # 提交前自动做敏感内容检查（私钥、内网地址、非官方 npm 源）
 
 cd ledger-server && cargo run            # 后端 http://127.0.0.1:8787
-cd demo-web-vue3 && pnpm install && pnpm dev   # 前端 http://localhost:5173/excel/home
+cd web && pnpm install && pnpm dev   # 前端 http://localhost:5173/excel/home
 ```
 
 ## 提交前请跑通
 
-CI 会跑下面这些（clippy 暂作建议），本地先过一遍能少来回：
+CI 会跑下面这些，本地先过一遍能少来回：
 
 ```bash
 # 后端
 cd ledger-server
-cargo clippy --all-targets --locked       # 建议
+cargo clippy --all-targets --locked -- -D warnings   # 警告视为错误
 cargo test --locked                       # 单元测试
 tests/e2e/run.sh                          # 端到端测试（tests/e2e/run.sh 30 只跑文件名含 30 的）
 
 # 前端
-cd demo-web-vue3
+cd web
 pnpm lint
 pnpm exec vue-tsc --noEmit -p tsconfig.app.json
 pnpm test:unit
@@ -41,13 +41,16 @@ pnpm test:ui                              # 界面测试，需要本机 Chrome
 scripts/check-forbidden.sh
 scripts/check-version.sh                  # 后端与前端版本号一致
 python3 -I scripts/gen-third-party.py --check   # 依赖的许可证；依赖变了要重新生成 THIRD_PARTY_LICENSES.md
+python3 -I scripts/gen-api-docs.py --check      # 新增 / 修改接口后运行 scripts/gen-api-docs.py 重新生成 docs/api.md
 ```
 
 ## 代码约定
 
+- 后端没有统一用 rustfmt 格式化（现有代码行宽较长，全量格式化会产生巨大的无关改动），所以 CI 不检查 `cargo fmt`；新代码请跟随周围的风格。
+
 - 跟随周围代码的风格、命名和注释密度；注释和界面文字目前用中文。
 - 改行为就补测试：后端逻辑放 `cargo test`，接口行为放 `tests/e2e/test_NN_*.py`，前端纯函数放 `tests/unit/`。
-- **新增 HTTP 接口**：必须想清楚「数据范围受限的用户」能不能调用它，并在 `ledger-server/src/auth.rs` 里登记：确认读写都经过数据范围过滤的放进 `RESTRICTED_OK`，会绕过过滤的放进 `FULL_ONLY`。受限用户**默认调不了**未登记的接口，`routes_are_all_classified` 测试也会在漏登记时失败。
+- **新增 HTTP 接口**：在处理函数上方写 `/// METHOD /api/路径  说明`（接口文档由它生成，缺了脚本会报错）；还必须想清楚「数据范围受限的用户」能不能调用它，并在 `ledger-server/src/auth.rs` 里登记：确认读写都经过数据范围过滤的放进 `RESTRICTED_OK`，会绕过过滤的放进 `FULL_ONLY`。受限用户**默认调不了**未登记的接口，`routes_are_all_classified` 测试也会在漏登记时失败。
 - 涉及 SQL 拼接一律走 `schema::ident` / `schema::literal` 或参数绑定，不要直接拼用户输入。
 - 不要提交：数据库文件、`secret.key`、`.env.local`、真实客户数据、公司内部域名或账号。示例数据请用合成数据。
 

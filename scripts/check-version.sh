@@ -7,10 +7,10 @@ set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
 server="$(grep -m1 '^version' ledger-server/Cargo.toml | sed -E 's/.*"(.*)".*/\1/')"
-web="$(grep -m1 '"version"' demo-web-vue3/package.json | sed -E 's/.*"version": *"([^"]*)".*/\1/')"
+web="$(grep -m1 '"version"' web/package.json | sed -E 's/.*"version": *"([^"]*)".*/\1/')"
 
 echo "ledger-server/Cargo.toml     $server"
-echo "demo-web-vue3/package.json   $web"
+echo "web/package.json   $web"
 
 fail=0
 if [ "$server" != "$web" ]; then

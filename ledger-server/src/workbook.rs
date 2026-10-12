@@ -556,11 +556,10 @@ fn check_folder(all: &[Folder], self_id: Option<&str>, name: &str, parent: Optio
         if !all.iter().any(|f| f.id == p) {
             return Err(AppError::bad("上级文件夹不存在或已删除"));
         }
-        if let Some(me) = self_id {
-            if ancestors(all, p).iter().any(|a| a == me) {
+        if let Some(me) = self_id
+            && ancestors(all, p).iter().any(|a| a == me) {
                 return Err(AppError::bad("不能把文件夹移到它自己或它的子文件夹里"));
             }
-        }
     }
     let depth = parent.map(|p| ancestors(all, p).len()).unwrap_or(0) + self_id.map(|me| subtree_height(all, me)).unwrap_or(1);
     if depth > MAX_FOLDER_DEPTH {

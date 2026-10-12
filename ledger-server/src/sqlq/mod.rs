@@ -588,8 +588,8 @@ pub fn save(state: &AppState, conn: &Connection, id: Option<&str>, input: QueryI
         }
     };
     let q = one(conn, &id)?;
-    if q.dataset_id.is_some() || input.save_as_dataset.as_deref().is_some_and(|s| !s.trim().is_empty()) {
-        if let Err(e) = refresh_now(state, conn, &id, input.save_as_dataset.as_deref()) {
+    if (q.dataset_id.is_some() || input.save_as_dataset.as_deref().is_some_and(|s| !s.trim().is_empty()))
+        && let Err(e) = refresh_now(state, conn, &id, input.save_as_dataset.as_deref()) {
             // 写入数据集失败：修改的查询恢复原样（保持查询与数据集一致），新建的查询删除
             match previous {
                 Some(p) => {
@@ -604,7 +604,6 @@ pub fn save(state: &AppState, conn: &Connection, id: Option<&str>, input: QueryI
             }
             return Err(e);
         }
-    }
     one(conn, &id)
 }
 

@@ -397,7 +397,7 @@ pub fn detail(conn: &Connection, id: &str) -> AppResult<ThreadDetail> {
     let interrupted = !is_running(id) && is_interrupted(&stored);
     // 分隔线放在摘要覆盖的最后一条「界面上看得到」的消息后面
     let summarized_until = if summary.is_some() {
-        stored.iter().filter(|m| m.seq <= summary_seq && (m.role == "user" || m.role == "tool" || m.content.as_deref().is_some_and(|c| !c.trim().is_empty()))).last().map(|m| m.id.clone())
+        stored.iter().rfind(|m| m.seq <= summary_seq && (m.role == "user" || m.role == "tool" || m.content.as_deref().is_some_and(|c| !c.trim().is_empty()))).map(|m| m.id.clone())
     } else {
         None
     };

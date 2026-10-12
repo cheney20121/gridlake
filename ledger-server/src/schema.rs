@@ -83,6 +83,40 @@ pub fn search_text_sql() -> String {
     format!("lower(concat_ws(' ', {}))", SEARCH_COLUMNS.iter().map(|c| ident(c)).collect::<Vec<_>>().join(", "))
 }
 
+// ── 数据文件的结构版本 ────────────────────────────────
+
+/// 数据文件的结构版本。**规则**：
+/// - 只增加表 / 列（`CREATE TABLE IF NOT EXISTS`、`ADD COLUMN IF NOT EXISTS`）不用改它，升级是可重复执行的；
+/// - 一旦做了旧版本程序无法兼容的改动（改列含义、搬数据、删表 / 列），把它加 1，并在 CHANGELOG 里写明；
+/// - 新版程序写过的数据文件，旧版程序拒绝打开（见 `check_version`），避免旧版悄悄读写出错。回退要用升级前的备份
+pub const SCHEMA_VERSION: i64 = 1;
+
+const META_SQL: &str = "CREATE TABLE IF NOT EXISTS ledger_meta (key VARCHAR PRIMARY KEY, value VARCHAR NOT NULL);";
+
+/// 建好元信息表，读出数据文件当前的结构版本；比程序认识的更新时返回错误。没有记录（旧版数据文件）按 0 算
+pub fn check_version(conn: &duckdb::Connection) -> anyhow::Result<i64> {
+    conn.execute_batch(META_SQL)?;
+    let stored: Option<String> = conn.query_row("SELECT value FROM ledger_meta WHERE key = 'schema_version'", [], |r| r.get(0)).ok();
+    let v = stored.and_then(|s| s.trim().parse::<i64>().ok()).unwrap_or(0);
+    if v > SCHEMA_VERSION {
+        let by: String = conn.query_row("SELECT value FROM ledger_meta WHERE key = 'app_version'", [], |r| r.get(0)).unwrap_or_else(|_| "未知".into());
+        anyhow::bail!(
+            "数据文件的结构版本（{v}，由程序 {by} 写入）比当前程序（{SCHEMA_VERSION}）更新，旧版本不能打开它。\n\
+             请升级到新版本；如果要回退到旧版本，请用升级前的备份恢复（ledger-server restore <备份文件>），不要直接用新版写过的数据文件"
+        );
+    }
+    Ok(v)
+}
+
+/// 升级完成后记下结构版本与最近一次打开它的程序版本
+pub fn stamp_version(conn: &duckdb::Connection, app_version: &str) -> anyhow::Result<()> {
+    conn.execute_batch(META_SQL)?;
+    for (k, v) in [("schema_version", SCHEMA_VERSION.to_string()), ("app_version", app_version.to_string())] {
+        conn.execute("INSERT INTO ledger_meta (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value", duckdb::params![k, v])?;
+    }
+    Ok(())
+}
+
 /// 已有库的增量升级（建表语句之后执行，可重复执行）
 pub fn migrate_sql() -> String {
     format!(
@@ -633,4 +667,66 @@ CREATE TABLE IF NOT EXISTS ledger_close_log (
 );
 "#
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use duckdb::Connection;
+
+    use super::*;
+
+    fn set_schema_version(conn: &Connection, v: i64) {
+        conn.execute("INSERT INTO ledger_meta (key, value) VALUES ('schema_version', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value", [v.to_string()]).unwrap();
+    }
+
+    #[test]
+    fn legacy_file_is_version_zero_then_stamped() {
+        let conn = Connection::open_in_memory().unwrap();
+        assert_eq!(check_version(&conn).unwrap(), 0, "没有记录的旧数据文件按 0 算");
+        stamp_version(&conn, "0.1.0").unwrap();
+        assert_eq!(check_version(&conn).unwrap(), SCHEMA_VERSION);
+        // 重复记录不报错，更新程序版本
+        stamp_version(&conn, "0.2.0").unwrap();
+        let by: String = conn.query_row("SELECT value FROM ledger_meta WHERE key = 'app_version'", [], |r| r.get(0)).unwrap();
+        assert_eq!(by, "0.2.0");
+    }
+
+    #[test]
+    fn refuses_data_file_written_by_a_newer_version() {
+        let conn = Connection::open_in_memory().unwrap();
+        stamp_version(&conn, "9.9.9").unwrap();
+        set_schema_version(&conn, SCHEMA_VERSION + 1);
+        let err = check_version(&conn).unwrap_err().to_string();
+        assert!(err.contains("更新") && err.contains("9.9.9") && err.contains("restore"), "{err}");
+        // 旧版本的数据文件（更小的版本号）正常通过
+        set_schema_version(&conn, 0);
+        assert_eq!(check_version(&conn).unwrap(), 0);
+    }
+
+    /// 整条启动路径：新建 → 记录版本；被改成更新的版本后，再次打开被拒绝，并且不改动数据文件
+    #[test]
+    fn opening_a_newer_data_file_is_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = crate::config::Config::from_env().unwrap();
+        config.db_path = dir.path().join("data/ledger.duckdb");
+        config.inbox_roots = vec![dir.path().join("inbox")];
+        crate::db::Db::open(&config).map(drop).unwrap(); // 第一次打开应成功
+        {
+            let conn = crate::db::open_file(&config.db_path).unwrap();
+            assert_eq!(check_version(&conn).unwrap(), SCHEMA_VERSION, "新建的数据文件已记录当前结构版本");
+            set_schema_version(&conn, SCHEMA_VERSION + 5);
+            conn.execute_batch("CHECKPOINT").unwrap();
+        }
+        let err = crate::db::Db::open(&config).err().expect("应拒绝打开").to_string();
+        assert!(err.contains("更新") && err.contains("restore"), "{err}");
+    }
+
+    #[test]
+    fn upgrade_is_repeatable() {
+        let conn = Connection::open_in_memory().unwrap();
+        for _ in 0..2 {
+            conn.execute_batch(&create_tables_sql()).unwrap();
+            conn.execute_batch(&migrate_sql()).unwrap();
+        }
+    }
 }

@@ -1,0 +1,37 @@
+name: 依赖安全审计
+
+# 每周一次，也可以手动触发。依赖库新公布的漏洞不该让无关的 PR 变红，所以不放进 ci.yml
+on:
+  schedule:
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  rust:
+    name: Rust 依赖（RustSec）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          working-directory: ledger-server
+
+  web:
+    name: 前端依赖（pnpm audit）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: 生产依赖里的已知漏洞（高危及以上）
+        working-directory: demo-web-vue3
+        run: pnpm audit --prod --audit-level high

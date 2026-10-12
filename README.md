@@ -82,7 +82,7 @@ scripts/seed-demo.py --url http://localhost:8787 --token "$TOKEN" --rows 2000000
 cd ledger-server && cargo run
 
 # 前端（另开一个终端，http://localhost:5173/excel/home）
-cd demo-web-vue3 && pnpm install && pnpm dev
+cd web && pnpm install && pnpm dev
 ```
 
 macOS 上如果编译 DuckDB 报 `'memory' file not found`，加上：`export CXXFLAGS="-isystem $(xcrun --show-sdk-path)/usr/include/c++/v1"`。
@@ -105,18 +105,18 @@ macOS 上如果编译 DuckDB 报 `'memory' file not found`，加上：`export CX
 | 目录 | 内容 |
 |---|---|
 | `ledger-server/` | 后端：Rust + axum + DuckDB（数据集、透视、公式下推、SQL、AI、协作、权限、审批） |
-| `demo-web-vue3/` | 前端：Vue 3 + Univer + Element Plus |
+| `web/` | 前端：Vue 3 + Univer + Element Plus |
 | `deploy/` | Dockerfile、docker-compose、安装脚本、部署手册 |
 | `scripts/` | 敏感内容检查、示例数据导入（`seed-demo.py`）、版本 / 许可证检查 |
-| `docs/` | 文档与截图（路线图见 [ROADMAP.md](ROADMAP.md)） |
+| `docs/` | [架构](docs/architecture.md)、[公式与 Excel 兼容](docs/formulas.md)、[REST 接口](docs/api.md)（路线图见 [ROADMAP.md](ROADMAP.md)） |
 
 ## 测试
 
 ```bash
 cd ledger-server && cargo test                       # 后端单元测试
 cd ledger-server && tests/e2e/run.sh                 # 后端端到端测试（每个文件起一个临时库的服务）
-cd demo-web-vue3 && pnpm test:unit                   # 前端单元测试
-cd demo-web-vue3 && pnpm test:ui                     # 界面测试（需要本机 Chrome）
+cd web && pnpm test:unit                   # 前端单元测试
+cd web && pnpm test:ui                     # 界面测试（需要本机 Chrome）
 scripts/check-forbidden.sh                           # 敏感内容检查：私钥、内网地址、非官方 npm 源
 scripts/check-version.sh                             # 后端与前端版本号一致
 python3 -I scripts/gen-third-party.py --check        # 依赖的许可证都在允许清单里

@@ -127,7 +127,7 @@ fn cache_key(base: &reqwest::Url, app_key: &str, shop_id: &str) -> String {
 
 async fn access_token(client: &reqwest::Client, base: &reqwest::Url, app_key: &str, app_secret: &str, shop_id: &str) -> AppResult<String> {
     let key = cache_key(base, app_key, shop_id);
-    if let Some(t) = TOKENS.lock().expect("token cache").get(&key).filter(|t| t.expires > Instant::now()) {
+    if let Some(t) = TOKENS.lock().unwrap_or_else(|e| e.into_inner()).get(&key).filter(|t| t.expires > Instant::now()) {
         return Ok(t.value.clone());
     }
     let param = canonical(&serde_json::json!({ "code": "", "grant_type": "authorization_self", "shop_id": shop_id }));
@@ -136,7 +136,7 @@ async fn access_token(client: &reqwest::Client, base: &reqwest::Url, app_key: &s
     let value = data.and_then(|d| d.get("access_token")).and_then(Json::as_str).filter(|t| !t.is_empty()).ok_or_else(|| AppError::bad("获取抖店访问令牌失败：响应里没有 access_token"))?.to_string();
     let secs = data.and_then(|d| d.get("expires_in")).and_then(Json::as_u64).unwrap_or(3600);
     let expires = Instant::now() + Duration::from_secs(secs).saturating_sub(EARLY);
-    TOKENS.lock().expect("token cache").insert(key, Token { value: value.clone(), expires });
+    TOKENS.lock().unwrap_or_else(|e| e.into_inner()).insert(key, Token { value: value.clone(), expires });
     Ok(value)
 }
 
@@ -150,7 +150,7 @@ pub async fn fetch(client: &reqwest::Client, url: &str, body: &str, app_key: &st
     let token = access_token(client, &base, app_key, app_secret, shop_id).await?;
     match call(client, &base, &method, &param_json, app_key, app_secret, Some(&token)).await {
         Err(e) if e.message().to_lowercase().contains("token") => {
-            TOKENS.lock().expect("token cache").remove(&cache_key(&base, app_key, shop_id));
+            TOKENS.lock().unwrap_or_else(|e| e.into_inner()).remove(&cache_key(&base, app_key, shop_id));
             let token = access_token(client, &base, app_key, app_secret, shop_id).await?;
             call(client, &base, &method, &param_json, app_key, app_secret, Some(&token)).await
         }

@@ -11,6 +11,11 @@
 //! LEDGER_BACKUP_AT / LEDGER_BACKUP_KEEP / LEDGER_BACKUP_DIR / LEDGER_CORS / LEDGER_ADMIN_TOKEN / LEDGER_MAX_UPLOAD_MB /
 //! LEDGER_AUTH_MODE / LEDGER_AUTH_URL / LEDGER_ADMINS / LEDGER_AUDIT_DAYS / RUST_LOG）
 
+// 项目有意保留的写法：接口处理函数 / 查询构造函数参数多，行级结果和 SQL 片段的元组类型复杂，from_xxx 是实例方法
+#![allow(clippy::too_many_arguments, clippy::type_complexity, clippy::wrong_self_convention)]
+// 生产代码不用 unwrap()（出错该返回错误，而不是让线程 panic）；expect("…") 只用于写明了理由的不变量。测试里随意
+#![cfg_attr(not(test), deny(clippy::unwrap_used))]
+
 mod admin;
 mod ai;
 mod aggregate;
@@ -37,6 +42,7 @@ mod error;
 mod import;
 mod import_source;
 mod mcp;
+mod metrics;
 mod pivot;
 mod pivot_calc;
 mod query;
@@ -78,12 +84,13 @@ const USAGE: &str = "用法：
   ledger-server version               显示版本";
 
 fn main() -> anyhow::Result<()> {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "ledger_server=info,tower_http=info".into()),
-        )
-        .init();
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "ledger_server=info,tower_http=info".into());
+    // LEDGER_LOG_FORMAT=json：每行一个 JSON，便于日志系统采集
+    if std::env::var("LEDGER_LOG_FORMAT").is_ok_and(|v| v.trim().eq_ignore_ascii_case("json")) {
+        tracing_subscriber::fmt().json().with_env_filter(filter).init();
+    } else {
+        tracing_subscriber::fmt().with_env_filter(filter).init();
+    }
 
     let args: Vec<String> = std::env::args().skip(1).collect();
     let cmd = args.first().map(String::as_str).unwrap_or("serve");
@@ -304,6 +311,7 @@ async fn serve(config: config::Config) -> anyhow::Result<()> {
         .route("/ledger/workbooks/{id}/share", put(routes::share_workbook))
         .route("/health", get(routes::health))
         .route("/admin/status", get(routes::admin_status))
+        .route("/admin/metrics", get(routes::admin_metrics))
         .route("/admin/backup", post(routes::admin_backup))
         .fallback(routes::api_not_found)
         .layer(axum::middleware::from_fn_with_state(state.clone(), auth::guard));
@@ -319,6 +327,7 @@ async fn serve(config: config::Config) -> anyhow::Result<()> {
         .and(NotForContentType::new("application/vnd.openxmlformats"))
         .and(NotForContentType::new("application/octet-stream"));
     let app = app
+        .layer(axum::middleware::from_fn(metrics::track))
         .layer(CompressionLayer::new().quality(CompressionLevel::Fastest).compress_when(compress))
         .layer(TraceLayer::new_for_http())
         .layer(tower::util::option_layer(cors_layer(config.cors.as_deref())))

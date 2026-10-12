@@ -2,7 +2,7 @@
 //!
 //! 所有来源先落成表格文件，再走数据集导入管线（类型识别、数值清洗、主键去重 / 覆盖），口径与手工导入一致。
 //! 取数阶段不加锁；写入阶段与其他导入串行（import_lock），单个文件 / 单次查询在一个事务里写入，失败不留半截数据，
-//! 增量位置只在写入成功后推进。设计见 demo-web-vue3/docs/connectors-design.md
+//! 增量位置只在写入成功后推进。设计见 web/docs/connectors-design.md
 
 mod clickhouse;
 pub mod database;

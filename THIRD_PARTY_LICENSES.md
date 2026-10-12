@@ -9,7 +9,7 @@ WebExcel 本身以 [Apache-2.0](LICENSE) 发布，并使用了下列开源软件
 
 本文件由 `scripts/gen-third-party.py` 生成，依赖变化后请重新生成。
 
-## 后端（Rust crates）（363 个）
+## 后端（Rust crates）（364 个）
 
 | 名称 | 版本 | 许可证 |
 |---|---|---|
@@ -290,6 +290,7 @@ WebExcel 本身以 [Apache-2.0](LICENSE) 发布，并使用了下列开源软件
 | tracing-attributes | 0.1.31 | MIT |
 | tracing-core | 0.1.36 | MIT |
 | tracing-log | 0.2.0 | MIT |
+| tracing-serde | 0.2.0 | MIT |
 | tracing-subscriber | 0.3.23 | MIT |
 | try-lock | 0.2.5 | MIT |
 | typed-path | 0.12.3 | MIT OR Apache-2.0 |
@@ -377,14 +378,14 @@ WebExcel 本身以 [Apache-2.0](LICENSE) 发布，并使用了下列开源软件
 | zmij | 1.0.23 | MIT |
 | zopfli | 0.8.3 | Apache-2.0 |
 
-## 前端（npm 生产依赖）（339 个）
+## 前端（npm 生产依赖）（342 个）
 
 | 名称 | 版本 | 许可证 |
 |---|---|---|
-| @babel/helper-string-parser | 7.27.1 | MIT |
-| @babel/helper-validator-identifier | 7.28.5 | MIT |
-| @babel/parser | 7.28.6 | MIT |
-| @babel/types | 7.28.6 | MIT |
+| @babel/helper-string-parser | 7.29.7 | MIT |
+| @babel/helper-validator-identifier | 7.29.7 | MIT |
+| @babel/parser | 7.29.9 | MIT |
+| @babel/types | 7.29.8 | MIT |
 | @ctrl/tinycolor | 3.6.1 | MIT |
 | @element-plus/icons-vue | 2.3.2 | MIT |
 | @fast-csv/format | 4.3.5 | MIT |
@@ -505,19 +506,19 @@ WebExcel 本身以 [Apache-2.0](LICENSE) 发布，并使用了下列开源软件
 | @unocss/reset | 66.5.12 | MIT |
 | @vexip-ui/hooks | 2.9.4 | MIT |
 | @vexip-ui/utils | 2.16.4 | MIT |
-| @vue/compiler-core | 3.5.26 | MIT |
-| @vue/compiler-dom | 3.5.26 | MIT |
-| @vue/compiler-sfc | 3.5.26 | MIT |
-| @vue/compiler-ssr | 3.5.26 | MIT |
+| @vue/compiler-core | 3.5.43 | MIT |
+| @vue/compiler-dom | 3.5.43 | MIT |
+| @vue/compiler-sfc | 3.5.43 | MIT |
+| @vue/compiler-ssr | 3.5.43 | MIT |
 | @vue/devtools-api | 6.6.4 | MIT |
 | @vue/devtools-api | 7.7.9 | MIT |
 | @vue/devtools-kit | 7.7.9 | MIT |
 | @vue/devtools-shared | 7.7.9 | MIT |
-| @vue/reactivity | 3.5.26 | MIT |
-| @vue/runtime-core | 3.5.26 | MIT |
-| @vue/runtime-dom | 3.5.26 | MIT |
-| @vue/server-renderer | 3.5.26 | MIT |
-| @vue/shared | 3.5.26 | MIT |
+| @vue/reactivity | 3.5.43 | MIT |
+| @vue/runtime-core | 3.5.43 | MIT |
+| @vue/runtime-dom | 3.5.43 | MIT |
+| @vue/server-renderer | 3.5.43 | MIT |
+| @vue/shared | 3.5.43 | MIT |
 | @vueuse/core | 10.11.1 | MIT |
 | @vueuse/core | 14.2.0 | MIT |
 | @vueuse/metadata | 10.11.1 | MIT |
@@ -525,6 +526,7 @@ WebExcel 本身以 [Apache-2.0](LICENSE) 发布，并使用了下列开源软件
 | @vueuse/shared | 10.11.1 | MIT |
 | @vueuse/shared | 14.2.0 | MIT |
 | @wendellhu/redi | 1.1.3 | MIT |
+| agent-base | 6.0.2 | MIT |
 | ansi-regex | 5.0.1 | MIT |
 | ansi-styles | 4.3.0 | MIT |
 | archiver | 5.3.2 | MIT |
@@ -535,7 +537,7 @@ WebExcel 本身以 [Apache-2.0](LICENSE) 发布，并使用了下列开源软件
 | async-lock | 1.4.1 | MIT |
 | async-validator | 4.2.5 | MIT |
 | asynckit | 0.4.0 | MIT |
-| axios | 1.13.2 | MIT |
+| axios | 1.20.0 | MIT |
 | balanced-match | 1.0.2 | MIT |
 | base64-js | 1.5.1 | MIT |
 | big-integer | 1.6.52 | Unlicense |
@@ -543,8 +545,8 @@ WebExcel 本身以 [Apache-2.0](LICENSE) 发布，并使用了下列开源软件
 | birpc | 2.9.0 | MIT |
 | bl | 4.1.0 | MIT |
 | bluebird | 3.4.7 | MIT |
-| brace-expansion | 1.1.12 | MIT |
-| brace-expansion | 2.0.2 | MIT |
+| brace-expansion | 1.1.21 | MIT |
+| brace-expansion | 2.1.7 | MIT |
 | buffer | 5.7.1 | MIT |
 | buffer-crc32 | 0.2.13 | MIT |
 | buffer-indexof-polyfill | 1.0.2 | MIT |
@@ -567,6 +569,7 @@ WebExcel 本身以 [Apache-2.0](LICENSE) 发布，并使用了下列开源软件
 | crc32-stream | 4.0.3 | MIT |
 | csstype | 3.2.3 | MIT |
 | dayjs | 1.11.23 | MIT |
+| debug | 4.4.3 | MIT |
 | decimal.js | 10.6.0 | MIT |
 | delayed-stream | 1.0.0 | MIT |
 | detect-node-es | 1.1.0 | MIT |
@@ -576,7 +579,7 @@ WebExcel 本身以 [Apache-2.0](LICENSE) 发布，并使用了下列开源软件
 | element-plus | 2.13.1 | MIT |
 | emoji-regex | 8.0.0 | MIT |
 | end-of-stream | 1.4.5 | MIT |
-| entities | 7.0.0 | BSD-2-Clause |
+| entities | 7.0.1 | BSD-2-Clause |
 | es-define-property | 1.0.1 | MIT |
 | es-errors | 1.3.0 | MIT |
 | es-object-atoms | 1.1.1 | MIT |
@@ -586,8 +589,8 @@ WebExcel 本身以 [Apache-2.0](LICENSE) 发布，并使用了下列开源软件
 | exceljs | 4.4.0 | MIT |
 | fast-csv | 4.3.6 | MIT |
 | fast-diff | 1.3.0 | Apache-2.0 |
-| follow-redirects | 1.15.11 | MIT |
-| form-data | 4.0.5 | MIT |
+| follow-redirects | 1.16.1 | MIT |
+| form-data | 4.0.6 | MIT |
 | franc-min | 6.2.0 | MIT |
 | fs-constants | 1.0.0 | MIT |
 | fs.realpath | 1.0.0 | ISC |
@@ -603,9 +606,10 @@ WebExcel 本身以 [Apache-2.0](LICENSE) 发布，并使用了下列开源软件
 | grid-layout-plus | 1.1.1 | MIT |
 | has-symbols | 1.1.0 | MIT |
 | has-tostringtag | 1.0.2 | MIT |
-| hasown | 2.0.2 | MIT |
+| hasown | 2.0.4 | MIT |
 | hookable | 5.5.3 | MIT |
 | html-to-image | 1.11.13 | MIT |
+| https-proxy-agent | 5.0.1 | MIT |
 | ieee754 | 1.2.1 | BSD-3-Clause |
 | immediate | 3.0.6 | MIT |
 | inflight | 1.0.6 | ISC |
@@ -614,14 +618,13 @@ WebExcel 本身以 [Apache-2.0](LICENSE) 发布，并使用了下列开源软件
 | is-fullwidth-code-point | 3.0.0 | MIT |
 | is-what | 5.5.0 | MIT |
 | isarray | 1.0.0 | MIT |
-| js-cookie | 3.0.5 | MIT |
+| js-cookie | 3.0.8 | MIT |
 | jszip | 3.10.2 | (MIT OR GPL-3.0-or-later) |
 | kdbush | 4.1.0 | ISC |
 | lazystream | 1.0.1 | MIT |
 | lie | 3.3.0 | MIT |
 | listenercount | 1.0.1 | ISC |
-| lodash | 4.17.21 | MIT |
-| lodash-es | 4.17.22 | MIT |
+| lodash | 4.18.1 | MIT |
 | lodash-es | 4.18.1 | MIT |
 | lodash-unified | 1.0.3 | MIT |
 | lodash.camelcase | 4.3.0 | MIT |
@@ -645,12 +648,13 @@ WebExcel 本身以 [Apache-2.0](LICENSE) 发布，并使用了下列开源软件
 | mime-db | 1.52.0 | MIT |
 | mime-types | 2.1.35 | MIT |
 | minimatch | 3.1.5 | ISC |
-| minimatch | 5.1.6 | ISC |
+| minimatch | 5.1.9 | ISC |
 | minimist | 1.2.8 | MIT |
 | mitt | 3.0.1 | MIT |
 | mkdirp | 0.5.6 | MIT |
+| ms | 2.1.3 | MIT |
 | n-gram | 2.0.2 | MIT |
-| nanoid | 3.3.11 | MIT |
+| nanoid | 3.3.20 | MIT |
 | normalize-path | 3.0.0 | MIT |
 | normalize-wheel-es | 1.2.0 | BSD-3-Clause |
 | once | 1.4.0 | ISC |
@@ -661,10 +665,10 @@ WebExcel 本身以 [Apache-2.0](LICENSE) 发布，并使用了下列开源软件
 | perfect-debounce | 1.0.0 | MIT |
 | picocolors | 1.1.1 | ISC |
 | pinia | 3.0.4 | MIT |
-| postcss | 8.5.6 | MIT |
+| postcss | 8.5.29 | MIT |
 | process-nextick-args | 2.0.1 | MIT |
 | protobufjs | 7.6.6 | BSD-3-Clause |
-| proxy-from-env | 1.1.0 | MIT |
+| proxy-from-env | 2.1.0 | MIT |
 | quickselect | 3.0.0 | ISC |
 | rbush | 4.0.1 | MIT |
 | react | 19.3.0 | MIT |
@@ -686,7 +690,7 @@ WebExcel 本身以 [Apache-2.0](LICENSE) 发布，并使用了下列开源软件
 | setimmediate | 1.0.5 | MIT |
 | sonner | 2.0.8 | MIT |
 | sortablejs | 1.14.0 | MIT |
-| source-map-js | 1.2.1 | BSD-3-Clause |
+| source-map-js | 1.2.2 | BSD-3-Clause |
 | speakingurl | 14.0.1 | BSD |
 | string-width | 4.2.3 | MIT |
 | string_decoder | 1.1.1 | MIT |
@@ -708,7 +712,7 @@ WebExcel 本身以 [Apache-2.0](LICENSE) 发布，并使用了下列开源软件
 | util-deprecate | 1.0.2 | MIT |
 | uuid | 8.3.2 | MIT |
 | v-dropdown | 3.5.1 | MIT |
-| vue | 3.5.26 | MIT |
+| vue | 3.5.43 | MIT |
 | vue-demi | 0.14.10 | MIT |
 | vue-router | 4.6.4 | MIT |
 | vuedraggable | 4.1.0 | MIT |
