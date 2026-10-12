@@ -8,7 +8,7 @@ import { LOCAL_ADMIN, startServices, WEB } from './infra.mjs'
 
 const ARTIFACTS = path.join(path.dirname(fileURLToPath(import.meta.url)), '.artifacts')
 const skip = findChrome() ? false : '本机没有 Chrome / Chromium（可用 CHROME_BIN 指定）'
-const ALLOWED = [/401|Unauthorized/i, /command "formula\.mutation\.set-trigger-formula-calculation-start" is not registered/]
+const ALLOWED = [/401|Unauthorized/i, /status of 400 .*\/ledger\/auth\/login/, /command "formula\.mutation\.set-trigger-formula-calculation-start" is not registered/]
 
 describe('界面语言（界面）', { skip }, () => {
   let services
@@ -71,7 +71,11 @@ describe('界面语言（界面）', { skip }, () => {
     try {
       await page.goto(`${WEB}/login?lang=en-US`)
       await page.waitFor(`!!document.querySelector('input[data-testid="login-username"]')`, { what: '登录表单' })
+      // 输错密码：服务端的错误信息按界面语言返回英文
       await page.fill('input[data-testid="login-username"]', LOCAL_ADMIN.username)
+      await page.fill('input[data-testid="login-password"]', 'wrong-password')
+      await page.click('[data-testid="login-submit"]')
+      await page.waitFor(`document.querySelector('[data-testid="login-error"]')?.innerText === 'Incorrect username or password'`, { what: '英文的密码错误提示' })
       await page.fill('input[data-testid="login-password"]', LOCAL_ADMIN.password)
       await page.click('[data-testid="login-submit"]')
       await page.waitFor(`location.pathname === '/excel/home'`, { what: '登录后到首页', timeout: 60_000 })

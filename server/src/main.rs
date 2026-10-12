@@ -43,6 +43,7 @@ mod import;
 mod import_source;
 mod mcp;
 mod metrics;
+mod msg_i18n;
 mod netguard;
 mod pivot;
 mod pivot_calc;
@@ -329,6 +330,8 @@ async fn serve(config: config::Config) -> anyhow::Result<()> {
         .and(NotForContentType::new("application/octet-stream"));
     let app = app
         .layer(axum::middleware::from_fn(metrics::track))
+        // 记下请求语言，错误信息据此翻译（要在认证层外面，认证失败的信息也要翻译）
+        .layer(axum::middleware::from_fn(msg_i18n::middleware))
         .layer(CompressionLayer::new().quality(CompressionLevel::Fastest).compress_when(compress))
         .layer(TraceLayer::new_for_http())
         .layer(tower::util::option_layer(cors_layer(config.cors.as_deref())))

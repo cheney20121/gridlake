@@ -152,7 +152,7 @@ pub async fn health(State(db): State<AppState>) -> Json<Envelope<Health>> {
 /// /api 下没有匹配的接口：返回 JSON 404（避免落到前端页面的 index.html）
 pub async fn api_not_found(axum::extract::OriginalUri(uri): axum::extract::OriginalUri) -> axum::response::Response {
     use axum::response::IntoResponse;
-    let body = Envelope::<()> { code: 404, data: None, msg: format!("接口不存在：{}", uri.path()) };
+    let body = Envelope::<()> { code: 404, data: None, msg: crate::msg_i18n::localize(format!("接口不存在：{}", uri.path())) };
     (axum::http::StatusCode::NOT_FOUND, Json(body)).into_response()
 }
 

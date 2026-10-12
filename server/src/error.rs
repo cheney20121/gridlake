@@ -80,7 +80,7 @@ impl IntoResponse for AppError {
                 (StatusCode::INTERNAL_SERVER_ERROR, format!("服务内部错误：{err}"))
             }
         };
-        let body = Envelope::<()> { code: status.as_u16(), data: None, msg };
+        let body = Envelope::<()> { code: status.as_u16(), data: None, msg: crate::msg_i18n::localize(msg) };
         (status, Json(body)).into_response()
     }
 }

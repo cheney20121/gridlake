@@ -55,8 +55,11 @@ export function detectLang(): Lang {
 }
 
 export const lang: Lang = detectLang()
-if (typeof document !== 'undefined')
+if (typeof document !== 'undefined') {
   document.documentElement.lang = lang
+  // 告诉服务端界面语言：同源的请求（含 SSE、下载、fetch）都会带上这个 cookie，服务端据此翻译错误信息
+  document.cookie = `${STORAGE_KEY}=${lang}; path=/; max-age=31536000; samesite=lax`
+}
 
 const table: Record<string, string> = lang === 'en-US' ? enUS : {}
 

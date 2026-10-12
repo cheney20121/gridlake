@@ -1,6 +1,6 @@
 import type { AxiosInstance, AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios'
 import axios from 'axios'
-import { t } from '@/i18n'
+import { lang, t } from '@/i18n'
 import { getToken, removeToken } from './auth'
 
 /**
@@ -65,6 +65,8 @@ instance.interceptors.request.use((config: InternalAxiosRequestConfig & CustomCo
   const token = getToken()
   if (token)
     config.headers['x-user-token'] = token
+  // 前后端分开部署（跨域）时 cookie 不会带过去，用请求头告诉服务端界面语言
+  config.headers['x-lang'] = lang
   // FormData 上传时删除 Content-Type，让浏览器自动设置 boundary
   if (config.data instanceof FormData)
     delete config.headers['Content-Type']

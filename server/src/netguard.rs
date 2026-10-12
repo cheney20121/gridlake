@@ -40,11 +40,11 @@ fn v4_forbidden(v: Ipv4Addr, p: Policy) -> Option<&'static str> {
     if v.is_loopback() || v.is_unspecified() {
         Some("本机地址")
     } else if v.is_link_local() {
-        Some("链路本地地址（含云厂商元数据接口）")
+        Some("链路本地地址，含云厂商元数据接口")
     } else if v.is_broadcast() || v.is_multicast() {
         Some("广播 / 组播地址")
     } else if o[0] == 100 && (o[1] & 0xc0) == 64 {
-        Some("运营商级 NAT 地址（含阿里云元数据接口）")
+        Some("运营商级 NAT 地址，含阿里云元数据接口")
     } else if p.block_private && v.is_private() {
         Some("内网地址")
     } else {

@@ -22,12 +22,25 @@ A, Bo, C, R = "tok-alice", "tok-bob", "tok-carol", "tok-root"
 _fails = 0
 _total = 0
 
+# 收集模式：LEDGER_E2E_COLLECT_UNTRANSLATED=1 时所有请求都带 x-lang: en-US，并在结束时列出响应里仍含中文的错误信息
+# （用来找出 msg_en.json 没收录的信息；这个模式下断言中文的测试会失败，不用管）
+COLLECT_UNTRANSLATED = os.environ.get("LEDGER_E2E_COLLECT_UNTRANSLATED") == "1"
+_untranslated = set()
+
+
+def _note_untranslated(j):
+    m = j.get("msg") if isinstance(j, dict) else None
+    if COLLECT_UNTRANSLATED and isinstance(m, str) and any("一" <= c <= "鿿" for c in m):
+        _untranslated.add(m)
+
 
 def call(method, path, tok=None, body=None, raw=None, ctype=None, headers=None, binary=False):
     """调接口，返回 (HTTP 状态码, 解析后的 JSON 或原始字节)。HTTP 错误也正常返回，不抛异常。"""
     h = dict(headers or {})
     if tok:
         h["x-user-token"] = tok
+    if COLLECT_UNTRANSLATED:
+        h.setdefault("x-lang", "en-US")
     data = None
     if raw is not None:
         data = raw
@@ -48,9 +61,11 @@ def call(method, path, tok=None, body=None, raw=None, ctype=None, headers=None, 
     except urllib.error.HTTPError as e:
         text = e.read()
         try:
-            return e.code, json.loads(text)
+            j = json.loads(text)
         except Exception:
             return e.code, text
+        _note_untranslated(j)
+        return e.code, j
 
 
 def call_full(method, path, headers=None, body=None):
@@ -109,6 +124,12 @@ def finish():
     _finished = True
     print(f"\n{_total - _fails}/{_total} 通过" + (f"，{_fails} 项失败" if _fails else ""))
     sys.exit(1 if _fails else 0)
+
+
+@atexit.register
+def _print_untranslated():
+    for m in sorted(_untranslated):
+        print("UNTRANSLATED " + m.replace("\n", "\\n"))
 
 
 @atexit.register
