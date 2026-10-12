@@ -47,8 +47,8 @@ const hiddenCount = computed(() => data.value?.datasets.filter(d => d.effective 
 
 function describe(r: ScopeRule | null) {
   if (!r || r.mode === 'all')
-    return '不限（看到全部店铺）'
-  return r.shops.length ? `仅 ${r.shops.join('、')}` : '看不到任何店铺'
+    return t('不限（看到全部店铺）')
+  return r.shops.length ? t('仅 {0}', [r.shops.join('、')]) : t('看不到任何店铺')
 }
 
 // ── 编辑规则 ──
@@ -96,8 +96,8 @@ async function saveRule() {
 
 async function removeRule(r: ScopeRule) {
   const ok = await ElMessageBox.confirm(
-    r.subjectId === DEFAULT_ID ? '删除默认规则后，没有单独规则的用户将不受限制。' : `删除「${r.subjectName}」的规则后，该用户改用默认规则${defaultRule.value ? '' : '（目前没有，即不受限）'}。`,
-    '删除规则',
+    r.subjectId === DEFAULT_ID ? t('删除默认规则后，没有单独规则的用户将不受限制。') : `删除「${r.subjectName}」的规则后，该用户改用默认规则${defaultRule.value ? '' : '（目前没有，即不受限）'}。`,
+    t('删除规则'),
     { type: 'warning', confirmButtonText: t('删除') },
   ).then(() => true, () => false)
   if (!ok)
@@ -118,10 +118,10 @@ async function setBinding(d: ScopeDatasetBinding, mode: BindMode, column?: strin
 }
 
 const EFFECT: Record<ScopeDatasetBinding['effective'], { label: (d: ScopeDatasetBinding) => string, type: 'success' | 'info' | 'warning' }> = {
-  column: { label: d => `按「${d.columns.find(c => c.key === d.effectiveColumn)?.title ?? d.effectiveColumn}」列过滤`, type: 'success' },
-  open: { label: () => '所有人可见', type: 'info' },
-  inherit: { label: d => `沿用左表：按「${d.columns.find(c => c.key === d.effectiveColumn)?.title ?? d.effectiveColumn}」列过滤`, type: 'success' },
-  hidden: { label: () => '受限用户看不到', type: 'warning' },
+  column: { label: d => t('按「{0}」列过滤', [d.columns.find(c => c.key === d.effectiveColumn)?.title ?? d.effectiveColumn]), type: 'success' },
+  open: { label: () => t('所有人可见'), type: 'info' },
+  inherit: { label: d => t('沿用左表：按「{0}」列过滤', [d.columns.find(c => c.key === d.effectiveColumn)?.title ?? d.effectiveColumn]), type: 'success' },
+  hidden: { label: () => t('受限用户看不到'), type: 'warning' },
 }
 </script>
 

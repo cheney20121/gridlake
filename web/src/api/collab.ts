@@ -1,4 +1,5 @@
 import { LEDGER_BASE } from '@/api/ledger-base'
+import { t } from '@/i18n'
 import { getToken } from '@/utils/auth'
 import request from '@/utils/request'
 
@@ -42,7 +43,7 @@ export async function connectCollab(workbookId: string, client: string, version:
   const q = new URLSearchParams({ client, version: String(version), name })
   const resp = await fetch(`${url(workbookId, 'events')}?${q}`, { headers: { 'Accept': 'text/event-stream', 'x-requested-with': 'XMLHttpRequest', ...(token ? { 'x-user-token': token } : {}) }, signal })
   if (!resp.ok || !resp.body) {
-    let msg = `连接失败（${resp.status}）`
+    let msg = t('连接失败（{0}）', [resp.status])
     try {
       const j = await resp.json() as { msg?: string }
       if (j.msg)

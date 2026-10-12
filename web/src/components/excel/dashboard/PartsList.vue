@@ -4,6 +4,7 @@ import type { CellTableLocation } from '@/features/excel/datatable/types'
 import { CHART_COMPONENT_KEY } from '@/features/excel/chart/types'
 import { KPI_KEY, SLICER_KEY, TABLE_KEY } from '@/features/excel/dashboard/types'
 import { DATA_TABLE_KEY } from '@/features/excel/datatable/types'
+import { t } from '@/i18n'
 
 /** 「本页部件」：当前工作表上的切片器 / 指标卡 / 表格 / 图表 / 数据表，可编辑、删除 */
 defineProps<{
@@ -19,11 +20,11 @@ const emit = defineEmits<{
   (e: 'remove', id: string): void
 }>()
 
-const KIND_LABEL: Record<string, string> = { [SLICER_KEY]: '切片器', [KPI_KEY]: '指标卡', [TABLE_KEY]: '表格', [CHART_COMPONENT_KEY]: '图表', [DATA_TABLE_KEY]: '数据表' }
+const KIND_LABEL: Record<string, string> = { [SLICER_KEY]: t('切片器'), [KPI_KEY]: t('指标卡'), [TABLE_KEY]: t('表格'), [CHART_COMPONENT_KEY]: t('图表'), [DATA_TABLE_KEY]: t('数据表') }
 
 function titleOf(p: FloatLocation) {
   const s = p.spec as unknown as { title?: string, column?: string, name?: string }
-  return s.title || s.name || s.column || KIND_LABEL[p.key] || '部件'
+  return s.title || s.name || s.column || KIND_LABEL[p.key] || t('部件')
 }
 </script>
 

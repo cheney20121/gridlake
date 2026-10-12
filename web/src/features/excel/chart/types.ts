@@ -1,4 +1,5 @@
 import type { DatasetFilter, PivotAgg } from '@/api/dataset'
+import { t } from '@/i18n'
 
 /**
  * 图表定义：保存在 Univer 浮动对象（float DOM）的 data 中，随工作簿快照保存 / 版本 / 冲突处理
@@ -88,13 +89,13 @@ export const MAX_SCATTER_SERIES = 3
 
 export const CHART_TYPE_LABEL: Record<ChartType, string> = {
   column: '柱形图',
-  bar: '条形图',
-  line: '折线图',
-  area: '面积图',
-  pie: '饼图',
-  donut: '环形图',
-  scatter: '散点图',
-  waterfall: '瀑布图',
-  combo: '组合图',
-  histogram: '直方图',
+  bar: t('条形图'),
+  line: t('折线图'),
+  area: t('面积图'),
+  pie: t('饼图'),
+  donut: t('环形图'),
+  scatter: t('散点图'),
+  waterfall: t('瀑布图'),
+  combo: t('组合图'),
+  histogram: t('直方图'),
 }

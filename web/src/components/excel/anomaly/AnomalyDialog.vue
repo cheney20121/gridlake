@@ -44,7 +44,7 @@ async function run() {
     }
     catch (err) {
       e.state = 'error'
-      e.error = err instanceof Error ? err.message : '扫描失败'
+      e.error = err instanceof Error ? err.message : t('扫描失败')
     }
   }
 }

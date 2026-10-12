@@ -7,6 +7,7 @@ import { datasetFormulaStats } from '@/features/excel/formula/dataset-functions'
 import { analyzeFormulas, measureRecalc } from '@/features/excel/formula/diagnostics'
 import { importRangeStats } from '@/features/excel/formula/import-range'
 import { cellName } from '@/features/excel/writeback/input-table'
+import { t } from '@/i18n'
 
 /**
  * 公式诊断：可能拖慢计算的公式（按引用格子数估算，同形公式合并）、出错的公式、服务端计算与跨工作簿引用的情况；
@@ -77,13 +78,13 @@ const errorKinds = computed(() => {
 })
 
 const ERROR_HINT: Record<string, string> = {
-  '#REF!': '引用的格子已被删除',
-  '#NAME?': '函数名或命名区域写错',
-  '#VALUE!': '参数类型不对（如文字参与计算）',
-  '#DIV/0!': '除数为 0 或空白',
-  '#N/A': '查找不到匹配项',
-  '#SPILL!': '溢出区域被挡住，清空下方 / 右侧的格子',
-  '#NUM!': '数值无效',
+  '#REF!': t('引用的格子已被删除'),
+  '#NAME?': t('函数名或命名区域写错'),
+  '#VALUE!': t('参数类型不对（如文字参与计算）'),
+  '#DIV/0!': t('除数为 0 或空白'),
+  '#N/A': t('查找不到匹配项'),
+  '#SPILL!': t('溢出区域被挡住，清空下方 / 右侧的格子'),
+  '#NUM!': t('数值无效'),
 }
 
 function hint(e: FormulaError) {

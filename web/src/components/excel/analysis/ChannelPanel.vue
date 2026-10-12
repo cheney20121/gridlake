@@ -104,10 +104,10 @@ const tiles = computed(() => {
   if (!t)
     return []
   return [
-    { label: tr('结算实付'), value: formatMoney(t.values.gmv), sub: `${t.orders.toLocaleString()} 单` },
+    { label: tr('结算实付'), value: formatMoney(t.values.gmv), sub: tr('{0} 单', [t.orders.toLocaleString()]) },
     { label: tr('平台服务费率'), value: formatPct(rateOf(t, 'platformFee')), sub: formatMoney(t.values.platformFee) },
     { label: tr('佣金率'), value: formatPct(rateOf(t, 'commission')), sub: formatMoney(t.values.commission) },
-    { label: tr('退款率'), value: formatPct(rateOf(t, 'refund')), sub: `${t.refundCount.toLocaleString()} 笔售后` },
+    { label: tr('退款率'), value: formatPct(rateOf(t, 'refund')), sub: tr('{0} 笔售后', [t.refundCount.toLocaleString()]) },
   ]
 })
 

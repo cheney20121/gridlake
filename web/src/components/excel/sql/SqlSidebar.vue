@@ -3,6 +3,7 @@ import type { DatasetInfo } from '@/api/dataset'
 import type { SavedQuery, SqlSchedule } from '@/api/sql'
 import { computed, ref } from 'vue'
 import { q } from '@/features/excel/sql/builder'
+import { t } from '@/i18n'
 import { KIND_LABEL } from './format'
 
 /** 左侧：可搜索的数据集 / 列（点名称插入到编辑器）与已保存的查询 */
@@ -30,7 +31,7 @@ const expanded = ref<string | null>(null)
 
 function scheduleText(sq: SavedQuery) {
   const s: SqlSchedule = sq.schedule
-  return s.kind === 'daily' ? `每天 ${s.at} 重算` : s.kind === 'after_sync' ? '同步后重算' : '手动重算'
+  return s.kind === 'daily' ? t('每天 {0} 重算', [s.at]) : s.kind === 'after_sync' ? t('同步后重算') : t('手动重算')
 }
 </script>
 

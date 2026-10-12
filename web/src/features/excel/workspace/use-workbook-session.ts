@@ -67,7 +67,7 @@ export function useWorkbookSession(options: {
     if (r.state === 'saved')
       ElMessage.success({ message: t('已保存'), duration: 1200 })
     else if (r.state === 'error')
-      ElMessage.error(uiStore.saveStatus === 'offline' ? '无法连接服务，修改已暂存为本地草稿' : '保存失败')
+      ElMessage.error(uiStore.saveStatus === 'offline' ? t('无法连接服务，修改已暂存为本地草稿') : t('保存失败'))
   }
 
   /** 有未保存修改时先保存；冲突则中止（交给冲突对话框） */
@@ -111,14 +111,14 @@ export function useWorkbookSession(options: {
     if (!api || !(await saveBeforeLeave()))
       return
     importing.value = true
-    importMessage.value = `正在打开「${meta.name}」…`
+    importMessage.value = t('正在打开「{0}」…', [meta.name])
     try {
       const draft = await openServerWorkbook(api, meta)
       workspaceView.value = 'workbook'
       await offerDraft(draft)
     }
     catch (e) {
-      notifyLedgerError(e, '打开工作簿')
+      notifyLedgerError(e, t('打开工作簿'))
     }
     finally {
       importing.value = false
@@ -139,10 +139,10 @@ export function useWorkbookSession(options: {
         workspaceView.value = 'workbook'
       }
       const meta = await createServerWorkbook(name, operatorName(), folderId)
-      ElMessage.success(mode === 'blank' ? `已新建「${meta.name}」` : `已另存为「${meta.name}」，后续修改保存到新工作簿`)
+      ElMessage.success(mode === 'blank' ? t('已新建「{0}」', [meta.name]) : t('已另存为「{0}」，后续修改保存到新工作簿', [meta.name]))
     }
     catch (e) {
-      notifyLedgerError(e, '新建工作簿')
+      notifyLedgerError(e, t('新建工作簿'))
     }
   }
 

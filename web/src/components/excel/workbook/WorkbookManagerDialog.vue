@@ -208,7 +208,7 @@ function isActive(v: View) {
 async function promptName(title: string, value: string, max = 80) {
   return ElMessageBox.prompt('', title, {
     inputValue: value,
-    inputValidator: v => (!!v.trim() && v.trim().length <= max) || `名称不能为空，且不超过 ${max} 个字符`,
+    inputValidator: v => (!!v.trim() && v.trim().length <= max) || tr('名称不能为空，且不超过 {0} 个字符', [max]),
     confirmButtonText: tr('确定'),
   }).then(r => r.value.trim(), () => null)
 }
@@ -223,7 +223,7 @@ const trashDaysText = computed(() => (trashDays.value ? `（保留 ${trashDays.v
 
 async function create(mode: 'blank' | 'copy') {
   const current = list.value.find(w => w.id === props.currentId)
-  const name = await promptName(mode === 'blank' ? '新建工作簿' : '另存为新工作簿', mode === 'blank' ? '未命名工作簿' : `${current?.name ?? '工作簿'} 副本`)
+  const name = await promptName(mode === 'blank' ? tr('新建工作簿') : tr('另存为新工作簿'), mode === 'blank' ? tr('未命名工作簿') : `${current?.name ?? '工作簿'} 副本`)
   if (!name)
     return
   emit('create', name, mode, currentFolderId.value)
@@ -231,7 +231,7 @@ async function create(mode: 'blank' | 'copy') {
 }
 
 async function rename(w: WorkbookMeta) {
-  const name = await promptName('重命名工作簿', w.name)
+  const name = await promptName(tr('重命名工作簿'), w.name)
   if (!name || name === w.name)
     return
   const meta = await renameWorkbookApi(w.id, name)
@@ -241,7 +241,7 @@ async function rename(w: WorkbookMeta) {
 }
 
 async function duplicate(w: WorkbookMeta) {
-  const name = await promptName('复制工作簿', `${w.name} 副本`)
+  const name = await promptName(tr('复制工作簿'), tr('{0} 副本', [w.name]))
   if (!name)
     return
   await duplicateWorkbookApi(w.id, name, props.operator)
@@ -266,7 +266,7 @@ async function remove(items: WorkbookMeta[]) {
     return
   }
   const what = items.length === 1 ? `「${items[0]!.name}」` : `选中的 ${items.length} 个工作簿`
-  if (!(await confirm(`把${what}移到回收站？可在回收站恢复${trashDaysText.value}。`, '删除工作簿', '移到回收站')))
+  if (!(await confirm(tr('把{0}移到回收站？可在回收站恢复{1}。', [what, trashDaysText.value]), tr('删除工作簿'), tr('移到回收站'))))
     return
   for (const w of items)
     await deleteWorkbookApi(w.id, props.operator)
@@ -307,7 +307,7 @@ function moveWorkbooks(items: WorkbookMeta[]) {
   if (!first)
     return
   moveDialog.value = {
-    title: items.length === 1 ? `移动「${first.name}」到` : `移动 ${items.length} 个工作簿到`,
+    title: items.length === 1 ? tr('移动「{0}」到', [first.name]) : tr('移动 {0} 个工作簿到', [items.length]),
     target: items.length === 1 ? (first.folderId ?? ROOT) : ROOT,
     exclude: new Set(),
     run: async (folderId) => {
@@ -330,7 +330,7 @@ async function confirmMove() {
 // ── 文件夹操作 ──
 
 async function newFolder(parentId: string | null) {
-  const name = await promptName(parentId ? `在「${pathOf(parentId)}」下新建文件夹` : '新建文件夹', '新建文件夹', 40)
+  const name = await promptName(parentId ? tr('在「{0}」下新建文件夹', [pathOf(parentId)]) : tr('新建文件夹'), tr('新建文件夹'), 40)
   if (!name)
     return
   const f = await createFolderApi(name, parentId, props.operator)
@@ -339,7 +339,7 @@ async function newFolder(parentId: string | null) {
 }
 
 async function renameFolder(f: WorkbookFolder) {
-  const name = await promptName('重命名文件夹', f.name, 40)
+  const name = await promptName(tr('重命名文件夹'), f.name, 40)
   if (!name || name === f.name)
     return
   await updateFolderApi(f.id, name, f.parentId)
@@ -368,10 +368,10 @@ async function deleteFolder(f: WorkbookFolder) {
   const msg = inside.length
     ? `删除文件夹「${f.name}」${ids.size > 1 ? `及其 ${ids.size - 1} 个子文件夹` : ''}，其中的 ${inside.length} 个工作簿移到回收站（恢复时回到「我的工作簿」）。`
     : `删除文件夹「${f.name}」${ids.size > 1 ? `及其 ${ids.size - 1} 个子文件夹` : ''}？`
-  if (!(await confirm(msg, '删除文件夹', '删除')))
+  if (!(await confirm(msg, tr('删除文件夹'), tr('删除'))))
     return
   const n = await deleteFolderApi(f.id, props.operator)
-  ElMessage.success(n ? `已删除，${n} 个工作簿移到回收站` : '已删除')
+  ElMessage.success(n ? tr('已删除，{0} 个工作簿移到回收站', [n]) : tr('已删除'))
   if (view.value.kind === 'folder' && ids.has(view.value.id))
     go({ kind: 'folder', id: f.parentId ?? ROOT })
   await load()
@@ -402,7 +402,7 @@ async function restore(t: TrashedWorkbook) {
 }
 
 async function purge(t: TrashedWorkbook) {
-  if (!(await confirm(`彻底删除「${t.name}」及其全部历史版本，删除后不可恢复。`, '彻底删除', '彻底删除')))
+  if (!(await confirm(tr('彻底删除「{0}」及其全部历史版本，删除后不可恢复。', [t.name]), tr('彻底删除'), tr('彻底删除'))))
     return
   await purgeWorkbookApi(t.id)
   ElMessage.success(tr('已彻底删除'))
@@ -410,7 +410,7 @@ async function purge(t: TrashedWorkbook) {
 }
 
 async function emptyTrash() {
-  if (!(await confirm(`彻底删除回收站里的 ${trash.value.length} 个工作簿及其全部历史版本，删除后不可恢复。`, '清空回收站', '清空')))
+  if (!(await confirm(tr('彻底删除回收站里的 {0} 个工作簿及其全部历史版本，删除后不可恢复。', [trash.value.length]), tr('清空回收站'), tr('清空'))))
     return
   const n = await emptyTrashApi()
   ElMessage.success(tr('已彻底删除 {0} 个工作簿', [n]))

@@ -19,9 +19,9 @@ watch(visible, (v) => {
 async function save() {
   error.value = ''
   if (form.next.length < 8)
-    return (error.value = '新密码至少 8 位')
+    return (error.value = t('新密码至少 8 位'))
   if (form.next !== form.confirm)
-    return (error.value = '两次输入的新密码不一致')
+    return (error.value = t('两次输入的新密码不一致'))
   saving.value = true
   try {
     await changePasswordApi(form.old, form.next)

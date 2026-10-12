@@ -3,6 +3,7 @@ import type { DatePreset, SlicerSpec } from './types'
 import type { DatasetFilter, DatasetInfo } from '@/api/dataset'
 import { shallowRef } from 'vue'
 import { listFloats } from '@/features/excel/chart/chart-manager'
+import { t } from '@/i18n'
 import { SLICER_KEY } from './types'
 
 /**
@@ -112,5 +113,5 @@ export function slicerSummary(s: SlicerSpec, presetLabel: (p: DatePreset) => str
   }
   if (!s.values.length)
     return '全部'
-  return s.values.length === 1 ? (s.values[0] || '（空白）') : `${s.values[0] || '（空白）'} 等 ${s.values.length} 项`
+  return s.values.length === 1 ? (s.values[0] || t('（空白）')) : `${s.values[0] || '（空白）'} 等 ${s.values.length} 项`
 }

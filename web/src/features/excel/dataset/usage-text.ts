@@ -1,26 +1,27 @@
 import type { DatasetUsage } from '@/api/dataset'
+import { t } from '@/i18n'
 
 /** 部件类型的中文名 */
 export const PART_LABEL: Record<string, string> = {
-  'pivot': '透视表',
-  'webexcel-chart': '图表',
-  'webexcel-slicer': '切片器',
-  'webexcel-kpi': '指标卡',
-  'webexcel-table': '表格卡片',
-  'webexcel-datatable': '数据表',
-  'input': '填报区',
+  'pivot': t('透视表'),
+  'webexcel-chart': t('图表'),
+  'webexcel-slicer': t('切片器'),
+  'webexcel-kpi': t('指标卡'),
+  'webexcel-table': t('表格卡片'),
+  'webexcel-datatable': t('数据表'),
+  'input': t('填报区'),
   'formula': '公式',
 }
 
 /** 访问来源的中文名 */
 export const ACCESS_LABEL: Record<string, string> = {
-  browse: '明细浏览',
-  pivot: '透视 / 图表 / 看板',
+  browse: t('明细浏览'),
+  pivot: t('透视 / 图表 / 看板'),
   formula: '公式',
-  export: '导出',
-  ai: 'AI 助手',
-  mcp: '外部 AI（MCP）',
-  report: '定时推送',
+  export: t('导出'),
+  ai: t('AI 助手'),
+  mcp: t('外部 AI（MCP）'),
+  report: t('定时推送'),
   sql: 'SQL 查询',
 }
 

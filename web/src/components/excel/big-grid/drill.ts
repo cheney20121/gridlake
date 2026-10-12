@@ -1,5 +1,6 @@
 import type { DatasetFilter, DatasetQuery } from '@/api/dataset'
 import type { DrillTarget } from '@/features/excel/shop-ledger/ledger-workbook'
+import { t } from '@/i18n'
 
 /** 打开大数据表时的下钻上下文：固定筛选 + 规则 + 核对基准 */
 export interface DatasetDrill {
@@ -29,7 +30,7 @@ export function drillFromTarget(target: DrillTarget | null, period: string): Dat
     ...(f.orderMonth != null ? [{ op: 'prefix', column: '下单时间', value: f.orderMonth } as DatasetFilter] : []),
   ]
   return {
-    title: target ? target.title : `${period} 全部流水`,
+    title: target ? target.title : t('{0} 全部流水', [period]),
     filters,
     rule: target?.rule,
     expected: target?.expected,

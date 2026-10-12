@@ -210,7 +210,7 @@ async function save() {
     else {
       id = await createConnectorApi(input)
     }
-    ElMessage.success(editing.value ? '已保存' : '已创建连接器')
+    ElMessage.success(editing.value ? tr('已保存') : tr('已创建连接器'))
     emit('saved', id, form.runNow)
     emit('update:visible', false)
   }

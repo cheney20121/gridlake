@@ -199,13 +199,13 @@ function convertDrops(req: PivotRequest): string[] {
   const out: string[] = []
   const shown = req.values.filter(v => v.show && v.show !== 'raw')
   if (shown.length)
-    out.push(`值的显示方式（${shown.map(v => SHOW_OPTIONS.find(o => o.value === v.show)?.label ?? v.show).join('、')}）——按行展平后没有可比的总计或上一期，这些值按原值带入`)
+    out.push(tr('值的显示方式（{0}）——按行展平后没有可比的总计或上一期，这些值按原值带入', [shown.map(v => SHOW_OPTIONS.find(o => o.value === v.show)?.label ?? v.show).join('、')]))
   if (req.calcItems?.length)
-    out.push('计算项')
+    out.push(tr('计算项'))
   if (req.top)
-    out.push(`「前 ${req.top} 项」——数据表里可以按值排序后自行筛选`)
+    out.push(tr('「前 {0} 项」——数据表里可以按值排序后自行筛选', [req.top]))
   if (req.subtotals || req.grandTotals)
-    out.push('小计 / 总计行')
+    out.push(tr('小计 / 总计行'))
   return out
 }
 
@@ -219,8 +219,8 @@ async function convertToTable() {
   try {
     const r = await ElMessageBox.prompt(
       `行字段、列字段成为分组列，汇总值与计算值成为数值列；之后可以在数据表里按值筛选、排序、加计算列，源数据变化时自动更新。${drops.length ? `<br><br><span style="color:#92400E">不带入：${drops.join('；')}</span>` : ''}`,
-      '转为数据表',
-      { inputValue: `${ds.name}汇总`, inputPlaceholder: '汇总数据集的名称', confirmButtonText: tr('转换'), dangerouslyUseHTMLString: true, inputValidator: v => !!v.trim() || '请填写名称' },
+      tr('转为数据表'),
+      { inputValue: tr('{0}汇总', [ds.name]), inputPlaceholder: tr('汇总数据集的名称'), confirmButtonText: tr('转换'), dangerouslyUseHTMLString: true, inputValidator: v => !!v.trim() || tr('请填写名称') },
     )
     name = r.value.trim()
   }
@@ -295,7 +295,7 @@ function cancelApply() {
   controller?.abort()
   seq++
   loading.value = false
-  error.value = '已取消，点「刷新」重新计算'
+  error.value = tr('已取消，点「刷新」重新计算')
 }
 
 watch(() => [areas, options, aliases.value, calcItems.value], () => {
@@ -310,7 +310,7 @@ watch(display, () => {
   if (!s || loadingSpec)
     return
   setPivotDisplay(s, currentDisplay()).then(() => emit('changed')).catch((e) => {
-    error.value = e instanceof Error ? e.message : '重画失败'
+    error.value = e instanceof Error ? e.message : tr('重画失败')
   })
 }, { deep: true })
 
@@ -474,13 +474,13 @@ function filterSummary(f: DatasetFilter | null | undefined) {
   if (!f)
     return '全部'
   if (f.op === 'in')
-    return f.values.length === 1 ? (f.values[0] || '（空白）') : `${f.values.length} 项`
+    return f.values.length === 1 ? (f.values[0] || tr('（空白）')) : tr('{0} 项', [f.values.length])
   if (f.op === 'between')
     return `${f.min ?? '…'} ~ ${f.max ?? '…'}`
   if (f.op === 'contains')
-    return `包含 ${f.value}`
+    return tr('包含 {0}', [f.value])
   if (f.op === 'prefixes')
-    return `${f.values.length} 项…`
+    return tr('{0} 项…', [f.values.length])
   return `${f.value}…`
 }
 </script>

@@ -90,12 +90,12 @@ export interface TemplateUse {
 }
 
 export const PART_LABEL: Record<string, string> = {
-  'pivot': '透视表',
-  'webexcel-chart': '图表',
-  'webexcel-kpi': '指标卡',
-  'webexcel-table': '明细卡',
-  'webexcel-slicer': '切片器',
-  'webexcel-datatable': '数据表',
+  'pivot': t('透视表'),
+  'webexcel-chart': t('图表'),
+  'webexcel-kpi': t('指标卡'),
+  'webexcel-table': t('明细卡'),
+  'webexcel-slicer': t('切片器'),
+  'webexcel-datatable': t('数据表'),
   'formula': '公式',
 }
 

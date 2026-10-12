@@ -95,7 +95,7 @@ function resultText(run: ReportRun) {
     return run.message ?? ''
   const failed = run.results.filter(r => !r.ok)
   if (!failed.length)
-    return `已发送到 ${run.results.map(r => r.channelName).join('、')}${run.message ? `；${run.message}` : ''}`
+    return t('已发送到 {0}{1}', [run.results.map(r => r.channelName).join('、'), run.message ? `；${run.message}` : ''])
   return failed.map(r => `${r.channelName}：${r.message}`).join('；')
 }
 
@@ -128,7 +128,7 @@ async function onSaved(id: string, send: boolean) {
 async function toggle(r: Report) {
   const { name, workbookId, sheetId, title, schedule, channelIds, attachExcel } = r
   await updateReportApi(r.id, { name, workbookId, sheetId, title, schedule, channelIds, attachExcel, enabled: !r.enabled })
-  ElMessage.success(r.enabled ? `已停用「${r.name}」` : `已启用「${r.name}」`)
+  ElMessage.success(r.enabled ? t('已停用「{0}」', [r.name]) : t('已启用「{0}」', [r.name]))
   load(true)
 }
 
@@ -166,11 +166,11 @@ function toggleRuns(r: Report) {
 function scheduleText(r: Report) {
   const s = r.schedule
   switch (s.kind) {
-    case 'daily': return `每天 ${s.at}`
-    case 'weekly': return `每${WEEKDAYS[s.weekday - 1]} ${s.at}`
-    case 'monthly': return `每月 ${s.day} 号 ${s.at}`
-    case 'after_sync': return '数据同步后'
-    default: return '仅手动'
+    case 'daily': return t('每天 {0}', [s.at])
+    case 'weekly': return t('每{0} {1}', [WEEKDAYS[s.weekday - 1], s.at])
+    case 'monthly': return t('每月 {0} 号 {1}', [s.day, s.at])
+    case 'after_sync': return t('数据同步后')
+    default: return t('仅手动')
   }
 }
 
@@ -211,7 +211,7 @@ async function saveChannel() {
   if (!channelForm.name.trim())
     return ElMessage.warning(t('请填写渠道名称'))
   if (!channelEditing.value && !channelForm.target.trim())
-    return ElMessage.warning(channelForm.kind === 'email' ? '请填写收件人' : '请填写 Webhook 地址')
+    return ElMessage.warning(channelForm.kind === 'email' ? t('请填写收件人') : t('请填写 Webhook 地址'))
   const withSecret = channelForm.kind === 'dingtalk' || channelForm.kind === 'feishu'
   const input = {
     name: channelForm.name.trim(),

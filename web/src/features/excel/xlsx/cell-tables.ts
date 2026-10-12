@@ -1,3 +1,4 @@
+import { t as tr } from '@/i18n'
 /**
  * 导出 xlsx：单元格模式的数据表（结果已写成普通单元格）在原位置包成 Excel 表格，
  * 引用它的 TSUM / TCOUNT 等平台函数据此转成 `SUM(表[列])` 等原生写法，在 Excel 里照样能算。
@@ -57,15 +58,15 @@ export function planCellTables(list: CellTableCandidate[], tableName: (name: str
     const range = { startRow: t.row, startColumn: t.col, endRow: t.row + dataRows, endColumn: t.col + (t.extent?.cols ?? 0) - 1 }
     let reason: string | null = null
     if (!t.extent || dataRows < 1)
-      reason = '单元格模式的数据表还没有数据'
+      reason = tr('单元格模式的数据表还没有数据')
     else if ((t.total ?? dataRows) > dataRows)
-      reason = `单元格模式的数据表只写了前 ${dataRows.toLocaleString()} 行（共 ${(t.total ?? 0).toLocaleString()} 行）`
+      reason = tr('单元格模式的数据表只写了前 {0} 行（共 {1} 行）', [dataRows.toLocaleString(), (t.total ?? 0).toLocaleString()])
     else if (t.edited)
-      reason = '单元格模式的数据表里有手工调整，平台按数据集计算、不含手改的格子，Excel 按格子计算结果会不同'
+      reason = tr('单元格模式的数据表里有手工调整，平台按数据集计算、不含手改的格子，Excel 按格子计算结果会不同')
     else if (t.columns.length !== t.extent.cols || t.columns.some((c, i) => (t.header[i] ?? '').trim() !== c))
-      reason = '单元格模式的数据表表头被改过，与列名对不上'
+      reason = tr('单元格模式的数据表表头被改过，与列名对不上')
     else if (t.occupied.some(o => overlaps(o, range)))
-      reason = '单元格模式的数据表与工作表上的表格重叠'
+      reason = tr('单元格模式的数据表与工作表上的表格重叠')
     if (reason) {
       reasons.set(key, reason)
       continue

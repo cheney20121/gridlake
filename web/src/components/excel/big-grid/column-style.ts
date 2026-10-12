@@ -1,4 +1,5 @@
 import type { CellValue } from '@/api/dataset'
+import { t } from '@/i18n'
 
 /**
  * 数据表列的显示样式：数字格式 + 条件格式规则。
@@ -11,12 +12,12 @@ export type NumFmt = 'default' | 'int' | 'dec2' | 'percent' | 'wan' | 'plain'
 export const NUM_FMTS: NumFmt[] = ['default', 'int', 'dec2', 'percent', 'wan', 'plain']
 
 export const NUM_FMT_LABEL: Record<NumFmt, string> = {
-  default: '默认',
-  int: '整数',
-  dec2: '两位小数',
-  percent: '百分比',
-  wan: '万元',
-  plain: '不分组',
+  default: t('默认'),
+  int: t('整数'),
+  dec2: t('两位小数'),
+  percent: t('百分比'),
+  wan: t('万元'),
+  plain: t('不分组'),
 }
 
 export type RuleOp = '>' | '>=' | '<' | '<=' | '=' | '!=' | 'between' | 'contains' | 'equals' | 'empty' | 'negative'

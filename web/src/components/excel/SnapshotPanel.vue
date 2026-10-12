@@ -43,7 +43,7 @@ refresh()
 
 async function saveNamedVersion() {
   const description = await ElMessageBox.prompt(t('给这个版本起个名字，方便以后找回（如「9 月月结定稿」）'), t('保存版本'), {
-    inputValidator: v => !!v.trim() || '请填写版本说明',
+    inputValidator: v => !!v.trim() || t('请填写版本说明'),
     confirmButtonText: t('保存'),
   }).then(r => r.value.trim(), () => null)
   if (!description)

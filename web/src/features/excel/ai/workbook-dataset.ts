@@ -29,7 +29,7 @@ export async function applyDatasetSave(p: DatasetSavePayload, onDatasetsChanged:
   const q = await createQueryApi({
     name: p.name,
     sql: p.sql,
-    description: p.purpose || '由 AI 助手生成',
+    description: p.purpose || t('由 AI 助手生成'),
     saveAsDataset: p.name,
     schedule: { kind: 'manual' },
     operator,

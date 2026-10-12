@@ -61,7 +61,7 @@ const STAT_CARDS = [
 const entities = computed(() => [...new Set([...(view.value?.rows ?? []).map(r => r.entity), ...(view.value?.banks ?? []).map(b => b.entity)])])
 
 /** 确认框：取消时返回 false（ElMessageBox 取消会 reject） */
-function confirmBox(message: string, title: string, confirmButtonText = '确定') {
+function confirmBox(message: string, title: string, confirmButtonText = t('确定')) {
   return ElMessageBox.confirm(message, title, { type: 'warning', confirmButtonText }).then(() => true, () => false)
 }
 
@@ -137,8 +137,8 @@ async function uploadBank() {
 async function removeBatch(b: LedgerBankBatch) {
   const ok = await confirmBox(
     `删除「${b.fileName ?? b.batchId}」的 ${b.rowCount} 条银行流水${b.matched ? `，并取消其中 ${b.matched} 笔已配对的提现` : ''}？`,
-    '删除银行流水',
-    '删除',
+    t('删除银行流水'),
+    t('删除'),
   )
   if (!ok)
     return
@@ -172,9 +172,9 @@ async function pick(txn: LedgerBankTxn) {
     return
   const diff = Math.round((txn.amount - row.amount) * 100) / 100
   if (diff !== 0 && !await confirmBox(
-    `到账 ${formatMoney(txn.amount)} 与提现 ${formatMoney(row.amount)} 相差 ${formatMoney(diff)}（如手续费），确认配对？`,
-    '金额不一致',
-    '确认配对',
+    t('到账 {0} 与提现 {1} 相差 {2}（如手续费），确认配对？', [formatMoney(txn.amount), formatMoney(row.amount), formatMoney(diff)]),
+    t('金额不一致'),
+    t('确认配对'),
   )) {
     return
   }
@@ -188,14 +188,14 @@ async function pick(txn: LedgerBankTxn) {
 async function unmatch(row: LedgerWithdrawRow) {
   if (!requireOperator())
     return
-  if (!await confirmBox(`取消提现 ${formatMoney(row.amount)}（${row.time}）与银行流水的配对？`, '取消配对'))
+  if (!await confirmBox(t('取消提现 {0}（{1}）与银行流水的配对？', [formatMoney(row.amount), row.time]), t('取消配对')))
     return
   await matchWithdrawalApi({ shop: row.shop, period: row.period, serialNo: row.serialNo, txnId: null, operator: props.operator })
   await load()
   emit('changed')
 }
 
-const lagText = (r: LedgerWithdrawRow) => r.lagDays == null ? '' : r.lagDays === 0 ? '当天到账' : `T+${r.lagDays}`
+const lagText = (r: LedgerWithdrawRow) => r.lagDays == null ? '' : r.lagDays === 0 ? t('当天到账') : `T+${r.lagDays}`
 </script>
 
 <template>

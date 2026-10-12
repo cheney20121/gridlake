@@ -99,14 +99,14 @@ async function onSaved(id: string, run: boolean) {
 async function toggle(c: Connector) {
   const { source, target, schedule, name } = c
   await updateConnectorApi(c.id, { name, source, target, schedule, enabled: !c.enabled })
-  ElMessage.success(c.enabled ? `已停用「${c.name}」` : `已启用「${c.name}」`)
+  ElMessage.success(c.enabled ? t('已停用「{0}」', [c.name]) : t('已启用「{0}」', [c.name]))
   load(true)
 }
 
 async function remove(c: Connector) {
   const ok = await ElMessageBox.confirm(
-    `删除连接器「${c.name}」及其同步记录？已同步进数据集${c.datasetName ? `「${c.datasetName}」` : ''}的数据会保留。`,
-    '删除连接器',
+    t('删除连接器「{0}」及其同步记录？已同步进数据集{1}的数据会保留。', [c.name, c.datasetName ? `「${c.datasetName}」` : '']),
+    t('删除连接器'),
     { type: 'warning', confirmButtonText: t('删除') },
   ).then(() => true, () => false)
   if (!ok)
@@ -140,16 +140,16 @@ function toggleRuns(c: Connector) {
 
 function summary(r: ConnectorRun) {
   if (r.status === 'skipped')
-    return r.message || '没有新数据'
+    return r.message || t('没有新数据')
   const parts = [`读取 ${r.rowsRead.toLocaleString()} 行`]
   if (r.inserted)
-    parts.push(`新增 ${r.inserted.toLocaleString()}`)
+    parts.push(t('新增 {0}', [r.inserted.toLocaleString()]))
   if (r.updated)
-    parts.push(`更新 ${r.updated.toLocaleString()}`)
+    parts.push(t('更新 {0}', [r.updated.toLocaleString()]))
   if (r.replaced)
-    parts.push(`替换 ${r.replaced.toLocaleString()}`)
+    parts.push(t('替换 {0}', [r.replaced.toLocaleString()]))
   if (r.skipped)
-    parts.push(`跳过 ${r.skipped.toLocaleString()}`)
+    parts.push(t('跳过 {0}', [r.skipped.toLocaleString()]))
   return parts.join('，')
 }
 
@@ -165,13 +165,13 @@ function sourceText(c: Connector) {
 function scheduleText(c: Connector) {
   const s = c.schedule
   if (s.kind === 'daily')
-    return `每天 ${s.at}`
+    return t('每天 {0}', [s.at])
   if (s.kind === 'interval')
-    return s.minutes % 60 === 0 ? `每 ${s.minutes / 60} 小时` : `每 ${s.minutes} 分钟`
-  return '手动'
+    return s.minutes % 60 === 0 ? t('每 {0} 小时', [s.minutes / 60]) : t('每 {0} 分钟', [s.minutes])
+  return t('手动')
 }
 
-const MODE_LABEL = { replace: '全量替换', append: '增量追加', upsert: '增量更新' } as const
+const MODE_LABEL = { replace: t('全量替换'), append: t('增量追加'), upsert: t('增量更新') } as const
 const STATUS: Record<ConnectorRun['status'], { text: string, cls: string }> = {
   running: { text: t('同步中'), cls: 'text-[#1D4ED8]' },
   success: { text: t('成功'), cls: 'text-[#0B5A2E]' },

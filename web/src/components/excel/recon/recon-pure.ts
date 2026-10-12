@@ -1,4 +1,5 @@
 import type { ReconAutoResult, ReconMethod } from '@/api/recon'
+import { t } from '@/i18n'
 
 /** 对账里用到的纯函数（便于单测） */
 
@@ -8,10 +9,10 @@ export function formatMoney(v: number): string {
 }
 
 export const METHOD_LABEL: Record<ReconMethod, string> = {
-  exact: '自动',
-  tolerance: '自动（容差）',
-  sum: '自动（汇总）',
-  manual: '手工',
+  exact: t('自动'),
+  tolerance: t('自动（容差）'),
+  sum: t('自动（汇总）'),
+  manual: t('手工'),
 }
 
 /** 分为单位算，避免 0.1 + 0.2 之类的浮点误差 */
@@ -49,8 +50,8 @@ export function summarizeSelection(left: number[], right: number[], tolerance: n
 export function autoConfirmText(r: ReconAutoResult, labels: { left: string, right: string }): string {
   if (!r.groups) {
     return r.clearedBroken > 0
-      ? `没有可以自动勾对的了；会清理 ${r.clearedBroken} 个失效的勾对组（对应的行被改过或删了）。`
-      : '没有可以自动勾对的了。剩下的请手工勾对，或调整容差 / 日期窗口 / 对账键。'
+      ? t('没有可以自动勾对的了；会清理 {0} 个失效的勾对组（对应的行被改过或删了）。', [r.clearedBroken])
+      : t('没有可以自动勾对的了。剩下的请手工勾对，或调整容差 / 日期窗口 / 对账键。')
   }
   const parts = [
     r.exact ? `金额相同 ${r.exact.toLocaleString()} 组` : '',

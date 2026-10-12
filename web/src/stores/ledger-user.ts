@@ -2,15 +2,16 @@ import type { LedgerMe, LedgerScope, LedgerUser } from '@/api/auth'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { getLedgerMeApi } from '@/api/auth'
+import { t } from '@/i18n'
 import { removeToken } from '@/utils/auth'
 
 /** 工作簿的共享范围：private 仅自己 / view 所有人可查看 / edit 所有人可编辑 */
 export type Visibility = 'private' | 'view' | 'edit'
 
 export const VISIBILITY_LABEL: Record<Visibility, string> = {
-  private: '仅自己',
-  view: '所有人可查看',
-  edit: '所有人可编辑',
+  private: t('仅自己'),
+  view: t('所有人可查看'),
+  edit: t('所有人可编辑'),
 }
 
 /** 对一个对象的权限等级：0 无权 1 查看 2 编辑 3 管理（与服务端 auth::level 一致） */

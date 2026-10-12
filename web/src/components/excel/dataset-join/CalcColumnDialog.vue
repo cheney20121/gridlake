@@ -104,7 +104,7 @@ const runPreview = useDebounceFn(async () => {
   catch (e) {
     if (!isCancel(e)) {
       preview.value = null
-      error.value = (e as { response?: { data?: { msg?: string } } })?.response?.data?.msg || '公式有误'
+      error.value = (e as { response?: { data?: { msg?: string } } })?.response?.data?.msg || t('公式有误')
     }
   }
   finally {

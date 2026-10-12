@@ -11,6 +11,7 @@ import { chartBus, findFloat, updateFloat } from '@/features/excel/chart/chart-m
 import { datasetById } from '@/features/excel/dashboard/slicer'
 import { tableColumns, tableQuery, tableSheetId } from '@/features/excel/datatable/types'
 import { recalculateTableFormulas } from '@/features/excel/formula/dataset-functions'
+import { t } from '@/i18n'
 
 /**
  * 工作表里的数据表：标题栏可拖动、右下角可缩放（浮动对象），表格区域内部滚动、列头排序 / 筛选
@@ -50,12 +51,12 @@ let lastQuery = ''
 async function load(force = false) {
   const ds = dataset.value
   if (!ds) {
-    error.value = '数据集不存在、已删除或在回收站（恢复后自动显示）'
+    error.value = t('数据集不存在、已删除或在回收站（恢复后自动显示）')
     cursor.value = null
     return
   }
   if (!columns.value.length) {
-    error.value = '没有可显示的列（列可能已被删除），请编辑数据表重新选择'
+    error.value = t('没有可显示的列（列可能已被删除），请编辑数据表重新选择')
     cursor.value = null
     return
   }
@@ -101,7 +102,7 @@ function filterLabel(f: DatasetFilter): string {
       return `${f.column}：${shown}${f.values.length > 2 ? ` 等 ${f.values.length} 项` : ''}`
     }
     case 'between': return `${f.column}：${f.min ?? '…'} ~ ${f.max ?? '…'}`
-    case 'contains': return `${f.column} 包含「${f.value}」`
+    case 'contains': return t('{0} 包含「{1}」', [f.column, f.value])
     case 'prefix': return `${f.column} 以「${f.value || '（空白）'}」开头`
     case 'prefixes': return `${f.column} 以「${f.values.map(v => v || '（空白）').join('」「')}」之一开头`
   }

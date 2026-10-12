@@ -183,7 +183,7 @@ function initEngines() {
   // 汇总表第 1 行（主体简称）修改后保存到后端
   const aliasWatcher = watchEntityAliasEdits(api, {
     onSaved: items => ElMessage.success(t('主体简称已保存：{0}', [items.map(i => i.alias ?? '（恢复默认）').join('、')])),
-    onError: e => notifyLedgerError(e, '保存主体简称'),
+    onError: e => notifyLedgerError(e, t('保存主体简称')),
   })
 
   // initEngines 在 watchEffect 异步回调中执行，不能在这里调用 onUnmounted，改为登记清理函数
@@ -577,10 +577,10 @@ onMounted(() => {
         registerDatasetFunctions(api)
         registerImportRange(api)
         registerTableFormulaInput(api, (n, ex) => {
-          ElMessage.success({ message: n > 1 ? `已把 ${n} 个数据表公式转为服务端计算（如 ${ex.to}）` : `已转为服务端计算：${ex.to}（按数据表当前的筛选）`, duration: 5000 })
+          ElMessage.success({ message: n > 1 ? t('已把 {0} 个数据表公式转为服务端计算（如 {1}）', [n, ex.to]) : t('已转为服务端计算：{0}（按数据表当前的筛选）', [ex.to]), duration: 5000 })
         })
         // 透视表页签内点 ▾ / ▸ 折叠、改标签文字设别名
-        registerPivotInteractions(api, e => notifyLedgerError(e, '更新透视表'))
+        registerPivotInteractions(api, e => notifyLedgerError(e, t('更新透视表')))
         // 行列分组：右键菜单、Shift+Alt+→ / ←，插入删除行列时同步
         registerOutline(api, { onDirty: () => persistenceManager.markDirty(), onMessage: m => ElMessage.warning(m) })
         appRibbon = setupRibbon(api)

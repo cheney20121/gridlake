@@ -32,7 +32,7 @@ const STATUS: Record<ApprovalStatus, { label: string, type: 'warning' | 'success
   cancelled: { label: t('已撤回'), type: 'info' },
 }
 
-const ACTION_LABEL: Record<string, string> = { submit: '发起审批', approve: '审批通过', reject: '审批驳回', cancel: '撤回' }
+const ACTION_LABEL: Record<string, string> = { submit: t('发起审批'), approve: t('审批通过'), reject: t('审批驳回'), cancel: t('撤回') }
 
 const formatCurrency = (n: number) => `¥ ${n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
@@ -63,7 +63,7 @@ async function act(a: Approval, kind: 'approve' | 'reject' | 'cancel') {
       await store.cancel(a.id, comment, operator.value)
     else
       await store.decide(a.id, kind === 'approve', comment, operator.value)
-    ElMessage.success(kind === 'approve' ? '已通过' : kind === 'reject' ? '已驳回' : '已撤回')
+    ElMessage.success(kind === 'approve' ? t('已通过') : kind === 'reject' ? t('已驳回') : t('已撤回'))
     expanded.value = null
   }
   finally {
@@ -76,10 +76,10 @@ function openWorkbook(a: Approval) {
 }
 
 const TABS = computed<{ name: ApprovalBox, label: string, empty: string }[]>(() => [
-  { name: 'todo', label: t('待我审批'), empty: '暂无待审批事项' },
-  { name: 'started', label: t('我发起的'), empty: '你还没有发起过审批' },
-  { name: 'done', label: t('已处理'), empty: '暂无已处理的审批' },
-  ...(ledgerUser.authRequired && ledgerUser.isAdmin ? [{ name: 'all' as const, label: t('全部'), empty: '暂无审批单' }] : []),
+  { name: 'todo', label: t('待我审批'), empty: t('暂无待审批事项') },
+  { name: 'started', label: t('我发起的'), empty: t('你还没有发起过审批') },
+  { name: 'done', label: t('已处理'), empty: t('暂无已处理的审批') },
+  ...(ledgerUser.authRequired && ledgerUser.isAdmin ? [{ name: 'all' as const, label: t('全部'), empty: t('暂无审批单') }] : []),
 ])
 </script>
 

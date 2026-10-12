@@ -45,7 +45,7 @@ const emit = defineEmits<{
   (e: 'schedule'): void
 }>()
 
-const FORM_LABEL: Record<string, string> = { slicer: '切片器', kpi: '指标卡', table: '表格', datatable: '数据表' }
+const FORM_LABEL: Record<string, string> = { slicer: t('切片器'), kpi: t('指标卡'), table: '表格', datatable: t('数据表') }
 
 const datasetId = ref('')
 const parts = shallowRef<FloatLocation[]>([])
@@ -378,7 +378,7 @@ function add(kind: 'slicer' | 'kpi' | 'table' | 'datatable') {
       v: 1,
       id: newId('kpi'),
       kind: 'kpi',
-      title: money ? `${money.title}合计` : '行数',
+      title: money ? t('{0}合计', [money.title]) : t('行数'),
       datasetId: ds.id,
       value: money ? { column: money.title, agg: 'sum' } : { agg: 'count' },
       dateColumn: date?.title ?? null,
@@ -398,7 +398,7 @@ function add(kind: 'slicer' | 'kpi' | 'table' | 'datatable') {
       v: 1,
       id: newId('tb'),
       kind: 'table',
-      title: money ? `${money.title}前 10 的${row.title}` : `${row.title}行数`,
+      title: money ? t('{0}前 10 的{1}', [money.title, row.title]) : t('{0}行数', [row.title]),
       datasetId: ds.id,
       row: { column: row.title, granularity: null },
       values: [money ? { column: money.title, agg: 'sum' } : { agg: 'count' }],
@@ -420,7 +420,7 @@ function add(kind: 'slicer' | 'kpi' | 'table' | 'datatable') {
 
 async function remove(id: string) {
   const isCells = !!(props.univerApi && findCellTable(props.univerApi, id))
-  const ok = await ElMessageBox.confirm(isCells ? '删除这个数据表？写入的单元格会被清空。' : '删除这个部件？', '删除', { type: 'warning', confirmButtonText: t('删除') }).then(() => true, () => false)
+  const ok = await ElMessageBox.confirm(isCells ? t('删除这个数据表？写入的单元格会被清空。') : t('删除这个部件？'), t('删除'), { type: 'warning', confirmButtonText: t('删除') }).then(() => true, () => false)
   if (!ok || !props.univerApi)
     return
   if (isCells) {

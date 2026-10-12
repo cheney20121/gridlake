@@ -65,7 +65,7 @@ function partsText(t: TemplateInfo) {
 
 function needsText(t: TemplateInfo) {
   if (!t.datasets.length)
-    return '不需要数据'
+    return tr('不需要数据')
   return t.datasets.map(d => d.builtinId ? `内置「${d.name}」` : `${d.name}（${d.columns.map(c => c.title).join('、')}）`).join(' + ')
 }
 

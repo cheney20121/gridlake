@@ -4,6 +4,7 @@ import type { FWorksheet } from '@univerjs/sheets/facade'
 import type { Dim, OutlineGroup } from '@/features/excel/outline/outline'
 import { onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { getOutline, groupsOf, maxLevel, onOutlineChanged, showLevel, toggleGroup } from '@/features/excel/outline/outline'
+import { t } from '@/i18n'
 
 /**
  * 分组栏：叠加在行号左侧 / 列标上方，画分组线和 −/+ 按钮，左上角是级别按钮 1 2 3（与 Excel 一致）。
@@ -100,7 +101,7 @@ function draw() {
         const btn = rect(g.end + 1, 0)
         const cy = btn.top + btn.height / 2
         if (btn.height > 0 && cy > headerH && cy < canvas.height)
-          out.push({ key: `rb${g.level}-${g.end}`, kind: 'btn', label: g.collapsed ? '+' : '−', title: g.collapsed ? '展开分组' : '折叠分组', style: { left: px(x - 6), top: px(canvas.top + cy - 6) }, onClick: () => toggleGroup(sheet, 'rows', g) })
+          out.push({ key: `rb${g.level}-${g.end}`, kind: 'btn', label: g.collapsed ? '+' : '−', title: g.collapsed ? t('展开分组') : t('折叠分组'), style: { left: px(x - 6), top: px(canvas.top + cy - 6) }, onClick: () => toggleGroup(sheet, 'rows', g) })
       }
       else {
         const left = rect(0, g.start).left
@@ -117,7 +118,7 @@ function draw() {
         const btn = rect(0, g.end + 1)
         const cx = btn.left + btn.width / 2
         if (btn.width > 0 && cx > headerW && cx < canvas.width)
-          out.push({ key: `cb${g.level}-${g.end}`, kind: 'btn', label: g.collapsed ? '+' : '−', title: g.collapsed ? '展开分组' : '折叠分组', style: { left: px(canvas.left + cx - 6), top: px(y - 6) }, onClick: () => toggleGroup(sheet, 'cols', g) })
+          out.push({ key: `cb${g.level}-${g.end}`, kind: 'btn', label: g.collapsed ? '+' : '−', title: g.collapsed ? t('展开分组') : t('折叠分组'), style: { left: px(canvas.left + cx - 6), top: px(y - 6) }, onClick: () => toggleGroup(sheet, 'cols', g) })
       }
     }
   }
@@ -128,9 +129,9 @@ function draw() {
   const rowLevels = rowMax ? rowMax + 1 : 0
   const colLevels = colMax ? colMax + 1 : 0
   for (let k = 1; k <= rowLevels; k++)
-    out.push({ key: `rlv${k}`, kind: 'level', label: String(k), title: k === 1 ? '只显示汇总（折叠全部行分组）' : `显示到第 ${k} 级`, style: { left: px(canvas.left + 2 + (k - 1) * STEP), top: px(canvas.top + headerH - 14) }, onClick: () => showLevel(sheet, 'rows', k) })
+    out.push({ key: `rlv${k}`, kind: 'level', label: String(k), title: k === 1 ? t('只显示汇总（折叠全部行分组）') : t('显示到第 {0} 级', [k]), style: { left: px(canvas.left + 2 + (k - 1) * STEP), top: px(canvas.top + headerH - 14) }, onClick: () => showLevel(sheet, 'rows', k) })
   for (let k = 1; k <= colLevels; k++)
-    out.push({ key: `clv${k}`, kind: 'level', label: String(k), title: k === 1 ? '只显示汇总（折叠全部列分组）' : `显示到第 ${k} 级`, style: { left: px(canvas.left + headerW - 14), top: px(canvas.top + 2 + (k - 1) * STEP) }, onClick: () => showLevel(sheet, 'cols', k) })
+    out.push({ key: `clv${k}`, kind: 'level', label: String(k), title: k === 1 ? t('只显示汇总（折叠全部列分组）') : t('显示到第 {0} 级', [k]), style: { left: px(canvas.left + headerW - 14), top: px(canvas.top + 2 + (k - 1) * STEP) }, onClick: () => showLevel(sheet, 'cols', k) })
   items.value = out
 }
 

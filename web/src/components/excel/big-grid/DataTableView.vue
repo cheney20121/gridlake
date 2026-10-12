@@ -177,7 +177,7 @@ function filterLabel(f: DatasetFilter): string {
       return `${title}：${shown}${f.values.length > 2 ? ` 等 ${f.values.length} 项` : ''}`
     }
     case 'between': return `${title}：${f.min ?? '…'} ~ ${f.max ?? '…'}`
-    case 'contains': return `${title} 包含「${f.value}」`
+    case 'contains': return t('{0} 包含「{1}」', [title, f.value])
     case 'prefix': return `${title} 以「${f.value || '（空白）'}」开头`
     case 'prefixes': return `${title} 以「${f.values.map(v => v || '（空白）').join('」「')}」之一开头`
   }
@@ -344,8 +344,8 @@ function exportData(format: 'csv' | 'xlsx') {
   const limit = format === 'xlsx' ? MAX_XLSX_ROWS : MAX_EXPORT_ROWS
   if (cur.total > limit) {
     ElMessage.warning(format === 'xlsx'
-      ? `当前结果 ${cur.total.toLocaleString()} 行，超过 Excel 单表上限 ${limit.toLocaleString()} 行，请先筛选，或改用 CSV（上限 ${MAX_EXPORT_ROWS.toLocaleString()} 行）`
-      : `当前结果 ${cur.total.toLocaleString()} 行，单次最多导出 ${limit.toLocaleString()} 行，请先筛选缩小范围`)
+      ? t('当前结果 {0} 行，超过 Excel 单表上限 {1} 行，请先筛选，或改用 CSV（上限 {2} 行）', [cur.total.toLocaleString(), limit.toLocaleString(), MAX_EXPORT_ROWS.toLocaleString()])
+      : t('当前结果 {0} 行，单次最多导出 {1} 行，请先筛选缩小范围', [cur.total.toLocaleString(), limit.toLocaleString()]))
     return
   }
   const name = props.drill ? `${props.dataset.name}_${props.drill.title.replace(/[\\/:*?"<>|\s]+/g, '_')}` : props.dataset.name

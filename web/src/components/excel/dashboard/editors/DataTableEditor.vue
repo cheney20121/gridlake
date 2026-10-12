@@ -45,7 +45,7 @@ function filterText(f: DataTableSpec['filters'][number]) {
   switch (f.op) {
     case 'in': return `${f.column}：${f.values.slice(0, 3).map(v => v || '（空白）').join('、')}${f.values.length > 3 ? ` 等 ${f.values.length} 项` : ''}`
     case 'between': return `${f.column}：${f.min ?? '…'} ~ ${f.max ?? '…'}`
-    case 'contains': return `${f.column} 包含「${f.value}」`
+    case 'contains': return t('{0} 包含「{1}」', [f.column, f.value])
     case 'prefix': return `${f.column} 以「${f.value || '（空白）'}」开头`
     case 'prefixes': return `${f.column} 以「${f.values.map(v => v || '（空白）').join('」「')}」之一开头`
   }

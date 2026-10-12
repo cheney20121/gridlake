@@ -109,7 +109,7 @@ function labelOf(req: PivotRequest, field: PivotField | undefined, key: string |
   return (field && req.aliases?.[field.column]?.[key ?? '']) || keyText(key)
 }
 
-const GRANULARITY_TEXT: Record<string, string> = { year: '（年）', quarter: '（季度）', month: '（月）', week: '（周）', day: '（日）' }
+const GRANULARITY_TEXT: Record<string, string> = { year: tr('（年）'), quarter: tr('（季度）'), month: tr('（月）'), week: tr('（周）'), day: tr('（日）') }
 
 function fieldTitle(f: PivotField) {
   return f.label?.trim() || f.column + (GRANULARITY_TEXT[f.granularity ?? ''] ?? '')
@@ -319,7 +319,7 @@ function renderInner(sheet: FWorksheet, specIn: PivotSpec, result: PivotResult) 
     targets.set(`${fieldRow},${c}`, { kind: 'value', index: cm.valueIndex })
     if (m > 0) {
       const ck = cm.colKeyIndex == null ? null : columnKeys[cm.colKeyIndex]!
-      const text = ck ? ck.map((key, j) => labelOf(req, req.columns[j], key)).join(' / ') : '总计'
+      const text = ck ? ck.map((key, j) => labelOf(req, req.columns[j], key)).join(' / ') : tr('总计')
       matrix[fieldRow - 1]![c] = { v: cm.valueIndex === 0 ? text : '', s: STYLE.header }
       // 只有一个列字段时列标签可改名（多个时一格里是组合，无法对应到单个值）
       if (ck && m === 1 && cm.valueIndex === 0)
@@ -416,9 +416,9 @@ function filterDescOf(req: PivotRequest) {
     return `${f.column} 以「${f.value}」开头`
   })
   if (req.keyword)
-    parts.push(`关键字「${req.keyword}」`)
+    parts.push(tr('关键字「{0}」', [req.keyword]))
   if (req.top)
-    parts.push(`前 ${req.top} 项`)
+    parts.push(tr('前 {0} 项', [req.top]))
   return parts.join('；')
 }
 

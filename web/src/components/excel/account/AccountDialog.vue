@@ -53,7 +53,7 @@ async function resetPassword(a: Account) {
   try {
     const { value } = await ElMessageBox.prompt(t('给「{0}」设置新密码（至少 8 位）。设置后对方已登录的设备会退出。', [a.name]), t('重置密码'), {
       inputType: 'password',
-      inputValidator: v => (v?.length ?? 0) >= 8 || '至少 8 位',
+      inputValidator: v => (v?.length ?? 0) >= 8 || t('至少 8 位'),
       confirmButtonText: t('重置'),
     })
     await patch(a, { password: value }, '密码已重置')
@@ -63,7 +63,7 @@ async function resetPassword(a: Account) {
 
 async function rename(a: Account) {
   try {
-    const { value } = await ElMessageBox.prompt(t('显示名（审批、评论、审计里看到的名字）'), t('修改显示名'), { inputValue: a.name, inputValidator: v => !!v?.trim() || '不能为空' })
+    const { value } = await ElMessageBox.prompt(t('显示名（审批、评论、审计里看到的名字）'), t('修改显示名'), { inputValue: a.name, inputValidator: v => !!v?.trim() || t('不能为空') })
     await patch(a, { name: value.trim() })
   }
   catch {}

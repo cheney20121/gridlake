@@ -65,11 +65,11 @@ const contextText = computed(() => {
   const c = contextPreview.value
   const parts: string[] = []
   if (c.sheetName)
-    parts.push(`工作表「${c.sheetName}」`)
+    parts.push(tr('工作表「{0}」', [c.sheetName]))
   if (c.pivot)
-    parts.push('透视表定义')
+    parts.push(tr('透视表定义'))
   if (c.selection && c.selectionValues)
-    parts.push(`选区 ${c.selection}`)
+    parts.push(tr('选区 {0}', [c.selection]))
   return parts.join(' · ')
 })
 
@@ -410,7 +410,7 @@ async function undo(a: AiAction) {
     await aiDecideApi(a.id, 'undone', note, props.operator)
     actions.value[a.id] = { ...a, status: 'undone', result: note }
     emit('changed')
-    ElMessage.success(note || '已撤销')
+    ElMessage.success(note || tr('已撤销'))
   }
   catch (e) {
     ElMessage.error(tr('撤销失败：{0}', [e instanceof Error ? e.message : String(e)]))

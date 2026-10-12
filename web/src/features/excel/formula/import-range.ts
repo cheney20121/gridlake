@@ -1,6 +1,7 @@
 import type { FUniver } from '@univerjs/core/facade'
 import { LEDGER_BASE } from '@/api/ledger-base'
 import { listWorkbooksApi } from '@/api/workbook'
+import { t } from '@/i18n'
 import request from '@/utils/request'
 
 /**
@@ -27,7 +28,7 @@ interface RangeResult {
   error: string | null
 }
 
-const PLACEHOLDER = '加载中…'
+const PLACEHOLDER = t('加载中…')
 const POLL_MS = 60_000
 
 const cache = new Map<string, Result>()
@@ -89,7 +90,7 @@ async function flush() {
   }
   catch (e) {
     console.warn('[IMPORTRANGE] 取数失败:', e)
-    entries.forEach(([key]) => cache.set(key, { error: '#服务不可用' }))
+    entries.forEach(([key]) => cache.set(key, { error: t('#服务不可用') }))
   }
   ensurePolling()
   api?.getFormula().executeCalculation()

@@ -3,6 +3,7 @@ import type { Op } from './ops'
 import type { CollabEvent, CollabOpsMessage, CollabPeerInfo } from '@/api/collab'
 import { shallowRef } from 'vue'
 import { CollabRefused, connectCollab, sendCollab } from '@/api/collab'
+import { t as tr } from '@/i18n'
 import { cellKeys, retarget, shouldRelay, withoutPending } from './ops'
 
 /**
@@ -315,7 +316,7 @@ export class CollabSession {
       if (JSON.stringify(body).length > MAX_BATCH_BYTES) {
         // 太大发不出去：让别人知道需要重新载入（保存之后）
         await sendCollab(wb, { client: this.clientId, kind: 'stale' }).catch(() => {})
-        this.hooks?.toast('这次修改太大，没有实时同步给其他人；保存后他们可以点「重新同步」看到', 'warning')
+        this.hooks?.toast(tr('这次修改太大，没有实时同步给其他人；保存后他们可以点「重新同步」看到'), 'warning')
         return
       }
       this.pending.set(batchId, ops.flatMap(cellKeys))

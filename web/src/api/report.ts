@@ -1,4 +1,5 @@
 import { LEDGER_BASE } from '@/api/ledger-base'
+import { t } from '@/i18n'
 import request from '@/utils/request'
 
 /** 定时推送：把仪表盘页按计划推送到企业微信 / 钉钉 / 飞书群或邮箱 */
@@ -7,10 +8,10 @@ const url = (path: string) => `${LEDGER_BASE}/api/ledger${path}`
 export type ChannelKind = 'wecom' | 'dingtalk' | 'feishu' | 'email'
 
 export const CHANNEL_LABEL: Record<ChannelKind, string> = {
-  wecom: '企业微信',
-  dingtalk: '钉钉',
-  feishu: '飞书',
-  email: '邮件',
+  wecom: t('企业微信'),
+  dingtalk: t('钉钉'),
+  feishu: t('飞书'),
+  email: t('邮件'),
 }
 
 export interface ReportChannel {

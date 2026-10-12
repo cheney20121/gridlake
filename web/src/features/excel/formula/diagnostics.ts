@@ -2,6 +2,7 @@ import type { FUniver } from '@univerjs/core/facade'
 import type { FWorksheet } from '@univerjs/sheets/facade'
 import type { Cycle, FormulaCell } from './circular'
 import { cellName } from '@/features/excel/writeback/input-table'
+import { t } from '@/i18n'
 import { findCycles } from './circular'
 import { colIndex, parseRefs, stripStrings } from './formula-refs'
 
@@ -98,13 +99,13 @@ function shapeOf(formula: string, row: number, col: number) {
 function adviceFor(g: Omit<FormulaGroup, 'advice'>) {
   const out: string[] = []
   if (g.wholeColumn)
-    out.push('整列引用（如 D:D）会扫描整列，改成实际范围（如 D2:D5000）或把数据放进数据表')
+    out.push(t('整列引用（如 D:D）会扫描整列，改成实际范围（如 D2:D5000）或把数据放进数据表'))
   if (g.volatile.length)
     out.push(`${g.volatile.join('、')} 是易失函数，任何修改都会让它重算${g.volatile.includes('OFFSET') || g.volatile.includes('INDIRECT') ? '；OFFSET / INDIRECT 可改用 INDEX' : ''}`)
   if (LOOKUP.test(g.formula) && g.count >= 200 && g.cellsEach >= 1000)
-    out.push('大量按条件汇总 / 查找：可改用透视表，或数据集公式 DSUMIFS / DLOOKUP（服务端一次算完）')
+    out.push(t('大量按条件汇总 / 查找：可改用透视表，或数据集公式 DSUMIFS / DLOOKUP（服务端一次算完）'))
   if (!out.length && g.cost >= 1_000_000)
-    out.push('引用的格子很多，考虑缩小范围或先汇总再引用')
+    out.push(t('引用的格子很多，考虑缩小范围或先汇总再引用'))
   return out
 }
 

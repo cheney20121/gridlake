@@ -4,6 +4,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { readNotificationsApi } from '@/api/comment'
 import { inbox, refreshInbox } from '@/features/excel/comments/state'
 import { cellName } from '@/features/excel/writeback/input-table'
+import { t } from '@/i18n'
 
 /**
  * 顶栏铃铛：别人 @ 了你、回复了你的评论，以及审批 / 月结需要你处理或有了结果时显示未读数；
@@ -36,17 +37,17 @@ async function readAll() {
 }
 
 const KIND: Record<string, string> = {
-  mention: '@ 了你',
-  reply: '回复了你的评论',
-  approval_request: '请你审批',
-  approval_approved: '通过了你的审批',
-  approval_rejected: '驳回了你的审批',
-  approval_cancelled: '撤回了审批',
-  close_request: '提交了月结审批',
-  close_locked: '通过了月结（已锁账）',
-  close_rejected: '驳回了月结',
-  close_cancelled: '撤回了月结审批',
-  close_reopened: '反结账',
+  mention: t('@ 了你'),
+  reply: t('回复了你的评论'),
+  approval_request: t('请你审批'),
+  approval_approved: t('通过了你的审批'),
+  approval_rejected: t('驳回了你的审批'),
+  approval_cancelled: t('撤回了审批'),
+  close_request: t('提交了月结审批'),
+  close_locked: t('通过了月结（已锁账）'),
+  close_rejected: t('驳回了月结'),
+  close_cancelled: t('撤回了月结审批'),
+  close_reopened: t('反结账'),
 }
 
 /** 通知下面一行：评论在哪个格子、审批是哪个工作簿 */

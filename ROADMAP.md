@@ -62,7 +62,7 @@
 | # | 需求 | 说明 | 量 |
 |---|---|---|---|
 | 8 | **通用化：** 把电商台账专用模块拆成可选“场景包”，默认关闭；核心只保留数据集 / 透视 / 公式 / SQL / 仪表盘 | 降低陌生用户的理解成本 | L |
-| 9 | 国际化：**前端已完成大半**——自写的 `t('中文原文')`（`web/src/i18n/`，缺译文回退中文）、语言切换器、约 2000 条英文，Element Plus / Univer 界面同步切换，`pnpm i18n:check` 进 CI；后端错误信息也已支持英文（`server/src/msg_en.json`，约 700 条模板，请求带 `x-lang` / cookie `gridlake-lang` 时翻译）；**未完成**：约 950 行前端脚本里的运行时提示和标签、电商台账场景（有意保持中文）、AI 与 MCP 的工具说明、定时推送的消息正文 | 目前后端报错直接写中文字符串 | L |
+| 9 | 国际化：**前端已完成大半**——自写的 `t('中文原文')`（`web/src/i18n/`，缺译文回退中文）、语言切换器、约 2000 条英文，Element Plus / Univer 界面同步切换，`pnpm i18n:check` 进 CI；后端错误信息也已支持英文（`server/src/msg_en.json`，约 700 条模板，请求带 `x-lang` / cookie `gridlake-lang` 时翻译）；**未完成**：约 670 行前端脚本里的运行时提示和标签（逐个确认过的才会翻译：和服务端对暗号的名字、会进列别名的名称、搜索关键词等保持中文）、电商台账场景（有意保持中文）、AI 与 MCP 的工具说明、定时推送的消息正文 | 目前后端报错直接写中文字符串 | L |
 | 10 | 建 `docs/`：架构说明、平台函数手册（`DSUMIFS` 等）、Excel 公式兼容矩阵、REST API 参考（OpenAPI）、配置项参考；部署手册文件名改英文 | 现在配置只在 `deploy/` 手册里 | M |
 | 11 | CI 增强：`cargo fmt` / `clippy -D warnings`、`cargo audit`、`pnpm audit`、Dependabot / Renovate、macOS / Linux 矩阵、覆盖率徽章 | 当前 CI 只有测试和构建 | S |
 | 12 | 代码拆分：`routes.rs`（2030 行）已按功能拆成 `routes/` 下 13 个文件；`ai/tools.rs`（1836）、`views/excel/index.vue`（934）尚未拆；目录 `demo-web-vue3` 已改名为 `web` | 降低贡献门槛 | M |

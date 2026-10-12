@@ -1,6 +1,7 @@
 import type { DatasetFilter, DatasetSort } from '@/api/dataset'
 import type { ColumnStyle } from '@/components/excel/big-grid/column-style'
 import { LEDGER_BASE } from '@/api/ledger-base'
+import { t } from '@/i18n'
 import { getToken } from '@/utils/auth'
 import request from '@/utils/request'
 
@@ -147,7 +148,7 @@ function authHeaders(): Record<string, string> {
 
 async function readEvents(resp: Response, onEvent: (e: AiEvent) => void) {
   if (!resp.ok || !resp.body) {
-    let msg = `请求失败（${resp.status}）`
+    let msg = t('请求失败（{0}）', [resp.status])
     try {
       const j = await resp.json() as { msg?: string }
       if (j.msg)

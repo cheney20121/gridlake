@@ -129,7 +129,7 @@ export async function applyTableView(api: FUniver, p: TableViewPayload): Promise
   await save(api, next, found.cells)
   const note = p.preview?.note
   return {
-    message: `已调整数据表「${p.table}」${note ? `（${note}）` : ''}`,
+    message: tr('已调整数据表「{0}」{1}', [p.table, note ? `（${note}）` : '']),
     undo: { kind: 'table_view', tableId: next.id, name: p.table, before, afterKey: viewKey(next) },
   }
 }
@@ -248,7 +248,7 @@ export async function applyTableCreate(api: FUniver, p: TableCreatePayload): Pro
   const spec = cells ? await insertCellTable(api, init) : insertDataTable(api, init)
   const note = p.preview?.note
   return {
-    message: `已在当前工作表插入数据表「${name}」${note ? `（${note}）` : ''}`,
+    message: tr('已在当前工作表插入数据表「{0}」{1}', [name, note ? `（${note}）` : '']),
     undo: { kind: 'table_create', tableId: spec.id, name, cells },
   }
 }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { WritebackRecord, WritebackSubmitMode } from '@/api/dataset'
+import { t } from '@/i18n'
 
 /** 某个数据集的提交记录：每次提交的时间、人、新增 / 更新条数，可撤销最近一次 */
 defineProps<{
@@ -12,7 +13,7 @@ const emit = defineEmits<{
   (e: 'undo', r: WritebackRecord): void
 }>()
 
-const modeText = (m: WritebackSubmitMode) => (m === 'upsert' ? '按主键更新' : m === 'delete' ? '删除' : '追加')
+const modeText = (m: WritebackSubmitMode) => (m === 'upsert' ? t('按主键更新') : m === 'delete' ? t('删除') : t('追加'))
 
 function sourceText(r: WritebackRecord) {
   const s = r.source

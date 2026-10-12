@@ -53,16 +53,16 @@ async function restore(t: TrashedDataset) {
 async function purge(t: TrashedDataset) {
   const dependents = items.value.filter(x => (x.kind === 'view' || x.kind === 'recon' || x.kind === 'summary') && x.blocked?.includes(`「${t.name}」`))
   const extra = dependents.length ? `回收站里基于它的关联视图「${dependents.map(x => x.name).join('」「')}」也会一并删除。` : ''
-  if (!(await confirm(`彻底删除「${t.name}」${t.rowCount != null ? `及其 ${t.rowCount.toLocaleString()} 行数据` : ''}，删除后不可恢复。${extra}`, '彻底删除', '彻底删除')))
+  if (!(await confirm(`彻底删除「${t.name}」${t.rowCount != null ? `及其 ${t.rowCount.toLocaleString()} 行数据` : ''}，删除后不可恢复。${extra}`, tr('彻底删除'), tr('彻底删除'))))
     return
   const names = await purgeDatasetApi(t.id)
-  ElMessage.success(names.length > 1 ? `已彻底删除：${names.join('、')}` : '已彻底删除')
+  ElMessage.success(names.length > 1 ? tr('已彻底删除：{0}', [names.join('、')]) : tr('已彻底删除'))
   emit('changed')
   await load()
 }
 
 async function emptyAll() {
-  if (!(await confirm(`彻底删除回收站里的 ${items.value.length} 个数据集及其数据，删除后不可恢复。`, '清空回收站', '清空')))
+  if (!(await confirm(tr('彻底删除回收站里的 {0} 个数据集及其数据，删除后不可恢复。', [items.value.length]), tr('清空回收站'), tr('清空'))))
     return
   const n = await emptyDatasetTrashApi()
   ElMessage.success(tr('已彻底删除 {0} 个数据集', [n]))

@@ -71,17 +71,17 @@ export function useXlsx(options: {
       const r = await importXlsx(api, await file.arrayBuffer())
       const lines = r.sheets.map(s => `「${escapeHtml(s.name)}」${s.rows.toLocaleString()} 行 × ${s.cols} 列，公式 ${s.formulas.toLocaleString()} 个，合并 ${s.merges} 处${s.outlineGroups ? `，分组 ${s.outlineGroups} 个` : ''}`)
       for (const s of r.skipped)
-        lines.push(`<span style="color:#92400E">「${escapeHtml(s.name)}」${s.rows.toLocaleString()} 行，超过表格页签上限，未导入。请用「+ 导入数据」导入为数据集（支持千万行）</span>`)
+        lines.push(t('<span style="color:#92400E">「{0}」{1} 行，超过表格页签上限，未导入。请用「+ 导入数据」导入为数据集（支持千万行）</span>', [escapeHtml(s.name), s.rows.toLocaleString()]))
       const f = r.features
       const brought = [f.conditionalFormats && `条件格式 ${f.conditionalFormats} 条`, f.dataValidations && `数据验证 ${f.dataValidations} 条`, f.notes && `批注 ${f.notes} 个`, f.hyperlinks && `超链接 ${f.hyperlinks} 个`, f.tables && `表格 ${f.tables} 个`, r.definedNames?.imported && `命名区域 ${r.definedNames.imported} 个`].filter(Boolean)
       if (brought.length)
-        lines.push(`<span style="color:#0B5A2E">同时导入：${brought.join('、')}</span>`)
+        lines.push(t('<span style="color:#0B5A2E">同时导入：{0}</span>', [brought.join('、')]))
       const dropped = [r.unsupported.images && `图片 ${r.unsupported.images} 张`, ...f.skipped.slice(0, 5).map(escapeHtml), r.definedNames?.skipped.length && `命名区域「${r.definedNames.skipped.slice(0, 3).map(escapeHtml).join('」「')}」${r.definedNames.skipped.length > 3 ? ` 等 ${r.definedNames.skipped.length} 个` : ''}（指向多个区域、未导入的页签或重名）`].filter(Boolean)
       if (dropped.length)
         lines.push(`<span style="color:#6B7280">未能导入：${dropped.join('、')}${f.skipped.length > 5 ? ` 等 ${f.skipped.length} 项` : ''}</span>`)
       if (r.unknownFunctions)
-        lines.push(`<span style="color:#B91C1C">${r.unknownFunctions} 个公式使用了当前不支持的函数（显示 #NAME?）</span>`)
-      await ElMessageBox.alert(lines.join('<br>') || '文件中没有可导入的页签', `已导入「${escapeHtml(file.name)}」`, {
+        lines.push(t('<span style="color:#B91C1C">{0} 个公式使用了当前不支持的函数（显示 #NAME?）</span>', [r.unknownFunctions]))
+      await ElMessageBox.alert(lines.join('<br>') || t('文件中没有可导入的页签'), t('已导入「{0}」', [escapeHtml(file.name)]), {
         dangerouslyUseHTMLString: true,
         confirmButtonText: t('知道了'),
       }).catch(() => {})

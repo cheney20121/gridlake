@@ -85,11 +85,11 @@ instance.interceptors.response.use((response) => {
     return res.data as any
   if (Number(res.code) === 401) {
     showTokenExpired()
-    return Promise.reject(new Error(res.msg || '请先登录'))
+    return Promise.reject(new Error(res.msg || t('请先登录')))
   }
   if (!config.silent)
-    toast(res.msg || '服务错误')
-  return Promise.reject(new Error(res.msg || '服务错误'))
+    toast(res.msg || t('服务错误'))
+  return Promise.reject(new Error(res.msg || t('服务错误')))
 }, (error) => {
   // 主动取消（换了筛选 / 关闭面板时中断上一次请求）不是错误
   if (axios.isCancel(error))
@@ -103,7 +103,7 @@ instance.interceptors.response.use((response) => {
   if (typeof resp?.data?.msg === 'string' && resp.data.msg)
     error.message = resp.data.msg
   if (!error.config?.silent)
-    toast(error.message || '请求失败')
+    toast(error.message || t('请求失败'))
   return Promise.reject(error)
 })
 

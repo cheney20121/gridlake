@@ -123,7 +123,7 @@ export function foldSeries(data: ChartData, max = MAX_SERIES): ChartData {
   return {
     ...data,
     series: [...data.series.filter(s => keep.has(s.name)), other],
-    notes: [...data.notes, `系列有 ${data.series.length} 个，较小的 ${others.length} 个已合并为「其他」`],
+    notes: [...data.notes, tr('系列有 {0} 个，较小的 {1} 个已合并为「其他」', [data.series.length, others.length])],
   }
 }
 
@@ -132,16 +132,16 @@ export function toSlices(data: ChartData): { slices: { name: string, value: numb
   const s = data.series[0]
   const notes: string[] = []
   if (data.series.length > 1)
-    notes.push(`饼图只显示第一个系列「${s?.name}」`)
+    notes.push(tr('饼图只显示第一个系列「{0}」', [s?.name]))
   let slices = data.categories.map((name, i) => ({ name, value: s?.values[i] ?? 0 })).filter(x => x.value > 0)
   const skipped = data.categories.length - slices.length
   if (skipped)
-    notes.push(`${skipped} 个分类为 0、空或负数，未显示`)
+    notes.push(tr('{0} 个分类为 0、空或负数，未显示', [skipped]))
   slices.sort((a, b) => b.value - a.value)
   if (slices.length > MAX_SLICES) {
     const rest = slices.slice(MAX_SLICES - 1)
     slices = [...slices.slice(0, MAX_SLICES - 1), { name: '其他', value: rest.reduce((a, x) => a + x.value, 0) }]
-    notes.push(`分类有 ${data.categories.length} 个，较小的 ${rest.length} 个已合并为「其他」；比较很多分类时建议用条形图`)
+    notes.push(tr('分类有 {0} 个，较小的 {1} 个已合并为「其他」；比较很多分类时建议用条形图', [data.categories.length, rest.length]))
   }
   return { slices, notes }
 }
@@ -150,7 +150,7 @@ export function toSlices(data: ChartData): { slices: { name: string, value: numb
 export function toHistogram(data: ChartData, bins?: number | null): ChartData {
   const values = (data.series[0]?.values ?? []).filter((v): v is number => v != null)
   if (!values.length)
-    return { categories: [], series: [], notes: ['没有可分组的数值'] }
+    return { categories: [], series: [], notes: [tr('没有可分组的数值')] }
   const min = Math.min(...values)
   const max = Math.max(...values)
   const n = Math.max(1, Math.min(50, bins || Math.ceil(Math.log2(values.length) + 1)))
@@ -162,7 +162,7 @@ export function toHistogram(data: ChartData, bins?: number | null): ChartData {
   return {
     categories: counts.map((_, i) => `${fmt(min + i * width)} ~ ${fmt(min + (i + 1) * width)}`),
     series: [{ name: '个数', values: counts }],
-    notes: [`${values.length.toLocaleString()} 个数值，分为 ${n} 组`],
+    notes: [tr('{0} 个数值，分为 {1} 组', [values.length.toLocaleString(), n])],
   }
 }
 

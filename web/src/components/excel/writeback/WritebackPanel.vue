@@ -224,7 +224,7 @@ async function removeCurrent() {
 const submitting = ref(false)
 const result = shallowRef<{ specId: string, outcome: WritebackOutcome, sheetRows: number[] } | null>(null)
 
-const modeText = (m: WritebackMode) => (m === 'upsert' ? '按主键更新' : '追加')
+const modeText = (m: WritebackMode) => (m === 'upsert' ? tr('按主键更新') : tr('追加'))
 
 async function submit() {
   const api = props.univerApi
@@ -263,7 +263,7 @@ async function submit() {
       clearInputRows(s, spec)
     ElMessage.success(changed
       ? `已写入「${outcome.datasetName}」：新增 ${outcome.inserted} 行${outcome.updated ? `，更新 ${outcome.updated} 行` : ''}${outcome.unchanged ? `，${outcome.unchanged} 行无变化` : ''}${spec.mode === 'append' ? '；填报区已清空' : ''}`
-      : `${outcome.unchanged} 行与数据集完全相同，无需更新`)
+      : tr('{0} 行与数据集完全相同，无需更新', [outcome.unchanged]))
     if (changed)
       emit('datasetsChanged')
     loadRecords()
@@ -425,7 +425,7 @@ watch(() => current.value?.datasetId, loadRecords, { immediate: true })
 async function undo(r: WritebackRecord) {
   const ok = await ElMessageBox.confirm(
     `撤销 ${r.createdAt} ${r.operator || ''} 的提交：${r.mode === 'delete' ? `把删除的 ${r.deleted} 行插回数据集` : `${r.inserted ? `删除新增的 ${r.inserted} 行` : ''}${r.inserted && r.updated ? '，' : ''}${r.updated ? `把更新的 ${r.updated} 行恢复为提交前的值` : ''}`}。工作表里的内容不会改变。`,
-    '撤销提交',
+    tr('撤销提交'),
     { type: 'warning', confirmButtonText: tr('撤销') },
   ).then(() => true, () => false)
   if (!ok)

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { t } from '@/i18n'
 
 /**
  * AI 建议的内容：公式文本、一句话说明、结果预览表。单个建议卡与方案卡里的每一步共用。
@@ -10,7 +11,7 @@ const props = defineProps<{
   payload: Record<string, any>
 }>()
 
-const CHART_LABEL: Record<string, string> = { column: '柱形图', bar: '条形图', line: '折线图', area: '面积图', pie: '饼图', donut: '环形图', waterfall: '瀑布图' }
+const CHART_LABEL: Record<string, string> = { column: '柱形图', bar: t('条形图'), line: t('折线图'), area: t('面积图'), pie: t('饼图'), donut: t('环形图'), waterfall: t('瀑布图') }
 
 const detail = computed(() => {
   const p = props.payload

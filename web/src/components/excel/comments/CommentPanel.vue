@@ -179,7 +179,7 @@ async function saveEdit(c: CommentItem) {
 }
 
 async function remove(c: CommentItem, isThread: boolean) {
-  const ok = await ElMessageBox.confirm(isThread ? '删除这条评论线程？其中的回复一并删除。' : '删除这条回复？', '删除评论', { type: 'warning', confirmButtonText: tr('删除') }).then(() => true, () => false)
+  const ok = await ElMessageBox.confirm(isThread ? tr('删除这条评论线程？其中的回复一并删除。') : tr('删除这条回复？'), tr('删除评论'), { type: 'warning', confirmButtonText: tr('删除') }).then(() => true, () => false)
   if (!ok)
     return
   await deleteCommentApi(c.id)

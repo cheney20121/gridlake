@@ -1,4 +1,5 @@
 import type { Worksheet } from 'exceljs'
+import { t as tr } from '@/i18n'
 
 /**
  * 表格（Excel 的「超级表」）与 xlsx 的互转：名称、位置、列名、筛选按钮随文件走，样式统一用 Excel 的「中等深浅 2」（斑马纹）。
@@ -137,7 +138,7 @@ export function readExcelTables(ws: Worksheet, sheetName: string, skipped: strin
     let note: string | undefined
     if (m.totalsRow) {
       range.endRow -= 1
-      note = '汇总行未带入'
+      note = tr('汇总行未带入')
     }
     if (range.endRow <= range.startRow) {
       skipped.push(`「${sheetName}」表格「${m.name}」（没有数据行）`)

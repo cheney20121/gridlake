@@ -60,7 +60,7 @@ async function loadShops() {
 
 function errorMessage(e: unknown): string {
   if (isAxiosError(e))
-    return (e.response?.data as { msg?: string } | undefined)?.msg ?? (e.response ? e.message : '无法连接资金流水服务')
+    return (e.response?.data as { msg?: string } | undefined)?.msg ?? (e.response ? e.message : t('无法连接资金流水服务'))
   return e instanceof Error ? e.message : String(e)
 }
 
@@ -210,7 +210,7 @@ function shopOptions(item: ImportItem) {
       const c = p?.candidates.find(x => x.shop === s.name)
       return {
         value: s.name,
-        hint: c && p ? `流水 ${percent(dupRatio(p, c))} · 商品 ${percent(c.productRatio)}` : s.status === 'closed' ? '已关店' : '',
+        hint: c && p ? t('流水 {0} · 商品 {1}', [percent(dupRatio(p, c)), percent(c.productRatio)]) : s.status === 'closed' ? t('已关店') : '',
       }
     })
 }

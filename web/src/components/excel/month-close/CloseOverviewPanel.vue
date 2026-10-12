@@ -63,11 +63,11 @@ const dialog = reactive({
 })
 
 const DIALOG_TITLE: Record<LedgerCloseAction, string> = {
-  submit: '提交月结审批',
-  approve: '审批通过并锁账',
-  reject: '驳回月结',
-  cancel: '撤回审批',
-  reopen: '反结账（解除锁定）',
+  submit: t('提交月结审批'),
+  approve: t('审批通过并锁账'),
+  reject: t('驳回月结'),
+  cancel: t('撤回审批'),
+  reopen: t('反结账（解除锁定）'),
 }
 
 const candidates = ref<LedgerUserItem[]>([])

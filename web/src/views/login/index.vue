@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { getLedgerMeApi, loginApi } from '@/api/auth'
 import { LEDGER_SAME_ORIGIN } from '@/api/ledger-base'
 import LanguageSwitch from '@/components/common/LanguageSwitch.vue'
+import { t } from '@/i18n'
 import { useLedgerUserStore } from '@/stores/ledger-user'
 import { setToken } from '@/utils/auth'
 import { runtimeConfig } from '@/utils/runtime-config'
@@ -54,7 +55,7 @@ onMounted(async () => {
 async function submit() {
   error.value = ''
   if (!form.username.trim() || !form.password) {
-    error.value = '请输入用户名和密码'
+    error.value = t('请输入用户名和密码')
     return
   }
   submitting.value = true

@@ -237,7 +237,7 @@ async function save() {
     await loadQueries()
     if (sq.datasetId) {
       emit('datasetsChanged', sq.datasetId)
-      ElMessage.success(`已保存，并写入数据集「${sq.datasetName}」（${sq.lastRows?.toLocaleString()} 行）${sq.lastMessage ? `：${sq.lastMessage}` : ''}`)
+      ElMessage.success(t('已保存，并写入数据集「{0}」（{1} 行）{2}', [sq.datasetName, sq.lastRows?.toLocaleString(), sq.lastMessage ? `：${sq.lastMessage}` : '']))
     }
     else {
       ElMessage.success(t('已保存'))
@@ -262,7 +262,7 @@ async function refresh(sq: SavedQuery) {
 }
 
 async function remove(sq: SavedQuery) {
-  const ok = await ElMessageBox.confirm(`删除查询「${sq.name}」？${sq.datasetName ? `已生成的数据集「${sq.datasetName}」会保留，但不再自动重算。` : ''}`, '删除查询', { type: 'warning', confirmButtonText: t('删除') }).then(() => true, () => false)
+  const ok = await ElMessageBox.confirm(`删除查询「${sq.name}」？${sq.datasetName ? `已生成的数据集「${sq.datasetName}」会保留，但不再自动重算。` : ''}`, t('删除查询'), { type: 'warning', confirmButtonText: t('删除') }).then(() => true, () => false)
   if (!ok)
     return
   await deleteQueryApi(sq.id)

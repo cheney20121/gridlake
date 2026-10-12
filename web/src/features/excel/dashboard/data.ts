@@ -1,6 +1,7 @@
 import type { KpiSpec, TableCardSpec } from './types'
 import type { DatasetFilter, PivotResult } from '@/api/dataset'
 import { getPivotApi } from '@/api/dataset'
+import { t } from '@/i18n'
 import { datasetById } from './slicer'
 
 /** 指标卡数据 */
@@ -27,8 +28,8 @@ function sameColumn(f: DatasetFilter, column: string, datasetId: string) {
 
 function deltaLabel(spec: KpiSpec) {
   if (spec.compare === 'yoy')
-    return '较上年同期'
-  return spec.granularity === 'day' ? '较前一天' : spec.granularity === 'year' ? '较上年' : '较上月'
+    return t('较上年同期')
+  return spec.granularity === 'day' ? t('较前一天') : spec.granularity === 'year' ? t('较上年') : t('较上月')
 }
 
 /**

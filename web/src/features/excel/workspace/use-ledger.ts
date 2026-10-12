@@ -99,7 +99,7 @@ export function useLedger(options: {
     if (!univerAPI.value || !period)
       return
     importing.value = true
-    importMessage.value = `正在加载 ${period} 汇总…`
+    importMessage.value = t('正在加载 {0} 汇总…', [period])
     try {
       const api = univerAPI.value
       // 重建汇总表不算用户编辑；用户主动切换月份 / 导入后才需要保存
@@ -110,7 +110,7 @@ export function useLedger(options: {
         persistenceManager.markDirty()
     }
     catch (e) {
-      notifyLedgerError(e, '加载汇总')
+      notifyLedgerError(e, t('加载汇总'))
     }
     finally {
       importing.value = false
@@ -125,7 +125,7 @@ export function useLedger(options: {
       await loadPeriod(importedPeriods[importedPeriods.length - 1] ?? currentPeriod.value)
     }
     catch (e) {
-      notifyLedgerError(e, '刷新汇总')
+      notifyLedgerError(e, t('刷新汇总'))
     }
   }
 
@@ -137,7 +137,7 @@ export function useLedger(options: {
         await loadPeriod(currentPeriod.value)
     }
     catch (e) {
-      notifyLedgerError(e, '刷新汇总')
+      notifyLedgerError(e, t('刷新汇总'))
     }
   }
 

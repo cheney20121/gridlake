@@ -81,7 +81,7 @@ async function save(shop: LedgerShop) {
 
 async function toggleStatus(shop: LedgerShop, active: boolean) {
   shops.value = await updateLedgerShopApi({ name: shop.name, status: active ? 'active' : 'closed' })
-  ElMessage.success(active ? `「${shop.name}」已恢复运营` : `「${shop.name}」已标记关店，之后的月份不再提示缺数`)
+  ElMessage.success(active ? t('「{0}」已恢复运营', [shop.name]) : t('「{0}」已标记关店，之后的月份不再提示缺数', [shop.name]))
   emit('changed')
 }
 </script>

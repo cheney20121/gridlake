@@ -262,7 +262,7 @@ export async function buildWorkbookXlsx(api: FUniver, fileName: string): Promise
       if (reason)
         return reason
     }
-    return '数据表未完整导出或写法无法对应'
+    return tr('数据表未完整导出或写法无法对应')
   }
   for (const sheetId of snapshot.sheetOrder) {
     const data = snapshot.sheets[sheetId] as IWorksheetData | undefined
@@ -303,7 +303,7 @@ export async function buildWorkbookXlsx(api: FUniver, fileName: string): Promise
         if (formula && formula.startsWith('=')) {
           if (PLATFORM_FUNCTION.test(formula)) {
             target.value = result ?? null
-            target.note = `平台函数（Excel 无法计算，已导出为数值）\n原公式：${formula}`
+            target.note = tr('平台函数（Excel 无法计算，已导出为数值）\n原公式：{0}', [formula])
             summary.platformFormulas++
             // 溢出到相邻格子的结果（如 IMPORTRANGE 取回的整块区域）也按值写出；
             // 溢出部分只在公式引擎里，不在单元格原始值中，按格取计算结果
@@ -329,7 +329,7 @@ export async function buildWorkbookXlsx(api: FUniver, fileName: string): Promise
             }
             else {
               target.value = result ?? null
-              target.note = `数据表函数（${asValueReason(formula)}，已导出为数值）\n原公式：${formula}`
+              target.note = tr('数据表函数（{0}，已导出为数值）\n原公式：{1}', [asValueReason(formula), formula])
               summary.tableFormulasAsValue++
             }
           }

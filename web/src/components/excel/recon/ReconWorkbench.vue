@@ -117,10 +117,10 @@ async function match() {
   if (!s.balanced) {
     const text = `${labels.value.left} 合计 ${formatMoney(s.leftTotal)}，${labels.value.right} 合计 ${formatMoney(s.rightTotal)}，相差 ${formatMoney(s.diff)}`
       + `${tolerance.value ? `，超过了容差 ${formatMoney(tolerance.value)}` : ''}。仍要勾对的话，请写明差额的原因（如银行手续费、汇率差）：`
-    note = await ElMessageBox.prompt(text, '合计不相等', {
+    note = await ElMessageBox.prompt(text, t('合计不相等'), {
       confirmButtonText: t('确认勾对'),
-      inputPlaceholder: '差额原因（必填）',
-      inputValidator: v => !!v?.trim() || '请写明原因',
+      inputPlaceholder: t('差额原因（必填）'),
+      inputValidator: v => !!v?.trim() || t('请写明原因'),
     }).then(r => r.value.trim(), () => undefined)
     if (!note)
       return
@@ -147,10 +147,10 @@ async function autoMatch() {
     busy.value = ''
     const text = autoConfirmText(dry, labels.value)
     if (!dry.groups && !dry.clearedBroken) {
-      ElMessageBox.alert(text, '自动勾对', { confirmButtonText: t('知道了') })
+      ElMessageBox.alert(text, t('自动勾对'), { confirmButtonText: t('知道了') })
       return
     }
-    const ok = await ElMessageBox.confirm(text, '自动勾对', { confirmButtonText: dry.groups ? '执行勾对' : '清理', dangerouslyUseHTMLString: false, customClass: 'pre-wrap-box' }).then(() => true, () => false)
+    const ok = await ElMessageBox.confirm(text, t('自动勾对'), { confirmButtonText: dry.groups ? t('执行勾对') : t('清理'), dangerouslyUseHTMLString: false, customClass: 'pre-wrap-box' }).then(() => true, () => false)
     if (!ok)
       return
     busy.value = '正在勾对…'

@@ -138,11 +138,11 @@ const snippet = computed(() => {
 })
 
 const CLIENT_HINT: Record<string, string> = {
-  cursor: '编辑 ~/.cursor/mcp.json（或项目下 .cursor/mcp.json），粘贴后在 Cursor 设置的 MCP 页面启用',
-  cherry: 'Cherry Studio → 设置 → MCP 服务器 → 添加服务器，按下方填写',
-  claude: 'Claude Desktop → 设置 → 开发者 → 编辑配置（claude_desktop_config.json）；需要本机装有 Node.js（npx）。内网 HTTP 地址需要 --allow-http',
-  bridge: 'macOS / Linux 上有 gridlake 程序时可用内置转接（不需要 Node.js）；命令路径改成程序实际位置',
-  dify: 'Dify：在「工具 → MCP」中添加 HTTP 类型的 MCP 服务；其他支持 MCP 的平台同样填写地址与请求头',
+  cursor: tr('编辑 ~/.cursor/mcp.json（或项目下 .cursor/mcp.json），粘贴后在 Cursor 设置的 MCP 页面启用'),
+  cherry: tr('Cherry Studio → 设置 → MCP 服务器 → 添加服务器，按下方填写'),
+  claude: tr('Claude Desktop → 设置 → 开发者 → 编辑配置（claude_desktop_config.json）；需要本机装有 Node.js（npx）。内网 HTTP 地址需要 --allow-http'),
+  bridge: tr('macOS / Linux 上有 gridlake 程序时可用内置转接（不需要 Node.js）；命令路径改成程序实际位置'),
+  dify: tr('Dify：在「工具 → MCP」中添加 HTTP 类型的 MCP 服务；其他支持 MCP 的平台同样填写地址与请求头'),
 }
 </script>
 

@@ -62,7 +62,7 @@ function ranges(days: number[]): string {
     const d = days[i]
     const prev = days[i - 1]!
     if (d !== prev + 1) {
-      out.push(start === prev ? `${prev} 日` : `${start}–${prev} 日`)
+      out.push(start === prev ? t('{0} 日', [prev]) : t('{0}–{1} 日', [start, prev]))
       start = d
     }
   }

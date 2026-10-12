@@ -80,7 +80,7 @@ export interface Applied {
   undo: UndoStep
 }
 
-const KIND_NAME: Record<string, string> = { pivot: '透视表', chart: '图表', formula: '公式', calc: '计算列', table_view: '数据表视图', column_format: '列样式', table_create: '新建数据表', dataset_save: '另存数据集' }
+const KIND_NAME: Record<string, string> = { pivot: t('透视表'), chart: t('图表'), formula: '公式', calc: t('计算列'), table_view: t('数据表视图'), column_format: t('列样式'), table_create: t('新建数据表'), dataset_save: t('另存数据集') }
 
 async function applyOne(api: FUniver, kind: string, p: Record<string, any>, onDatasetsChanged: () => void, operator?: string): Promise<Applied> {
   switch (kind) {

@@ -1,5 +1,6 @@
 import type { DatasetFilter } from '@/api/dataset'
 import type { DatasetSource } from '@/features/excel/chart/types'
+import { t } from '@/i18n'
 
 /**
  * 图表点击联动的纯逻辑（点击后的选中状态、显示文字、筛选条件），不依赖界面与 Univer，便于单元测试。
@@ -23,11 +24,11 @@ export interface CrossFilter {
 }
 
 const BLANK = '（空）'
-const GRANULARITY_TEXT: Record<string, string> = { year: '（年）', month: '（月）', day: '（日）' }
+const GRANULARITY_TEXT: Record<string, string> = { year: t('（年）'), month: t('（月）'), day: t('（日）') }
 
 function listText(values: string[]) {
   const shown = values.slice(0, 3).map(v => v || '（空白）').join('、')
-  return values.length > 3 ? `${shown} 等 ${values.length} 项` : shown
+  return values.length > 3 ? t('{0} 等 {1} 项', [shown, values.length]) : shown
 }
 
 const unique = (list: string[]) => [...new Set(list)]

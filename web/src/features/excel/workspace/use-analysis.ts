@@ -249,7 +249,7 @@ export function useAnalysis(options: {
     if (e instanceof CellTableBlockedError)
       ElMessage.warning({ message: e.message, duration: 6000 })
     else
-      notifyLedgerError(e, `刷新数据表「${spec.name}」`)
+      notifyLedgerError(e, t('刷新数据表「{0}」', [spec.name]))
   }
 
   /** 打开工作簿后按最新数据刷新单元格模式数据表（不算用户修改） */
@@ -276,7 +276,7 @@ export function useAnalysis(options: {
       uiStore.openPanel('pivot')
     if (hasLayout(sheet.getSheetId()) || !spec.request.values.length)
       return
-    await persistenceManager.withoutTracking(() => refreshPivot(sheet, spec)).catch(e => notifyLedgerError(e, '刷新透视表'))
+    await persistenceManager.withoutTracking(() => refreshPivot(sheet, spec)).catch(e => notifyLedgerError(e, t('刷新透视表')))
   }
 
   /** 从数据表「透视分析」：以当前筛选新建透视表页签 */

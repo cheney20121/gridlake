@@ -3,6 +3,7 @@ import type { FUniver } from '@univerjs/core/facade'
 import type { FWorksheet } from '@univerjs/sheets/facade'
 import { computed, ref, watch } from 'vue'
 import { sortFilterEngine } from '@/features/excel/data/sort-filter'
+import { t } from '@/i18n'
 import { useExcelUIStore } from '@/stores/excel-ui'
 
 const props = defineProps<{
@@ -96,7 +97,7 @@ function handleClearFilter() {
   sortFilterEngine.clearFilter(1, rowCount - 1)
   filterEnabled.value = false
   selectedValues.value = new Set(uniqueValues.value.map(v => String(v.value)))
-  resultMessage.value = '已清除筛选'
+  resultMessage.value = t('已清除筛选')
   uiStore.setFilterConfig(null)
 }
 

@@ -3,6 +3,7 @@ import type { Completion, SqlDataset } from '@/features/excel/sql/complete'
 import { computed, nextTick, ref } from 'vue'
 import { complete } from '@/features/excel/sql/complete'
 import { highlightHtml } from '@/features/excel/sql/highlight'
+import { t as tr } from '@/i18n'
 
 /**
  * SQL 编辑器：透明的 textarea 叠在着色的 <pre> 上（输入、选择、撤销、中文输入法都用原生的），
@@ -150,7 +151,7 @@ async function insertAtCaret(text: string) {
 
 defineExpose({ insertAtCaret, focus: () => ta.value?.focus() })
 
-const TYPE_LABEL = { dataset: '数据集', column: '列', keyword: '关键字', function: '函数' } as const
+const TYPE_LABEL = { dataset: '数据集', column: '列', keyword: tr('关键字'), function: tr('函数') } as const
 </script>
 
 <template>

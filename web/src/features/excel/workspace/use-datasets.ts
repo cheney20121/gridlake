@@ -107,8 +107,8 @@ export function useDatasets(options: {
       const formulaBooks = (u?.workbooks ?? []).filter(w => w.parts.formula)
       const hint = formulaBooks.length
         ? `以下工作簿里的公式按名称引用它，改名后需同步修改：${formulaBooks.slice(0, 5).map(w => `「${w.name}」（${w.parts.formula} 个）`).join('、')}${formulaBooks.length > 5 ? ` 等 ${formulaBooks.length} 个` : ''}。透视表、图表、仪表盘、数据表按 ID 引用，不受影响`
-        : '没有公式按名称引用它；透视表、图表、仪表盘、数据表按 ID 引用，改名不受影响'
-      const name = await ElMessageBox.prompt(hint, '重命名数据集', {
+        : t('没有公式按名称引用它；透视表、图表、仪表盘、数据表按 ID 引用，改名不受影响')
+      const name = await ElMessageBox.prompt(hint, t('重命名数据集'), {
         inputValue: d.name,
         confirmButtonText: t('保存'),
       }).then(r => r.value, () => null)
@@ -128,7 +128,7 @@ export function useDatasets(options: {
             ? `<p style="margin-top:8px;color:#B91C1C">正在使用它的有：${impact}。在回收站期间这些地方会显示错误或暂停：</p><ul style="margin:4px 0 0 18px;list-style:disc">${list.join('')}</ul>`
             : '<p style="margin-top:8px;color:#0B5A2E">没有工作簿、推送、视图、SQL 查询或数据连接在用它。</p>'
         }${access}`,
-        '删除数据集',
+        t('删除数据集'),
         { type: 'warning', dangerouslyUseHTMLString: true, confirmButtonText: t('移到回收站'), confirmButtonClass: 'ec-button--danger' },
       ).then(() => true, () => false)
       if (!ok)

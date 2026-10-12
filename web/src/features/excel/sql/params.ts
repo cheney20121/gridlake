@@ -32,14 +32,14 @@ export function valueError(kind: ParamKind, value: string): string {
     return ''
   if (kind === 'number') {
     const n = Number(v.replace(/,/g, ''))
-    return Number.isFinite(n) ? '' : '应为数字'
+    return Number.isFinite(n) ? '' : t('应为数字')
   }
   if (kind === 'date') {
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v)
     if (!m)
-      return '日期格式如 2026-09-01'
+      return t('日期格式如 2026-09-01')
     const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])))
-    return d.getUTCFullYear() === Number(m[1]) && d.getUTCMonth() === Number(m[2]) - 1 && d.getUTCDate() === Number(m[3]) ? '' : '没有这一天'
+    return d.getUTCFullYear() === Number(m[1]) && d.getUTCMonth() === Number(m[2]) - 1 && d.getUTCDate() === Number(m[3]) ? '' : t('没有这一天')
   }
   return ''
 }
@@ -50,12 +50,12 @@ export function paramProblems(defs: ParamDef[], values: Record<string, string>):
   for (const d of defs) {
     const v = (values[d.name] ?? '').trim() || d.default?.trim() || ''
     if (!v) {
-      out.push(`请填写参数「${d.name}」`)
+      out.push(t('请填写参数「{0}」', [d.name]))
       continue
     }
     const e = valueError(d.kind, v)
     if (e)
-      out.push(`参数「${d.name}」${e}`)
+      out.push(t('参数「{0}」{1}', [d.name, e]))
   }
   return out
 }

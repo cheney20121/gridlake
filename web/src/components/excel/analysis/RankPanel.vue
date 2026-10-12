@@ -19,7 +19,7 @@ const emit = defineEmits<{
   (e: 'export', payload: AnalysisSheetPayload): void
 }>()
 
-const DIM_LABEL = { talent: '达人', product: '商品' } as const
+const DIM_LABEL = { talent: t('达人'), product: t('商品') } as const
 const PAGE_SIZE = 50
 
 const data = ref<AnalysisBreakdown | null>(null)

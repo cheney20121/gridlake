@@ -133,7 +133,7 @@ export function complete(text: string, caret: number, datasets: SqlDataset[], ex
   const prevTokens = tokenize(text.slice(0, from)).filter(t => t.type !== 'space')
   const prev = prevTokens[prevTokens.length - 1]
   const afterFrom = !!prev && prev.type === 'keyword' && ['FROM', 'JOIN'].includes(prev.text.toUpperCase())
-  const datasetItems: Suggestion[] = datasets.map(d => ({ label: d.name, insert: quoteIfNeeded(d.name), type: 'dataset', detail: d.rowCount != null ? `${d.rowCount.toLocaleString()} 行` : '数据集' }))
+  const datasetItems: Suggestion[] = datasets.map(d => ({ label: d.name, insert: quoteIfNeeded(d.name), type: 'dataset', detail: d.rowCount != null ? tr('{0} 行', [d.rowCount.toLocaleString()]) : tr('数据集') }))
   if (afterFrom) {
     const items = pick(datasetItems, prefix)
     return items.length ? { from, to: caret, items } : null
@@ -159,7 +159,7 @@ export function complete(text: string, caret: number, datasets: SqlDataset[], ex
     }
   }
   const keywords: Suggestion[] = KEYWORDS.map(k => ({ label: k, insert: k, type: 'keyword' }))
-  const functions: Suggestion[] = FUNCTIONS.map(f => ({ label: f, insert: `${f}(`, type: 'function', detail: '函数' }))
+  const functions: Suggestion[] = FUNCTIONS.map(f => ({ label: f, insert: `${f}(`, type: 'function', detail: tr('函数') }))
   const items = pick([...columns, ...datasetItems, ...keywords, ...functions], prefix)
   // 已经完整输入的唯一候选（如刚敲完 SELECT）不再打扰
   if (items.length === 1 && items[0]!.label.toLowerCase() === prefix.toLowerCase() && items[0]!.type === 'keyword')

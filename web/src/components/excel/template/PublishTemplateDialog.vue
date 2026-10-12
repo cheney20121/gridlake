@@ -64,7 +64,7 @@ async function publish() {
       replaceId: form.mode === 'replace' ? form.replaceId : null,
       operator: props.operator,
     })
-    ElMessage.success(form.mode === 'replace' ? '模板已更新' : '已发布为模板')
+    ElMessage.success(form.mode === 'replace' ? tr('模板已更新') : tr('已发布为模板'))
   }
   finally {
     saving.value = false
