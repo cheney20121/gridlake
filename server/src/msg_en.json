@@ -705,5 +705,10 @@
  "B 方": "side B",
  "截至日期": "The as-of date",
  "链路本地地址，含云厂商元数据接口": "a link-local address, including cloud metadata endpoints",
- "运营商级 NAT 地址，含阿里云元数据接口": "a carrier-grade NAT address, including the Alibaba Cloud metadata endpoint"
+ "运营商级 NAT 地址，含阿里云元数据接口": "a carrier-grade NAT address, including the Alibaba Cloud metadata endpoint",
+ "令牌名称不能为空，且不超过 40 个字符": "The token name cannot be empty or longer than 40 characters",
+ "有效期应在 1 到 {0} 天之间": "The validity must be between 1 and {0} days",
+ "每个账号最多 {0} 个访问令牌，请先吊销不用的": "Each account can have at most {0} access tokens; revoke the ones you no longer use first",
+ "个人访问令牌只在内置账号登录方式下可用（LEDGER_AUTH_MODE=local）": "Personal access tokens are only available with built-in account sign-in (LEDGER_AUTH_MODE=local)",
+ "不能用访问令牌管理访问令牌，请在网页里登录后操作": "An access token can't manage access tokens; sign in on the web page to do it"
 }

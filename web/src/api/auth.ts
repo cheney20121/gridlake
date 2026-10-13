@@ -158,3 +158,35 @@ export function deleteScopeRuleApi(subjectId: string) {
 export function saveScopeBindingApi(datasetId: string, data: { scopeColumn?: string | null, open: boolean }) {
   return request<boolean>({ url: url(`/data-scope/datasets/${datasetId}`), method: 'put', data })
 }
+
+// ── 个人访问令牌（脚本、CI 调用接口用；只在内置账号登录方式下可用）──
+
+export interface AccessToken {
+  id: string
+  name: string
+  /** 令牌开头的几位，用来认出是哪一个 */
+  prefix: string
+  createdAt: string
+  /** 空表示永不过期 */
+  expiresAt: string | null
+  lastUsedAt: string | null
+  expired: boolean
+}
+
+export interface CreatedAccessToken extends AccessToken {
+  /** 完整令牌：只在创建时返回这一次 */
+  token: string
+}
+
+export function listAccessTokensApi() {
+  return request<AccessToken[]>({ url: url('/tokens'), method: 'get' })
+}
+
+/** days 为 0 表示永不过期 */
+export function createAccessTokenApi(name: string, days: number) {
+  return request<CreatedAccessToken>({ url: url('/tokens'), method: 'post', data: { name, days }, silent: true })
+}
+
+export function revokeAccessTokenApi(id: string) {
+  return request<boolean>({ url: url(`/tokens/${encodeURIComponent(id)}`), method: 'delete' })
+}

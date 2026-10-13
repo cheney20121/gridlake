@@ -403,6 +403,9 @@ const ROUTES: &[(&str, &str, Rule, &str)] = &[
     ("PUT", "/ledger/accounts/{id}", Admin, "修改账号"),
     ("POST", "/ledger/auth/logout", Open, "退出登录"),
     ("POST", "/ledger/auth/password", Open, "修改密码"),
+    ("GET", "/ledger/tokens", Open, ""),
+    ("POST", "/ledger/tokens", Open, "创建访问令牌"),
+    ("DELETE", "/ledger/tokens/{id}", Open, "吊销访问令牌"),
     ("GET", "/ledger/data-scope", Admin, ""),
     ("PUT", "/ledger/data-scope/rules", Admin, "设置用户数据范围"),
     ("DELETE", "/ledger/data-scope/rules/{id}", Admin, "删除用户数据范围"),
@@ -474,7 +477,7 @@ async fn local_user(db: &AppState, headers: &HeaderMap) -> AppResult<CurrentUser
             Cached::Invalid(m) => Err(AppError::Unauthorized(m)),
         };
     }
-    let found = run(db, move |c| crate::account::session_user(c, &token)).await?;
+    let found = run(db, move |c| if crate::pat::is_pat(&token) { crate::pat::user_for(c, &token) } else { crate::account::session_user(c, &token) }).await?;
     let result = match found {
         Some(mut u) => {
             u.admin = u.admin || auth.is_admin_listed(&u.id, &u.name);
@@ -738,6 +741,7 @@ const RESTRICTED_OK: &[(&str, &str)] = &[
     ("GET", "/ledger/ai/status"), ("GET", "/ledger/ai/threads"), ("POST", "/ledger/ai/threads"), ("GET", "/ledger/ai/threads/{id}"), ("DELETE", "/ledger/ai/threads/{id}"), ("PUT", "/ledger/ai/threads/{id}/summary"), ("POST", "/ledger/ai/threads/{id}/chat"), ("GET", "/ledger/ai/threads/{id}/events"), ("POST", "/ledger/ai/threads/{id}/stop"), ("POST", "/ledger/ai/actions/{id}"),
     ("GET", "/ledger/templates"), ("POST", "/ledger/templates/{id}/use"), ("GET", "/ledger/templates/{id}/uses"),
     ("POST", "/ledger/auth/logout"), ("POST", "/ledger/auth/password"),
+    ("GET", "/ledger/tokens"), ("POST", "/ledger/tokens"), ("DELETE", "/ledger/tokens/{id}"),
     ("GET", "/ledger/users"),
     ("PUT", "/ledger/comments/{id}"), ("DELETE", "/ledger/comments/{id}"), ("POST", "/ledger/comments/{id}/resolve"),
     ("GET", "/ledger/collab/{id}/events"), ("POST", "/ledger/collab/{id}/send"),

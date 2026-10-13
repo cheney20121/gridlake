@@ -45,6 +45,7 @@ mod mcp;
 mod metrics;
 mod msg_i18n;
 mod netguard;
+mod pat;
 mod pivot;
 mod pivot_calc;
 mod query;
@@ -290,6 +291,8 @@ async fn serve(config: config::Config) -> anyhow::Result<()> {
         .route("/ledger/auth/login", post(account::login_route))
         .route("/ledger/auth/logout", post(account::logout_route))
         .route("/ledger/auth/password", post(account::password_route))
+        .route("/ledger/tokens", get(pat::list_route).post(pat::create_route))
+        .route("/ledger/tokens/{id}", delete(pat::revoke_route))
         .route("/ledger/accounts", get(account::list_route).post(account::create_route))
         .route("/ledger/accounts/{id}", put(account::update_route))
         .route("/ledger/data-scope", get(scope::get_overview))

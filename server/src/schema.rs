@@ -370,6 +370,17 @@ CREATE TABLE IF NOT EXISTS ledger_session (
   created_at TIMESTAMP,
   expires_at TIMESTAMP NOT NULL
 );
+-- 个人访问令牌（只存摘要；见 pat.rs）
+CREATE TABLE IF NOT EXISTS ledger_pat (
+  id VARCHAR PRIMARY KEY,
+  account_id VARCHAR NOT NULL,
+  name VARCHAR NOT NULL,
+  token_hash VARCHAR NOT NULL,
+  prefix VARCHAR NOT NULL,
+  created_at TIMESTAMP,
+  expires_at TIMESTAMP,
+  last_used_at TIMESTAMP
+);
 CREATE TABLE IF NOT EXISTS ledger_user (
   id VARCHAR PRIMARY KEY,
   name VARCHAR NOT NULL,

@@ -5,6 +5,7 @@
 ## [未发布]
 
 ### 新增
+- **个人访问令牌**（内置账号登录方式）：用户菜单 →「访问令牌」创建 `glp_…` 令牌给脚本、CI 长期调用接口用（`Authorization: Bearer` 或 `x-user-token`）；权限与账号相同，可设有效期、随时吊销，库里只存摘要，创建时只显示一次；不能用令牌管理令牌。
 - **英文界面**（部分）：顶栏语言切换器（中文 / English，记住选择，`?lang=en-US` 也可指定），默认跟随浏览器语言；约 2000 条界面文案有英文，Element Plus 与表格内核（Univer）的界面同步切换。写法见 CONTRIBUTING；`pnpm i18n:check` 检查漏译并进入 CI。后端错误信息也可按语言返回英文（约 700 条模板，`x-lang` 请求头或 cookie `gridlake-lang`；脚本调用默认仍是中文，`scripts/extract-messages.py` 检查漏译并进入 CI）。电商台账场景与部分运行时提示仍是中文。
 - SSRF 防护：网址导入和定时推送的 Webhook 统一经 `netguard.rs` 检查。修复了几处绕过：IPv4 映射的 IPv6 写法（`::ffff:127.0.0.1`）、NAT64、阿里云元数据地址、推送 Webhook 发送时跟随重定向到本机、DNS 重绑定；新增 `LEDGER_URL_BLOCK_PRIVATE`。
 - 端到端测试公共库：测试文件忘记在末尾调用 `finish()` 时，有失败项也会以失败退出。

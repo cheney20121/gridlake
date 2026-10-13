@@ -75,7 +75,7 @@
 
 | # | 需求 | 说明 | 量 |
 |---|---|---|---|
-| 17 | 认证扩展：原生 OIDC / LDAP / SAML、2FA、个人访问令牌（PAT）供脚本调用 | 现在 OIDC 要靠反向代理 | L |
+| 17 | 认证扩展：原生 OIDC / LDAP / SAML、2FA、~~个人访问令牌（PAT）供脚本调用~~（✅ 已完成，见 `server/src/pat.rs`） | 现在 OIDC 要靠反向代理 | L |
 | 18 | 权限通用化：现在是“按店铺”的行级权限，改为任意列的行级策略；加列级权限、用户组 / 角色 | `scope.rs` 与电商概念绑定 | L |
 | 19 | 更多连接器：S3 / 对象存储、Snowflake / BigQuery、MongoDB、Google Sheets，以及增量同步（CDC） | 现有 ClickHouse / MySQL / PG / HTTP / 文件夹 | L |
 | 20 | 更多下推函数：`DAVERAGEIFS`、`DMAXIFS`、`XLOOKUP` 等；公式诊断覆盖更多不支持的写法 | 与 #10 的兼容矩阵一起做 | M |

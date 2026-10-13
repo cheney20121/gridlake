@@ -17,7 +17,7 @@
 - **数据范围受限的用户**（管理员给用户设置了「只能看某些店铺」）：只能调用下表「受限用户」列为 ✓ 的接口，其余一律返回 403；✓ 的接口读取的数据也已按范围过滤。
 - **审计**：「审计」列非空的接口会记入操作审计，列里是审计里显示的操作名。
 
-共 180 个接口。
+共 183 个接口。
 
 ## 存活检查与运维
 
@@ -278,3 +278,11 @@
 | POST | `/api/ledger/withdrawals/auto-match` | { period, operator } | 登录用户 | ✗ | 提现自动配对 |
 | GET | `/api/ledger/withdrawals/candidates` | 手工配对候选 查询参数：`shop=&period=&serialNo=` | 登录用户 | ✗ |  |
 | PUT | `/api/ledger/withdrawals/match` | { shop, period, serialNo, txnId, operator }（txnId 为空 = 取消配对） | 登录用户 | ✗ | 提现手动配对 |
+
+## 其他
+
+| 方法 | 路径 | 说明 | 权限 | 受限用户 | 审计 |
+|---|---|---|---|---|---|
+| GET | `/api/ledger/tokens` | 我的访问令牌（不含令牌本身） | 登录用户 | ✓ |  |
+| POST | `/api/ledger/tokens` | { name, days? }  新建访问令牌；响应里的 token 只显示这一次 | 登录用户 | ✓ | 创建访问令牌 |
+| DELETE | `/api/ledger/tokens/{id}` | 吊销我的访问令牌（立即生效） | 登录用户 | ✓ | 吊销访问令牌 |

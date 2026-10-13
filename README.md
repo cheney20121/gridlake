@@ -67,6 +67,8 @@ TOKEN=$(curl -s -X POST http://localhost:8787/api/ledger/auth/login -H 'Content-
 scripts/seed-demo.py --url http://localhost:8787 --token "$TOKEN" --rows 2000000
 ```
 
+> 经常要用脚本调接口的话，在页面右上角用户菜单 →「访问令牌」创建一个个人访问令牌（`glp_…`，可设有效期、随时吊销），比登录令牌（几天过期）更适合，见[部署手册](deploy/部署手册.md)。
+
 然后在页面里：新建工作簿 → 左侧「数据」面板点开「订单」→ 工具栏「透视分析」。同事的账号在首页「自动化 → 账号管理」里创建。
 
 > 镜像默认从 GitHub Container Registry 拉取发布版（`deploy/docker-compose.yml`）。想用本地源码构建：

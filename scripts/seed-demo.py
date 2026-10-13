@@ -3,12 +3,13 @@
 
     scripts/seed-demo.py                                # 100 万行，导入 http://127.0.0.1:8787
     scripts/seed-demo.py --rows 20000000                # 想试试更大的
-    scripts/seed-demo.py --url http://host:8787 --token <登录令牌> --rows 5000000
+    scripts/seed-demo.py --url http://host:8787 --token <登录令牌或访问令牌> --rows 5000000
 
 数据：订单号、店铺（300 个）、下单时间、商品（2 万个）、渠道、状态、数量、金额，2024-01 ~ 2026-09。
 开了登录（LEDGER_AUTH_MODE=local）时，先用管理员账号登录取令牌：
     curl -s -X POST http://127.0.0.1:8787/api/ledger/auth/login -H 'Content-Type: application/json' \
-         -d '{"username":"admin","password":"<密码>"}'     # 取返回里的 data.token，用 --token 传入
+         -d '{"username":"admin","password":"<密码>"}'     # 取返回里的 data.token，用 --token 传入；
+    # 也可以在网页右上角用户菜单 →「访问令牌」创建一个长期有效的个人访问令牌（glp_…）
 """
 import argparse
 import datetime

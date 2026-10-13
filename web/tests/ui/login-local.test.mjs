@@ -107,4 +107,37 @@ describe('内置账号登录（界面）', { skip }, () => {
       throw e
     }
   })
+
+  it('访问令牌：创建（只显示一次）→ 用它调接口 → 吊销后失效', async () => {
+    try {
+      // 上一个用例结束时已登录为 alice，停在首页
+      const call = token => page.eval(`fetch('/ledger-api/api/ledger/workbooks', { headers: { Authorization: 'Bearer ${token}' } }).then(r => r.status)`)
+      await page.click('[data-testid="user-menu"] .cursor-pointer')
+      await page.waitFor(`!!document.querySelector('[data-testid="user-menu-tokens"]')`, { what: '用户菜单里有访问令牌' })
+      await page.click('[data-testid="user-menu-tokens"]')
+      await page.waitFor(`!!document.querySelector('[data-testid="token-name"]')`, { what: '访问令牌对话框' })
+      await page.click('[data-testid="token-create"]')
+      await page.waitFor(`document.querySelector('[data-testid="token-error"]')?.innerText.includes('请填写令牌名称')`, { what: '名称为空的提示' })
+      await page.fill('input[data-testid="token-name"]', 'ui-test')
+      await page.click('[data-testid="token-create"]')
+      await page.waitFor(`!!document.querySelector('[data-testid="token-value"]')`, { what: '创建后显示完整令牌' })
+      const token = await page.eval(`document.querySelector('[data-testid="token-value"]').innerText.trim()`)
+      assert.match(token, /^glp_[\w-]{43}$/)
+      assert.equal(await call(token), 200, '令牌可以调接口')
+      assert.equal(await call('glp_wrong'), 401)
+      await page.waitFor(`[...document.querySelectorAll('.ec-dialog .ec-table__row')].some(r => r.innerText.includes('ui-test') && r.innerText.includes(${JSON.stringify(token.slice(0, 8))}))`, { what: '列表里出现这个令牌（只有前缀）' })
+      assert.equal(await page.eval(`document.querySelector('.ec-dialog .ec-table').innerText.includes(${JSON.stringify(token)})`), false, '列表里不含完整令牌')
+
+      await page.click('[data-testid="token-revoke-ui-test"]')
+      await page.waitFor(`!!document.querySelector('.ec-message-box')`, { what: '吊销确认' })
+      await page.click('.ec-message-box__btns button', '吊销')
+      await page.waitFor(`![...document.querySelectorAll('.ec-dialog .ec-table__row')].some(r => r.innerText.includes('ui-test'))`, { what: '列表里没有了' })
+      assert.equal(await call(token), 401, '吊销后立即失效')
+      noErrors()
+    }
+    catch (e) {
+      await shot('login-local-3')
+      throw e
+    }
+  })
 })

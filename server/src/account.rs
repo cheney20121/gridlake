@@ -35,7 +35,7 @@ const MIN_PASSWORD: usize = 8;
 const MAX_FAILURES: u32 = 5;
 const LOCK_WINDOW: Duration = Duration::from_secs(600);
 
-fn random_bytes<const N: usize>() -> [u8; N] {
+pub(crate) fn random_bytes<const N: usize>() -> [u8; N] {
     let mut b = [0u8; N];
     OsRng.fill_bytes(&mut b);
     b
@@ -100,7 +100,7 @@ fn check_username(u: &str) -> AppResult<()> {
     Ok(())
 }
 
-fn expires_after(days: i64) -> String {
+pub(crate) fn expires_after(days: i64) -> String {
     (chrono::Local::now() + chrono::Duration::days(days)).format("%Y-%m-%d %H:%M:%S").to_string()
 }
 
@@ -377,8 +377,18 @@ pub fn cli_reset_password(config: &crate::config::Config, username: &str, make_a
 /// 会话 cookie 的名字：登录时由服务端以 HttpOnly 写入，页面脚本读不到（XSS 偷不走令牌）
 pub const SESSION_COOKIE: &str = "gridlake_session";
 
+/// 请求头里的令牌：`x-user-token`，或 `Authorization: Bearer …`（个人访问令牌的标准写法）
 fn header_token(headers: &HeaderMap) -> String {
-    headers.get("x-user-token").and_then(|v| v.to_str().ok()).map(str::trim).unwrap_or("").to_string()
+    let direct = headers.get("x-user-token").and_then(|v| v.to_str().ok()).map(str::trim).unwrap_or("");
+    if !direct.is_empty() {
+        return direct.to_string();
+    }
+    headers
+        .get(axum::http::header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer ").or_else(|| v.strip_prefix("bearer ")))
+        .map(|v| v.trim().to_string())
+        .unwrap_or_default()
 }
 
 fn cookie_token(headers: &HeaderMap) -> String {
