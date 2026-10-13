@@ -168,7 +168,7 @@ const rows = formatRowCount
               {{ $t('操作审计') }}
             </el-dropdown-item>
             <el-dropdown-item v-if="ledgerUser.authRequired && ledgerUser.isAdmin" command="datascope">
-              {{ $t('数据权限（按店铺）') }}
+              {{ $t('数据权限（行级）') }}
             </el-dropdown-item>
             <el-dropdown-item command="template">
               {{ $t('模板库') }}
@@ -176,7 +176,7 @@ const rows = formatRowCount
             <el-dropdown-item v-if="trashCount && !ledgerUser.restricted" command="trash">
               <span class="text-gray-500">{{ $t('数据集回收站（{0}）', [trashCount]) }}</span>
             </el-dropdown-item>
-            <template v-if="!isLedgerWorkbook">
+            <template v-if="ledgerUser.ecommerce && !isLedgerWorkbook">
               <li class="menu-group">
                 {{ $t('店铺资金台账') }}
               </li>

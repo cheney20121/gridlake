@@ -52,6 +52,7 @@ python3 -I scripts/extract-messages.py          # 新增的中文错误信息要
 
 - 跟随周围代码的风格、命名和注释密度；注释和界面文字目前用中文。
 - 改行为就补测试：后端逻辑放 `cargo test`，接口行为放 `tests/e2e/test_NN_*.py`，前端纯函数放 `tests/unit/`。
+- **领域专用的功能做成场景包**，不要塞进核心：核心（数据集 / 透视表 / 公式 / SQL / 仪表盘 / 协作）必须是通用的。电商资金台账就是一个包（`server/src/ecommerce/`、`web/src/packs/ecommerce/`，开关 `LEDGER_PACKS`），结构说明见 [docs/architecture.md](docs/architecture.md) 的「场景包」。核心代码不能依赖包里的业务逻辑；两边都要用的通用函数放核心。
 - **新增 HTTP 接口**：在处理函数上方写 `/// METHOD /api/路径  说明`（接口文档由它生成，缺了脚本会报错）；还必须想清楚「数据范围受限的用户」能不能调用它，并在 `server/src/auth.rs` 里登记：确认读写都经过数据范围过滤的放进 `RESTRICTED_OK`，会绕过过滤的放进 `FULL_ONLY`。受限用户**默认调不了**未登记的接口，`routes_are_all_classified` 测试也会在漏登记时失败。
 - **界面文案要能翻译**：新增的界面文字写成 `t('中文原文')`（模板里 `$t('…')`），带变量用占位符 `t('共 {0} 行', [n])`，再在 `web/src/i18n/locales/en-US.json` 里补英文，`pnpm i18n:check` 会提醒漏掉的。中文原文就是键，所以改了原文要同步改 JSON。**不要翻译会当数据用的字符串**：数据集 / 列名、公式里的字符串、按名字查找或比较用的标签；这些翻译后英文界面会查不到数据。
 - **接口错误信息要有英文**：`AppError::bad(format!("找不到「{x}」"))` 这类中文错误信息，在 `server/src/msg_en.json` 里加一条「中文模板 → 英文模板」（占位符按出现顺序写成 `{0}` `{1}`，`scripts/extract-messages.py --dump` 能打印出当前的模板）；请求带 `x-lang: en-US`（浏览器是 cookie `gridlake-lang`）时服务端按它翻译。先拼进变量再传出去的信息脚本找不到，可以用 `LEDGER_E2E_COLLECT_UNTRANSLATED=1 server/tests/e2e/run.sh` 收集漏网的。

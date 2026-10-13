@@ -262,7 +262,6 @@
   "来源 IP": "Source IP",
   "耗时": "Duration",
   "数据权限": "Data access",
-  "按店铺限制用户能看到的数据：": "Limit what users can see by shop:",
   "数据范围受限的用户": "Users with a restricted data scope",
   "读取数据集、透视、公式、SQL、AI 助手、导出时只看到自己店铺的行； 导入、建视图、填报、定时推送等会绕过过滤的功能对他们关闭。管理员和没有规则的用户不受限。 已经写进工作簿单元格里的数值不在此限制内，共享工作簿前请确认内容。": "When reading datasets, pivots, formulas, SQL, the AI assistant and exports, they only see rows for their own shops. Features that would bypass the filter — import, creating views, data entry, scheduled delivery — are turned off for them. Administrators and users without a rule are not restricted. Values already written into workbook cells are not covered, so check the content before sharing a workbook.",
   "用户范围": "Users",
@@ -764,7 +763,6 @@
   "SQL 查询": "SQL query",
   "{0} 个同步失败": "{0} sync failures",
   "外部 AI 接入（MCP）": "External AI access (MCP)",
-  "数据权限（按店铺）": "Data access (by shop)",
   "模板库": "Template library",
   "数据集回收站（{0}）": "Dataset trash ({0})",
   "店铺资金台账": "Shop cash ledger",
@@ -2006,7 +2004,6 @@
   "数据连接按计划拉取，看板与公式自动更新": "Data connections pull on a schedule, and dashboards and formulas update automatically",
   "{0} 个失败": "{0} failed",
   "让 Claude 等 AI 助手按令牌权限查询数据集": "Let AI assistants such as Claude query datasets within a token's permissions",
-  "限制用户只能看到自己店铺的数据；数据集按哪一列过滤": "Limit users to their own shops' data; choose which column datasets are filtered by",
   "新建账号、设为管理员、停用、重置密码": "Create accounts, make administrators, disable, reset passwords",
   "谁在什么时候改了什么：写操作、导出，含被拒绝的": "Who changed what and when: writes and exports, including those that were denied",
   "请先打开要发布的工作簿，在文件菜单中选「发布为模板」": "Open the workbook you want to publish first, then choose \"Publish as template\" in the File menu",
@@ -2318,5 +2315,8 @@
   "过期": "Expires",
   "已过期": "Expired",
   "最近使用": "Last used",
-  "从未使用": "Never used"
+  "从未使用": "Never used",
+  "数据权限（行级）": "Data access (row-level)",
+  "按某一列的取值（如店铺、地区、部门）限制用户能看到的行；数据集按哪一列过滤": "Limit the rows users can see by the values of a column (shop, region, department…); choose which column each dataset is filtered by",
+  "按某一列的取值（如店铺、地区、部门）限制用户能看到的数据：": "Limit what users can see by the values of a column (such as shop, region or department): "
 }

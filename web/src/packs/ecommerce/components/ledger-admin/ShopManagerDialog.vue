@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { LedgerShop } from '@/api/ledger'
+import type { LedgerShop } from '@/packs/ecommerce/api'
 import { reactive, ref, watch } from 'vue'
-import { createLedgerShopApi, getLedgerShopsApi, updateLedgerShopApi } from '@/api/ledger'
-import { validateShopName } from '@/features/excel/shop-ledger/ledger-workbook'
 import { t } from '@/i18n'
+import { createLedgerShopApi, getLedgerShopsApi, updateLedgerShopApi } from '@/packs/ecommerce/api'
+import { validateShopName } from '@/packs/ecommerce/shop-ledger/ledger-workbook'
 
 const props = defineProps<{
   visible: boolean

@@ -7,10 +7,10 @@
  * - 写入后必须替换 rows 的数组引用：el-table-v2 按引用比较 data 属性，原地修改 + triggerRef 不会触发表格重绘
  */
 
-import type { LedgerDetailFilter, LedgerDetailSort } from '@/api/ledger'
+import type { LedgerDetailFilter, LedgerDetailSort } from '@/packs/ecommerce/api'
 import { isCancel } from 'axios'
 import { ref, shallowRef } from 'vue'
-import { queryLedgerRowsApi } from '@/api/ledger'
+import { queryLedgerRowsApi } from '@/packs/ecommerce/api'
 
 export interface DetailRow {
   __index: number

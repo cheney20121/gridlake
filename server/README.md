@@ -23,10 +23,11 @@ cargo run -- reset-password admin --admin   # 重置内置账号密码（服务�
 | `pivot.rs` / `pivot/` / `pivot_calc.rs` | 透视表（GROUPING SETS 一次算出所有层级）、计算值、计算项 |
 | `query.rs` / `sqlq/` | 公式下推（DSUMIFS 等）、SQL 查询与参数化查询 |
 | `workbook.rs` / `collab.rs` / `comment.rs` / `xref.rs` | 工作簿与版本、实时协作、评论与通知、跨工作簿引用 |
-| `approval.rs` / `close.rs` | 文件审批、月结审批 |
+| `approval.rs` | 文件审批 |
 | `ai/` / `anomaly.rs` / `mcp/` | AI 助手、异常发现、MCP 服务 |
 | `connector/` / `report/` / `template/` / `recon/` | 数据连接、定时推送、模板、逐笔对账 |
-| `import.rs` / `detail.rs` / `aggregate.rs` / `balance.rs` / `bank.rs` / `shop.rs` / `analysis.rs` / `coverage.rs` | 电商资金台账场景（资金流水导入、余额、银行流水、店铺档案、分析） |
+| `ecommerce/`（`import` / `detail` / `balance` / `bank` / `shop` / `analysis` / `coverage` / `close` / `query`）、`routes/ecommerce.rs` | **电商资金台账场景包**（可选，`LEDGER_PACKS`）：资金流水导入与明细、店铺档案、月结锁账、余额勾稽、提现 / 银行对账、经营分析；核心代码不依赖它 |
+| `aggregate.rs` / `tabular.rs` | 公式聚合下推、表格文件读取与取值转换等通用工具 |
 | `admin.rs` / `web.rs` | 运维接口与备份、前端静态文件 |
 
 ## 测试

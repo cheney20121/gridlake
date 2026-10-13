@@ -1,5 +1,5 @@
 import type { DatasetFilter, DatasetQuery } from '@/api/dataset'
-import type { DrillTarget } from '@/features/excel/shop-ledger/ledger-workbook'
+import type { DrillTarget } from '@/packs/ecommerce/shop-ledger/ledger-workbook'
 import { t } from '@/i18n'
 
 /** 打开大数据表时的下钻上下文：固定筛选 + 规则 + 核对基准 */

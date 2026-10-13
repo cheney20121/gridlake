@@ -81,7 +81,8 @@ async function waitHttp(url, timeoutMs, what) {
 }
 
 /** auth：gateway（默认，模拟登录网关 + 固定令牌）/ local（内置账号，管理员见 LOCAL_ADMIN） */
-export async function startServices({ auth = 'gateway' } = {}) {
+/** packs：服务端的 LEDGER_PACKS。界面测试默认启用电商场景包（多数用例要用台账），测「没启用」时传 'none' */
+export async function startServices({ auth = 'gateway', packs = 'ecommerce' } = {}) {
   // UI_DB：指定一个现成的数据库（如 1 亿行压测库）供手动查看，退出时不删除；默认用临时目录
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ui-test-data-'))
   const dbPath = process.env.UI_DB || path.join(tmp, 'ledger.duckdb')
@@ -114,6 +115,7 @@ export async function startServices({ auth = 'gateway' } = {}) {
         : { LEDGER_AUTH_MODE: 'gateway', LEDGER_AUTH_URL: `http://127.0.0.1:${PORTS.gateway}/current_user` }),
       LEDGER_ADDR: `127.0.0.1:${PORTS.ledger}`,
       LEDGER_DB: dbPath,
+      LEDGER_PACKS: packs,
       LEDGER_BACKUP_AT: 'off',
       // AI 助手指向本机的模拟模型（见上面的 llm）
       LEDGER_AI_BASE_URL: `http://127.0.0.1:${PORTS.llm}/v1`,

@@ -25,6 +25,8 @@ export interface LedgerMe {
   mode: 'off' | 'local' | 'gateway' | 'proxy'
   user: LedgerUser | null
   scope: LedgerScope
+  /** 启用了哪些场景包（服务端 LEDGER_PACKS）；老版本服务端没有这个字段 */
+  packs?: { ecommerce: boolean }
 }
 
 export function getLedgerMeApi() {

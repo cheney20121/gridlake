@@ -1,8 +1,8 @@
-import type { LedgerCommand } from './use-ledger'
 import type { DatasetInfo } from '@/api/dataset'
 import type { WorkbookMeta } from '@/api/workbook'
 import type { PaletteCommand } from '@/components/excel/command-palette/CommandPalette.vue'
 import type { RibbonTab } from '@/features/excel/ribbon/app-ribbon'
+import type { LedgerCommand } from '@/packs/ecommerce/use-ledger'
 import { refreshImportRanges } from '@/features/excel/formula/import-range'
 import { t } from '@/i18n'
 
@@ -31,6 +31,8 @@ export type FileCommand = 'manage' | 'template' | 'publish' | 'import' | 'export
 export interface PaletteContext {
   tabs: RibbonTab[]
   isLedgerWorkbook: boolean
+  /** 电商场景包是否启用：没启用时不提供台账相关命令 */
+  ecommerce: boolean
   isAdmin: boolean
   authRequired: boolean
   connectorFailures: number
@@ -85,7 +87,7 @@ export function buildPaletteCommands(c: PaletteContext): PaletteCommand[] {
     { id: 'dc.connector', title: t('数据连接'), hint: c.connectorFailures ? `${c.connectorFailures} 个同步失败` : undefined, keywords: 'connector 数据库 同步 mysql 接口', run: () => c.onDataCenter('connector') },
     { id: 'dc.report', title: t('定时推送'), keywords: 'report 推送 飞书 邮件 企业微信 订阅', run: () => c.onDataCenter('report') },
     ...(c.isAdmin ? [{ id: 'dc.mcp', title: t('外部 AI 接入（MCP）'), keywords: 'mcp claude 令牌 token', run: () => c.onDataCenter('mcp') }] : []),
-    ...(c.authRequired && c.isAdmin ? [{ id: 'dc.datascope', title: t('数据权限（按店铺）'), keywords: 'scope 权限 行级 店铺 范围 可见', run: () => c.onDataCenter('datascope') }] : []),
+    ...(c.authRequired && c.isAdmin ? [{ id: 'dc.datascope', title: t('数据权限（行级）'), keywords: 'scope 权限 行级 店铺 范围 可见', run: () => c.onDataCenter('datascope') }] : []),
     ...(c.authRequired && c.isAdmin ? [{ id: 'dc.audit', title: t('操作审计'), keywords: 'audit 审计 日志 谁改了 操作记录', run: () => c.onDataCenter('audit') }] : []),
     { id: 'formula.refresh-import', title: t('刷新跨工作簿引用（IMPORTRANGE）'), keywords: 'importrange 外部链接 更新链接 引用其他工作簿', run: () => {
       refreshImportRanges()
@@ -96,7 +98,7 @@ export function buildPaletteCommands(c: PaletteContext): PaletteCommand[] {
     { id: 'approval.center', title: t('审批中心'), keywords: 'approval 待办', run: () => c.onApproval('center') },
     { id: 'nav.home', title: t('返回首页'), keywords: 'home 首页 最近', run: () => window.location.assign(c.homeHref) },
   ]
-  if (!c.isLedgerWorkbook) {
+  if (c.ecommerce && !c.isLedgerWorkbook) {
     more.push(
       { id: 'dc.ledger.import', title: t('导入店铺明细'), keywords: '台账 资金 流水', run: () => c.onLedger('import') },
       { id: 'dc.ledger.shops', title: t('店铺档案'), keywords: '台账', run: () => c.onLedger('shops') },

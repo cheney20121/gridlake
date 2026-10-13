@@ -4,8 +4,8 @@ import { useDebounceFn } from '@vueuse/core'
 import { isCancel } from 'axios'
 import { computed, ref, watch } from 'vue'
 import { addCalcApi, previewCalcApi, removeCalcApi, updateCalcApi } from '@/api/dataset'
-import { formatMoney } from '@/components/excel/ledger-detail/columns'
 import { t } from '@/i18n'
+import { formatMoney } from '@/utils/format-money'
 
 /** 计算列：用 Excel 风格公式在数据集上新增一列（千万行上按需计算，筛选 / 透视 / DSUMIFS 都能用） */
 const props = defineProps<{

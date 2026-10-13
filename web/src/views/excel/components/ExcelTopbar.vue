@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { Approval } from '@/api/approval'
 import type { NotificationItem } from '@/api/comment'
-import type { LedgerPeriod } from '@/api/ledger'
 import type { WorkbookFolder } from '@/api/workbook'
+import type { LedgerPeriod } from '@/packs/ecommerce/api'
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { listFoldersApi } from '@/api/workbook'
 import LanguageSwitch from '@/components/common/LanguageSwitch.vue'

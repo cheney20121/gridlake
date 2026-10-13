@@ -128,7 +128,7 @@ const EFFECT: Record<ScopeDatasetBinding['effective'], { label: (d: ScopeDataset
 <template>
   <el-dialog :model-value="visible" :title="$t('数据权限')" width="860px" append-to-body @update:model-value="emit('update:visible', $event)">
     <div class="mb-3 rounded bg-[#f5f7fa] px-3 py-2 text-xs text-gray-500 leading-5">
-      {{ $t('按店铺限制用户能看到的数据：') }}<b>{{ $t('数据范围受限的用户') }}</b>{{ $t('读取数据集、透视、公式、SQL、AI 助手、导出时只看到自己店铺的行； 导入、建视图、填报、定时推送等会绕过过滤的功能对他们关闭。管理员和没有规则的用户不受限。 已经写进工作簿单元格里的数值不在此限制内，共享工作簿前请确认内容。') }}
+      {{ $t('按某一列的取值（如店铺、地区、部门）限制用户能看到的数据：') }}<b>{{ $t('数据范围受限的用户') }}</b>{{ $t('读取数据集、透视、公式、SQL、AI 助手、导出时只看到自己店铺的行； 导入、建视图、填报、定时推送等会绕过过滤的功能对他们关闭。管理员和没有规则的用户不受限。 已经写进工作簿单元格里的数值不在此限制内，共享工作簿前请确认内容。') }}
     </div>
     <el-tabs v-model="tab">
       <el-tab-pane :label="$t('用户范围')" name="rules">

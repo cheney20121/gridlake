@@ -32,11 +32,7 @@ import DatasetJoinDialog from '@/components/excel/dataset-join/DatasetJoinDialog
 import DataTableFloat from '@/components/excel/datatable/DataTableFloat.vue'
 import DataTableMenuHost from '@/components/excel/datatable/DataTableMenuHost.vue'
 import FormulaDiagnosticsDialog from '@/components/excel/formula-diagnostics/FormulaDiagnosticsDialog.vue'
-import BatchImportDialog from '@/components/excel/ledger-admin/BatchImportDialog.vue'
-import CoverageDrawer from '@/components/excel/ledger-admin/CoverageDrawer.vue'
-import ShopManagerDialog from '@/components/excel/ledger-admin/ShopManagerDialog.vue'
 import McpAccessDialog from '@/components/excel/mcp/McpAccessDialog.vue'
-import MonthCloseDrawer from '@/components/excel/month-close/MonthCloseDrawer.vue'
 import OutlineGutter from '@/components/excel/outline/OutlineGutter.vue'
 import ReconDialog from '@/components/excel/recon/ReconDialog.vue'
 import ReconWorkbench from '@/components/excel/recon/ReconWorkbench.vue'
@@ -69,17 +65,21 @@ import { persistenceManager } from '@/features/excel/persistence/manager'
 import { openServerWorkbook } from '@/features/excel/persistence/workbook-session'
 import { getPivotSpec, pivotDrillAt, registerPivotInteractions } from '@/features/excel/pivot/pivot-sheet'
 import { registerAppRibbon } from '@/features/excel/ribbon/app-ribbon'
-import { resolveDrillTarget, watchEntityAliasEdits } from '@/features/excel/shop-ledger/ledger-workbook'
-import { useLedgerOperator } from '@/features/excel/shop-ledger/month-close'
 import { buildPaletteCommands } from '@/features/excel/workspace/palette-commands'
 import { appRibbonTabs as buildRibbonTabs } from '@/features/excel/workspace/ribbon-tabs'
 import { useAnalysis } from '@/features/excel/workspace/use-analysis'
 import { useDatasets } from '@/features/excel/workspace/use-datasets'
-import { useLedger } from '@/features/excel/workspace/use-ledger'
+import { useLedgerOperator } from '@/features/excel/workspace/use-operator'
 import { usePlatformDialogs } from '@/features/excel/workspace/use-platform-dialogs'
 import { useWorkbookSession } from '@/features/excel/workspace/use-workbook-session'
 import { useXlsx } from '@/features/excel/workspace/use-xlsx'
 import { t } from '@/i18n'
+import BatchImportDialog from '@/packs/ecommerce/components/ledger-admin/BatchImportDialog.vue'
+import CoverageDrawer from '@/packs/ecommerce/components/ledger-admin/CoverageDrawer.vue'
+import ShopManagerDialog from '@/packs/ecommerce/components/ledger-admin/ShopManagerDialog.vue'
+import MonthCloseDrawer from '@/packs/ecommerce/components/month-close/MonthCloseDrawer.vue'
+import { resolveDrillTarget, watchEntityAliasEdits } from '@/packs/ecommerce/shop-ledger/ledger-workbook'
+import { useLedger } from '@/packs/ecommerce/use-ledger'
 import { useApprovalStore } from '@/stores/excel-approval'
 import { useExcelUIStore } from '@/stores/excel-ui'
 import { useLedgerUserStore } from '@/stores/ledger-user'
@@ -430,6 +430,7 @@ async function openPalette() {
 const paletteCommands = computed<PaletteCommand[]>(() => buildPaletteCommands({
   tabs: appRibbonTabs(),
   isLedgerWorkbook: isLedgerWorkbook.value,
+  ecommerce: ledgerUser.ecommerce,
   isAdmin: ledgerUser.isAdmin,
   authRequired: ledgerUser.authRequired,
   connectorFailures: connectorFailures.value,

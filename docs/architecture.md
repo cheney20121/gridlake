@@ -42,9 +42,23 @@ gridlake（单进程：Rust + axum）
 | `collab.rs` | 实时协作（SSE 推送 + POST 提交，按版本号收敛冲突） |
 | `ai/` / `mcp/` | AI 助手（OpenAI 兼容接口，方案卡确认后才写入）、MCP 只读服务 |
 
+## 场景包（可选功能）
+
+核心是通用的数据集 / 透视表 / 公式 / SQL / 仪表盘 / 协作。项目最早的使用场景——电商资金台账（导入抖店资金流水、店铺档案、月结锁账与审批、余额勾稽、提现 / 银行对账、经营分析）——做成了**场景包**，和核心分开：
+
+| | 位置 |
+|---|---|
+| 后端 | `server/src/ecommerce/`（业务逻辑）、`server/src/routes/ecommerce.rs`（处理函数）、`ecommerce::router()`（路由，没启用时不注册，访问得到 404） |
+| 前端 | `web/src/packs/ecommerce/`（接口封装、`use-ledger.ts`、台账 / 月结 / 明细 / 分析的组件、汇总表模板） |
+| 开关 | 环境变量 `LEDGER_PACKS`：不设置 = 库里已有台账数据才启用（老部署升级后功能不消失，新库不启用）；`ecommerce` 启用；`none` 全关。启动时确定一次，改了要重启 |
+| 前端怎么知道 | `GET /api/ledger/me` 返回 `packs: { ecommerce: bool }`，界面据此显示 / 隐藏入口（数据中心菜单、命令面板、「台账」功能区），没启用时不会请求台账接口 |
+| 随场景包出现 / 消失的东西 | 内置的「资金流水」数据集；电商专用的内置模板（退款与售后分析、千川投放 ROI、多平台利润表） |
+
+边界规则：**核心不能依赖场景包的业务逻辑**。通用的东西放核心——读 CSV / Excel 与编码识别、金额日期解析、取值转 JSON 在 `server/src/tabular.rs`；金额格式化在 `web/src/utils/format-money.ts`；操作人在 `web/src/features/excel/workspace/use-operator.ts`。新增一个领域场景（比如进销存、广告投放）时，照着这个结构加一个包：自己的目录、自己的路由函数、自己的开关名（加进 `config::KNOWN_PACKS`）、界面入口按 `/me` 的 `packs` 显示。
+
 ## 前端结构
 
-`demo-web-vue3/src`：`api/`（接口封装）、`features/excel/`（与界面无关的逻辑：透视、数据表、公式、协作、xlsx 导入导出、AI 动作……，多数可直接单元测试）、`components/excel/`（面板与对话框）、`views/`（页面）、`stores/`（Pinia）。表格内核 Univer 通过 `lib/univer.ts` 装配。
+`web/src`：`api/`（接口封装）、`features/excel/`（与界面无关的逻辑：透视、数据表、公式、协作、xlsx 导入导出、AI 动作……，多数可直接单元测试）、`components/excel/`（面板与对话框）、`views/`（页面）、`stores/`（Pinia）。表格内核 Univer 通过 `lib/univer.ts` 装配。
 
 ## 数据流示例：打开一张 2 亿行的订单表并按店铺筛选
 

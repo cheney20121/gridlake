@@ -5,7 +5,7 @@ import { onBeforeUnmount, ref } from 'vue'
 import { listWorkbookVersionsApi, restoreWorkbookVersionApi } from '@/api/workbook'
 import { persistenceManager } from '@/features/excel/persistence/manager'
 import { openServerWorkbook } from '@/features/excel/persistence/workbook-session'
-import { useLedgerOperator } from '@/features/excel/shop-ledger/month-close'
+import { useLedgerOperator } from '@/features/excel/workspace/use-operator'
 import { t } from '@/i18n'
 
 /** 版本历史（服务端）：每次保存都是一个版本；恢复会以旧版本内容生成新版本，历史不丢 */

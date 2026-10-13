@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import type { LedgerBalanceRow } from '@/api/ledger'
+import type { LedgerBalanceRow } from '@/packs/ecommerce/api'
 import { computed, ref, watch } from 'vue'
-import { getLedgerBalancesApi, saveLedgerBalancesApi } from '@/api/ledger'
-import { formatMoney } from '@/components/excel/ledger-detail/columns'
-import { shortEntityName } from '@/features/excel/shop-ledger/summary-template'
 import { t } from '@/i18n'
+import { getLedgerBalancesApi, saveLedgerBalancesApi } from '@/packs/ecommerce/api'
+import { shortEntityName } from '@/packs/ecommerce/shop-ledger/summary-template'
+import { formatMoney } from '@/utils/format-money'
 
 const props = defineProps<{
   period: string

@@ -2,7 +2,7 @@
 import type { Approval, ApprovalBox, ApprovalStatus } from '@/api/approval'
 import { computed, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useLedgerOperator } from '@/features/excel/shop-ledger/month-close'
+import { useLedgerOperator } from '@/features/excel/workspace/use-operator'
 import { t } from '@/i18n'
 import { useApprovalStore } from '@/stores/excel-approval'
 import { useLedgerUserStore } from '@/stores/ledger-user'

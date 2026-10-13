@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import type { UploadFile } from 'element-plus'
-import type { LedgerImportMode, LedgerImportPreview, LedgerImportResult, LedgerShop, ShopCandidate } from '@/api/ledger'
+import type { LedgerImportMode, LedgerImportPreview, LedgerImportResult, LedgerShop, ShopCandidate } from '@/packs/ecommerce/api'
 import { isAxiosError } from 'axios'
 import { computed, reactive, ref, watch } from 'vue'
-import { commitLedgerImportApi, getLedgerShopsApi, previewLedgerImportApi } from '@/api/ledger'
-import { validateShopName } from '@/features/excel/shop-ledger/ledger-workbook'
 import { t } from '@/i18n'
+import { commitLedgerImportApi, getLedgerShopsApi, previewLedgerImportApi } from '@/packs/ecommerce/api'
+import { validateShopName } from '@/packs/ecommerce/shop-ledger/ledger-workbook'
 
 const props = defineProps<{
   visible: boolean

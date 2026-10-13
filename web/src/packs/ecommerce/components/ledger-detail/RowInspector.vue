@@ -3,7 +3,8 @@ import type { DetailColumnDef } from './columns'
 import type { DetailRow } from './useDetailWindow'
 import { computed } from 'vue'
 import { t } from '@/i18n'
-import { CONTRIBUTION_COLUMN, DETAIL_COLUMNS, formatMoney } from './columns'
+import { formatMoney } from '@/utils/format-money'
+import { CONTRIBUTION_COLUMN, DETAIL_COLUMNS } from './columns'
 
 const props = defineProps<{
   row: DetailRow

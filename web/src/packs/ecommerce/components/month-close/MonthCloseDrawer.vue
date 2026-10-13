@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import type { LedgerCloseLog, LedgerPeriod, LedgerPeriodLock } from '@/api/ledger'
+import type { LedgerCloseLog, LedgerPeriod, LedgerPeriodLock } from '@/packs/ecommerce/api'
 import { computed, ref, watch } from 'vue'
-import { getLedgerCloseLogsApi, getLedgerLocksApi } from '@/api/ledger'
-import { CLOSE_ACTION_LABEL, useLedgerOperator } from '@/features/excel/shop-ledger/month-close'
+import { useLedgerOperator } from '@/features/excel/workspace/use-operator'
+import { getLedgerCloseLogsApi, getLedgerLocksApi } from '@/packs/ecommerce/api'
+import { CLOSE_ACTION_LABEL } from '@/packs/ecommerce/shop-ledger/month-close'
 import { useLedgerUserStore } from '@/stores/ledger-user'
 import BalancePanel from './BalancePanel.vue'
 import CloseOverviewPanel from './CloseOverviewPanel.vue'

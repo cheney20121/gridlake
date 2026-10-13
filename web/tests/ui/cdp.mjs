@@ -141,6 +141,8 @@ export class Page {
     this.sessionId = sessionId
     /** 页面里的控制台 error 与未捕获异常 */
     this.errors = []
+    /** 页面发出的全部请求的 URL（Network.requestWillBeSent），用来断言「没有请求某个接口」 */
+    this.requests = []
     /** 网络拦截规则（intercept 添加）：{ substr, delayMs, status, body, times } */
     this.rules = []
     this.off = conn.on((msg) => {
@@ -148,6 +150,10 @@ export class Page {
         return
       if (msg.method === 'Fetch.requestPaused') {
         this.onPaused(msg.params)
+        return
+      }
+      if (msg.method === 'Network.requestWillBeSent') {
+        this.requests.push(msg.params.request.url)
         return
       }
       if (msg.method === 'Runtime.exceptionThrown') {

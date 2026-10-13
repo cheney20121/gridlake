@@ -20,7 +20,7 @@ import SqlWorkbench from '@/components/excel/sql/SqlWorkbench.vue'
 import TemplateGalleryDialog from '@/components/excel/template/TemplateGalleryDialog.vue'
 import { useBodyClass } from '@/composables/useBodyClass'
 import { blankWorkbookJson } from '@/features/excel/persistence/workbook-session'
-import { useLedgerOperator } from '@/features/excel/shop-ledger/month-close'
+import { useLedgerOperator } from '@/features/excel/workspace/use-operator'
 import { t } from '@/i18n'
 import { useLedgerUserStore } from '@/stores/ledger-user'
 import DatasetTable from './components/DatasetTable.vue'
@@ -209,7 +209,7 @@ function onPublishHint() {
               <HomeCard v-if="!ledgerUser.restricted" :title="$t('定时推送')" :desc="$t('把仪表盘按日 / 周 / 月发到飞书、企业微信、邮件')" :icon="Timer" tone="green" @click="reportVisible = true" />
               <HomeCard v-if="!ledgerUser.restricted" :title="$t('数据同步')" :desc="$t('数据连接按计划拉取，看板与公式自动更新')" :icon="Refresh" tone="blue" :badge="connectorFailures ? $t('{0} 个失败', [connectorFailures]) : undefined" @click="connectorVisible = true" />
               <HomeCard v-if="ledgerUser.isAdmin" :title="$t('外部 AI 接入（MCP）')" :desc="$t('让 Claude 等 AI 助手按令牌权限查询数据集')" :icon="Cpu" tone="violet" @click="mcpVisible = true" />
-              <HomeCard v-if="ledgerUser.authRequired && ledgerUser.isAdmin" :title="$t('数据权限（按店铺）')" :desc="$t('限制用户只能看到自己店铺的数据；数据集按哪一列过滤')" :icon="Lock" tone="amber" @click="dataScopeVisible = true" />
+              <HomeCard v-if="ledgerUser.authRequired && ledgerUser.isAdmin" :title="$t('数据权限（行级）')" :desc="$t('按某一列的取值（如店铺、地区、部门）限制用户能看到的行；数据集按哪一列过滤')" :icon="Lock" tone="amber" @click="dataScopeVisible = true" />
               <HomeCard v-if="ledgerUser.mode === 'local' && ledgerUser.isAdmin" :title="$t('账号管理')" :desc="$t('新建账号、设为管理员、停用、重置密码')" :icon="User" tone="green" data-testid="home-accounts" @click="accountVisible = true" />
               <HomeCard v-if="ledgerUser.authRequired && ledgerUser.isAdmin" :title="$t('操作审计')" :desc="$t('谁在什么时候改了什么：写操作、导出，含被拒绝的')" :icon="Document" tone="slate" @click="auditVisible = true" />
             </div>

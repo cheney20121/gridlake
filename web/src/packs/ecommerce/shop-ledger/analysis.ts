@@ -1,5 +1,5 @@
 import type { DrillTarget } from './ledger-workbook'
-import type { AnalysisDimension, AnalysisMetricDef, AnalysisMetricKey, AnalysisRow } from '@/api/ledger'
+import type { AnalysisDimension, AnalysisMetricDef, AnalysisMetricKey, AnalysisRow } from '@/packs/ecommerce/api'
 import { t } from '@/i18n'
 
 /** 资金瀑布：结算实付起，逐项加减，落到资金净额 */

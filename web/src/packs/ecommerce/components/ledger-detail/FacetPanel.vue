@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { FacetKey } from './columns'
-import type { LedgerFacetItem } from '@/api/ledger'
+import type { LedgerFacetItem } from '@/packs/ecommerce/api'
 import { reactive } from 'vue'
-import { FACETS, formatMoney } from './columns'
+import { formatMoney } from '@/utils/format-money'
+import { FACETS } from './columns'
 
 const props = defineProps<{
   facets: Record<string, LedgerFacetItem[]>

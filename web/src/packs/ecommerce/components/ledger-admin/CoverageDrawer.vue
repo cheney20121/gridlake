@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { LedgerCoverage, LedgerCoverageCell } from '@/api/ledger'
+import type { LedgerCoverage, LedgerCoverageCell } from '@/packs/ecommerce/api'
 import { computed, ref, watch } from 'vue'
-import { getLedgerCoverageApi } from '@/api/ledger'
 import { t } from '@/i18n'
+import { getLedgerCoverageApi } from '@/packs/ecommerce/api'
 
 const props = defineProps<{
   visible: boolean

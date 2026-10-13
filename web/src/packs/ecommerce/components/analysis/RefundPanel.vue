@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import type { AnalysisBreakdown, AnalysisRow } from '@/api/ledger'
-import type { AnalysisSheetPayload } from '@/features/excel/shop-ledger/analysis-sheet'
-import type { DrillTarget } from '@/features/excel/shop-ledger/ledger-workbook'
+import type { AnalysisBreakdown, AnalysisRow } from '@/packs/ecommerce/api'
+import type { AnalysisSheetPayload } from '@/packs/ecommerce/shop-ledger/analysis-sheet'
+import type { DrillTarget } from '@/packs/ecommerce/shop-ledger/ledger-workbook'
 import { computed, ref, watch } from 'vue'
-import { getAnalysisBreakdownApi } from '@/api/ledger'
-import { formatMoney } from '@/components/excel/ledger-detail/columns'
-import { buildDrillTarget, dimensionLabel, formatPct, rateOf } from '@/features/excel/shop-ledger/analysis'
 import { t as tr } from '@/i18n'
+import { getAnalysisBreakdownApi } from '@/packs/ecommerce/api'
+import { buildDrillTarget, dimensionLabel, formatPct, rateOf } from '@/packs/ecommerce/shop-ledger/analysis'
+import { formatMoney } from '@/utils/format-money'
 import AmountLink from './AmountLink.vue'
 
 const props = defineProps<{

@@ -77,9 +77,3 @@ export const FACETS = [
 ] as const
 
 export type FacetKey = typeof FACETS[number]['key']
-
-export function formatMoney(v: unknown): string {
-  if (typeof v !== 'number')
-    return ''
-  return v.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}

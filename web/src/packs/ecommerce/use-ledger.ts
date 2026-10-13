@@ -1,17 +1,18 @@
 import type { FUniver } from '@univerjs/core/facade'
 import type { ShallowRef } from 'vue'
-import type { LedgerPeriod, LedgerPeriodLock } from '@/api/ledger'
 import type { DatasetDrill } from '@/components/excel/big-grid/drill'
 import type { pivotDrillAt } from '@/features/excel/pivot/pivot-sheet'
-import type { DrillTarget } from '@/features/excel/shop-ledger/ledger-workbook'
+import type { LedgerPeriod, LedgerPeriodLock } from '@/packs/ecommerce/api'
+import type { DrillTarget } from '@/packs/ecommerce/shop-ledger/ledger-workbook'
 import { isAxiosError } from 'axios'
 import { computed, ref } from 'vue'
-import { getLedgerLocksApi, getLedgerPeriodsApi } from '@/api/ledger'
 import { drillFromTarget } from '@/components/excel/big-grid/drill'
 import { persistenceManager } from '@/features/excel/persistence/manager'
-import { loadLedgerPeriod } from '@/features/excel/shop-ledger/ledger-workbook'
-import { SUMMARY_SHEET_NAME } from '@/features/excel/shop-ledger/summary-template'
 import { t } from '@/i18n'
+import { getLedgerLocksApi, getLedgerPeriodsApi } from '@/packs/ecommerce/api'
+import { loadLedgerPeriod } from '@/packs/ecommerce/shop-ledger/ledger-workbook'
+import { SUMMARY_SHEET_NAME } from '@/packs/ecommerce/shop-ledger/summary-template'
+import { useLedgerUserStore } from '@/stores/ledger-user'
 
 export type LedgerCommand = 'import' | 'detail' | 'shops' | 'coverage' | 'close'
 
@@ -28,6 +29,7 @@ export function useLedger(options: {
   datasetDrill: { value: DatasetDrill | null }
 }) {
   const { univerAPI, refreshDatasets, openDataset, datasetDrill } = options
+  const ledgerUser = useLedgerUserStore()
 
   const importDialogVisible = ref(false)
   const shopDialogVisible = ref(false)
@@ -65,7 +67,7 @@ export function useLedger(options: {
     // 不用 requestAnimationFrame：页面在后台标签页时不执行
     ledgerCheckTimer = setTimeout(() => {
       ledgerCheckTimer = null
-      isLedgerWorkbook.value = !!univerAPI.value?.getActiveWorkbook()?.getSheetByName(SUMMARY_SHEET_NAME)
+      isLedgerWorkbook.value = ledgerUser.ecommerce && !!univerAPI.value?.getActiveWorkbook()?.getSheetByName(SUMMARY_SHEET_NAME)
     })
   }
 
@@ -172,6 +174,9 @@ export function useLedger(options: {
    */
   async function initLedger(firstRun = false) {
     refreshDatasets()
+    // 电商场景包没启用：服务端没有这些接口，不去请求（否则每次打开工作簿都会弹错误）
+    if (!ledgerUser.ecommerce)
+      return
     try {
       await refreshPeriods()
       const summary = univerAPI.value?.getActiveWorkbook()?.getSheetByName(SUMMARY_SHEET_NAME)

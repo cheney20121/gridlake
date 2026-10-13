@@ -1,5 +1,5 @@
 import type { AxiosProgressEvent, AxiosResponse } from 'axios'
-import type { RuleTerm } from '@/features/excel/shop-ledger/summary-template'
+import type { RuleTerm } from '@/packs/ecommerce/shop-ledger/summary-template'
 import { LEDGER_BASE } from '@/api/ledger-base'
 import request from '@/utils/request'
 

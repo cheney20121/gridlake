@@ -1,5 +1,5 @@
-import type { LedgerCommand } from './use-ledger'
 import type { RibbonTab } from '@/features/excel/ribbon/app-ribbon'
+import type { LedgerCommand } from '@/packs/ecommerce/use-ledger'
 import { t } from '@/i18n'
 
 /** 功能区需要的页面动作（由页面传入，这里只负责声明有哪些入口） */

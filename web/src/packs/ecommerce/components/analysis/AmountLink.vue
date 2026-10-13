@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatMoney } from '@/components/excel/ledger-detail/columns'
+import { formatMoney } from '@/utils/format-money'
 
 defineProps<{
   value: number
