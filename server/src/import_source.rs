@@ -79,12 +79,12 @@ fn to_clean_csv(conn: &Connection, up: &Upload, out: &Path) -> AppResult<()> {
         Kind::Parquet => copy_to_csv(conn, &format!("SELECT * FROM read_parquet({})", literal(&up.path.to_string_lossy())), out, &up.name),
         Kind::Json => copy_to_csv(conn, &format!("SELECT * FROM read_json_auto({})", literal(&up.path.to_string_lossy())), out, &up.name),
         Kind::Delimited => {
-            crate::import::ensure_utf8(&up.path)?;
+            crate::tabular::ensure_utf8(&up.path)?;
             let skip = header_row(&up.path, "upload.csv")?;
             copy_to_csv(conn, &format!("SELECT * FROM {}", csv_reader(&up.path, skip)), out, &up.name)
         }
         Kind::Excel => {
-            let rows = crate::bank::read_rows(&up.path, &up.name)?;
+            let rows = crate::tabular::read_rows(&up.path, &up.name)?;
             let header = detect_header(&rows);
             let width = rows.get(header).map(Vec::len).unwrap_or(0);
             let mut w = csv::Writer::from_path(out)?;

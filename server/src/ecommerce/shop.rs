@@ -6,7 +6,7 @@ use duckdb::{Connection, params};
 use serde::{Deserialize, Serialize};
 
 use crate::error::{AppError, AppResult};
-use crate::import::validate_shop;
+use crate::ecommerce::import::validate_shop;
 use crate::schema::ident;
 
 #[derive(Serialize)]

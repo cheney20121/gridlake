@@ -3,7 +3,6 @@
  "Excel 文件中没有工作表": "The Excel file has no sheets",
  "无法读取工作表：{0}": "Cannot read the sheet: {0}",
  "CSV 解析失败：{0}": "CSV parsing failed: {0}",
- "银行流水仅支持 CSV、XLS、XLSX 文件": "Bank statements only support CSV, XLS and XLSX files",
  "请选择银行流水所属的商户主体": "Choose the merchant entity that owns the bank statement",
  "没有识别到表头（需要包含交易日期/时间和收入/金额列）。文件前几行：{0}": "No header row was recognized (it needs a transaction date/time column and an income/amount column). First rows of the file: {0}",
  "文件中没有识别到交易记录（每行需要有日期和非零金额）": "No transactions were recognized in the file (each row needs a date and a non-zero amount)",
@@ -710,5 +709,6 @@
  "有效期应在 1 到 {0} 天之间": "The validity must be between 1 and {0} days",
  "每个账号最多 {0} 个访问令牌，请先吊销不用的": "Each account can have at most {0} access tokens; revoke the ones you no longer use first",
  "个人访问令牌只在内置账号登录方式下可用（LEDGER_AUTH_MODE=local）": "Personal access tokens are only available with built-in account sign-in (LEDGER_AUTH_MODE=local)",
- "不能用访问令牌管理访问令牌，请在网页里登录后操作": "An access token can't manage access tokens; sign in on the web page to do it"
+ "不能用访问令牌管理访问令牌，请在网页里登录后操作": "An access token can't manage access tokens; sign in on the web page to do it",
+ "仅支持 CSV、XLS、XLSX 文件": "Only CSV, XLS and XLSX files are supported"
 }

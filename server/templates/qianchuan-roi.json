@@ -1,5 +1,6 @@
 {
  "id": "builtin_qianchuan_roi",
+ "pack": "ecommerce",
  "name": "千川投放 ROI",
  "category": "电商财务",
  "description": "订单成交与千川投放消耗按月对比：ROI、消耗占成交、各店铺消耗趋势；月份自动滚动，可按店铺查看",

@@ -224,7 +224,7 @@ notes(b, 'help', '退款与售后分析 · 使用说明', [
     '· 退款透视：店铺 × 动账场景 × 月份，可在右侧透视面板继续调整。',
 ])
 write('refund-analysis.json', {
-    'id': 'builtin_refund_analysis', 'name': '退款与售后分析', 'category': '电商财务',
+    'id': 'builtin_refund_analysis', 'pack': 'ecommerce', 'name': '退款与售后分析', 'category': '电商财务',
     'description': '基于资金流水：退款金额与笔数环比、每日退款趋势、店铺与商品退款排行、运费险与赔付。无需准备数据',
     'datasets': [ledger_ds],
 }, b)
@@ -290,7 +290,7 @@ notes(b, 'help', '千川投放 ROI · 使用说明', [
     '· 右侧指标卡为本月数据与上月对比；柱状图为各店铺每月消耗。',
 ])
 write('qianchuan-roi.json', {
-    'id': 'builtin_qianchuan_roi', 'name': '千川投放 ROI', 'category': '电商财务',
+    'id': 'builtin_qianchuan_roi', 'pack': 'ecommerce', 'name': '千川投放 ROI', 'category': '电商财务',
     'description': '订单成交与千川投放消耗按月对比：ROI、消耗占成交、各店铺消耗趋势；月份自动滚动，可按店铺查看',
     'datasets': [orders_ds, ads_ds],
 }, b)
@@ -374,7 +374,7 @@ notes(b, 'help', '多平台利润表 · 使用说明', [
     '· 配合「定时推送」可每月把利润看板发到老板群。',
 ])
 write('platform-pnl.json', {
-    'id': 'builtin_platform_pnl', 'name': '多平台利润表', 'category': '电商财务',
+    'id': 'builtin_platform_pnl', 'pack': 'ecommerce', 'name': '多平台利润表', 'category': '电商财务',
     'description': '各平台销售收入、成本、毛利、平台与推广费用、净利润：看板 + 最近 12 个月利润月报 + 平台 × 月份透视。月份自动滚动，可按平台查看',
     'datasets': [pnl_ds],
 }, b)
@@ -462,7 +462,7 @@ notes(b, 'help', '应收应付对账 · 使用说明', [
     '· 对账时：把对方的对账单也导入为一份往来明细，用往来单位 × 类型透视分别核对两边的期末余额。',
 ])
 write('ar-ap.json', {
-    'id': 'builtin_ar_ap', 'name': '应收应付对账', 'category': '电商财务',
+    'id': 'builtin_ar_ap', 'name': '应收应付对账', 'category': '财务',
     'description': '客户应收 / 收款、供应商应付 / 付款：往来看板、最近 12 个月余额滚动表（期初 + 增加 - 减少 = 期末）、往来单位 × 类型透视，用于对账',
     'datasets': [ar_ds],
 }, b)
@@ -542,7 +542,7 @@ notes(b, 'help', '库存进销存 · 使用说明', [
     '· 数量不分单位（件 / 箱）；同一商品请统一单位。',
 ])
 write('stock.json', {
-    'id': 'builtin_stock', 'name': '库存进销存', 'category': '电商运营',
+    'id': 'builtin_stock', 'name': '库存进销存', 'category': '运营',
     'description': '出入库流水：库存看板、最近 12 个月库存月报（期初 + 入库 - 出库 = 期末）、商品 × 单据类型透视（期末库存为计算项）',
     'datasets': [stock_ds],
 }, b)
@@ -678,7 +678,7 @@ notes(b, 'help', '银行余额调节表 · 使用说明', [
     '· 笔数是未达账项的笔数；金额都按收入为正、支出为负的统一符号。',
 ])
 write('bank-rec.json', {
-    'id': 'builtin_bank_rec', 'name': '银行余额调节表', 'category': '电商财务',
+    'id': 'builtin_bank_rec', 'name': '银行余额调节表', 'category': '财务',
     'description': '银行流水与企业账逐笔对账后，自动出具银行存款余额调节表（未达账项 4 项 + 差额核对）；含对账看板与未达账项透视',
     'datasets': [rec_ds],
 }, b)

@@ -85,6 +85,9 @@ struct BuiltinFile {
     name: String,
     description: String,
     category: String,
+    /// 属于哪个场景包（如 ecommerce）；没启用这个场景包时模板不出现。空表示通用模板
+    #[serde(default)]
+    pack: Option<String>,
     datasets: Vec<TemplateDataset>,
     workbook: Json,
 }
@@ -143,6 +146,7 @@ fn builtins() -> Vec<Stored> {
                 None
             }
         })
+        .filter(|b| b.pack.as_deref() != Some("ecommerce") || crate::ecommerce::enabled())
         .map(|mut b| {
             // 内置模板文件只声明数据集与列，各数据集被哪些部件使用按工作簿统计
             let collected = refs::collect(&b.workbook);
@@ -615,6 +619,19 @@ pub fn uses(conn: &Connection, id: &str) -> AppResult<Vec<UseRecord>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ecommerce_templates_are_hidden_when_the_pack_is_off() {
+        let ids = |on| crate::ecommerce::with_enabled(on, || builtins().into_iter().map(|s| s.view.id).collect::<Vec<_>>());
+        let all = ids(true);
+        let generic = ids(false);
+        for id in ["builtin_refund_analysis", "builtin_qianchuan_roi", "builtin_platform_pnl"] {
+            assert!(all.iter().any(|x| x == id) && !generic.iter().any(|x| x == id), "{id}");
+        }
+        for id in ["builtin_ar_ap", "builtin_bank_rec", "builtin_stock", "builtin_monthly_ops"] {
+            assert!(generic.iter().any(|x| x == id), "通用模板应一直在：{id}");
+        }
+    }
 
     #[test]
     fn builtin_templates_are_valid() {

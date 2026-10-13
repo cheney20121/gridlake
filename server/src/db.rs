@@ -125,6 +125,9 @@ impl Db {
         conn.execute_batch(&schema::create_tables_sql())?;
         conn.execute_batch(&schema::migrate_sql())?;
         schema::stamp_version(&conn, crate::admin::VERSION)?;
+        // 场景包：要在加载数据集之前确定（内置的「资金流水」数据集只在电商场景包启用时出现）
+        let ecommerce = crate::ecommerce::init(&config.packs, &conn);
+        tracing::info!("场景包：电商台账{}", if ecommerce { "已启用" } else { "未启用" });
         if from < schema::SCHEMA_VERSION {
             tracing::info!("数据文件结构已升级：版本 {from} → {}", schema::SCHEMA_VERSION);
         }

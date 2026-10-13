@@ -1,7 +1,7 @@
 {
  "id": "builtin_stock",
  "name": "库存进销存",
- "category": "电商运营",
+ "category": "运营",
  "description": "出入库流水：库存看板、最近 12 个月库存月报（期初 + 入库 - 出库 = 期末）、商品 × 单据类型透视（期末库存为计算项）",
  "datasets": [
   {

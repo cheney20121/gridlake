@@ -40,6 +40,8 @@ pub struct Config {
     pub inbox_roots: Vec<PathBuf>,
     /// 连接器单次同步的行数上限
     pub connector_max_rows: i64,
+    /// 场景包：LEDGER_PACKS 未设置时自动判断（库里已有电商台账数据就启用），设置了就按设置的来（空 / none 表示都不启用）
+    pub packs: PackSetting,
     /// 登录认证：off（默认，不校验，行为与旧版一致）/ gateway（用 x-user-token 到网关校验）/ proxy（信任反向代理注入的身份头）
     pub auth_mode: AuthMode,
     /// gateway 模式：校验令牌的网关接口（如 https://网关/api/current_user），带请求头 x-user-token 调用
@@ -73,6 +75,48 @@ pub enum AuthMode {
     Local,
     Gateway,
     Proxy,
+}
+
+/// 场景包的启用设置
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum PackSetting {
+    /// 没设置：库里已有电商台账数据就启用电商场景包，新库不启用
+    Auto,
+    /// 明确指定（可以是空：都不启用）
+    Only(Vec<String>),
+}
+
+/// 目前有的场景包
+pub const KNOWN_PACKS: &[&str] = &["ecommerce"];
+
+impl PackSetting {
+    /// 解析 LEDGER_PACKS：逗号分隔的场景包名；空 / none 表示都不启用；all 表示全部；auto 与不设置相同
+    pub fn parse(v: Option<&str>) -> anyhow::Result<Self> {
+        let Some(v) = v else { return Ok(Self::Auto) };
+        if v.trim().eq_ignore_ascii_case("auto") {
+            return Ok(Self::Auto);
+        }
+        let mut out = Vec::new();
+        for name in v.split([',', ';']).map(|s| s.trim().to_lowercase()).filter(|s| !s.is_empty()) {
+            match name.as_str() {
+                "none" => {}
+                "all" => out.extend(KNOWN_PACKS.iter().map(|s| s.to_string())),
+                n if KNOWN_PACKS.contains(&n) => out.push(name),
+                other => bail!("LEDGER_PACKS 里有未知的场景包「{other}」（可用：{}，或 none / all）", KNOWN_PACKS.join("、")),
+            }
+        }
+        out.sort();
+        out.dedup();
+        Ok(Self::Only(out))
+    }
+
+    pub fn describe(&self) -> String {
+        match self {
+            Self::Auto => "自动".into(),
+            Self::Only(v) if v.is_empty() => "无".into(),
+            Self::Only(v) => v.join("+"),
+        }
+    }
 }
 
 fn env(key: &str) -> Option<String> {
@@ -184,6 +228,7 @@ impl Config {
                 Some(v) => v.split([',', ';']).map(str::trim).filter(|s| !s.is_empty()).map(PathBuf::from).collect(),
                 None => vec![data_dir.join("inbox")],
             },
+            packs: PackSetting::parse(std::env::var("LEDGER_PACKS").ok().as_deref())?,
             auth_mode: match env("LEDGER_AUTH_MODE").as_deref().map(str::to_lowercase).as_deref() {
                 None | Some("off" | "none") => AuthMode::Off,
                 Some("local") => AuthMode::Local,
@@ -255,7 +300,7 @@ impl Config {
     /// 启动时打印的生效配置（不含令牌）
     pub fn summary(&self) -> String {
         format!(
-            "db={} web={} memory_limit={} heavy={}（排队最长 {}s） threads={} backup={} keep={} dir={} cors={} admin={} inbox={} auth={}",
+            "db={} web={} memory_limit={} heavy={}（排队最长 {}s） threads={} backup={} keep={} dir={} cors={} admin={} inbox={} packs={} auth={}",
             self.db_path.display(),
             self.web_dir.as_ref().map(|d| d.display().to_string()).unwrap_or_else(|| "未启用".into()),
             match (&self.memory_limit, self.memory_limit_auto) {
@@ -272,6 +317,7 @@ impl Config {
             self.cors.as_ref().map(|c| c.join(",")).unwrap_or_else(|| "关闭".into()),
             if self.admin_token.is_some() { "令牌" } else { "仅本机" },
             self.inbox_roots.iter().map(|r| r.display().to_string()).collect::<Vec<_>>().join(","),
+            self.packs.describe(),
             match self.auth_mode {
                 AuthMode::Off => "关闭".to_string(),
                 AuthMode::Local => format!("内置账号（登录有效 {} 天）", self.session_days),

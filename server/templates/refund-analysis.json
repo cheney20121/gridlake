@@ -1,5 +1,6 @@
 {
  "id": "builtin_refund_analysis",
+ "pack": "ecommerce",
  "name": "退款与售后分析",
  "category": "电商财务",
  "description": "基于资金流水：退款金额与笔数环比、每日退款趋势、店铺与商品退款排行、运费险与赔付。无需准备数据",

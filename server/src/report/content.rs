@@ -485,7 +485,7 @@ fn datatable(conn: &Connection, spec: &Json, extra: Vec<Filter>) -> AppResult<Ta
     let mut stmt = conn.prepare(&format!("SELECT {select} FROM {} WHERE {where_sql} ORDER BY {order} LIMIT {DATATABLE_ROWS}", def.table))?;
     let n = cols.len();
     let data: Vec<Vec<Json>> = stmt
-        .query_map(duckdb::params_from_iter(args.iter()), |r| (0..n).map(|i| Ok(crate::detail::to_json(r.get_ref(i)?))).collect::<duckdb::Result<Vec<_>>>())?
+        .query_map(duckdb::params_from_iter(args.iter()), |r| (0..n).map(|i| Ok(crate::tabular::to_json(r.get_ref(i)?))).collect::<duckdb::Result<Vec<_>>>())?
         .collect::<Result<_, _>>()?;
     let kinds: Vec<String> = cols.iter().map(|c| if matches!(c.kind, "money" | "number") { c.kind.to_string() } else { "text".to_string() }).collect();
     let show = |v: &Json, kind: &str| -> String {

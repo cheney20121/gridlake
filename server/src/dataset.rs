@@ -17,7 +17,8 @@ use duckdb::{Connection, params_from_iter};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as Json;
 
-use crate::detail::{RuleTerm, contribution_sql, to_json};
+use crate::ecommerce::detail::{RuleTerm, contribution_sql};
+use crate::tabular::to_json;
 use crate::auth::CurrentUser;
 use crate::error::{AppError, AppResult};
 use crate::schema::{DETAIL_COLUMNS, ID_COLUMNS, ident, is_numeric};
@@ -236,7 +237,8 @@ type CalcRow = (String, String, String, Option<String>);
 /// 顺序：内置 / 导入的表 → 各自的计算列 → 关联视图（依赖先就绪，最多 4 层；每个视图建好后立刻挂上自己的计算列，
 /// 这样视图之上的视图、以及右侧带入的计算列都能拿到正确的列类型）
 pub fn load(conn: &Connection) -> AppResult<(Vec<DatasetDef>, Vec<String>)> {
-    let mut out = vec![ledger_detail_def()];
+    // 内置的「资金流水」数据集属于电商场景包
+    let mut out = if crate::ecommerce::enabled() { vec![ledger_detail_def()] } else { Vec::new() };
     let mut problems = Vec::new();
     let calcs: Vec<CalcRow> = {
         let mut stmt = conn.prepare("SELECT dataset_id, name, formula, kind FROM ledger_calc_column ORDER BY created_at, name")?;

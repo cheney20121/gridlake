@@ -1,5 +1,6 @@
 {
  "id": "builtin_platform_pnl",
+ "pack": "ecommerce",
  "name": "多平台利润表",
  "category": "电商财务",
  "description": "各平台销售收入、成本、毛利、平台与推广费用、净利润：看板 + 最近 12 个月利润月报 + 平台 × 月份透视。月份自动滚动，可按平台查看",

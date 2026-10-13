@@ -523,7 +523,7 @@ pub fn aggregate(conn: &Connection, dataset_id: &str, calls: &[AggregateCall], s
             stmt.query_map(params_from_iter(args.iter()), |r| {
                 let keys = (0..k).map(|i| r.get::<_, Option<String>>(i)).collect::<duckdb::Result<Vec<_>>>()?;
                 let first: i64 = r.get(k)?;
-                let vals = (0..value_exprs.len()).map(|i| Ok(crate::detail::to_json(r.get_ref(k + 1 + i)?))).collect::<duckdb::Result<Vec<_>>>()?;
+                let vals = (0..value_exprs.len()).map(|i| Ok(crate::tabular::to_json(r.get_ref(k + 1 + i)?))).collect::<duckdb::Result<Vec<_>>>()?;
                 Ok((keys, first, vals))
             })?
             .collect::<Result<Vec<_>, _>>()?
@@ -561,7 +561,7 @@ pub fn aggregate(conn: &Connection, dataset_id: &str, calls: &[AggregateCall], s
             let mut stmt = conn.prepare(&sql)?;
             let mut rows = stmt.query(params_from_iter(base_args.iter()))?;
             match rows.next()? {
-                Some(r) => values[i] = Some(crate::detail::to_json(r.get_ref(0)?)),
+                Some(r) => values[i] = Some(crate::tabular::to_json(r.get_ref(0)?)),
                 None => errors[i] = Some("#N/A".into()),
             }
         }

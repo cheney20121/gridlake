@@ -9,19 +9,19 @@ use axum::Extension;
 use serde::Deserialize;
 use tokio::io::AsyncWriteExt;
 
-use crate::analysis::{self, AdSpendInput, Breakdown, CrossPeriod, Dimension, QianchuanRow};
-use crate::balance::{self, BalanceInput, BalanceRow};
-use crate::bank::{self, AutoMatchResult, BankBatch, BankImportResult, BankTxn, MatchInput, WithdrawView};
-use crate::close::{self, CloseAction, CloseLog, CloseOverview, PeriodLock};
+use crate::ecommerce::analysis::{self, AdSpendInput, Breakdown, CrossPeriod, Dimension, QianchuanRow};
+use crate::ecommerce::balance::{self, BalanceInput, BalanceRow};
+use crate::ecommerce::bank::{self, AutoMatchResult, BankBatch, BankImportResult, BankTxn, MatchInput, WithdrawView};
+use crate::ecommerce::close::{self, CloseAction, CloseLog, CloseOverview, PeriodLock};
 use crate::dataset::{self, CursorInfo, DatasetInfo, DistinctRequest, DistinctResult, QuerySpec, RowsWindow, SelectionStats, StatsRequest};
 use crate::db::Db;
 use crate::error::{AppError, AppResult, Envelope, ok};
-use crate::coverage::{self, Coverage};
-use crate::import::{self, ImportMode, ImportResult, PreviewResult};
-use crate::shop::{self, ShopInfo, ShopInput, ShopUpdate};
-use crate::detail::{self, DetailFilter, DetailSummary, ExportRequest, RowsRequest, RowsResult};
+use crate::ecommerce::coverage::{self, Coverage};
+use crate::ecommerce::import::{self, ImportMode, ImportResult, PreviewResult};
+use crate::ecommerce::shop::{self, ShopInfo, ShopInput, ShopUpdate};
+use crate::ecommerce::detail::{self, DetailFilter, DetailSummary, ExportRequest, RowsRequest, RowsResult};
 use crate::workbook::{self, SaveResult, VersionInfo, WorkbookMeta};
-use crate::query::{self, EntityAlias, EntityAliasInput, ImportRecord, PeriodInfo, PivotResult};
+use crate::ecommerce::query::{self, EntityAlias, EntityAliasInput, ImportRecord, PeriodInfo, PivotResult};
 
 pub type AppState = Arc<Db>;
 
@@ -167,7 +167,7 @@ fn percent_encode(s: &str) -> String {
 }
 
 mod ops;
-mod ledger;
+mod ecommerce;
 mod datasets;
 mod workbooks;
 mod views;
@@ -181,7 +181,7 @@ mod recon;
 mod writeback;
 
 pub use ops::*;
-pub use ledger::*;
+pub use ecommerce::*;
 pub use datasets::*;
 pub use workbooks::*;
 pub use views::*;

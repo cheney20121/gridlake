@@ -49,7 +49,7 @@ for t in tests/e2e/test_*.py; do
   # AI 助手指向本机的模拟模型（只有用到 AI 的测试会在这个端口上起模拟模型，见 test_06）
   # 测试文件里的环境变量放在最后，可以覆盖默认值（如 test_30 改用内置账号 LEDGER_AUTH_MODE=local）
   env LEDGER_AI_BASE_URL="http://127.0.0.1:${LLM_PORT}/v1" LEDGER_AI_MODEL=mock-model LEDGER_AI_STREAM=0 \
-    LEDGER_AUTH_MODE=gateway LEDGER_AUTH_URL="http://127.0.0.1:${GW_PORT}/current_user" \
+    LEDGER_AUTH_MODE=gateway LEDGER_AUTH_URL="http://127.0.0.1:${GW_PORT}/current_user" LEDGER_PACKS=ecommerce \
     LEDGER_ADDR="127.0.0.1:${PORT}" LEDGER_DB="$TMP/data/ledger.duckdb" LEDGER_BACKUP_AT=off $EXTRA_ENV \
     "$BIN" >"$TMP/server.log" 2>&1 & SRV=$!
   PIDS=("$GW" "$SRV")

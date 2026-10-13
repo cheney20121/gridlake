@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value as Json};
 
 use crate::error::{AppError, AppResult};
+use crate::tabular::to_json;
 use crate::schema::{DETAIL_COLUMNS, NUMERIC_COLUMNS, ident, is_numeric, literal};
 
 pub const CONTRIBUTION: &str = "贡献金额";
@@ -320,18 +321,6 @@ fn round2(v: f64) -> f64 {
     (v * 100.0).round() / 100.0
 }
 
-pub fn to_json(v: ValueRef<'_>) -> Json {
-    match v {
-        ValueRef::Null => Json::Null,
-        ValueRef::BigInt(i) => Json::from(i),
-        ValueRef::Int(i) => Json::from(i),
-        ValueRef::Double(f) => Json::from(round2(f)),
-        ValueRef::Text(bytes) => Json::String(String::from_utf8_lossy(bytes).into_owned()),
-        // DECIMAL(18,2) 金额列：按十进制文本转数值，不经过二进制浮点运算
-        ValueRef::Decimal(d) => d.to_string().parse::<f64>().map(Json::from).unwrap_or(Json::Null),
-        other => Json::String(format!("{other:?}")),
-    }
-}
 
 // ── 窗口取数 ──────────────────────────────────────────
 

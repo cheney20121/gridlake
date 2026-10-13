@@ -172,6 +172,9 @@ def registered_routes():
     """main.rs 里注册的全部（方法，路径）"""
     main = (SRC / "main.rs").read_text(encoding="utf-8")
     body = main[main.index(".route("):main.index(".fallback(routes::api_not_found)")]
+    # 场景包的路由在自己的模块里注册
+    pack = (SRC / "ecommerce" / "mod.rs").read_text(encoding="utf-8")
+    body += pack[pack.index(".route("):]
     found = set()
     for chunk in body.split(".route(")[1:]:
         path = re.match(r'\s*"([^"]+)"', chunk).group(1)

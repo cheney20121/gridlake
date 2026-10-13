@@ -1,7 +1,7 @@
 {
  "id": "builtin_bank_rec",
  "name": "银行余额调节表",
- "category": "电商财务",
+ "category": "财务",
  "description": "银行流水与企业账逐笔对账后，自动出具银行存款余额调节表（未达账项 4 项 + 差额核对）；含对账看板与未达账项透视",
  "datasets": [
   {

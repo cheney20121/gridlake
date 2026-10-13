@@ -13,7 +13,7 @@ use std::time::Instant;
 use duckdb::{Connection, params};
 use serde::{Deserialize, Serialize};
 
-use crate::bank::{decode_text, parse_amount, parse_date_time, read_rows};
+use crate::tabular::{decode_text, parse_amount, parse_date_time, read_rows};
 use crate::dataset::{self, StoredColumn};
 use crate::db::now_local;
 use crate::error::{AppError, AppResult};
@@ -367,7 +367,7 @@ fn prepare_csv(path: &Path, file_name: &str, dir: &Path) -> AppResult<(PathBuf, 
         w.flush()?;
         return Ok((out, 0));
     }
-    crate::import::ensure_utf8(path)?;
+    crate::tabular::ensure_utf8(path)?;
     Ok((path.to_path_buf(), header_idx + 1))
 }
 

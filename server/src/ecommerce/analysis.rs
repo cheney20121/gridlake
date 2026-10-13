@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Map;
 
 use crate::db::now_local;
-use crate::detail::{RuleTerm, contribution_sql};
+use crate::ecommerce::detail::{RuleTerm, contribution_sql};
 use crate::error::{AppError, AppResult};
 use crate::schema::ident;
 
@@ -310,7 +310,7 @@ pub struct AdSpendInput {
 
 /// 千川消耗只影响分析口径、不改动流水，锁账后仍可维护
 pub fn save_ad_spend(conn: &Connection, input: &AdSpendInput) -> AppResult<()> {
-    crate::balance::prev_period(&input.period)?;
+    crate::ecommerce::balance::prev_period(&input.period)?;
     if input.shop.trim().is_empty() {
         return Err(AppError::bad("店铺不能为空"));
     }

@@ -24,22 +24,16 @@ mod approval;
 mod account;
 mod auth;
 mod calc;
-mod analysis;
-mod balance;
-mod bank;
-mod close;
 mod config;
 mod connector;
 mod comment;
 mod collab;
-mod coverage;
 mod dataset;
 mod dataset_trash;
 mod dataset_import;
 mod db;
-mod detail;
+mod ecommerce;
 mod error;
-mod import;
 mod import_source;
 mod mcp;
 mod metrics;
@@ -48,15 +42,14 @@ mod netguard;
 mod pat;
 mod pivot;
 mod pivot_calc;
-mod query;
 mod recon;
 mod summary;
 mod report;
 mod routes;
 mod schema;
 mod scope;
-mod shop;
 mod sqlq;
+mod tabular;
 mod template;
 mod views;
 mod web;
@@ -153,43 +146,9 @@ async fn serve(config: config::Config) -> anyhow::Result<()> {
     tokio::spawn(flush_usage(state.clone()));
     tokio::spawn(auth::run_audit_writer(state.clone()));
 
+    // 场景包的路由：没启用时不注册，访问得到 404（见 ecommerce/mod.rs）
     let api = Router::new()
-        .route(
-            "/ledger/imports",
-            post(routes::import_csv).layer(DefaultBodyLimit::max(max_upload_mb * 1024 * 1024)).get(routes::imports),
-        )
-        .route(
-            "/ledger/imports/preview",
-            post(routes::preview_import).layer(DefaultBodyLimit::max(max_upload_mb * 1024 * 1024)),
-        )
-        .route("/ledger/imports/commit", post(routes::commit_import))
-        .route("/ledger/shops", get(routes::list_shops).post(routes::create_shop).put(routes::update_shop))
-        .route("/ledger/coverage", get(routes::coverage))
-        .route("/ledger/pivot", get(routes::pivot))
-        .route("/ledger/details/rows", post(routes::detail_rows))
-        .route("/ledger/details/summary", post(routes::detail_summary))
-        .route("/ledger/details/export", post(routes::detail_export))
-        .route("/ledger/periods", get(routes::periods))
-        .route("/ledger/data", delete(routes::delete_data))
-        .route("/ledger/entity-aliases", get(routes::entity_aliases).merge(put(routes::save_entity_aliases)))
-        .route("/ledger/balances", get(routes::balances).put(routes::save_balances))
-        .route(
-            "/ledger/bank/imports",
-            post(routes::import_bank)
-                .layer(DefaultBodyLimit::max(max_upload_mb * 1024 * 1024))
-                .get(routes::bank_batches)
-                .delete(routes::delete_bank_batch),
-        )
-        .route("/ledger/withdrawals", get(routes::withdrawals))
-        .route("/ledger/withdrawals/auto-match", post(routes::auto_match))
-        .route("/ledger/withdrawals/candidates", get(routes::match_candidates))
-        .route("/ledger/withdrawals/match", put(routes::manual_match))
-        .route("/ledger/close", get(routes::close_overview).post(routes::close_action))
-        .route("/ledger/close/logs", get(routes::close_logs))
-        .route("/ledger/close/locks", get(routes::close_locks))
-        .route("/ledger/analysis/breakdown", get(routes::analysis_breakdown))
-        .route("/ledger/analysis/cross-period", get(routes::analysis_cross_period))
-        .route("/ledger/analysis/qianchuan", get(routes::analysis_qianchuan).put(routes::save_ad_spend))
+        .merge(if ecommerce::enabled() { ecommerce::router(max_upload_mb) } else { Router::new() })
         .route("/ledger/datasets", get(routes::list_datasets))
         .route(
             "/ledger/datasets/import/preview",

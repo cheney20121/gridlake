@@ -13,9 +13,10 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use duckdb::{Connection, params};
 use serde::{Deserialize, Serialize};
 
-use crate::close;
+use crate::ecommerce::close;
 use crate::error::{AppError, AppResult};
 use crate::schema::{DETAIL_COLUMNS, ID_COLUMNS, REQUIRED_COLUMNS, ident, is_numeric, literal, search_text_sql};
+use crate::tabular::ensure_utf8;
 
 const STAGING: &str = "ledger_staging";
 /// 汇总表的合计列使用的店铺名，不能用作真实店铺
@@ -100,19 +101,6 @@ fn new_id(prefix: &str) -> String {
     format!("{prefix}_{millis}_{}", SEQ.fetch_add(1, Ordering::Relaxed))
 }
 
-/// 非 UTF-8 文件按 GBK 解码后重写（部分导出工具/Excel 另存为生成 GBK 编码的 CSV）
-pub(crate) fn ensure_utf8(path: &Path) -> AppResult<()> {
-    let bytes = std::fs::read(path)?;
-    if std::str::from_utf8(&bytes).is_ok() {
-        return Ok(());
-    }
-    let (text, _, had_errors) = encoding_rs::GBK.decode(&bytes);
-    if had_errors {
-        return Err(AppError::bad("文件编码无法识别，请导出为 UTF-8 或 GBK 编码的 CSV"));
-    }
-    std::fs::write(path, text.as_bytes())?;
-    Ok(())
-}
 
 fn csv_source(path: &Path) -> String {
     format!(

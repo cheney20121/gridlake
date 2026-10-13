@@ -9,9 +9,9 @@ use std::collections::HashSet;
 use duckdb::{Connection, OptionalExt, params};
 use serde::{Deserialize, Serialize};
 
-use crate::balance;
-use crate::bank;
-use crate::coverage;
+use crate::ecommerce::balance;
+use crate::ecommerce::bank;
+use crate::ecommerce::coverage;
 use crate::db::now_local;
 use crate::auth::CurrentUser;
 use crate::error::{AppError, AppResult};

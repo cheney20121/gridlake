@@ -7,7 +7,7 @@
 use duckdb::{Connection, params};
 use serde::{Deserialize, Serialize};
 
-use crate::close;
+use crate::ecommerce::close;
 use crate::error::{AppError, AppResult};
 use crate::schema::ident;
 

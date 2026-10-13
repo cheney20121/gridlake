@@ -901,6 +901,13 @@ pub struct Me {
     user: Option<CurrentUser>,
     /// 数据范围：受限时只能看到这些店铺的数据（见 scope.rs）
     scope: Scope,
+    /// 启用了哪些场景包（前端据此显示 / 隐藏对应入口）
+    packs: Packs,
+}
+
+#[derive(Serialize)]
+pub struct Packs {
+    ecommerce: bool,
 }
 
 /// GET /api/ledger/me  是否要求登录与当前用户（没登录时 user 为空，由前端跳转登录页）
@@ -912,7 +919,7 @@ pub async fn me(State(db): State<AppState>, Extension(id): Extension<Identity>, 
         AuthMode::Proxy => "proxy",
     };
     let scope = scope.map_or_else(Scope::all, |Extension(s)| (*s.0).clone());
-    Ok(ok(Me { auth_required: db.auth.enabled(), mode, user: id.0, scope }))
+    Ok(ok(Me { auth_required: db.auth.enabled(), mode, user: id.0, scope, packs: Packs { ecommerce: crate::ecommerce::enabled() } }))
 }
 
 // ── 审计 ──────────────────────────────────────────────
@@ -1130,7 +1137,12 @@ mod tests {
     /// 从 main.rs 的路由注册里取出全部（方法，路径模板）
     fn registered_routes() -> Vec<(String, String)> {
         let main = include_str!("main.rs");
-        let body = &main[main.find(".route(").unwrap()..main.find(".fallback(routes::api_not_found)").unwrap()];
+        let main_body = &main[main.find(".route(").unwrap()..main.find(".fallback(routes::api_not_found)").unwrap()];
+        // 场景包的路由在自己的模块里注册（没启用时不注册），权限分类一样要覆盖
+        let pack = include_str!("ecommerce/mod.rs");
+        let pack_body = &pack[pack.find(".route(").unwrap()..];
+        let body = format!("{main_body}{pack_body}");
+        let body = body.as_str();
         let mut out = Vec::new();
         for chunk in body.split(".route(").skip(1) {
             let (path, handlers) = chunk.trim_start().strip_prefix('"').unwrap().split_once('"').unwrap();

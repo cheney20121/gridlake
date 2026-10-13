@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as Json;
 
 use crate::error::{AppError, AppResult};
-use crate::import::EntityCount;
+use crate::ecommerce::import::EntityCount;
 use crate::schema::{NUMERIC_COLUMNS, ident};
 
 // ── 聚合 ──────────────────────────────────────────────
@@ -227,7 +227,7 @@ pub fn imports(conn: &Connection) -> AppResult<Vec<ImportRecord>> {
 }
 
 pub fn delete_period(conn: &Connection, shop: &str, period: &str) -> AppResult<i64> {
-    crate::close::ensure_editable(conn, shop, period)?;
+    crate::ecommerce::close::ensure_editable(conn, shop, period)?;
     let deleted = conn.execute("DELETE FROM ledger_detail WHERE shop = ? AND period = ?", params![shop, period])?;
     if deleted == 0 {
         return Err(AppError::bad(format!("没有找到「{shop}」{period} 的数据")));
