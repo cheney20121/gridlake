@@ -171,9 +171,7 @@
  "创建数据目录失败：{0}": "Failed to create the data directory: {0}",
  "数据文件正被另一个进程使用（服务是否在运行？）：{0}\n{1}": "The data file is in use by another process (is the service already running?): {0}\n{1}",
  "打开 DuckDB 失败：{0}\n{1}": "Failed to open DuckDB: {0}\n{1}",
- "你的数据范围受限，只能填报按店铺划分范围的数据集。{0}": "Your data scope is restricted: you can only enter data into datasets that are scoped by shop. {0}",
  "请选择用户": "Choose a user",
- "范围应为 all（不限）或 shops（指定店铺）": "The scope must be all (unrestricted) or shops (specific shops)",
  "资金流水固定按「店铺」列过滤，不能修改": "Cash flow is always filtered by the \"Shop\" column and this cannot be changed",
  "「按列过滤」与「所有人可见」只能选一种": "\"Filter by column\" and \"Visible to everyone\" are mutually exclusive",
  "数据集里没有这一列": "The dataset has no such column",
@@ -679,7 +677,6 @@
  "没有所有者": "no owner",
  "无法连接身份服务（{0}）：{1}": "Cannot reach the identity service ({0}): {1}",
  "公式里的「{0}」是另一个计算值，计算值只能引用普通的汇总值（可用：{1}）": "\"{0}\" in the formula is another calculated value; calculated values can only refer to ordinary aggregate values (available: {1})",
- "你的数据范围被限制在店铺：{0}": "Your data scope is limited to shops: {0}",
  "本机地址": "a local address",
  "广播 / 组播地址": "a broadcast / multicast address",
  "内网地址": "a private-network address",
@@ -710,5 +707,11 @@
  "每个账号最多 {0} 个访问令牌，请先吊销不用的": "Each account can have at most {0} access tokens; revoke the ones you no longer use first",
  "个人访问令牌只在内置账号登录方式下可用（LEDGER_AUTH_MODE=local）": "Personal access tokens are only available with built-in account sign-in (LEDGER_AUTH_MODE=local)",
  "不能用访问令牌管理访问令牌，请在网页里登录后操作": "An access token can't manage access tokens; sign in on the web page to do it",
- "仅支持 CSV、XLS、XLSX 文件": "Only CSV, XLS and XLSX files are supported"
+ "仅支持 CSV、XLS、XLSX 文件": "Only CSV, XLS and XLSX files are supported",
+ "你的数据范围受限，只能填报按某一列划分范围的数据集。{0}": "Your data scope is restricted: you can only enter data into datasets that are scoped by a column. {0}",
+ "维度名称不超过 {0} 个字符，不含控制字符": "A dimension name can have at most {0} characters and no control characters",
+ "范围应为 all（不限）或 values（指定取值）": "The scope must be all (unrestricted) or values (specific values)",
+ "你的数据范围被限制在{0}": "Your data scope is limited to {0}",
+ "店铺：{0}": "shops: {0}",
+ "没有任何取值": "no values"
 }

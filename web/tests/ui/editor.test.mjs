@@ -731,7 +731,7 @@ describe('在线表格编辑器（界面）', { skip }, () => {
   it('受限用户（Bob 只能看 A、B 店）：范围标签、数据集行数、隐藏导入与连接入口', async () => {
     await withPage('restricted-user', 'bob', `/excel?wb=${wb.shared}`, async (page) => {
       await editorReady(page)
-      assert.match(await topbar(page), /数据范围：A、B/)
+      assert.match(await topbar(page), /数据范围：店铺：A、B/)
       await page.waitFor(`[...document.querySelectorAll('.data-panel .item')].some(e => e.innerText.includes('订单') && /\\b4\\b/.test(e.innerText))`, { what: '订单只剩 4 行' })
       assert.equal(await page.eval(`[...document.querySelectorAll('.data-panel button')].some(b => b.innerText.includes('导入数据'))`), false, '没有「导入数据」')
       await page.click('.data-panel button', '数据中心')
@@ -761,6 +761,42 @@ describe('在线表格编辑器（界面）', { skip }, () => {
         assert.ok(items.some(i => i.includes(want)), `管理员应看到「${want}」：${items.join('、')}`)
       await page.click('.ec-dropdown-menu__item', '操作审计')
       await page.waitFor(`[...document.querySelectorAll('.ec-dialog')].some(d => d.offsetParent && d.innerText.includes('操作审计'))`, { what: '操作审计对话框' })
+    })
+  })
+
+  it('数据权限：按「维度」设置规则——管理员添加「地区」维度的默认规则，列表里显示维度与取值，再删除', async () => {
+    await withPage('scope-dimension', 'root', `/excel?wb=${wb.alice}`, async (page) => {
+      await editorReady(page)
+      await page.click('.data-panel button', '数据中心')
+      await page.waitFor(`[...document.querySelectorAll('.ec-dropdown-menu__item')].some(e => e.offsetParent && e.innerText.includes('数据权限'))`, { what: '数据中心菜单' })
+      await page.click('.ec-dropdown-menu__item', '数据权限')
+      await page.waitFor(`[...document.querySelectorAll('.ec-dialog')].some(d => d.offsetParent && d.innerText.includes('用户范围') && d.innerText.includes('默认规则'))`, { what: '数据权限对话框' })
+      await page.click('button', '添加默认规则')
+      await page.waitFor(`[...document.querySelectorAll('.ec-dialog')].some(d => d.offsetParent && d.innerText.includes('维度') && d.innerText.includes('指定取值'))`, { what: '规则编辑对话框' })
+      // 维度：下拉里输入新名字回车；取值：输入后回车（真实键盘输入）
+      const inputs = `[...document.querySelectorAll('.ec-dialog')].filter(d => d.offsetParent && d.innerText.includes('指定取值')).at(-1).querySelectorAll('.ec-select input')`
+      await page.eval(`(() => { const [dim] = ${inputs}; dim.focus(); dim.click() })()`)
+      await page.press('a', { ctrl: true })
+      await page.type('地区')
+      await page.press('Enter')
+      await page.eval(`(() => { const v = ${inputs}[1]; v.focus(); v.click() })()`)
+      await page.type('华东')
+      await page.press('Enter')
+      await page.waitFor(`[...document.querySelectorAll('.ec-dialog')].filter(d => d.offsetParent && d.innerText.includes('指定取值')).at(-1).innerText.includes('华东')`, { what: '取值标签「华东」' })
+      await page.click('.ec-dialog__footer button', '保存')
+      await page.waitFor(`document.body.innerText.includes('已保存，立即生效')`, { what: '保存成功提示' })
+      await page.waitFor(`[...document.querySelectorAll('.ec-dialog')].some(d => d.offsetParent && d.innerText.includes('地区') && d.innerText.includes('华东'))`, { what: '默认规则里出现「地区」与「华东」' })
+      const rules = await api.call('GET', '/ledger/data-scope', TOKEN.root)
+      const r = rules.data.rules.find(x => x.subjectId === '*' && x.dimension === '地区')
+      assert.deepEqual(r && { mode: r.mode, values: r.values }, { mode: 'values', values: ['华东'] })
+      assert.ok(rules.data.dimensions.includes('地区'), '维度列表里有「地区」')
+      // 删除
+      await page.click('button', '删除')
+      await page.waitFor(`!!document.querySelector('.ec-message-box')`, { what: '删除确认' })
+      await page.click('.ec-message-box__btns button', '删除')
+      await page.waitFor(`document.body.innerText.includes('已删除')`, { what: '删除成功提示' })
+      const after = await api.call('GET', '/ledger/data-scope', TOKEN.root)
+      assert.equal(after.data.rules.some(x => x.dimension === '地区'), false, '规则已删除')
     })
   })
 

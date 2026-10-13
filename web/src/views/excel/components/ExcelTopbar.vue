@@ -167,7 +167,7 @@ const saveStatusText = computed(() => {
       <UserMenu v-if="ledgerUser.authRequired && ledgerUser.name">
         <span class="whitespace-nowrap text-xs text-gray-500 hover:text-gray-800" :title="$t('登录账号：{0}{1}', [ledgerUser.name, ledgerUser.isAdmin ? '（管理员）' : ''])">{{ ledgerUser.name }}</span>
       </UserMenu>
-      <el-tag v-if="ledgerUser.restricted" size="small" type="warning" :title="$t('你的数据范围被限制在店铺：{0}。读取、透视、公式、导出都只含这些店铺；导入、建视图、定时推送等功能不可用', [ledgerUser.scopeText])">
+      <el-tag v-if="ledgerUser.restricted" size="small" type="warning" :title="$t('你的数据范围被限制在{0}。读取、透视、公式、导出都只含范围内的行；导入、建视图、定时推送等功能不可用', [ledgerUser.scopeText])">
         {{ $t('数据范围：{0}', [ledgerUser.scopeText]) }}
       </el-tag>
       <el-tag v-if="readOnly" size="small" type="warning" :title="$t('这个工作簿是别人共享给你的只读版本，修改不会被保存；可另存为副本')">

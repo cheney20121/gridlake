@@ -555,7 +555,7 @@ async function undo(r: WritebackRecord) {
       <WritebackRecords v-if="current && records.length" :dataset-name="current.datasetName" :records="records" @refresh="loadRecords" @undo="undo" />
 
       <div v-if="ledgerUser.restricted" class="rounded bg-[#FFF7E6] px-2 py-1.5 text-xs text-[#92400E] leading-5">
-        {{ $t('你的数据范围限定在店铺：{0}。只能填报按店铺划分范围的数据集，填报区必须包含范围列（店铺），并且只能新增、修改、删除自己范围内的行。', [ledgerUser.scopeText]) }}
+        {{ $t('你的数据范围限定在{0}。只能填报按某一列划分范围的数据集，填报区必须包含范围列，并且只能新增、修改、删除自己范围内的行。', [ledgerUser.scopeText]) }}
       </div>
       <div class="text-xs text-gray-400 leading-5">
         {{ $t('在表头下方逐行填写（可以用公式），遇到整行空白即结束。提交时整批校验：数字、日期格式不对或主键为空 / 重复时会标红，一行都不写入。只有最近一次提交、且之后数据集没有别的改动时可以撤销。') }}

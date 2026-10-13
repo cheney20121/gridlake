@@ -17,7 +17,10 @@ export interface LedgerUser {
 /** 数据范围（行级权限）：受限时只能看到这些店铺的数据 */
 export interface LedgerScope {
   restricted: boolean
+  /** 「店铺」维度的可见取值（老字段，等于 dimensions['店铺']） */
   shops: string[]
+  /** 受限的维度 → 可见的取值 */
+  dimensions?: Record<string, string[]>
 }
 
 export interface LedgerMe {
@@ -117,9 +120,11 @@ export interface ScopeRule {
   /** 用户 id；* 是默认规则（没有单独规则的用户） */
   subjectId: string
   subjectName: string
-  /** all 不限 / shops 指定店铺 */
-  mode: 'all' | 'shops'
-  shops: string[]
+  /** 维度（店铺 / 地区 / 部门…） */
+  dimension: string
+  /** all 不限 / values 指定取值 */
+  mode: 'all' | 'values'
+  values: string[]
   updatedBy: string | null
   updatedAt: string | null
 }
@@ -130,34 +135,41 @@ export interface ScopeDatasetBinding {
   kind: 'builtin' | 'table' | 'view' | 'recon'
   /** 设置的过滤列（列 key） */
   scopeColumn: string | null
+  /** 设置的维度（没设置时按「店铺」） */
+  scopeDimension: string
   /** 设置为所有人可见 */
   open: boolean
   /** column 按列过滤 / open 所有人可见 / inherit 沿用左表 / hidden 受限用户看不到 */
   effective: 'column' | 'open' | 'inherit' | 'hidden'
   effectiveColumn: string | null
+  effectiveDimension: string | null
   columns: { key: string, title: string }[]
 }
 
 export interface ScopeOverview {
   rules: ScopeRule[]
   datasets: ScopeDatasetBinding[]
-  /** 店铺档案里的店铺名（选店铺时的候选） */
-  shops: string[]
+  /** 已经用到的维度 */
+  dimensions: string[]
+  /** 各维度的取值候选（目前只有「店铺」：来自店铺档案） */
+  candidates: Record<string, string[]>
 }
 
 export function getScopeOverviewApi() {
   return request<ScopeOverview>({ url: url('/data-scope'), method: 'get' })
 }
 
-export function saveScopeRuleApi(data: { subjectId: string, subjectName?: string, mode: 'all' | 'shops', shops: string[] }) {
+export function saveScopeRuleApi(data: { subjectId: string, subjectName?: string, dimension: string, mode: 'all' | 'values', values: string[] }) {
   return request<boolean>({ url: url('/data-scope/rules'), method: 'put', data })
 }
 
-export function deleteScopeRuleApi(subjectId: string) {
-  return request<boolean>({ url: url(`/data-scope/rules/${encodeURIComponent(subjectId)}`), method: 'delete' })
+/** 不传 dimension 删掉这个用户的全部规则 */
+export function deleteScopeRuleApi(subjectId: string, dimension?: string) {
+  const q = dimension ? `?dimension=${encodeURIComponent(dimension)}` : ''
+  return request<boolean>({ url: url(`/data-scope/rules/${encodeURIComponent(subjectId)}${q}`), method: 'delete' })
 }
 
-export function saveScopeBindingApi(datasetId: string, data: { scopeColumn?: string | null, open: boolean }) {
+export function saveScopeBindingApi(datasetId: string, data: { scopeColumn?: string | null, scopeDimension?: string, open: boolean }) {
   return request<boolean>({ url: url(`/data-scope/datasets/${datasetId}`), method: 'put', data })
 }
 

@@ -236,10 +236,10 @@
 
 | 方法 | 路径 | 说明 | 权限 | 受限用户 | 审计 |
 |---|---|---|---|---|---|
-| GET | `/api/ledger/data-scope` | 规则、数据集绑定、店铺候选 | 仅管理员 | — |  |
-| PUT | `/api/ledger/data-scope/datasets/{id}` | { scopeColumn?, open } | 仅管理员 | — | 设置数据集的范围绑定 |
-| PUT | `/api/ledger/data-scope/rules` | { subjectId, subjectName?, mode: all \| shops, shops }  subjectId 为 * 是默认规则 | 仅管理员 | — | 设置用户数据范围 |
-| DELETE | `/api/ledger/data-scope/rules/{id}` | 删除规则（该用户回到默认规则） | 仅管理员 | — | 删除用户数据范围 |
+| GET | `/api/ledger/data-scope` | 规则、数据集绑定、维度与取值候选 | 仅管理员 | — |  |
+| PUT | `/api/ledger/data-scope/datasets/{id}` | { scopeColumn?, scopeDimension?, open } | 仅管理员 | — | 设置数据集的范围绑定 |
+| PUT | `/api/ledger/data-scope/rules` | { subjectId, subjectName?, dimension?, mode: all \| values, values }  subjectId 为 * 是默认规则；dimension 不写按「店铺」 | 仅管理员 | — | 设置用户数据范围 |
+| DELETE | `/api/ledger/data-scope/rules/{id}` | 删除规则（该用户回到默认规则）；不写 dimension 删掉这个用户的全部规则 查询参数：`dimension=` | 仅管理员 | — | 删除用户数据范围 |
 
 ## 月结与资金台账（电商场景）
 

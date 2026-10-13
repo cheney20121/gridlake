@@ -939,7 +939,7 @@ mod tests {
         assert!(e.message().contains("不存在"), "没有绑定的数据集对受限用户不可见：{}", e.message());
         conn.execute("UPDATE ledger_dataset SET scope_open = true WHERE id = ?", [&open]).unwrap();
         let e = restricted(&["A"], || submit(&conn, &open, &req("upsert", &["店铺", "月份", "预算"], vec![row("A", "2026-10", 1)]))).unwrap_err();
-        assert!(e.message().contains("只能填报按店铺划分范围"), "{}", e.message());
+        assert!(e.message().contains("只能填报按某一列划分范围"), "{}", e.message());
         // 不受限的用户不受影响
         assert!(submit(&conn, &open, &req("upsert", &["店铺", "月份", "预算"], vec![row("A", "2026-10", 1)])).is_ok());
     }

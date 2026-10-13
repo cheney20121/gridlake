@@ -61,7 +61,7 @@ spec = {"filters": [], "keyword": None, "sort": [], "rule": None}
 s, r = call("POST", f"/ledger/datasets/{BUD}/cursor", Bo, body=spec); check("Bob 只看到 A、B 的行（3 行，C 店的看不到）", r["data"]["total"] == 3, r)
 
 # ── 其他数据集 ──
-s, r = wb(Bo, SHARED, "upsert", ["店铺", "预算"], [["A", 1]]); check("所有人可见的共享数据集：受限用户不能填", s == 403 and "只能填报按店铺划分范围" in msg((s, r)), (s, r))
+s, r = wb(Bo, SHARED, "upsert", ["店铺", "预算"], [["A", 1]]); check("所有人可见的共享数据集：受限用户不能填", s == 403 and "只能填报按某一列划分范围" in msg((s, r)), (s, r))
 s, r = wb(Bo, HIDDEN, "upsert", ["店铺", "预算"], [["A", 1]]); check("没有绑定的数据集：对受限用户不存在", s == 400 and "不存在" in msg((s, r)), (s, r))
 s, r = wb(A, SHARED, "upsert", ["店铺", "预算"], [["A", 1]]); check("不受限用户照常可以填共享数据集", s == 200 and r["data"]["inserted"] == 1, (s, r))
 s, r = call("POST", "/ledger/datasets/input", Bo, body={"name": "x", "columns": [], "primaryKey": []}); check("受限用户不能新建填报数据集", s == 403, (s, r))

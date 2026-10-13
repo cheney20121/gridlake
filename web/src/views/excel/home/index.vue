@@ -153,7 +153,7 @@ function onPublishHint() {
     />
 
     <div v-if="ledgerUser.restricted" class="shrink-0 border-b border-[#f3d9a4] border-b-solid bg-[#fff8e6] px-6 py-2 text-xs text-[#8a5a00]">
-      {{ $t('你的数据范围被限制在店铺：') }}<b>{{ ledgerUser.scopeText }}</b>{{ $t('。读取、透视、公式、导出都只含这些店铺；导入数据、建视图、定时推送等会绕过过滤的功能不可用。需要调整请联系管理员。') }}
+      {{ $t('你的数据范围被限制在') }}<b>{{ ledgerUser.scopeText }}</b>{{ $t('。读取、透视、公式、导出都只含范围内的行；导入数据、建视图、定时推送等会绕过过滤的功能不可用。需要调整请联系管理员。') }}
     </div>
 
     <div class="min-h-0 flex flex-1">

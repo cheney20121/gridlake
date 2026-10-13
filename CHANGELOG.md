@@ -24,6 +24,7 @@
 - 文档：`docs/architecture.md`、`docs/formulas.md`（平台函数与 Excel 兼容）、`docs/api.md`（REST 接口参考，由源码注释与权限表生成，CI 检查是否最新）。
 
 ### 变更
+- **数据权限通用化（维度）**：行级权限不再只能按「店铺」。新增「维度」（店铺 / 地区 / 部门…，随意命名）：规则按（用户，维度）设置可见取值，一个用户可以同时在几个维度上受限；数据集绑定（过滤列，维度），所以同一个用户在不同数据集上受不同规则限制；用户在数据集绑定的维度上没有规则时，该数据集对他整体可见。界面（数据权限对话框）、接口（`dimension` / `values` / `scopeDimension`，`/me` 增加 `dimensions`）同步更新，旧写法（`mode=shops`、`shops`）仍可用。**数据文件结构版本升到 2**：规则搬到新表，旧版本程序不能再打开升级后的数据文件，回退请用升级前的备份。
 - **改名 Gridlake**（原名 WebExcel：与已有项目重名，且名字含微软商标 Excel）：后端目录 `ledger-server/` → `server/`，程序与 crate 名 `ledger-server` → `gridlake`，前端目录 `web/`，systemd 服务 / 安装目录 / 镜像 / 安装包 / Prometheus 指标 / 会话 cookie 一律用新名字。**保持不变**的是会写进数据里或被外部依赖的名字：`LEDGER_*` 环境变量、`ledger_` 表前缀、`/api/ledger` 接口路径、工作簿里保存的部件键（`webexcel-kpi` / `webexcel-chart` 等）、网关模式默认读取的 `webexcel-token` cookie。旧安装的迁移步骤见《部署手册》的「从 WebExcel 迁移」。
 - **安全默认值（可能影响现有部署）：** 没有开启登录（`LEDGER_AUTH_MODE=off`）却监听非本机地址、或设置了 `LEDGER_CORS=*` 时，服务拒绝启动，提示改用 `local` 登录；确认已有其他保护时设置 `LEDGER_ALLOW_NO_AUTH=1`。`deploy/ledger.env.example` 默认启用 `LEDGER_AUTH_MODE=local`。
 - **数据范围受限用户的接口权限改为白名单：** `auth.rs` 新增 `RESTRICTED_OK`，未登记的接口默认对受限用户关闭；测试要求每个接口明确归类。

@@ -88,8 +88,9 @@ pub fn search_text_sql() -> String {
 /// 数据文件的结构版本。**规则**：
 /// - 只增加表 / 列（`CREATE TABLE IF NOT EXISTS`、`ADD COLUMN IF NOT EXISTS`）不用改它，升级是可重复执行的；
 /// - 一旦做了旧版本程序无法兼容的改动（改列含义、搬数据、删表 / 列），把它加 1，并在 CHANGELOG 里写明；
+///   （版本 2：数据范围规则从 ledger_data_scope 搬到 ledger_scope_rule——旧版读不到新规则会悄悄放开限制，所以必须拒绝打开）
 /// - 新版程序写过的数据文件，旧版程序拒绝打开（见 `check_version`），避免旧版悄悄读写出错。回退要用升级前的备份
-pub const SCHEMA_VERSION: i64 = 1;
+pub const SCHEMA_VERSION: i64 = 2;
 
 const META_SQL: &str = "CREATE TABLE IF NOT EXISTS ledger_meta (key VARCHAR PRIMARY KEY, value VARCHAR NOT NULL);";
 
@@ -144,7 +145,12 @@ pub fn migrate_sql() -> String {
          ALTER TABLE ledger_dataset ADD COLUMN IF NOT EXISTS owner_id VARCHAR;
          ALTER TABLE ledger_dataset ADD COLUMN IF NOT EXISTS owner_name VARCHAR;
          ALTER TABLE ledger_dataset ADD COLUMN IF NOT EXISTS scope_column VARCHAR;
+         ALTER TABLE ledger_dataset ADD COLUMN IF NOT EXISTS scope_dimension VARCHAR;
          ALTER TABLE ledger_dataset ADD COLUMN IF NOT EXISTS scope_open BOOLEAN;
+         INSERT INTO ledger_scope_rule (subject_id, dimension, subject_name, mode, vals, updated_by, updated_at)
+           SELECT subject_id, '店铺', subject_name, CASE WHEN mode = 'shops' THEN 'values' ELSE mode END, shops, updated_by, updated_at FROM ledger_data_scope
+           ON CONFLICT DO NOTHING;
+         DELETE FROM ledger_data_scope;
          ALTER TABLE ledger_period_close ADD COLUMN IF NOT EXISTS submitted_by_id VARCHAR;
          ALTER TABLE ledger_period_close ADD COLUMN IF NOT EXISTS approver_id VARCHAR;
          ALTER TABLE ledger_writeback ADD COLUMN IF NOT EXISTS deleted BIGINT;
@@ -337,6 +343,18 @@ CREATE TABLE IF NOT EXISTS ledger_audit (
   ms BIGINT
 );
 -- 数据范围（行级权限）：用户 → 可见的店铺。subject_id 为 * 是默认规则（没有单独规则的用户）；没有规则的用户不受限
+-- 数据范围规则：按（用户，维度）设置可见的取值。维度是一个名字（店铺 / 地区 / 部门…），数据集绑定到某个维度的某一列。
+-- 取代旧的 ledger_data_scope（只有「店铺」一个维度，主键只有用户）；旧表的规则在升级时迁移过来并清空，见 migrate_sql
+CREATE TABLE IF NOT EXISTS ledger_scope_rule (
+  subject_id VARCHAR NOT NULL,
+  dimension VARCHAR NOT NULL,
+  subject_name VARCHAR,
+  mode VARCHAR NOT NULL,
+  vals VARCHAR,
+  updated_by VARCHAR,
+  updated_at TIMESTAMP,
+  PRIMARY KEY (subject_id, dimension)
+);
 CREATE TABLE IF NOT EXISTS ledger_data_scope (
   subject_id VARCHAR PRIMARY KEY,
   subject_name VARCHAR,

@@ -35,7 +35,13 @@ export const useLedgerUserStore = defineStore('ledger-user', () => {
   const name = computed(() => (authRequired.value ? user.value?.name || '' : ''))
   /** 数据范围受限：导入、建视图、定时推送等会绕过过滤的功能不可用，只能看自己范围内店铺的数据 */
   const restricted = computed(() => scope.value.restricted)
-  const scopeText = computed(() => (scope.value.restricted ? (scope.value.shops.length ? scope.value.shops.join('、') : '没有任何店铺') : ''))
+  const scopeText = computed(() => {
+    if (!scope.value.restricted)
+      return ''
+    // 兼容老服务端（只有 shops）
+    const dims = scope.value.dimensions ?? { 店铺: scope.value.shops }
+    return Object.entries(dims).map(([d, v]) => `${d}：${v.length ? v.join('、') : t('没有任何取值')}`).join('；')
+  })
 
   /**
    * 确认登录状态；返回 false 表示需要登录（令牌缺失或已失效，已清掉本地令牌）。
