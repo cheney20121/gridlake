@@ -4,10 +4,17 @@ use super::*;
 
 /// POST /api/ledger/datasets/{id}/writeback  { mode: upsert|append, columns, rows, keys?, operator?, source? }
 /// 整批校验，有错误时不写入并返回出错的格子（errors）
-pub async fn dataset_writeback(State(db): State<AppState>, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Envelope<crate::writeback::WritebackOutcome>>> {
+pub async fn dataset_writeback(State(db): State<AppState>, Extension(user): Extension<CurrentUser>, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Envelope<crate::writeback::WritebackOutcome>>> {
     let req: crate::writeback::WritebackRequest = parse_json(&body)?;
     let _guard = db.import_lock.lock().await;
-    let r = blocking(&db, move |conn| crate::writeback::submit(conn, &id, &req)).await?;
+    let r = blocking(&db, move |conn| {
+        // 数据集属于收集任务时：先校验期次和单位，写入成功后记下谁提交了哪个单位；不属于任何任务时这两步什么都不做
+        crate::collect::before_submit(conn, &id, &req)?;
+        let r = crate::writeback::submit(conn, &id, &req)?;
+        crate::collect::after_submit(conn, &id, &req, &r, &user);
+        Ok(r)
+    })
+    .await?;
     if r.batch_id.is_some() {
         tracing::info!(dataset = %r.dataset_name, inserted = r.inserted, updated = r.updated, "writeback");
         db.cursors.invalidate();

@@ -440,7 +440,7 @@ pub struct RuleInput {
     pub operator: String,
 }
 
-fn check_dimension(dim: Option<&str>) -> AppResult<String> {
+pub(crate) fn check_dimension(dim: Option<&str>) -> AppResult<String> {
     let d = dim.map(str::trim).filter(|d| !d.is_empty()).unwrap_or(SHOP_DIMENSION);
     if d.chars().count() > MAX_DIMENSION_CHARS || d.chars().any(char::is_control) {
         return Err(AppError::bad(format!("维度名称不超过 {MAX_DIMENSION_CHARS} 个字符，不含控制字符")));

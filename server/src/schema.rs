@@ -665,6 +665,47 @@ CREATE TABLE IF NOT EXISTS ledger_alert_run (
   hits INTEGER,
   notified INTEGER
 );
+-- 多人填报：收集任务（绑定一个填报数据集，按「填报单位」列和「期次」列区分每个人每一期填的行）
+CREATE TABLE IF NOT EXISTS ledger_collect (
+  id VARCHAR PRIMARY KEY,
+  name VARCHAR NOT NULL,
+  dataset_id VARCHAR NOT NULL,
+  unit_column VARCHAR NOT NULL,
+  period_column VARCHAR NOT NULL,
+  dimension VARCHAR NOT NULL,
+  created_by VARCHAR,
+  created_by_name VARCHAR,
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
+);
+-- 收集任务里的填报单位与负责人（ord 保持录入顺序）
+CREATE TABLE IF NOT EXISTS ledger_collect_unit (
+  collect_id VARCHAR NOT NULL,
+  unit VARCHAR NOT NULL,
+  user_id VARCHAR,
+  user_name VARCHAR,
+  ord INTEGER NOT NULL,
+  PRIMARY KEY (collect_id, unit)
+);
+-- 已开启的期次
+CREATE TABLE IF NOT EXISTS ledger_collect_period (
+  collect_id VARCHAR NOT NULL,
+  period VARCHAR NOT NULL,
+  opened_at TIMESTAMP,
+  opened_by VARCHAR,
+  PRIMARY KEY (collect_id, period)
+);
+-- 提交记录：某一期某个单位最近一次提交（没有记录就是还没填）
+CREATE TABLE IF NOT EXISTS ledger_collect_submit (
+  collect_id VARCHAR NOT NULL,
+  period VARCHAR NOT NULL,
+  unit VARCHAR NOT NULL,
+  submitted_at TIMESTAMP,
+  submitted_by VARCHAR,
+  submitted_by_name VARCHAR,
+  batch_id VARCHAR,
+  PRIMARY KEY (collect_id, period, unit)
+);
 -- 同步记录
 CREATE TABLE IF NOT EXISTS ledger_connector_run (
   id VARCHAR PRIMARY KEY,

@@ -17,7 +17,7 @@
 - **数据范围受限的用户**（管理员给用户设置了「只能看某些店铺」）：只能调用下表「受限用户」列为 ✓ 的接口，其余一律返回 403；✓ 的接口读取的数据也已按范围过滤。
 - **审计**：「审计」列非空的接口会记入操作审计，列里是审计里显示的操作名。
 
-共 190 个接口。
+共 198 个接口。
 
 ## 存活检查与运维
 
@@ -290,6 +290,14 @@
 | DELETE | `/api/ledger/alerts/{id}` | 删除告警及其评估记录（创建人或管理员） | 登录用户 | ✗ | 删除告警 |
 | POST | `/api/ledger/alerts/{id}/evaluate` | 立即评估一次并按规则通知（等待完成，返回本次记录） | 登录用户 | ✗ | 立即评估告警 |
 | GET | `/api/ledger/alerts/{id}/runs` | 评估记录（新的在前） 查询参数：`limit=` | 登录用户 | ✗ |  |
+| GET | `/api/ledger/collects` | 收集任务列表（含最近一期的提交进度） | 仅管理员 | — |  |
+| POST | `/api/ledger/collects` | 新建任务：{ name, datasetId \| newTable, unitColumn?, periodColumn?, dimension?, units: [{ unit, userId? }] } 单位与负责人会同步成数据权限（负责人只能看 / 填自己负责的单位）。新建填报表时数据集建在这里，所以和导入一样串行 | 仅管理员 | — | 新建收集任务 |
+| GET | `/api/ledger/collects/mine` | 我负责的单位在最近几期里填了没有（受数据范围限制的用户也能看） | 登录用户 | ✓ |  |
+| GET | `/api/ledger/collects/{id}` | 看板：已开启的期次，以及某一期（默认最近一期）每个单位的提交状态 查询参数：`period=` | 仅管理员 | — |  |
+| PUT | `/api/ledger/collects/{id}` | { name, units }  改名、整体替换填报单位与负责人 | 仅管理员 | — | 修改收集任务 |
+| DELETE | `/api/ledger/collects/{id}` | 删除任务及其期次、提交记录；数据集和里面的数据保留 | 仅管理员 | — | 删除收集任务 |
+| POST | `/api/ledger/collects/{id}/periods` | { period }  开启新一期（如 2026-10） | 仅管理员 | — | 开启收集期次 |
+| DELETE | `/api/ledger/collects/{id}/periods/{period}` | 删除还没有人提交过的一期 | 仅管理员 | — | 删除收集期次 |
 | GET | `/api/ledger/tokens` | 我的访问令牌（不含令牌本身） | 登录用户 | ✓ |  |
 | POST | `/api/ledger/tokens` | { name, days? }  新建访问令牌；响应里的 token 只显示这一次 | 登录用户 | ✓ | 创建访问令牌 |
 | DELETE | `/api/ledger/tokens/{id}` | 吊销我的访问令牌（立即生效） | 登录用户 | ✓ | 吊销访问令牌 |

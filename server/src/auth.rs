@@ -434,6 +434,15 @@ const ROUTES: &[(&str, &str, Rule, &str)] = &[
     ("PUT", "/ledger/reports/{id}", Open, "修改定时推送"),
     ("DELETE", "/ledger/reports/{id}", Open, "删除定时推送"),
     ("POST", "/ledger/reports/{id}/send", Open, "立即发送推送"),
+    ("GET", "/ledger/collects", Admin, ""),
+    ("POST", "/ledger/collects", Admin, "新建收集任务"),
+    // 必须在 {id} 之前单独登记：不然 /collects/mine 会被当成 {id}，落到仅管理员的规则上
+    ("GET", "/ledger/collects/mine", Open, ""),
+    ("GET", "/ledger/collects/{id}", Admin, ""),
+    ("PUT", "/ledger/collects/{id}", Admin, "修改收集任务"),
+    ("DELETE", "/ledger/collects/{id}", Admin, "删除收集任务"),
+    ("POST", "/ledger/collects/{id}/periods", Admin, "开启收集期次"),
+    ("DELETE", "/ledger/collects/{id}/periods/{period}", Admin, "删除收集期次"),
     ("POST", "/ledger/alerts", Open, "新建告警"),
     ("POST", "/ledger/alerts/preview", Open, ""),
     ("PUT", "/ledger/alerts/{id}", Open, "修改告警"),
@@ -748,6 +757,8 @@ const RESTRICTED_OK: &[(&str, &str)] = &[
     ("POST", "/ledger/auth/logout"), ("POST", "/ledger/auth/password"),
     ("GET", "/ledger/tokens"), ("POST", "/ledger/tokens"), ("DELETE", "/ledger/tokens/{id}"),
     ("GET", "/ledger/users"),
+    // 我的填报：只返回自己负责的单位；单位和期次里数得到的行数来自按他的范围过滤后的数据集
+    ("GET", "/ledger/collects/mine"),
     ("PUT", "/ledger/comments/{id}"), ("DELETE", "/ledger/comments/{id}"), ("POST", "/ledger/comments/{id}/resolve"),
     ("GET", "/ledger/collab/{id}/events"), ("POST", "/ledger/collab/{id}/send"),
     ("GET", "/ledger/notifications"), ("POST", "/ledger/notifications/read"),
@@ -1131,6 +1142,9 @@ mod tests {
         assert_eq!(p[0].1, "wb_1");
         let (r, _) = find_route(&Method::GET, "/ledger/workbooks/trash").unwrap();
         assert_eq!(r.2, Open);
+        // 「我的填报」对所有登录用户开放，任务看板（同形的 {id}）仅管理员
+        assert_eq!(find_route(&Method::GET, "/ledger/collects/mine").unwrap().0.2, Open);
+        assert_eq!(find_route(&Method::GET, "/ledger/collects/co_1").unwrap().0.2, Admin);
     }
 
     #[test]

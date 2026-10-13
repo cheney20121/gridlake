@@ -44,6 +44,7 @@ mod pivot;
 mod pivot_calc;
 mod recon;
 mod summary;
+mod collect;
 mod report;
 mod routes;
 mod schema;
@@ -223,6 +224,11 @@ async fn serve(config: config::Config) -> anyhow::Result<()> {
         .route("/ledger/reports/{id}", put(routes::update_report).delete(routes::delete_report))
         .route("/ledger/reports/{id}/send", post(routes::send_report))
         .route("/ledger/reports/{id}/runs", get(routes::report_runs))
+        .route("/ledger/collects", get(routes::list_collects).post(routes::create_collect))
+        .route("/ledger/collects/mine", get(routes::my_collects))
+        .route("/ledger/collects/{id}", get(routes::collect_detail).put(routes::update_collect).delete(routes::delete_collect))
+        .route("/ledger/collects/{id}/periods", post(routes::open_collect_period))
+        .route("/ledger/collects/{id}/periods/{period}", delete(routes::delete_collect_period))
         .route("/ledger/alerts", get(routes::list_alerts).post(routes::create_alert))
         .route("/ledger/alerts/preview", post(routes::preview_alert))
         .route("/ledger/alerts/{id}", put(routes::update_alert).delete(routes::delete_alert))
