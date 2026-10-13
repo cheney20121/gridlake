@@ -632,6 +632,39 @@ CREATE TABLE IF NOT EXISTS ledger_report_run (
   message VARCHAR,
   results VARCHAR
 );
+-- 阈值告警规则：spec 是整条规则（数据集、指标、分组、条件、计划、渠道…）的 JSON，新增字段不用改表
+CREATE TABLE IF NOT EXISTS ledger_alert (
+  id VARCHAR PRIMARY KEY,
+  name VARCHAR NOT NULL,
+  spec VARCHAR NOT NULL,
+  enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  created_by VARCHAR,
+  created_by_name VARCHAR,
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
+);
+-- 告警状态：只记录当前处于「触发中」的分组（恢复后删除），用来避免同一个问题反复通知
+CREATE TABLE IF NOT EXISTS ledger_alert_state (
+  alert_id VARCHAR NOT NULL,
+  group_key VARCHAR NOT NULL,
+  since TIMESTAMP,
+  last_notified TIMESTAMP,
+  last_value DOUBLE,
+  PRIMARY KEY (alert_id, group_key)
+);
+-- 告警评估记录（results：各渠道结果 JSON）
+CREATE TABLE IF NOT EXISTS ledger_alert_run (
+  id VARCHAR PRIMARY KEY,
+  alert_id VARCHAR NOT NULL,
+  trigger_by VARCHAR NOT NULL,
+  status VARCHAR NOT NULL,
+  started_at TIMESTAMP,
+  finished_at TIMESTAMP,
+  message VARCHAR,
+  results VARCHAR,
+  hits INTEGER,
+  notified INTEGER
+);
 -- 同步记录
 CREATE TABLE IF NOT EXISTS ledger_connector_run (
   id VARCHAR PRIMARY KEY,

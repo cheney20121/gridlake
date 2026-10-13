@@ -12,6 +12,7 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AccessTokenDialog: typeof import('./src/components/excel/account/AccessTokenDialog.vue')['default']
     AccountDialog: typeof import('./src/components/excel/account/AccountDialog.vue')['default']
     AddPartsSection: typeof import('./src/components/excel/dashboard/AddPartsSection.vue')['default']
     AiActionBody: typeof import('./src/components/excel/ai/AiActionBody.vue')['default']
@@ -19,6 +20,9 @@ declare module 'vue' {
     AiAssistantPanel: typeof import('./src/components/excel/ai/AiAssistantPanel.vue')['default']
     AiSummaryBlock: typeof import('./src/components/excel/ai/AiSummaryBlock.vue')['default']
     AiThreadBar: typeof import('./src/components/excel/ai/AiThreadBar.vue')['default']
+    AlertEditDialog: typeof import('./src/components/excel/alert/AlertEditDialog.vue')['default']
+    AlertManagerDialog: typeof import('./src/components/excel/alert/AlertManagerDialog.vue')['default']
+    AlertPartEditor: typeof import('./src/components/excel/alert/AlertPartEditor.vue')['default']
     AmountLink: typeof import('./src/components/excel/analysis/AmountLink.vue')['default']
     AnomalyDialog: typeof import('./src/components/excel/anomaly/AnomalyDialog.vue')['default']
     ApprovalDrawer: typeof import('./src/components/excel/ApprovalDrawer.vue')['default']
@@ -102,6 +106,7 @@ declare module 'vue' {
     FormulaPanel: typeof import('./src/components/excel/FormulaPanel.vue')['default']
     KpiEditor: typeof import('./src/components/excel/dashboard/editors/KpiEditor.vue')['default']
     KpiView: typeof import('./src/components/excel/dashboard/KpiView.vue')['default']
+    LanguageSwitch: typeof import('./src/components/common/LanguageSwitch.vue')['default']
     LedgerDetailDrawer: typeof import('./src/components/excel/ledger-detail/LedgerDetailDrawer.vue')['default']
     McpAccessDialog: typeof import('./src/components/excel/mcp/McpAccessDialog.vue')['default']
     MonthCloseDrawer: typeof import('./src/components/excel/month-close/MonthCloseDrawer.vue')['default']
@@ -168,6 +173,7 @@ declare module 'vue' {
 
 // For TSX support
 declare global {
+  const AccessTokenDialog: typeof import('./src/components/excel/account/AccessTokenDialog.vue')['default']
   const AccountDialog: typeof import('./src/components/excel/account/AccountDialog.vue')['default']
   const AddPartsSection: typeof import('./src/components/excel/dashboard/AddPartsSection.vue')['default']
   const AiActionBody: typeof import('./src/components/excel/ai/AiActionBody.vue')['default']
@@ -175,6 +181,9 @@ declare global {
   const AiAssistantPanel: typeof import('./src/components/excel/ai/AiAssistantPanel.vue')['default']
   const AiSummaryBlock: typeof import('./src/components/excel/ai/AiSummaryBlock.vue')['default']
   const AiThreadBar: typeof import('./src/components/excel/ai/AiThreadBar.vue')['default']
+  const AlertEditDialog: typeof import('./src/components/excel/alert/AlertEditDialog.vue')['default']
+  const AlertManagerDialog: typeof import('./src/components/excel/alert/AlertManagerDialog.vue')['default']
+  const AlertPartEditor: typeof import('./src/components/excel/alert/AlertPartEditor.vue')['default']
   const AmountLink: typeof import('./src/components/excel/analysis/AmountLink.vue')['default']
   const AnomalyDialog: typeof import('./src/components/excel/anomaly/AnomalyDialog.vue')['default']
   const ApprovalDrawer: typeof import('./src/components/excel/ApprovalDrawer.vue')['default']
@@ -258,6 +267,7 @@ declare global {
   const FormulaPanel: typeof import('./src/components/excel/FormulaPanel.vue')['default']
   const KpiEditor: typeof import('./src/components/excel/dashboard/editors/KpiEditor.vue')['default']
   const KpiView: typeof import('./src/components/excel/dashboard/KpiView.vue')['default']
+  const LanguageSwitch: typeof import('./src/components/common/LanguageSwitch.vue')['default']
   const LedgerDetailDrawer: typeof import('./src/components/excel/ledger-detail/LedgerDetailDrawer.vue')['default']
   const McpAccessDialog: typeof import('./src/components/excel/mcp/McpAccessDialog.vue')['default']
   const MonthCloseDrawer: typeof import('./src/components/excel/month-close/MonthCloseDrawer.vue')['default']

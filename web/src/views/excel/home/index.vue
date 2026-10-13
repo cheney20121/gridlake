@@ -2,12 +2,13 @@
 import type { HomeSection } from './components/HomeNav.vue'
 import type { DatasetInfo } from '@/api/dataset'
 import type { WorkbookMeta } from '@/api/workbook'
-import { Collection, Connection, Cpu, Delete, Document, Lock, Plus, Refresh, Tickets, Timer, Upload, User } from '@element-plus/icons-vue'
+import { Bell, Collection, Connection, Cpu, Delete, Document, Lock, Plus, Refresh, Tickets, Timer, Upload, User } from '@element-plus/icons-vue'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getDatasetsApi, listDatasetTrashApi } from '@/api/dataset'
 import { createWorkbookApi, listWorkbooksApi, starWorkbookApi } from '@/api/workbook'
 import AccountDialog from '@/components/excel/account/AccountDialog.vue'
+import AlertManagerDialog from '@/components/excel/alert/AlertManagerDialog.vue'
 import AuditLogDialog from '@/components/excel/audit/AuditLogDialog.vue'
 import DataScopeDialog from '@/components/excel/audit/DataScopeDialog.vue'
 import ConnectorManagerDialog from '@/components/excel/connector/ConnectorManagerDialog.vue'
@@ -118,6 +119,7 @@ const sqlVisible = ref(false)
 const connectorVisible = ref(false)
 const trashVisible = ref(false)
 const reportVisible = ref(false)
+const alertVisible = ref(false)
 const mcpVisible = ref(false)
 const auditVisible = ref(false)
 const accountVisible = ref(false)
@@ -207,6 +209,7 @@ function onPublishHint() {
             </div>
             <div class="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4">
               <HomeCard v-if="!ledgerUser.restricted" :title="$t('定时推送')" :desc="$t('把仪表盘按日 / 周 / 月发到飞书、企业微信、邮件')" :icon="Timer" tone="green" @click="reportVisible = true" />
+              <HomeCard v-if="!ledgerUser.restricted" :title="$t('阈值告警')" :desc="$t('指标超过阈值（如退款率偏高）时通知到群或邮箱，同一个问题不重复打扰')" :icon="Bell" tone="amber" @click="alertVisible = true" />
               <HomeCard v-if="!ledgerUser.restricted" :title="$t('数据同步')" :desc="$t('数据连接按计划拉取，看板与公式自动更新')" :icon="Refresh" tone="blue" :badge="connectorFailures ? $t('{0} 个失败', [connectorFailures]) : undefined" @click="connectorVisible = true" />
               <HomeCard v-if="ledgerUser.isAdmin" :title="$t('外部 AI 接入（MCP）')" :desc="$t('让 Claude 等 AI 助手按令牌权限查询数据集')" :icon="Cpu" tone="violet" @click="mcpVisible = true" />
               <HomeCard v-if="ledgerUser.authRequired && ledgerUser.isAdmin" :title="$t('数据权限（行级）')" :desc="$t('按某一列的取值（如店铺、地区、部门）限制用户能看到的行；数据集按哪一列过滤')" :icon="Lock" tone="amber" @click="dataScopeVisible = true" />
@@ -245,6 +248,7 @@ function onPublishHint() {
     <DatasetTrashDialog v-model:visible="trashVisible" @changed="loadDatasets()" />
     <DatasetUsageDialog v-model:visible="usageVisible" :dataset="usageDataset" @open-workbook="openWorkbook" />
     <ReportManagerDialog v-model:visible="reportVisible" @open="(wb: string, sheet: string) => goEditor({ wb, sheet })" />
+    <AlertManagerDialog v-model:visible="alertVisible" @add-channel="reportVisible = true" />
     <McpAccessDialog v-model:visible="mcpVisible" :datasets="datasets" :operator="operatorName()" />
     <AuditLogDialog v-model:visible="auditVisible" />
     <AccountDialog v-model:visible="accountVisible" />

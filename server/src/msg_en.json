@@ -713,5 +713,22 @@
  "范围应为 all（不限）或 values（指定取值）": "The scope must be all (unrestricted) or values (specific values)",
  "你的数据范围被限制在{0}": "Your data scope is limited to {0}",
  "店铺：{0}": "shops: {0}",
- "没有任何取值": "no values"
+ "没有任何取值": "no values",
+ "数据集「{0}」没有「{1}」列": "Dataset “{0}” has no column “{1}”",
+ "不支持的汇总方式：{0}": "Unsupported aggregation: {0}",
+ "「{0}」需要选择一列": "“{0}” needs a column",
+ "设置了时间窗口，请选择日期列": "A time window is set; choose the date column",
+ "未知的时间窗口：{0}": "Unknown time window: {0}",
+ "告警规则不存在": "The alert does not exist",
+ "只有创建人或管理员可以修改这条告警": "Only the creator or an administrator can change this alert",
+ "阈值不是有效的数字": "The threshold is not a valid number",
+ "最小样本量应为不小于 0 的数字": "The minimum sample size must be a number not less than 0",
+ "重复提醒的间隔应为 1 ~ 720 小时": "The reminder interval must be between 1 and 720 hours",
+ "请填写告警名称": "Enter an alert name",
+ "告警名称最多 60 个字": "The alert name can be at most 60 characters",
+ "正在评估中，请稍后再删除": "The alert is being evaluated; try deleting it again shortly",
+ "告警状态锁已损坏": "The alert state lock is corrupted",
+ "正在评估中": "Already being evaluated",
+ "评估超过 5 分钟未完成，已中止": "The evaluation took longer than 5 minutes and was stopped",
+ "告警没有可用的推送渠道（可能已被删除）": "The alert has no usable delivery channel (it may have been deleted)"
 }

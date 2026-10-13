@@ -141,6 +141,7 @@ async fn serve(config: config::Config) -> anyhow::Result<()> {
     tokio::spawn(admin::schedule_backups(state.clone()));
     tokio::spawn(connector::schedule(state.clone()));
     tokio::spawn(report::schedule(state.clone()));
+    tokio::spawn(report::alert::schedule(state.clone()));
     tokio::spawn(sqlq::schedule(state.clone()));
     tokio::spawn(purge_trash(state.clone()));
     tokio::spawn(flush_usage(state.clone()));
@@ -222,6 +223,11 @@ async fn serve(config: config::Config) -> anyhow::Result<()> {
         .route("/ledger/reports/{id}", put(routes::update_report).delete(routes::delete_report))
         .route("/ledger/reports/{id}/send", post(routes::send_report))
         .route("/ledger/reports/{id}/runs", get(routes::report_runs))
+        .route("/ledger/alerts", get(routes::list_alerts).post(routes::create_alert))
+        .route("/ledger/alerts/preview", post(routes::preview_alert))
+        .route("/ledger/alerts/{id}", put(routes::update_alert).delete(routes::delete_alert))
+        .route("/ledger/alerts/{id}/evaluate", post(routes::evaluate_alert))
+        .route("/ledger/alerts/{id}/runs", get(routes::alert_runs))
         .route("/mcp", get(routes::mcp_get).post(routes::mcp_post).delete(routes::mcp_get))
         .route("/ledger/mcp/tokens", get(routes::mcp_tokens).post(routes::mcp_create_token))
         .route("/ledger/mcp/tokens/{id}", put(routes::mcp_update_token).delete(routes::mcp_revoke_token))

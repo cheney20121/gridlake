@@ -5,6 +5,7 @@
 //! - 内容在服务端按仪表盘上保存的切片器选择计算（日期切片器的「本月」「近 30 天」按发送当天计算）
 //! - 每次推送写一条记录（ledger_report_run），含各渠道的结果
 
+pub mod alert;
 pub mod channels;
 pub mod content;
 

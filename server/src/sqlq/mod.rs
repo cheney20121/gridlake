@@ -774,6 +774,7 @@ pub fn on_connector_synced(state: &AppState, connector_id: &str) {
             }
         }
         crate::report::on_connector_synced(&st, &cid);
+        crate::report::alert::on_connector_synced(&st, &cid);
     });
 }
 
