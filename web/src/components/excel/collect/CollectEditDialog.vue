@@ -2,10 +2,12 @@
 import type { LedgerUserItem } from '@/api/approval'
 import type { Collect, CollectInput } from '@/api/collect'
 import type { DatasetColumnKind, DatasetInfo } from '@/api/dataset'
+import type { ReportChannel } from '@/api/report'
 import { computed, reactive, ref, watch } from 'vue'
 import { listLedgerUsersApi } from '@/api/approval'
 import { collectDetailApi, createCollectApi, updateCollectApi } from '@/api/collect'
 import { getDatasetsApi } from '@/api/dataset'
+import { CHANNEL_LABEL, listReportsApi } from '@/api/report'
 import { t } from '@/i18n'
 import { useLedgerUserStore } from '@/stores/ledger-user'
 
@@ -30,6 +32,7 @@ const KIND_LABEL: Partial<Record<DatasetColumnKind, string>> = { money: t('金�
 const ledgerUser = useLedgerUserStore()
 
 const datasets = ref<DatasetInfo[]>([])
+const channels = ref<ReportChannel[]>([])
 const userOptions = ref<LedgerUserItem[]>([])
 const saving = ref(false)
 const loading = ref(false)
@@ -47,6 +50,8 @@ const form = reactive({
   unitColumn: '填报单位',
   periodColumn: '期次',
   dimension: '填报单位',
+  reviewerId: null as string | null,
+  remindChannels: [] as string[],
   units: [] as UnitRow[],
 })
 
@@ -68,17 +73,22 @@ async function searchUsers(keyword: string) {
 watch(() => props.visible, async (v) => {
   if (!v)
     return
-  Object.assign(form, { name: '', source: 'new', tableName: '', columns: [{ title: '', kind: 'money' }], keyColumns: [], datasetId: '', unitColumn: '填报单位', periodColumn: '期次', dimension: '填报单位', units: [] })
+  Object.assign(form, { name: '', source: 'new', tableName: '', columns: [{ title: '', kind: 'money' }], keyColumns: [], datasetId: '', unitColumn: '填报单位', periodColumn: '期次', dimension: '填报单位', reviewerId: null, remindChannels: [], units: [] })
   bulkOpen.value = false
   bulkText.value = ''
   loading.value = true
   try {
-    const [ds] = await Promise.all([getDatasetsApi().catch(() => [] as DatasetInfo[]), searchUsers('')])
+    const [ds, reports] = await Promise.all([getDatasetsApi().catch(() => [] as DatasetInfo[]), listReportsApi().catch(() => null), searchUsers('')])
     datasets.value = ds
+    channels.value = reports?.channels ?? []
     const c = props.collect
     if (c) {
       const d = await collectDetailApi(c.id)
       form.name = c.name
+      form.reviewerId = c.reviewerId
+      form.remindChannels = c.remindChannels.filter(id => channels.value.some(ch => ch.id === id))
+      if (c.reviewerId)
+        ensureUsers([{ id: c.reviewerId, name: c.reviewerName ?? c.reviewerId }])
       form.units = d.units.map(u => ({ unit: u.unit, userId: u.userId }))
       ensureUsers(d.units.filter(u => u.userId).map(u => ({ id: u.userId!, name: u.userName ?? u.userId! })))
     }
@@ -159,7 +169,7 @@ function build(): CollectInput | string {
   const units = form.units.map(u => ({ unit: u.unit.trim(), userId: u.userId }))
   if (!units.length || units.some(u => !u.unit))
     return units.length ? t('填报单位的名称不能为空') : t('请至少添加一个填报单位')
-  const input: CollectInput = { name: form.name.trim(), units, dimension: form.dimension.trim() || undefined }
+  const input: CollectInput = { name: form.name.trim(), units, dimension: form.dimension.trim() || undefined, reviewerId: form.reviewerId, remindChannels: form.remindChannels }
   if (form.source === 'new') {
     if (!form.tableName.trim())
       return t('请填写填报表的名称')
@@ -189,7 +199,7 @@ async function save() {
   saving.value = true
   try {
     if (props.collect) {
-      await updateCollectApi(props.collect.id, { name: built.name, units: built.units })
+      await updateCollectApi(props.collect.id, { name: built.name, reviewerId: built.reviewerId, remindChannels: built.remindChannels, units: built.units })
       ElMessage.success(t('已保存'))
       emit('update:visible', false)
       emit('saved', props.collect.id)
@@ -304,6 +314,40 @@ async function save() {
           <div class="text-[13px] leading-6">
             {{ collect?.datasetName ?? $t('（数据集已删除）') }}
             <span class="text-xs text-gray-500">· {{ $t('单位列「{0}」，期次列「{1}」，权限维度「{2}」', [collect?.unitColumn, collect?.periodColumn, collect?.dimension]) }}</span>
+          </div>
+        </el-form-item>
+
+        <el-form-item :label="$t('确认人')">
+          <el-select
+            v-model="form.reviewerId"
+            class="!w-52"
+            clearable
+            filterable
+            remote
+            :remote-method="searchUsers"
+            :placeholder="ledgerUser.authRequired ? $t('不指定：只有管理员审核') : $t('没开登录，不能指定')"
+            :disabled="!ledgerUser.authRequired"
+          >
+            <el-option v-for="p in userOptions" :key="p.id" :label="p.name" :value="p.id" />
+          </el-select>
+          <div class="hint">
+            {{ $t('负责人提交后，由确认人统一看数据：可以「确认」（这个单位这一期锁定，不能再改）或「退回」重填。确认人要看全部单位的数据，所以不能同时是某个单位的负责人。') }}
+          </div>
+        </el-form-item>
+
+        <el-form-item :label="$t('催办推送到')">
+          <div class="w-full">
+            <el-checkbox-group v-if="channels.length" v-model="form.remindChannels" class="flex flex-col">
+              <el-checkbox v-for="c in channels" :key="c.id" :value="c.id" class="!mr-0 !h-7">
+                {{ c.name }} <span class="text-xs text-gray-400">{{ CHANNEL_LABEL[c.kind] }} · {{ c.target }}</span>
+              </el-checkbox>
+            </el-checkbox-group>
+            <div v-else class="text-xs text-gray-500">
+              {{ $t('还没有推送渠道，可以先在「定时推送」里添加；不选就只给负责人发站内通知') }}
+            </div>
+            <div class="hint">
+              {{ $t('催办（手动，或设了截止日期后自动）时，把没提交的名单也推到这里。负责人始终会收到站内通知（顶栏铃铛）。') }}
+            </div>
           </div>
         </el-form-item>
 

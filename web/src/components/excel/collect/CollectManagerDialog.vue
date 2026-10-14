@@ -66,7 +66,7 @@ async function onBoardChanged() {
 }
 
 async function remove(c: Collect) {
-  const ok = await ElMessageBox.confirm(t('删除收集任务「{0}」？期次和提交记录会删除，负责人的数据范围会收回；数据集和里面已填的数据保留。', [c.name]), t('删除收集任务'), { type: 'warning', confirmButtonText: t('删除') }).then(() => true, () => false)
+  const ok = await ElMessageBox.confirm(t('删除收集任务「{0}」？期次、提交和审核记录会删除，负责人的数据范围会收回；数据集和里面已填的数据保留。', [c.name]), t('删除收集任务'), { type: 'warning', confirmButtonText: t('删除') }).then(() => true, () => false)
   if (!ok)
     return
   await deleteCollectApi(c.id)
@@ -121,6 +121,7 @@ function percent(c: Collect) {
               <span>{{ $t('数据集：{0}', [c.datasetName ?? '—']) }}</span>
               <span>{{ $t('{0} 个单位，{1} 个已指派负责人', [c.unitCount, c.assignedCount]) }}</span>
               <span>{{ $t('已开启 {0} 期', [c.periodCount]) }}</span>
+              <span>{{ c.reviewerName ? $t('确认人 {0}', [c.reviewerName]) : $t('未指定确认人') }}</span>
               <span v-if="c.createdByName">{{ $t('创建人 {0}', [c.createdByName]) }}</span>
             </div>
           </div>
@@ -128,9 +129,12 @@ function percent(c: Collect) {
             <template v-if="c.latestPeriod">
               <div class="mb-1 flex justify-between">
                 <span>{{ $t('最近一期 {0}', [c.latestPeriod]) }}</span>
-                <span><b>{{ c.latestSubmitted }}</b> / {{ c.unitCount }}</span>
+                <span><b>{{ c.latestSubmitted }}</b> / {{ c.unitCount }}<span class="ml-1 text-gray-400">{{ $t('已确认 {0}', [c.latestConfirmed]) }}</span></span>
               </div>
               <el-progress :percentage="percent(c)" :stroke-width="8" :show-text="false" />
+              <div v-if="c.latestDeadline" class="mt-1 text-gray-500">
+                {{ $t('截止 {0}', [c.latestDeadline]) }}<span v-if="c.latestOverdue" class="ml-1 text-[#B91C1C]">{{ $t('· {0} 个逾期', [c.latestOverdue]) }}</span>
+              </div>
             </template>
             <span v-else class="text-gray-400">{{ $t('还没有开启期次') }}</span>
           </div>

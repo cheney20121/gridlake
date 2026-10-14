@@ -48,12 +48,17 @@ const KIND: Record<string, string> = {
   close_rejected: t('驳回了月结'),
   close_cancelled: t('撤回了月结审批'),
   close_reopened: t('反结账'),
+  collect_returned: t('退回了你的填报'),
+  collect_confirmed: t('确认了你的填报'),
+  collect_remind: t('提醒你填报'),
 }
 
 /** 通知下面一行：评论在哪个格子、审批是哪个工作簿 */
 function where(n: NotificationItem) {
   if (n.kind.startsWith('close_'))
     return '月结中心'
+  if (n.kind.startsWith('collect_'))
+    return `${n.workbookName} · 我的填报`
   if (n.kind.startsWith('approval_'))
     return `${n.workbookName} · 文件审批`
   return `${n.workbookName} · ${cellName(n.row, n.col)}`

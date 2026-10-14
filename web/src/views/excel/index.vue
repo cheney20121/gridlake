@@ -366,6 +366,11 @@ function onOpenNotification(n: NotificationItem) {
     monthCloseVisible.value = true
     return
   }
+  // 多人填报：回首页打开「我的填报」，看退回原因 / 去改
+  if (n.kind.startsWith('collect_')) {
+    window.location.assign(`${homeHref}${homeHref.includes('?') ? '&' : '?'}mycollect=1`)
+    return
+  }
   if (n.workbookId === currentWorkbookId.value) {
     reloadComments(n.workbookId)
     openCommentsAt(n.sheetId, n.row, n.col)
@@ -613,6 +618,13 @@ onMounted(() => {
           const u = new URL(window.location.href)
           for (const k of ['comments', 'cell'])
             u.searchParams.delete(k)
+          window.history.replaceState(window.history.state, '', u)
+        }
+        // 收集任务的「去填报」：?wb=…&writeback=1 打开工作簿并展开填报面板
+        if (new URL(window.location.href).searchParams.get('writeback')) {
+          uiStore.openPanel('writeback')
+          const u = new URL(window.location.href)
+          u.searchParams.delete('writeback')
           window.history.replaceState(window.history.state, '', u)
         }
         // AI 对话链接：?wb=…&ai=… 打开 AI 助手并选中该对话

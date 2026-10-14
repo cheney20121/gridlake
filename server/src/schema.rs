@@ -160,6 +160,10 @@ pub fn migrate_sql() -> String {
          ALTER TABLE ledger_ai_thread ADD COLUMN IF NOT EXISTS summary VARCHAR;
          ALTER TABLE ledger_ai_thread ADD COLUMN IF NOT EXISTS summary_seq BIGINT;
          ALTER TABLE ledger_ai_thread ADD COLUMN IF NOT EXISTS owner_id VARCHAR;
+         ALTER TABLE ledger_collect ADD COLUMN IF NOT EXISTS reviewer_id VARCHAR;
+         ALTER TABLE ledger_collect ADD COLUMN IF NOT EXISTS reviewer_name VARCHAR;
+         ALTER TABLE ledger_collect ADD COLUMN IF NOT EXISTS remind_channels VARCHAR;
+         ALTER TABLE ledger_collect_period ADD COLUMN IF NOT EXISTS deadline VARCHAR;
          INSERT INTO ledger_shop (name)
            SELECT DISTINCT shop FROM ledger_detail d WHERE NOT EXISTS (SELECT 1 FROM ledger_shop s WHERE s.name = d.shop);",
         search_text_sql()
@@ -704,6 +708,37 @@ CREATE TABLE IF NOT EXISTS ledger_collect_submit (
   submitted_by VARCHAR,
   submitted_by_name VARCHAR,
   batch_id VARCHAR,
+  PRIMARY KEY (collect_id, period, unit)
+);
+-- 收集任务生成的填报工作簿：同一个人对同一个任务、期次、单位只生成一个，再点「去填报」直接打开已有的
+CREATE TABLE IF NOT EXISTS ledger_collect_workbook (
+  collect_id VARCHAR NOT NULL,
+  period VARCHAR NOT NULL,
+  unit VARCHAR NOT NULL,
+  user_id VARCHAR NOT NULL,
+  workbook_id VARCHAR NOT NULL,
+  created_at TIMESTAMP,
+  PRIMARY KEY (collect_id, period, unit, user_id)
+);
+-- 审核记录：确认人对某一期某个单位的处理。confirmed = 确认并锁定（不能再改），returned = 退回重填（负责人再次提交后记录删除）；没有记录就是还在等确认
+CREATE TABLE IF NOT EXISTS ledger_collect_review (
+  collect_id VARCHAR NOT NULL,
+  period VARCHAR NOT NULL,
+  unit VARCHAR NOT NULL,
+  state VARCHAR NOT NULL,
+  reason VARCHAR,
+  reviewed_at TIMESTAMP,
+  reviewed_by VARCHAR,
+  reviewed_by_name VARCHAR,
+  PRIMARY KEY (collect_id, period, unit)
+);
+-- 催办记录：某一期某个单位上次被催的时间和次数（unit 为 '*' 的是整期推到群里的那一条）。用来限制频率、自动催办一天只催一次
+CREATE TABLE IF NOT EXISTS ledger_collect_remind (
+  collect_id VARCHAR NOT NULL,
+  period VARCHAR NOT NULL,
+  unit VARCHAR NOT NULL,
+  last_at TIMESTAMP,
+  times INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (collect_id, period, unit)
 );
 -- 同步记录

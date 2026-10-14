@@ -143,6 +143,7 @@ async fn serve(config: config::Config) -> anyhow::Result<()> {
     tokio::spawn(connector::schedule(state.clone()));
     tokio::spawn(report::schedule(state.clone()));
     tokio::spawn(report::alert::schedule(state.clone()));
+    tokio::spawn(collect::schedule(state.clone()));
     tokio::spawn(sqlq::schedule(state.clone()));
     tokio::spawn(purge_trash(state.clone()));
     tokio::spawn(flush_usage(state.clone()));
@@ -227,8 +228,11 @@ async fn serve(config: config::Config) -> anyhow::Result<()> {
         .route("/ledger/collects", get(routes::list_collects).post(routes::create_collect))
         .route("/ledger/collects/mine", get(routes::my_collects))
         .route("/ledger/collects/{id}", get(routes::collect_detail).put(routes::update_collect).delete(routes::delete_collect))
+        .route("/ledger/collects/{id}/workbook", post(routes::open_collect_workbook))
+        .route("/ledger/collects/{id}/review", post(routes::review_collect))
+        .route("/ledger/collects/{id}/remind", post(routes::remind_collect))
         .route("/ledger/collects/{id}/periods", post(routes::open_collect_period))
-        .route("/ledger/collects/{id}/periods/{period}", delete(routes::delete_collect_period))
+        .route("/ledger/collects/{id}/periods/{period}", put(routes::set_collect_deadline).delete(routes::delete_collect_period))
         .route("/ledger/alerts", get(routes::list_alerts).post(routes::create_alert))
         .route("/ledger/alerts/preview", post(routes::preview_alert))
         .route("/ledger/alerts/{id}", put(routes::update_alert).delete(routes::delete_alert))

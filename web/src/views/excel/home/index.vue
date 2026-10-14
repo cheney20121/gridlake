@@ -5,7 +5,7 @@ import type { DatasetInfo } from '@/api/dataset'
 import type { WorkbookMeta } from '@/api/workbook'
 import { Bell, Collection, Connection, Cpu, Delete, Document, EditPen, Finished, Lock, Plus, Refresh, Tickets, Timer, Upload, User } from '@element-plus/icons-vue'
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { myCollectsApi } from '@/api/collect'
 import { getDatasetsApi, listDatasetTrashApi } from '@/api/dataset'
 import { createWorkbookApi, listWorkbooksApi, starWorkbookApi } from '@/api/workbook'
@@ -40,6 +40,7 @@ import WorkbookTable from './components/WorkbookTable.vue'
  */
 useBodyClass('app-excel')
 const router = useRouter()
+const route = useRoute()
 const operator = useLedgerOperator()
 const ledgerUser = useLedgerUserStore()
 const operatorName = () => operator.value.trim() || '匿名用户'
@@ -94,6 +95,8 @@ function goEditor(query: Record<string, string>) {
   window.location.assign(router.resolve({ name: 'ExcelWorkspace', query }).href)
 }
 const openWorkbook = (id: string) => goEditor({ wb: id })
+/** 收集任务生成的填报工作簿：打开后直接展开「填报」面板 */
+const openFillWorkbook = (id: string) => goEditor({ wb: id, writeback: '1' })
 const openDataset = (id: string) => goEditor({ ds: id })
 
 const creating = ref(false)
@@ -130,9 +133,19 @@ const myCollectVisible = ref(false)
 /** 指派给我的填报任务（没有任务时「我的填报」入口不显示） */
 const myTasks = ref<MyTask[]>([])
 const myPending = computed(() => myTasks.value.reduce((n, x) => n + x.pending, 0))
+/** 我是确认人的任务里，等我确认的 */
+const myToReview = computed(() => myTasks.value.reduce((n, x) => n + x.toReview, 0))
+const myBadge = computed(() => [myPending.value ? t('{0} 项待填', [myPending.value]) : '', myToReview.value ? t('{0} 项待确认', [myToReview.value]) : ''].filter(Boolean).join(' · ') || undefined)
 async function loadMyTasks() {
   myTasks.value = await myCollectsApi().catch(() => [])
 }
+// 通知里点「被退回 / 已确认」会带 ?mycollect=1 回到首页，直接打开我的填报
+onMounted(() => {
+  if (route.query.mycollect) {
+    myCollectVisible.value = true
+    router.replace({ name: 'ExcelHome' })
+  }
+})
 const mcpVisible = ref(false)
 const auditVisible = ref(false)
 const accountVisible = ref(false)
@@ -222,7 +235,7 @@ function onPublishHint() {
             </div>
             <div class="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4">
               <HomeCard v-if="!ledgerUser.restricted" :title="$t('定时推送')" :desc="$t('把仪表盘按日 / 周 / 月发到飞书、企业微信、邮件')" :icon="Timer" tone="green" @click="reportVisible = true" />
-              <HomeCard v-if="myTasks.length" :title="$t('我的填报')" :desc="$t('我负责的单位这一期填了没有，以及怎么填')" :icon="Finished" tone="blue" :badge="myPending ? $t('{0} 项待填', [myPending]) : undefined" @click="myCollectVisible = true; loadMyTasks()" />
+              <HomeCard v-if="myTasks.length" :title="$t('我的填报')" :desc="$t('我负责的单位这一期填了没有，以及怎么填')" :icon="Finished" tone="blue" :badge="myBadge" @click="myCollectVisible = true; loadMyTasks()" />
               <HomeCard v-if="ledgerUser.isAdmin && !ledgerUser.restricted" :title="$t('收集任务')" :desc="$t('让很多人往同一个数据集里各填各的，看板上看谁填了、谁没填')" :icon="EditPen" tone="violet" @click="collectVisible = true" />
               <HomeCard v-if="!ledgerUser.restricted" :title="$t('阈值告警')" :desc="$t('指标超过阈值（如退款率偏高）时通知到群或邮箱，同一个问题不重复打扰')" :icon="Bell" tone="amber" @click="alertVisible = true" />
               <HomeCard v-if="!ledgerUser.restricted" :title="$t('数据同步')" :desc="$t('数据连接按计划拉取，看板与公式自动更新')" :icon="Refresh" tone="blue" :badge="connectorFailures ? $t('{0} 个失败', [connectorFailures]) : undefined" @click="connectorVisible = true" />
@@ -265,7 +278,7 @@ function onPublishHint() {
     <ReportManagerDialog v-model:visible="reportVisible" @open="(wb: string, sheet: string) => goEditor({ wb, sheet })" />
     <AlertManagerDialog v-model:visible="alertVisible" @add-channel="reportVisible = true" />
     <CollectManagerDialog v-model:visible="collectVisible" @changed="loadMyTasks" />
-    <MyCollectDialog v-model:visible="myCollectVisible" />
+    <MyCollectDialog v-model:visible="myCollectVisible" @open="openFillWorkbook" @changed="loadMyTasks" />
     <McpAccessDialog v-model:visible="mcpVisible" :datasets="datasets" :operator="operatorName()" />
     <AuditLogDialog v-model:visible="auditVisible" />
     <AccountDialog v-model:visible="accountVisible" />

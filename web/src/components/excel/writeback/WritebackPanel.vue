@@ -7,6 +7,7 @@ import type { InputSpec } from '@/features/excel/writeback/input-table'
 import { computed, onBeforeUnmount, reactive, ref, shallowRef, watch } from 'vue'
 import { createInputDatasetApi, getDatasetsApi, getRowsApi, listWritebacksApi, openCursorApi, undoWritebackApi, writebackApi } from '@/api/dataset'
 import { watchSelection } from '@/features/excel/data/selection'
+import { allFields, fixedEntries, fixedText, withFixed } from '@/features/excel/writeback/fixed-columns'
 import {
   cellName,
   clearErrorMarks,
@@ -245,8 +246,8 @@ async function submit() {
   try {
     const outcome = await writebackApi(ds.id, {
       mode: spec.mode,
-      columns: spec.fields,
-      rows,
+      columns: allFields(spec.fields, spec.fixed),
+      rows: withFixed(rows, spec.fixed),
       keys: spec.keys,
       operator: props.operator,
       source: { workbookId: props.workbookId, sheetName: s.getSheetName(), inputName: spec.name },
@@ -303,8 +304,10 @@ async function deleteSelected() {
   const picked = sheetRows.flatMap((sr, i) => (sr >= first && sr <= last ? [i] : []))
   if (!picked.length)
     return ElMessage.warning(tr('先在填报区的数据行里选中要删除的行（可以选多行）'))
-  const keyCols = spec.keys.length ? spec.keys : ds.primaryKey
-  const keyText = (i: number) => keyCols.map(k => String(rows[i]?.[spec.fields.indexOf(k)] ?? '')).join(' / ')
+  // 固定列（单位、期次）对每一行都一样，不用在确认框里列出来；剩下没有主键列时按行号说明
+  const fixedNames = fixedEntries(spec.fixed).map(([k]) => k)
+  const keyCols = (spec.keys.length ? spec.keys : ds.primaryKey).filter(k => !fixedNames.includes(k))
+  const keyText = (i: number) => (keyCols.length ? keyCols.map(k => String(rows[i]?.[spec.fields.indexOf(k)] ?? '')).join(' / ') : tr('第 {0} 行', [(sheetRows[i] ?? 0) + 1]))
   const sample = picked.slice(0, 5).map(keyText).join('、')
   const ok = await ElMessageBox.confirm(
     tr('从数据集「{0}」删除选中的 {1} 行（{2}{3}）？表格里这些行也会一并删除。删除可以在提交记录里撤销。', [ds.name, picked.length, sample, picked.length > 5 ? ' 等' : '']),
@@ -318,8 +321,8 @@ async function deleteSelected() {
   try {
     const outcome = await writebackApi(ds.id, {
       mode: 'delete',
-      columns: spec.fields,
-      rows: picked.map(i => rows[i]!),
+      columns: allFields(spec.fields, spec.fixed),
+      rows: withFixed(picked.map(i => rows[i]!), spec.fixed),
       keys: spec.keys,
       operator: props.operator,
       source: { workbookId: props.workbookId, sheetName: s.getSheetName(), inputName: spec.name },
@@ -353,7 +356,8 @@ async function loadExisting() {
   const ds = currentDataset.value
   if (!s || !spec || !ds)
     return
-  const filters: DatasetFilter[] = []
+  // 固定列（如这一期、这个单位）一定要筛上：只载入属于这个填报区的行
+  const filters: DatasetFilter[] = fixedEntries(spec.fixed).map(([column, value]) => ({ op: 'in', column, values: [value] }))
   const v = loadForm.value.trim()
   if (loadForm.column && v) {
     if (loadForm.op === 'in')
@@ -418,7 +422,8 @@ async function clearRows() {
 const records = ref<WritebackRecord[]>([])
 async function loadRecords() {
   const id = current.value?.datasetId
-  records.value = id ? await listWritebacksApi(id, 20).catch(() => []) : []
+  // 提交记录和撤销对数据范围受限的用户不开放（接口会拒绝并弹出提示）；收集任务的负责人都是这样的用户，不请求
+  records.value = id && !ledgerUser.restricted ? await listWritebacksApi(id, 20).catch(() => []) : []
 }
 watch(() => current.value?.datasetId, loadRecords, { immediate: true })
 
@@ -472,9 +477,13 @@ async function undo(r: WritebackRecord) {
           <span>{{ $t('写入') }}</span>
           <span :class="{ 'text-[#B91C1C]': !currentDataset }">{{ current.datasetName }}{{ currentDataset ? '' : $t('（不存在或在回收站）') }}</span>
           <span>{{ $t('方式') }}</span>
-          <span>{{ modeText(current.mode) }}<template v-if="current.mode === 'upsert'">{{ $t('（主键：{0}，深绿色表头）', [current.keys.join('、')]) }}</template></span>
+          <span>{{ modeText(current.mode) }}<template v-if="current.mode === 'upsert' && current.keys.length">{{ $t('（主键：{0}，深绿色表头）', [current.keys.join('、')]) }}</template></span>
           <span>{{ $t('列') }}</span>
           <span class="truncate" :title="current.fields.join('、')">{{ current.fields.join('、') }}</span>
+          <template v-if="fixedEntries(current.fixed).length">
+            <span>{{ $t('固定列') }}</span>
+            <span :title="$t('不在表格里，提交时自动带上')">{{ fixedText(current.fixed) }}</span>
+          </template>
           <template v-if="current.last">
             <span>{{ $t('上次提交') }}</span>
             <span>{{ $t('{0} {1} · 新增 {2} / 更新 {3}', [current.last.at, current.last.by, current.last.inserted, current.last.updated]) }}</span>

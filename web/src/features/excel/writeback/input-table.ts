@@ -1,5 +1,6 @@
 import type { FUniver } from '@univerjs/core/facade'
 import type { FWorksheet } from '@univerjs/sheets/facade'
+import type { FixedColumns } from './fixed-columns'
 import type { CellValue, DatasetColumn, DatasetInfo, WritebackCellError, WritebackMode } from '@/api/dataset'
 import { getDistinctApi } from '@/api/dataset'
 
@@ -22,6 +23,8 @@ export interface InputSpec {
   mode: WritebackMode
   /** 按主键更新时的主键列（数据集已登记主键时与之一致） */
   keys: string[]
+  /** 固定列：不显示在表格里，提交 / 删除 / 载入时自动带上（收集任务生成的填报区用它放单位和期次） */
+  fixed?: FixedColumns
   /** 最近一次成功提交 */
   last?: { batchId: string, at: string, by: string, inserted: number, updated: number }
 }

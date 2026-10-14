@@ -39,9 +39,10 @@ export interface CommentAdded {
 
 export interface NotificationItem {
   id: string
-  /** mention：被 @；reply：你的评论有了回复；approval_*：文件审批；close_*：月结 */
+  /** mention：被 @；reply：你的评论有了回复；approval_*：文件审批；close_*：月结；collect_*：多人填报被退回 / 被确认 */
   kind: 'mention' | 'reply' | 'approval_request' | 'approval_approved' | 'approval_rejected' | 'approval_cancelled'
     | 'close_request' | 'close_locked' | 'close_rejected' | 'close_cancelled' | 'close_reopened'
+    | 'collect_returned' | 'collect_confirmed' | 'collect_remind'
   workbookId: string
   workbookName: string
   sheetId: string

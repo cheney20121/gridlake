@@ -29,9 +29,15 @@ pub struct PeriodQuery {
     pub period: Option<String>,
 }
 
-/// GET /api/ledger/collects/{id}?period=  看板：已开启的期次，以及某一期（默认最近一期）每个单位的提交状态
-pub async fn collect_detail(State(db): State<AppState>, Path(id): Path<String>, Query(q): Query<PeriodQuery>) -> AppResult<Json<Envelope<crate::collect::Detail>>> {
-    Ok(ok(blocking(&db, move |conn| crate::collect::detail(conn, &id, q.period.as_deref())).await?))
+/// GET /api/ledger/collects/{id}?period=  看板：已开启的期次，以及某一期（默认最近一期）每个单位的状态。管理员和这个任务的确认人能看
+pub async fn collect_detail(State(db): State<AppState>, Extension(user): Extension<CurrentUser>, Path(id): Path<String>, Query(q): Query<PeriodQuery>) -> AppResult<Json<Envelope<crate::collect::Detail>>> {
+    Ok(ok(blocking(&db, move |conn| crate::collect::detail(conn, &user, &id, q.period.as_deref())).await?))
+}
+
+/// POST /api/ledger/collects/{id}/review  { period, units: [..], action: confirm | return | reopen, reason? }
+/// 确认人（或管理员）确认并锁定 / 退回重填（要写原因）/ 撤销确认；一次要么全部成功要么都不变
+pub async fn review_collect(State(db): State<AppState>, Extension(user): Extension<CurrentUser>, Path(id): Path<String>, Json(b): Json<crate::collect::ReviewInput>) -> AppResult<Json<Envelope<crate::collect::ReviewOutcome>>> {
+    Ok(ok(blocking(&db, move |conn| crate::collect::review(conn, &user, &id, b)).await?))
 }
 
 /// PUT /api/ledger/collects/{id}  { name, units }  改名、整体替换填报单位与负责人
@@ -50,14 +56,51 @@ pub async fn delete_collect(State(db): State<AppState>, Extension(user): Extensi
 }
 
 #[derive(Deserialize)]
-pub struct OpenPeriod {
+pub struct OpenWorkbook {
+    pub unit: String,
     pub period: String,
 }
 
-/// POST /api/ledger/collects/{id}/periods  { period }  开启新一期（如 2026-10）
+/// POST /api/ledger/collects/{id}/workbook  { unit, period }  为我负责的单位生成这一期的填报工作簿（已经生成过的直接返回）；
+/// 里面放好了填报区，单位列和期次列作为固定列自动带上。管理员可以为任何单位生成
+pub async fn open_collect_workbook(State(db): State<AppState>, Extension(user): Extension<CurrentUser>, Path(id): Path<String>, Json(b): Json<OpenWorkbook>) -> AppResult<Json<Envelope<crate::collect::OpenedWorkbook>>> {
+    let _guard = db.import_lock.lock().await;
+    let r = blocking(&db, move |conn| crate::collect::open_workbook(conn, &user, &id, &b.unit, &b.period)).await?;
+    db.checkpoint();
+    Ok(ok(r))
+}
+
+#[derive(Deserialize)]
+pub struct OpenPeriod {
+    pub period: String,
+    /// 截止日期（年-月-日），可空
+    #[serde(default)]
+    pub deadline: Option<String>,
+}
+
+/// POST /api/ledger/collects/{id}/periods  { period, deadline? }  开启新一期（如 2026-10），可以同时设截止日期
 pub async fn open_collect_period(State(db): State<AppState>, Extension(user): Extension<CurrentUser>, Path(id): Path<String>, Json(b): Json<OpenPeriod>) -> AppResult<Json<Envelope<bool>>> {
-    blocking(&db, move |conn| crate::collect::open_period(conn, &user, &id, &b.period)).await?;
+    blocking(&db, move |conn| crate::collect::open_period(conn, &user, &id, &b.period, b.deadline.as_deref())).await?;
     Ok(ok(true))
+}
+
+#[derive(Deserialize)]
+pub struct SetDeadline {
+    /// 截止日期（年-月-日）；空 / 不写 = 取消
+    #[serde(default)]
+    pub deadline: Option<String>,
+}
+
+/// PUT /api/ledger/collects/{id}/periods/{period}  { deadline }  设置 / 修改 / 取消这一期的截止日期
+pub async fn set_collect_deadline(State(db): State<AppState>, Path((id, period)): Path<(String, String)>, Json(b): Json<SetDeadline>) -> AppResult<Json<Envelope<bool>>> {
+    blocking(&db, move |conn| crate::collect::set_deadline(conn, &id, &period, b.deadline.as_deref())).await?;
+    Ok(ok(true))
+}
+
+/// POST /api/ledger/collects/{id}/remind  { period, units? }  催办：给没提交的单位的负责人发站内通知，任务配了渠道的还把名单推到群 / 邮箱。
+/// 管理员或这个任务的确认人可以催；同一个单位 1 小时内不重复催
+pub async fn remind_collect(State(db): State<AppState>, Extension(user): Extension<CurrentUser>, Path(id): Path<String>, Json(b): Json<crate::collect::RemindInput>) -> AppResult<Json<Envelope<crate::collect::RemindOutcome>>> {
+    Ok(ok(crate::collect::remind(&db, &user, &id, &b.period, b.units, false).await?))
 }
 
 /// DELETE /api/ledger/collects/{id}/periods/{period}  删除还没有人提交过的一期

@@ -17,7 +17,7 @@
 - **数据范围受限的用户**（管理员给用户设置了「只能看某些店铺」）：只能调用下表「受限用户」列为 ✓ 的接口，其余一律返回 403；✓ 的接口读取的数据也已按范围过滤。
 - **审计**：「审计」列非空的接口会记入操作审计，列里是审计里显示的操作名。
 
-共 198 个接口。
+共 202 个接口。
 
 ## 存活检查与运维
 
@@ -293,11 +293,15 @@
 | GET | `/api/ledger/collects` | 收集任务列表（含最近一期的提交进度） | 仅管理员 | — |  |
 | POST | `/api/ledger/collects` | 新建任务：{ name, datasetId \| newTable, unitColumn?, periodColumn?, dimension?, units: [{ unit, userId? }] } 单位与负责人会同步成数据权限（负责人只能看 / 填自己负责的单位）。新建填报表时数据集建在这里，所以和导入一样串行 | 仅管理员 | — | 新建收集任务 |
 | GET | `/api/ledger/collects/mine` | 我负责的单位在最近几期里填了没有（受数据范围限制的用户也能看） | 登录用户 | ✓ |  |
-| GET | `/api/ledger/collects/{id}` | 看板：已开启的期次，以及某一期（默认最近一期）每个单位的提交状态 查询参数：`period=` | 仅管理员 | — |  |
+| GET | `/api/ledger/collects/{id}` | 看板：已开启的期次，以及某一期（默认最近一期）每个单位的状态。管理员和这个任务的确认人能看 查询参数：`period=` | 登录用户 | ✓ |  |
 | PUT | `/api/ledger/collects/{id}` | { name, units }  改名、整体替换填报单位与负责人 | 仅管理员 | — | 修改收集任务 |
 | DELETE | `/api/ledger/collects/{id}` | 删除任务及其期次、提交记录；数据集和里面的数据保留 | 仅管理员 | — | 删除收集任务 |
-| POST | `/api/ledger/collects/{id}/periods` | { period }  开启新一期（如 2026-10） | 仅管理员 | — | 开启收集期次 |
+| POST | `/api/ledger/collects/{id}/periods` | { period, deadline? }  开启新一期（如 2026-10），可以同时设截止日期 | 仅管理员 | — | 开启收集期次 |
+| PUT | `/api/ledger/collects/{id}/periods/{period}` | { deadline }  设置 / 修改 / 取消这一期的截止日期 | 仅管理员 | — | 设置收集期次截止日期 |
 | DELETE | `/api/ledger/collects/{id}/periods/{period}` | 删除还没有人提交过的一期 | 仅管理员 | — | 删除收集期次 |
+| POST | `/api/ledger/collects/{id}/remind` | { period, units? }  催办：给没提交的单位的负责人发站内通知，任务配了渠道的还把名单推到群 / 邮箱。 管理员或这个任务的确认人可以催；同一个单位 1 小时内不重复催 | 登录用户 | ✓ | 催办收集填报 |
+| POST | `/api/ledger/collects/{id}/review` | { period, units: [..], action: confirm \| return \| reopen, reason? } 确认人（或管理员）确认并锁定 / 退回重填（要写原因）/ 撤销确认；一次要么全部成功要么都不变 | 登录用户 | ✓ | 审核填报（确认 / 退回） |
+| POST | `/api/ledger/collects/{id}/workbook` | { unit, period }  为我负责的单位生成这一期的填报工作簿（已经生成过的直接返回）； 里面放好了填报区，单位列和期次列作为固定列自动带上。管理员可以为任何单位生成 | 登录用户 | ✓ | 生成填报工作簿 |
 | GET | `/api/ledger/tokens` | 我的访问令牌（不含令牌本身） | 登录用户 | ✓ |  |
 | POST | `/api/ledger/tokens` | { name, days? }  新建访问令牌；响应里的 token 只显示这一次 | 登录用户 | ✓ | 创建访问令牌 |
 | DELETE | `/api/ledger/tokens/{id}` | 吊销我的访问令牌（立即生效） | 登录用户 | ✓ | 吊销访问令牌 |

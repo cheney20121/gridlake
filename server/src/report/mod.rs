@@ -316,7 +316,7 @@ fn yes() -> bool {
     true
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ChannelResult {
     pub channel_id: String,
@@ -689,6 +689,48 @@ async fn deliver(ch: &StoredChannel, msg: &Message<'_>, excel: Option<&(String, 
         }
         ChannelKind::Email => channels::send_email(&parse_emails(&ch.target), msg, attachment()).await,
     }
+}
+
+/// 其他模块（多人填报的催办）往已配置的渠道推一张小表格（标题、几条说明、表头和行），返回每个渠道的结果；渠道已被删除的忽略
+pub struct SmallTable {
+    pub title: String,
+    pub heading: String,
+    pub context: String,
+    pub notes: Vec<String>,
+    pub header: Vec<String>,
+    pub rows: Vec<Vec<String>>,
+}
+
+pub async fn push_table(state: &AppState, channel_ids: &[String], t: SmallTable) -> AppResult<Vec<ChannelResult>> {
+    let title = t.title.as_str();
+    let content = ReportContent {
+        workbook_name: t.heading,
+        sheet_name: t.context,
+        filters: t.notes,
+        blocks: vec![Block::Table(content::TableBlock { title: title.to_string(), header: t.header, rows: t.rows, total: None, raw: vec![], raw_total: None, kinds: vec![] })],
+        generated_at: now_local(),
+    };
+    let content = &content;
+    let st = state.clone();
+    let wanted = channel_ids.to_vec();
+    let chans: Vec<StoredChannel> = tokio::task::spawn_blocking(move || -> AppResult<_> { Ok(load_channels(&st.connection()?, &st)?.into_iter().filter(|c| wanted.contains(&c.id)).collect()) }).await??;
+    let msg = Message { title, content, link: None };
+    let mut results = Vec::new();
+    for ch in &chans {
+        let r = tokio::time::timeout(Duration::from_secs(60), deliver(ch, &msg, None)).await.unwrap_or_else(|_| Err(AppError::bad("发送超时")));
+        if let Err(e) = &r {
+            tracing::warn!("往「{}」推送「{title}」失败：{}", ch.name, e.message());
+        }
+        results.push(ChannelResult { channel_id: ch.id.clone(), channel_name: format!("{}（{}）", ch.name, ch.kind.label()), ok: r.is_ok(), message: r.err().map(|e| e.message()) });
+    }
+    Ok(results)
+}
+
+/// 给定的渠道 id 里，确实存在的那些（保存前校验用）
+pub fn existing_channel_ids(conn: &Connection, ids: &[String]) -> AppResult<Vec<String>> {
+    let mut stmt = conn.prepare("SELECT id FROM ledger_report_channel")?;
+    let have: std::collections::HashSet<String> = stmt.query_map([], |r| r.get::<_, String>(0))?.collect::<Result<_, _>>()?;
+    Ok(ids.iter().filter(|i| have.contains(*i)).cloned().collect())
 }
 
 // ── 预览 / 发送 ──────────────────────────────────────
