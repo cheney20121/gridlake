@@ -44,7 +44,7 @@ Measured on 100M rows × 8 columns of synthetic order data (MacBook, 8 cores, 16
 - **Collaboration & governance** — real-time editing, comments, four login modes, audit log, row-level data scope, approvals, in-app notifications.
 - **Scenario packs** — the project started as an e-commerce finance tool; that part (shop cash-flow import, month-end close and approval, balance reconciliation, bank reconciliation, operations analysis) is now an optional pack, `LEDGER_PACKS=ecommerce`. It is auto-enabled only when the database already holds ledger data; a fresh install is a plain, general-purpose spreadsheet platform.
 - **Multi-person data collection** — collection tasks: dozens of stores / departments fill in the same dataset, each only seeing and filling their own units (synced to data scope automatically), opened period by period, with a board showing who has and has not filled in.
-- **Threshold alerts** — notify a WeCom / DingTalk / Feishu group or email when a metric (or a ratio such as refund rate) crosses a threshold, per group; minimum-sample guard, one notification per new problem, and a dry-run before saving.
+- **Threshold alerts** — notify a WeCom / DingTalk / Feishu group or email when a metric (or a ratio such as refund rate) crosses a threshold, per group; change vs the previous period (sales down 30%), data-staleness checks (which shop has had no new orders for days); minimum-sample guard, one notification per new problem, optional recovery notices, and a dry-run before saving.
 - **Other** — xlsx import/export, templates, scheduled reports (WeCom / DingTalk / Feishu / email), version history, backups.
 
 ## Quick start

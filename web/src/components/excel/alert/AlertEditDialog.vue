@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import type { Alert, AlertInput, AlertMetric, AlertOp, AlertPart, AlertPreview, AlertWindowPreset } from '@/api/alert'
+import type { Alert, AlertBasis, AlertInput, AlertMetric, AlertOp, AlertPart, AlertPreview, AlertWindowPreset } from '@/api/alert'
 import type { Connector } from '@/api/connector'
 import type { DatasetFilter, DatasetInfo } from '@/api/dataset'
 import type { ReportChannel, ReportSchedule } from '@/api/report'
 import { computed, reactive, ref, watch } from 'vue'
-import { createAlertApi, OP_LABEL, previewAlertApi, updateAlertApi, WINDOW_LABEL } from '@/api/alert'
+import { BASIS_LABEL, COMPARABLE_PRESETS, createAlertApi, OP_LABEL, previewAlertApi, updateAlertApi, WINDOW_LABEL } from '@/api/alert'
 import { listConnectorsApi } from '@/api/connector'
 import { getDatasetsApi } from '@/api/dataset'
 import { CHANNEL_LABEL } from '@/api/report'
@@ -40,7 +40,11 @@ const emptyPart = (agg: AlertPart['agg'] = 'sum'): AlertPart => ({ agg, column: 
 const form = reactive({
   name: '',
   datasetId: '',
-  metricKind: 'ratio' as 'agg' | 'ratio',
+  metricKind: 'ratio' as 'agg' | 'ratio' | 'freshness',
+  /** 数据停更：监控哪一列日期 */
+  freshnessColumn: '',
+  basis: 'value' as AlertBasis,
+  notifyRecovery: false,
   single: emptyPart('sum'),
   numerator: emptyPart('sum'),
   denominator: emptyPart('sum'),
@@ -65,20 +69,32 @@ const form = reactive({
   enabled: true,
 })
 
+/** 上一次选的指标类型：从「数据停更」切回来时要恢复时间窗口和样本量 */
+const prevKind = ref(form.metricKind)
 const editing = computed(() => !!props.alert)
 const dataset = computed(() => datasets.value.find(d => d.id === form.datasetId) ?? null)
 const columns = computed(() => dataset.value?.columns ?? [])
 const dateColumns = computed(() => columns.value.filter(c => c.kind === 'datetime'))
 const groupColumns = computed(() => columns.value.filter(c => c.kind === 'text' || c.kind === 'id'))
-const isPercent = computed(() => form.metricKind === 'ratio')
+const isFreshness = computed(() => form.metricKind === 'freshness')
+const isChange = computed(() => form.basis !== 'value')
+/** 界面上的数值是百分数：比率的值 / 变化，以及任何指标的相对变化 */
+const isPercent = computed(() => !isFreshness.value && (form.basis === 'change_pct' || form.metricKind === 'ratio'))
+const thresholdUnit = computed(() => isFreshness.value ? t('天') : isPercent.value ? (form.basis === 'change_abs' ? t('个百分点') : '%') : '')
+/** 比较上期只能选长度固定的窗口；本月、不设窗口都不行 */
+const presetOptions = computed(() => Object.entries(WINDOW_LABEL).filter(([k]) => !isChange.value || COMPARABLE_PRESETS.includes(k as AlertWindowPreset)) as [AlertWindowPreset, string][])
 const emailWithoutSmtp = computed(() => !props.smtpConfigured && props.channels.some(c => c.kind === 'email' && form.channelIds.includes(c.id)))
 
 function fillFrom(a: Alert | null) {
   const m = a?.metric
+  const basis = a?.condition.basis ?? 'value'
   Object.assign(form, {
     name: a?.name ?? '',
     datasetId: a?.datasetId ?? '',
     metricKind: m?.kind ?? 'ratio',
+    freshnessColumn: m?.kind === 'freshness' ? m.dateColumn : '',
+    basis,
+    notifyRecovery: a?.notifyRecovery ?? false,
     single: m?.kind === 'agg' ? { agg: m.agg, column: m.column ?? null } : emptyPart('sum'),
     numerator: m?.kind === 'ratio' ? { ...m.numerator } : emptyPart('sum'),
     denominator: m?.kind === 'ratio' ? { ...m.denominator } : emptyPart('sum'),
@@ -88,7 +104,7 @@ function fillFrom(a: Alert | null) {
     dateColumn: a?.window.dateColumn ?? '',
     filters: (a?.filters ?? []).flatMap(f => f.op === 'in' ? [{ column: f.column, values: [...f.values] }] : []),
     op: a?.condition.op ?? 'gt',
-    threshold: a ? (m?.kind === 'ratio' ? Math.round(a.condition.threshold * 1e6) / 1e4 : a.condition.threshold) : null,
+    threshold: a ? (m?.kind !== 'freshness' && (m?.kind === 'ratio' || basis === 'change_pct') ? Math.round(a.condition.threshold * 1e6) / 1e4 : a.condition.threshold) : null,
     guardOn: a ? !!a.guard : true,
     guard: a?.guard ? { agg: a.guard.agg, column: a.guard.column ?? null, min: a.guard.min } : { ...emptyPart('count'), min: 30 },
     scheduleKind: a?.schedule.kind ?? 'daily',
@@ -101,6 +117,7 @@ function fillFrom(a: Alert | null) {
     repeatHours: a?.repeat.kind === 'every_hours' ? a.repeat.hours : 24,
     enabled: a?.enabled ?? true,
   })
+  prevKind.value = form.metricKind
 }
 
 watch(() => props.visible, async (v) => {
@@ -120,9 +137,40 @@ watch(() => props.visible, async (v) => {
 
 /** 换数据集：列都变了，清掉依赖旧数据集的选择 */
 function onDatasetChange() {
-  Object.assign(form, { single: emptyPart('sum'), numerator: emptyPart('sum'), denominator: emptyPart('sum'), groupBy: '', filters: [], dateColumn: dateColumns.value[0]?.key ?? '' })
+  Object.assign(form, { single: emptyPart('sum'), numerator: emptyPart('sum'), denominator: emptyPart('sum'), groupBy: '', filters: [], dateColumn: dateColumns.value[0]?.key ?? '', freshnessColumn: dateColumns.value[0]?.key ?? '' })
   form.guard = { ...emptyPart('count'), min: 30 }
   preview.value = null
+}
+
+/** 换指标类型：数据停更没有时间窗口、样本量和「较上期」；阈值的单位也跟着变，清掉重填 */
+function onMetricKindChange() {
+  const was = prevKind.value
+  prevKind.value = form.metricKind
+  preview.value = null
+  form.threshold = null
+  if (isFreshness.value) {
+    form.basis = 'value'
+    form.preset = 'none'
+    form.guardOn = false
+    form.op = 'gt'
+    form.freshnessColumn ||= dateColumns.value[0]?.key ?? ''
+  }
+  else if (was === 'freshness') {
+    form.preset = 'last_7'
+    form.guardOn = true
+  }
+}
+
+/** 换判断依据：比较上期需要固定长度的时间窗口；阈值的单位变了，清掉重填 */
+function onBasisChange() {
+  preview.value = null
+  form.threshold = null
+  if (isChange.value && !COMPARABLE_PRESETS.includes(form.preset))
+    form.preset = 'last_7'
+  if (isChange.value && !form.dateColumn)
+    form.dateColumn = dateColumns.value[0]?.key ?? ''
+  // 比较上期时「大于」「小于」更常用：下降 → 小于
+  form.op = form.basis === 'change_pct' ? 'lt' : 'gt'
 }
 
 function addFilter() {
@@ -150,7 +198,12 @@ function build(forPreview: boolean): AlertInput | string {
   if (!form.datasetId)
     return t('请选择数据集')
   let metric: AlertMetric
-  if (form.metricKind === 'agg') {
+  if (form.metricKind === 'freshness') {
+    if (!form.freshnessColumn)
+      return t('请选择日期列')
+    metric = { kind: 'freshness', dateColumn: form.freshnessColumn }
+  }
+  else if (form.metricKind === 'agg') {
     if (!partOk(form.single))
       return t('请选择要监控的列')
     metric = { kind: 'agg', agg: form.single.agg, column: form.single.column }
@@ -162,9 +215,11 @@ function build(forPreview: boolean): AlertInput | string {
   }
   if (form.threshold === null || Number.isNaN(form.threshold))
     return t('请填写阈值')
-  if (form.preset !== 'none' && !form.dateColumn)
+  if (!isFreshness.value && form.preset !== 'none' && !form.dateColumn)
     return t('设置了时间窗口，请选择日期列')
-  if (form.guardOn && !partOk(form.guard))
+  if (isChange.value && !COMPARABLE_PRESETS.includes(form.preset))
+    return t('比较上期需要选择时间窗口：昨天、近 7 天、近 30 天或上月')
+  if (form.guardOn && !isFreshness.value && !partOk(form.guard))
     return t('请选择样本量统计的列')
   if (!forPreview) {
     if (!form.channelIds.length)
@@ -181,11 +236,12 @@ function build(forPreview: boolean): AlertInput | string {
     groupBy: form.groupBy || null,
     filters,
     window: { preset: form.preset, dateColumn: form.preset === 'none' ? null : form.dateColumn },
-    condition: { op: form.op, threshold: isPercent.value ? Math.round(form.threshold * 1e4) / 1e6 : form.threshold },
-    guard: form.guardOn ? { agg: form.guard.agg, column: form.guard.column, min: form.guard.min } : null,
+    condition: { op: form.op, threshold: isPercent.value ? Math.round(form.threshold * 1e4) / 1e6 : form.threshold, basis: form.basis },
+    guard: form.guardOn && !isFreshness.value ? { agg: form.guard.agg, column: form.guard.column, min: form.guard.min } : null,
     schedule: schedule(),
     channelIds: form.channelIds,
     repeat: form.repeatKind === 'every_hours' ? { kind: 'every_hours', hours: form.repeatHours } : { kind: form.repeatKind },
+    notifyRecovery: form.notifyRecovery,
     enabled: form.enabled,
   }
 }
@@ -256,15 +312,26 @@ const VERDICT: Record<string, { text: string, cls: string }> = {
 
         <el-form-item :label="$t('监控指标')" required>
           <div class="w-full">
-            <el-radio-group v-model="form.metricKind" size="small" class="mb-2" @change="preview = null">
+            <el-radio-group v-model="form.metricKind" size="small" class="mb-2" @change="onMetricKindChange">
               <el-radio-button value="ratio">
                 {{ $t('比率（如退款率）') }}
               </el-radio-button>
               <el-radio-button value="agg">
                 {{ $t('汇总值（如金额）') }}
               </el-radio-button>
+              <el-radio-button value="freshness">
+                {{ $t('数据停更') }}
+              </el-radio-button>
             </el-radio-group>
-            <template v-if="form.metricKind === 'agg'">
+            <template v-if="form.metricKind === 'freshness'">
+              <el-select v-model="form.freshnessColumn" class="w-full" filterable :placeholder="$t('选择日期列')" :no-data-text="$t('这个数据集没有日期列')" @change="preview = null">
+                <el-option v-for="c in dateColumns" :key="c.key" :label="c.title" :value="c.key" />
+              </el-select>
+              <div class="hint">
+                {{ $t('看这一列最新的一条数据距今天几天。按店铺等分组时，逐个看谁多久没有新数据了（某个分组从来没有数据则看不到）') }}
+              </div>
+            </template>
+            <template v-else-if="form.metricKind === 'agg'">
               <AlertPartEditor v-model="form.single" :columns="columns" />
             </template>
             <template v-else>
@@ -280,7 +347,7 @@ const VERDICT: Record<string, { text: string, cls: string }> = {
                 {{ $t('先分别汇总再相除（不是各行比率的平均）；分母为 0 的分组不判断') }}
               </div>
             </template>
-            <el-input v-model="form.metricLabel" class="mt-2" maxlength="30" :placeholder="$t('指标名称（可选），如：退款率')" />
+            <el-input v-if="!isFreshness" v-model="form.metricLabel" class="mt-2" maxlength="30" :placeholder="$t('指标名称（可选），如：退款率')" />
           </div>
         </el-form-item>
 
@@ -293,17 +360,17 @@ const VERDICT: Record<string, { text: string, cls: string }> = {
           </div>
         </el-form-item>
 
-        <el-form-item :label="$t('时间窗口')">
+        <el-form-item v-if="!isFreshness" :label="$t('时间窗口')">
           <div class="w-full flex gap-2">
             <el-select v-model="form.preset" class="min-w-0 flex-1" @change="preview = null">
-              <el-option v-for="(label, k) in WINDOW_LABEL" :key="k" :label="label" :value="k" />
+              <el-option v-for="[k, label] in presetOptions" :key="k" :label="label" :value="k" />
             </el-select>
             <el-select v-if="form.preset !== 'none'" v-model="form.dateColumn" class="!w-40" :placeholder="$t('日期列')" @change="preview = null">
               <el-option v-for="c in dateColumns" :key="c.key" :label="c.title" :value="c.key" />
             </el-select>
           </div>
           <div v-if="form.preset !== 'none'" class="hint">
-            {{ $t('窗口按检查当天计算，默认不含今天（今天的数据还没跑完）') }}
+            {{ isChange ? $t('本期是这个窗口，上期是紧挨着它之前、一样长的一段（如近 7 天 对比 再往前的 7 天）') : $t('窗口按检查当天计算，默认不含今天（今天的数据还没跑完）') }}
           </div>
         </el-form-item>
 
@@ -325,17 +392,23 @@ const VERDICT: Record<string, { text: string, cls: string }> = {
         </el-form-item>
 
         <el-form-item :label="$t('触发条件')" required>
-          <div class="w-full flex items-center gap-2">
-            <span class="shrink-0 text-[13px] text-gray-600">{{ $t('指标') }}</span>
+          <div class="w-full flex flex-wrap items-center gap-2">
+            <el-select v-if="!isFreshness" v-model="form.basis" class="!w-52" @change="onBasisChange">
+              <el-option v-for="(label, k) in BASIS_LABEL" :key="k" :label="label" :value="k" />
+            </el-select>
+            <span v-else class="shrink-0 text-[13px] text-gray-600">{{ $t('最新数据距今') }}</span>
             <el-select v-model="form.op" class="!w-32" @change="preview = null">
               <el-option v-for="(label, k) in OP_LABEL" :key="k" :label="label" :value="k" />
             </el-select>
-            <el-input-number v-model="form.threshold" class="!w-36" :controls="false" :precision="isPercent ? 2 : undefined" :placeholder="$t('阈值')" @change="preview = null" />
-            <span v-if="isPercent" class="text-[13px] text-gray-600">%</span>
+            <el-input-number v-model="form.threshold" class="!w-36" :controls="false" :precision="isPercent ? 2 : isFreshness ? 0 : undefined" :placeholder="$t('阈值')" @change="preview = null" />
+            <span v-if="thresholdUnit" class="text-[13px] text-gray-600">{{ thresholdUnit }}</span>
+          </div>
+          <div v-if="isChange" class="hint">
+            {{ form.basis === 'change_pct' ? $t('下降 20% 写：小于 -20；上期为 0 的分组不判断。销量掉到 0 的分组也会抓到（求和 / 计数类指标）') : $t('比率的变化按百分点算：退款率由 4% 升到 8% 是上升 4 个百分点') }}
           </div>
         </el-form-item>
 
-        <el-form-item :label="$t('最小样本量')">
+        <el-form-item v-if="!isFreshness" :label="$t('最小样本量')">
           <div class="w-full">
             <el-checkbox v-model="form.guardOn" @change="preview = null">
               {{ $t('样本太小的分组不判断') }}
@@ -348,6 +421,9 @@ const VERDICT: Record<string, { text: string, cls: string }> = {
               </div>
               <div class="hint">
                 {{ $t('例：订单数至少 30。不设的话，2 单里退了 1 单的店铺会显示退款率 50% 并触发告警') }}
+              </div>
+              <div v-if="isChange" class="hint">
+                {{ $t('比较上期时：求和 / 计数类指标只看上期够不够（本期掉得很少正是要抓的），其他指标本期和上期都要够') }}
               </div>
             </template>
           </div>
@@ -412,6 +488,9 @@ const VERDICT: Record<string, { text: string, cls: string }> = {
           <div class="hint">
             {{ $t('恢复正常后再次超标，会重新通知') }}
           </div>
+          <el-checkbox v-model="form.notifyRecovery" class="mt-1">
+            {{ $t('恢复正常时也通知一下') }}
+          </el-checkbox>
         </el-form-item>
 
         <el-form-item :label="$t('状态')">
@@ -450,18 +529,20 @@ const VERDICT: Record<string, { text: string, cls: string }> = {
               </div>
             </div>
             <el-table :data="preview.rows" size="small" :empty-text="$t('没有数据')">
-              <el-table-column :label="form.groupBy ? (columns.find(c => c.key === form.groupBy)?.title ?? $t('分组')) : $t('整体')" min-width="140" show-overflow-tooltip>
+              <el-table-column :label="form.groupBy ? (columns.find(c => c.key === form.groupBy)?.title ?? $t('分组')) : $t('整体')" :min-width="isChange ? 90 : 140" show-overflow-tooltip>
                 <template #default="{ row }">
                   {{ row.key || $t('整体') }}
                 </template>
               </el-table-column>
-              <el-table-column :label="preview.metricLabel" prop="valueText" width="130" align="right" show-overflow-tooltip />
-              <el-table-column v-if="form.guardOn" :label="$t('样本量')" width="86" align="right">
+              <el-table-column :label="isChange ? $t('本期') : preview.metricLabel" prop="valueText" :width="isChange ? 100 : 130" align="right" show-overflow-tooltip />
+              <el-table-column v-if="isChange" :label="$t('上期')" prop="prevText" width="100" align="right" show-overflow-tooltip />
+              <el-table-column v-if="isChange" :label="$t('变化')" prop="changeText" width="90" align="right" show-overflow-tooltip />
+              <el-table-column v-if="form.guardOn && !isFreshness && !isChange" :label="$t('样本量')" width="86" align="right">
                 <template #default="{ row }">
                   {{ row.guard ?? '—' }}
                 </template>
               </el-table-column>
-              <el-table-column :label="$t('结果')" width="120">
+              <el-table-column :label="$t('结果')" :width="isChange ? 100 : 120">
                 <template #default="{ row }">
                   <span :class="VERDICT[row.verdict]?.cls">{{ VERDICT[row.verdict]?.text }}</span>
                 </template>

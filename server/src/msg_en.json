@@ -776,5 +776,13 @@
   "「{0}」这一期正在等确认，没有可撤销的确认": "“{0}” is awaiting confirmation for this period; there is no confirmation to undo",
   "截止日期格式应为 年-月-日，如 2026-10-20": "The due date must be in year-month-day format, e.g. 2026-10-20",
   "推送渠道不存在（可能已被删除）": "The push channel does not exist (it may have been deleted)",
-  "这一期没有要催的单位（都已提交）": "No units to remind in this period (all submitted)"
+  "这一期没有要催的单位（都已提交）": "No units to remind in this period (all submitted)",
+  "「{0}」不是日期列，不能监控数据停更": "\"{0}\" is not a date column, so it cannot be used to monitor data staleness",
+  "分组列的取值太多（超过 5 万），请换一个取值较少的列": "The group column has too many distinct values (over 50,000); choose a column with fewer values",
+  "比较上期需要设置时间窗口，请选择日期列": "Comparing with the previous period needs a time window; choose the date column",
+  "「较上期」只支持：昨天、近 7 天、近 30 天、上月": "\"Versus previous period\" only supports: yesterday, last 7 days, last 30 days, last month",
+  "数据停更看的是「最新一条数据距今几天」，不能再设时间窗口": "Data staleness looks at how many days ago the latest record is, so a time window cannot be set",
+  "数据停更不支持最小样本量": "Data staleness does not support a minimum sample size",
+  "数据停更不能比较上期": "Data staleness cannot be compared with the previous period",
+  "比较上期需要选择时间窗口：昨天、近 7 天、近 30 天或上月": "Comparing with the previous period needs a time window: yesterday, last 7 days, last 30 days or last month"
 }

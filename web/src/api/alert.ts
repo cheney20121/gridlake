@@ -26,6 +26,8 @@ export interface AlertPart {
 export type AlertMetric
   = | { kind: 'agg', column?: string | null, agg: AlertAgg }
     | { kind: 'ratio', numerator: AlertPart, denominator: AlertPart }
+    /** 数据停更：某日期列的最新一条距今几天 */
+    | { kind: 'freshness', dateColumn: string }
 
 export type AlertWindowPreset = 'none' | 'yesterday' | 'last_7' | 'last_30' | 'this_month' | 'last_month'
 
@@ -47,6 +49,18 @@ export const OP_LABEL: Record<AlertOp, string> = {
   lte: t('小于等于'),
 }
 
+/** 条件判断的对象：当前值 / 较上期的相对变化 / 较上期的绝对变化 */
+export type AlertBasis = 'value' | 'change_pct' | 'change_abs'
+
+export const BASIS_LABEL: Record<AlertBasis, string> = {
+  value: t('当前值'),
+  change_pct: t('较上期变化（百分比）'),
+  change_abs: t('较上期变化（绝对值）'),
+}
+
+/** 能做「较上期」比较的时间窗口 */
+export const COMPARABLE_PRESETS: AlertWindowPreset[] = ['yesterday', 'last_7', 'last_30', 'last_month']
+
 export type AlertRepeat
   = | { kind: 'until_recovered' }
     | { kind: 'every_run' }
@@ -66,12 +80,14 @@ export interface AlertInput {
   groupBy?: string | null
   filters: DatasetFilter[]
   window: { dateColumn?: string | null, preset: AlertWindowPreset }
-  /** 比率的阈值用小数（5% 写 0.05） */
-  condition: { op: AlertOp, threshold: number }
+  /** 比率的阈值用小数（5% 写 0.05）；变化率同理（下降 20% 写 -0.2） */
+  condition: { op: AlertOp, threshold: number, basis?: AlertBasis }
   guard?: AlertGuard | null
   schedule: ReportSchedule
   channelIds: string[]
   repeat: AlertRepeat
+  /** 恢复正常时也发一条通知 */
+  notifyRecovery?: boolean
   enabled: boolean
 }
 
@@ -108,6 +124,9 @@ export interface AlertPreviewRow {
   key: string
   value: number | null
   valueText: string
+  /** 比较上期时：上期的值、变化量 */
+  prevText?: string | null
+  changeText?: string | null
   guard: number | null
   verdict: 'hit' | 'clear' | 'unknown'
 }

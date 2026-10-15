@@ -5,7 +5,10 @@
 //! - 评估用透视引擎（与仪表盘、公式同一套计算）：每个分组得到一个值，再套条件。受数据范围限制的用户不能建告警（见 auth.rs），
 //!   告警按服务账号读数据，不受创建人范围限制
 //! - **去重**：`ledger_alert_state` 记录当前处于触发中的分组。新触发才通知；持续触发按「重复」策略决定是否提醒；
-//!   恢复（评估过、不再满足条件）后删除状态，再次触发重新通知。样本量不足 / 没有数据的分组不下结论，状态保持不变
+//!   恢复（评估过、不再满足条件）后删除状态（可选先发一条「已恢复」通知），再次触发重新通知。样本量不足 / 没有数据的分组不下结论，状态保持不变
+//! - **判断依据**（`Condition.basis`）：当前值，或较上期的变化（相对百分比 / 绝对差）。上期是紧挨着本期之前、长度相同的一段，
+//!   所以要设时间窗口；本期没有数据的分组，对「求和 / 计数」类指标按 0 处理（销量掉到 0 正是要抓的情况）
+//! - **数据停更**（`Metric::Freshness`）：指标是「某日期列的最新一条距今几天」，可按分组（每家店铺多久没有新订单了）
 //! - 通知发送失败（所有渠道都没发出去）不记状态，下次评估重试
 //! - 渠道、计划、消息渲染复用定时推送（本模块是 `report` 的子模块，直接使用它的私有项）
 //! - 每次评估写一条记录（ledger_alert_run），含各渠道的结果
@@ -55,6 +58,11 @@ pub enum Metric {
     },
     /// 两个汇总值的比率（汇总之后再相除，不是各行比率的平均），如 退款额 / 成交额；分母为 0 时该分组没有值
     Ratio { numerator: Part, denominator: Part },
+    /// 数据停更：某日期列的最新一条距今天几天（按分组时逐组算），如「A 店已 5 天没有新订单」
+    Freshness {
+        #[serde(rename = "dateColumn")]
+        date_column: String,
+    },
 }
 
 /// 时间窗口：只统计这段时间内的数据。预设按评估当天计算，且**不含今天**（今天的数据还没跑完）
@@ -106,11 +114,32 @@ impl Op {
     }
 }
 
+/// 条件判断的对象
+#[derive(Deserialize, Serialize, Clone, Copy, Debug, PartialEq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum Basis {
+    /// 本期的指标值
+    #[default]
+    Value,
+    /// 较上期的相对变化：(本期 − 上期) / |上期|，如下降 20% 写 −0.2；上期为 0 时不判断
+    ChangePct,
+    /// 较上期的绝对变化：本期 − 上期（比率指标是百分点，如上升 3 个百分点写 0.03）
+    ChangeAbs,
+}
+
+impl Basis {
+    fn is_change(self) -> bool {
+        self != Basis::Value
+    }
+}
+
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct Condition {
     pub op: Op,
-    /// 阈值（比率用小数，如 5% 写 0.05）
+    /// 阈值（比率用小数，如 5% 写 0.05；变化率同理）
     pub threshold: f64,
+    #[serde(default)]
+    pub basis: Basis,
 }
 
 /// 最小样本量：分母太小的分组不判断（2 单退 1 单不该算退款率 50%）
@@ -159,6 +188,9 @@ pub struct AlertInput {
     pub channel_ids: Vec<String>,
     #[serde(default)]
     pub repeat: Repeat,
+    /// 恢复正常（之前通知过的分组不再满足条件）时，也发一条「已恢复」通知
+    #[serde(default)]
+    pub notify_recovery: bool,
     #[serde(default = "on")]
     pub enabled: bool,
 }
@@ -185,6 +217,8 @@ enum Fmt {
     Money,
     Percent,
     Number,
+    /// 天数（数据停更）
+    Days,
 }
 
 fn fmt_value(v: f64, fmt: Fmt) -> String {
@@ -192,8 +226,28 @@ fn fmt_value(v: f64, fmt: Fmt) -> String {
         Fmt::Percent => format!("{:.1}%", v * 100.0),
         Fmt::Money => content::compact(Some(v), true),
         Fmt::Number => content::compact(Some(v), false),
+        Fmt::Days => format!("{} 天", v.round() as i64),
     }
 }
+
+/// 绝对变化量，带正负号；比率的变化是「百分点」
+fn fmt_delta(v: f64, fmt: Fmt) -> String {
+    match fmt {
+        Fmt::Percent => format!("{:+.1} 个百分点", v * 100.0),
+        Fmt::Days => format!("{:+} 天", v.round() as i64),
+        Fmt::Money | Fmt::Number => format!("{}{}", if v < 0.0 { "-" } else { "+" }, content::compact(Some(v.abs()), fmt == Fmt::Money)),
+    }
+}
+
+/// 条件里的阈值 / 变化量怎么写
+fn fmt_threshold(v: f64, basis: Basis, fmt: Fmt) -> String {
+    match basis {
+        Basis::Value => fmt_value(v, fmt),
+        Basis::ChangePct => content::percent(Some(v)),
+        Basis::ChangeAbs => fmt_delta(v, fmt),
+    }
+}
+
 
 fn agg_cn(agg: &str) -> &'static str {
     match agg {
@@ -230,6 +284,11 @@ fn part_value(def: &DatasetDef, column: &Option<String>, agg: &str, label: Optio
     Ok((value, money, shown))
 }
 
+/// 「量」类指标：求和 / 计数 / 去重计数（某段时间没有数据就是 0）
+fn is_volume(metric: &Metric) -> bool {
+    matches!(metric, Metric::Agg { agg, .. } if matches!(agg.as_str(), "sum" | "count" | "count_distinct"))
+}
+
 struct Compiled {
     values: Vec<PivotValue>,
     /// 被判断的值在 values 里的下标
@@ -237,9 +296,22 @@ struct Compiled {
     guard: Option<usize>,
     fmt: Fmt,
     label: String,
+    /// 数据停更：日期列（不走透视，单独算）
+    freshness: Option<String>,
+    /// 「量」类指标（求和 / 计数 / 去重计数）：本期没有数据就是 0，比较上期时样本量只看上期
+    volume: bool,
 }
 
 fn compile(def: &DatasetDef, input: &AlertInput) -> AppResult<Compiled> {
+    if let Metric::Freshness { date_column } = &input.metric {
+        let col = find_col(def, date_column)?;
+        if col.kind != "datetime" {
+            return Err(AppError::bad(format!("「{}」不是日期列，不能监控数据停更", col.title)));
+        }
+        let label = blank(&input.metric_label).map(String::from).unwrap_or_else(|| format!("「{}」最新数据距今", col.title));
+        return Ok(Compiled { values: vec![], metric: 0, guard: None, fmt: Fmt::Days, label, freshness: Some(col.key.clone()), volume: false });
+    }
+    let volume = is_volume(&input.metric);
     let (mut values, metric, fmt, auto_label) = match &input.metric {
         Metric::Agg { column, agg } => {
             let (v, money, shown) = part_value(def, column, agg, None)?;
@@ -251,6 +323,7 @@ fn compile(def: &DatasetDef, input: &AlertInput) -> AppResult<Compiled> {
             let ratio = PivotValue { agg: "calc".into(), formula: Some("[分子]/[分母]".into()), format: Some("percent".into()), label: Some("指标".into()), ..Default::default() };
             (vec![n, d, ratio], 2, Fmt::Percent, format!("{n_shown} / {d_shown}"))
         }
+        Metric::Freshness { .. } => unreachable!("数据停更在上面已处理"),
     };
     let mut guard = None;
     if let Some(g) = &input.guard {
@@ -259,7 +332,7 @@ fn compile(def: &DatasetDef, input: &AlertInput) -> AppResult<Compiled> {
         guard = Some(values.len() - 1);
     }
     let label = blank(&input.metric_label).map(String::from).unwrap_or(auto_label);
-    Ok(Compiled { values, metric, guard, fmt, label })
+    Ok(Compiled { values, metric, guard, fmt, label, freshness: None, volume })
 }
 
 /// 时间窗口预设 → (起, 止, 说明)。都不含今天，除了「本月」（到今天为止的这个月，月底前是不完整的）
@@ -275,6 +348,31 @@ pub fn window_range(preset: &str, today: NaiveDate) -> Option<(String, String, S
         }
         _ => return None,
     })
+}
+
+/// 能做「较上期」比较的时间窗口（本月不行：月初几天本期太短，和整月比没有意义）
+const COMPARABLE: &[&str] = &["yesterday", "last_7", "last_30", "last_month"];
+
+/// 「较上期」：本期和紧挨着它之前、长度相同的一段 → ((本期起, 本期止), (上期起, 上期止))
+pub fn compare_windows(preset: &str, today: NaiveDate) -> Option<((String, String), (String, String))> {
+    let d = |n: i64| (today - chrono::Duration::days(n)).format("%Y-%m-%d").to_string();
+    Some(match preset {
+        "yesterday" => ((d(1), d(1)), (d(2), d(2))),
+        "last_7" => ((d(7), d(1)), (d(14), d(8))),
+        "last_30" => ((d(30), d(1)), (d(60), d(31))),
+        "last_month" => {
+            let (a, b, _) = content::preset_range("last_month", today)?;
+            let first = NaiveDate::parse_from_str(&a, "%Y-%m-%d").ok()?;
+            let prev_last = first - chrono::Duration::days(1);
+            let prev_first = prev_last.with_day(1)?;
+            ((a, b), (prev_first.format("%Y-%m-%d").to_string(), prev_last.format("%Y-%m-%d").to_string()))
+        }
+        _ => return None,
+    })
+}
+
+fn between(column: &str, (min, max): &(String, String)) -> Filter {
+    Filter::Between { column: column.to_string(), min: Some(Json::String(min.clone())), max: Some(Json::String(format!("{max} 23:59:59"))) }
 }
 
 /// 一条筛选的说明（如「状态：已退款」），写进消息；取值多时只列前几个
@@ -312,6 +410,28 @@ pub struct GroupValue {
     pub key: String,
     pub value: Option<f64>,
     pub guard: Option<f64>,
+    /// 上期的值和样本量（只在「较上期变化」时有）
+    pub prev: Option<f64>,
+    pub prev_guard: Option<f64>,
+    /// 被拿去和阈值比较的数：当前值，或较上期的变化
+    pub judged: Option<f64>,
+    /// 附加说明（数据停更：最新数据的日期）
+    pub note: Option<String>,
+}
+
+impl GroupValue {
+    fn new(key: String, value: Option<f64>, guard: Option<f64>) -> Self {
+        Self { key, value, guard, prev: None, prev_guard: None, judged: value, note: None }
+    }
+
+    /// 按判断依据算出要和阈值比较的数
+    fn judge(&mut self, basis: Basis) {
+        self.judged = match basis {
+            Basis::Value => self.value,
+            Basis::ChangePct => self.value.zip(self.prev).and_then(|(c, p)| (p != 0.0).then(|| (c - p) / p.abs())),
+            Basis::ChangeAbs => self.value.zip(self.prev).map(|(c, p)| c - p),
+        };
+    }
 }
 
 struct Evaluation {
@@ -319,21 +439,35 @@ struct Evaluation {
     dataset_name: String,
     metric_label: String,
     fmt: Fmt,
+    basis: Basis,
     window_desc: Option<String>,
     /// 规则里设置的筛选，写进消息里，让收到的人知道统计的是哪部分数据
     filter_descs: Vec<String>,
     elapsed_ms: i64,
 }
 
-fn evaluate(conn: &Connection, input: &AlertInput, today: NaiveDate) -> AppResult<Evaluation> {
-    let started = std::time::Instant::now();
-    let def = dataset::dataset(conn, &input.dataset_id)?;
-    let c = compile(&def, input)?;
-    let (filters, window_desc) = effective_filters(input, today)?;
-    let group = blank(&input.group_by);
-    if let Some(g) = group {
-        find_col(&def, g)?;
+impl Evaluation {
+    /// 表头里「值」的那几列：判断当前值时一列，比较上期时三列
+    fn value_headers(&self) -> Vec<String> {
+        if self.basis.is_change() { vec!["本期".into(), "上期".into(), "变化".into()] } else { vec![self.metric_label.clone()] }
     }
+
+    fn value_cells(&self, g: &GroupValue) -> Vec<String> {
+        let fv = |v: Option<f64>| v.map(|v| fmt_value(v, self.fmt)).unwrap_or_else(|| "—".into());
+        if self.basis.is_change() {
+            vec![fv(g.value), fv(g.prev), g.judged.map(|v| fmt_threshold(v, self.basis, self.fmt)).unwrap_or_else(|| "—".into())]
+        } else {
+            let mut v = fv(g.value);
+            if let Some(n) = &g.note {
+                v.push_str(&format!("（{n}）"));
+            }
+            vec![v]
+        }
+    }
+}
+
+/// 一段时间里各分组的指标值（透视引擎算）
+fn eval_groups(conn: &Connection, def: &DatasetDef, c: &Compiled, group: Option<&str>, filters: Vec<Filter>) -> AppResult<Vec<GroupValue>> {
     let req = PivotRequest {
         rows: group.map(|g| vec![PivotField { column: g.to_string(), granularity: None, label: None }]).unwrap_or_default(),
         columns: vec![],
@@ -348,24 +482,118 @@ fn evaluate(conn: &Connection, input: &AlertInput, today: NaiveDate) -> AppResul
         aliases: Default::default(),
         calc_items: vec![],
     };
-    crate::usage::hit(&def.id, crate::usage::REPORT);
     let r = pivot::pivot(conn, &def.id, &req)?;
     let want = if group.is_some() { "data" } else { "total" };
-    let groups = r
+    Ok(r
         .rows
         .iter()
         .filter(|row| row.kind == want)
         .map(|row| {
             let cells = row.cells.last().cloned().unwrap_or_default();
-            GroupValue {
-                key: if group.is_some() { row.keys.first().cloned().flatten().unwrap_or_else(|| "（空）".into()) } else { String::new() },
-                value: cells.get(c.metric).copied().flatten(),
-                guard: c.guard.and_then(|i| cells.get(i).copied().flatten()),
+            GroupValue::new(
+                if group.is_some() { row.keys.first().cloned().flatten().unwrap_or_else(|| "（空）".into()) } else { String::new() },
+                cells.get(c.metric).copied().flatten(),
+                c.guard.and_then(|i| cells.get(i).copied().flatten()),
+            )
+        })
+        .collect())
+}
+
+/// 把上期的值并进本期。只在上期有的分组：「量」类指标按 0 处理（销量掉到 0 正是要抓的），其他指标没有可比的本期，不判断
+fn merge_periods(cur: Vec<GroupValue>, prev: Vec<GroupValue>, volume: bool) -> Vec<GroupValue> {
+    let mut prev: Vec<(String, GroupValue)> = prev.into_iter().map(|g| (g.key.clone(), g)).collect();
+    let mut out = Vec::with_capacity(cur.len());
+    for mut g in cur {
+        match prev.iter().position(|(k, _)| *k == g.key) {
+            Some(i) => {
+                let (_, p) = prev.swap_remove(i);
+                g.prev = p.value;
+                g.prev_guard = p.guard;
             }
+            // 上期没有这个分组：「量」类指标上期就是 0
+            None if volume => {
+                g.prev = Some(0.0);
+                g.prev_guard = Some(0.0);
+            }
+            None => {}
+        }
+        out.push(g);
+    }
+    if volume {
+        prev.sort_by(|a, b| a.0.cmp(&b.0));
+        for (key, p) in prev {
+            let mut g = GroupValue::new(key, Some(0.0), None);
+            g.prev = p.value;
+            g.prev_guard = p.guard;
+            out.push(g);
+        }
+    }
+    out
+}
+
+/// 数据停更：各分组日期列的最新一条距今几天
+fn eval_freshness(conn: &Connection, def: &DatasetDef, date_column: &str, group: Option<&str>, filters: &[Filter], today: NaiveDate) -> AppResult<Vec<GroupValue>> {
+    /// 分组数上限，和分组透视一致的量级
+    const MAX_FRESH_GROUPS: usize = 50_000;
+    let date_expr = dataset::column_sql(find_col(def, date_column)?);
+    let (where_sql, args) = dataset::filter_sql(conn, def, &QuerySpec { filters: filters.to_vec(), ..Default::default() })?;
+    let latest = format!("max(TRY_CAST(substr(CAST(({date_expr}) AS VARCHAR), 1, 10) AS DATE))::VARCHAR");
+    let sql = match group {
+        Some(g) => format!(
+            "SELECT CAST(({}) AS VARCHAR), {latest} FROM {} WHERE {where_sql} GROUP BY 1 LIMIT {}",
+            dataset::column_sql(find_col(def, g)?),
+            def.table,
+            MAX_FRESH_GROUPS + 1
+        ),
+        None => format!("SELECT '', {latest} FROM {} WHERE {where_sql}", def.table),
+    };
+    let rows: Vec<(Option<String>, Option<String>)> = {
+        let mut stmt = conn.prepare(&sql)?;
+        stmt.query_map(duckdb::params_from_iter(args.iter()), |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<Vec<_>, _>>()?
+    };
+    if rows.len() > MAX_FRESH_GROUPS {
+        return Err(AppError::bad("分组列的取值太多（超过 5 万），请换一个取值较少的列"));
+    }
+    let mut out: Vec<GroupValue> = rows
+        .into_iter()
+        .map(|(key, latest)| {
+            let date = latest.as_deref().and_then(|d| NaiveDate::parse_from_str(d, "%Y-%m-%d").ok());
+            let mut g = GroupValue::new(if group.is_some() { key.unwrap_or_else(|| "（空）".into()) } else { String::new() }, date.map(|d| (today - d).num_days() as f64), None);
+            g.note = date.map(|d| format!("最新 {d}"));
+            g
         })
         .collect();
+    out.sort_by(|a, b| a.key.cmp(&b.key));
+    Ok(out)
+}
+
+fn evaluate(conn: &Connection, input: &AlertInput, today: NaiveDate) -> AppResult<Evaluation> {
+    let started = std::time::Instant::now();
+    let def = dataset::dataset(conn, &input.dataset_id)?;
+    let c = compile(&def, input)?;
+    let group = blank(&input.group_by);
+    if let Some(g) = group {
+        find_col(&def, g)?;
+    }
+    let basis = input.condition.basis;
+    crate::usage::hit(&def.id, crate::usage::REPORT);
+    let (mut groups, window_desc) = if let Some(date_column) = &c.freshness {
+        (eval_freshness(conn, &def, date_column, group, &input.filters, today)?, None)
+    } else if basis.is_change() {
+        let column = blank(&input.window.date_column).ok_or_else(|| AppError::bad("比较上期需要设置时间窗口，请选择日期列"))?;
+        let (cur, prev) = compare_windows(&input.window.preset, today).ok_or_else(|| AppError::bad("「较上期」只支持：昨天、近 7 天、近 30 天、上月"))?;
+        let with = |range: &(String, String)| input.filters.iter().cloned().chain(std::iter::once(between(column, range))).collect::<Vec<_>>();
+        let cur_groups = eval_groups(conn, &def, &c, group, with(&cur))?;
+        let prev_groups = eval_groups(conn, &def, &c, group, with(&prev))?;
+        let desc = format!("{column}：本期 {} ~ {}，上期 {} ~ {}", cur.0, cur.1, prev.0, prev.1);
+        (merge_periods(cur_groups, prev_groups, c.volume), Some(desc))
+    } else {
+        let (filters, window_desc) = effective_filters(input, today)?;
+        (eval_groups(conn, &def, &c, group, filters)?, window_desc)
+    };
+    groups.iter_mut().for_each(|g| g.judge(basis));
     let filter_descs = input.filters.iter().map(|f| filter_desc(&def, f)).collect();
-    Ok(Evaluation { groups, dataset_name: def.name, metric_label: c.label, fmt: c.fmt, window_desc, filter_descs, elapsed_ms: started.elapsed().as_millis() as i64 })
+    Ok(Evaluation { groups, dataset_name: def.name, metric_label: c.label, fmt: c.fmt, basis, window_desc, filter_descs, elapsed_ms: started.elapsed().as_millis() as i64 })
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize)]
@@ -379,10 +607,20 @@ pub enum Verdict {
     Unknown,
 }
 
-fn verdict(g: &GroupValue, cond: &Condition, guard: Option<&Guard>) -> Verdict {
-    let Some(v) = g.value.filter(|v| v.is_finite()) else { return Verdict::Unknown };
+/// 样本量够不够：判断当前值时看本期；比较上期时，「量」类指标只看上期（基数够大），其他指标本期和上期都要够
+fn guard_passes(g: &GroupValue, gd: &Guard, basis: Basis, volume: bool) -> bool {
+    let ok = |x: Option<f64>| x.is_some_and(|x| x >= gd.min);
+    match (basis.is_change(), volume) {
+        (false, _) => ok(g.guard),
+        (true, true) => ok(g.prev_guard),
+        (true, false) => ok(g.guard) && ok(g.prev_guard),
+    }
+}
+
+fn verdict(g: &GroupValue, cond: &Condition, guard: Option<&Guard>, volume: bool) -> Verdict {
+    let Some(v) = g.judged.filter(|v| v.is_finite()) else { return Verdict::Unknown };
     if let Some(gd) = guard
-        && !g.guard.is_some_and(|x| x >= gd.min)
+        && !guard_passes(g, gd, cond.basis, volume)
     {
         return Verdict::Unknown;
     }
@@ -424,12 +662,17 @@ struct Hit {
     prev: Option<Prev>,
 }
 
+/// 评估过、已恢复的分组（原来处于触发中）
+struct Cleared {
+    group: GroupValue,
+    since: NaiveDateTime,
+}
+
 struct Plan {
     ev: Evaluation,
     /// 满足条件的分组（越糟越靠前）
     hits: Vec<Hit>,
-    /// 评估过、已恢复的分组（原来处于触发中）
-    clear: Vec<String>,
+    clear: Vec<Cleared>,
     unknown: usize,
 }
 
@@ -456,25 +699,26 @@ fn sort_worst_first(groups: &mut [(f64, usize)], op: Op) {
 fn make_plan(conn: &Connection, alert: &StoredAlert, now: NaiveDateTime) -> AppResult<Plan> {
     let input = &alert.input;
     let ev = evaluate(conn, input, now.date())?;
+    let volume = is_volume(&input.metric);
     let prev = load_states(conn, &alert.id)?;
     let mut hits = Vec::new();
     let mut clear = Vec::new();
     let mut unknown = 0;
     for g in &ev.groups {
-        match verdict(g, &input.condition, input.guard.as_ref()) {
+        match verdict(g, &input.condition, input.guard.as_ref(), volume) {
             Verdict::Hit => {
                 let p = prev.get(&g.key);
                 hits.push(Hit { group: g.clone(), notice: next_notice(p, &input.repeat, now), prev: p.cloned() });
             }
             Verdict::Clear => {
-                if prev.contains_key(&g.key) {
-                    clear.push(g.key.clone());
+                if let Some(p) = prev.get(&g.key) {
+                    clear.push(Cleared { group: g.clone(), since: p.since });
                 }
             }
             Verdict::Unknown => unknown += 1,
         }
     }
-    let mut order: Vec<(f64, usize)> = hits.iter().enumerate().map(|(i, h)| (h.group.value.unwrap_or(0.0), i)).collect();
+    let mut order: Vec<(f64, usize)> = hits.iter().enumerate().map(|(i, h)| (h.group.judged.unwrap_or(0.0), i)).collect();
     sort_worst_first(&mut order, input.condition.op);
     let mut sorted: Vec<Option<Hit>> = hits.into_iter().map(Some).collect();
     let hits = order.into_iter().filter_map(|(_, i)| sorted[i].take()).collect();
@@ -484,7 +728,22 @@ fn make_plan(conn: &Connection, alert: &StoredAlert, now: NaiveDateTime) -> AppR
 // ── 消息 ──────────────────────────────────────────────
 
 fn condition_text(input: &AlertInput, label: &str, fmt: Fmt) -> String {
-    format!("{label} {} {}", input.condition.op.symbol(), fmt_value(input.condition.threshold, fmt))
+    let c = &input.condition;
+    let subject = if c.basis.is_change() { format!("{label} 较上期变化") } else { label.to_string() };
+    format!("{subject} {} {}", c.op.symbol(), fmt_threshold(c.threshold, c.basis, fmt))
+}
+
+/// 消息里的「规则」说明：条件 + 样本量
+fn rule_text(input: &AlertInput, ev: &Evaluation) -> String {
+    let mut r = condition_text(input, &ev.metric_label, ev.fmt);
+    if let Some(g) = &input.guard {
+        r.push_str(&format!("；{}", guard_text(g)));
+    }
+    r
+}
+
+fn group_label(input: &AlertInput, g: &GroupValue) -> String {
+    if input.group_by.is_some() { g.key.clone() } else { "整体".into() }
 }
 
 fn guard_text(g: &Guard) -> String {
@@ -502,13 +761,7 @@ fn build_content(alert: &StoredAlert, plan: &Plan, now: NaiveDateTime) -> Report
     let mut filters = Vec::new();
     filters.extend(ev.window_desc.clone());
     filters.extend(ev.filter_descs.iter().cloned());
-    let rule = {
-        let mut r = condition_text(input, &ev.metric_label, ev.fmt);
-        if let Some(g) = &input.guard {
-            r.push_str(&format!("；{}", guard_text(g)));
-        }
-        r
-    };
+    let rule = rule_text(input, ev);
     let shown: Vec<&Hit> = plan.hits.iter().filter(|h| h.notice.is_some()).take(MAX_LISTED).collect();
     let notices = plan.hits.iter().filter(|h| h.notice.is_some()).count();
     let rows = shown
@@ -518,11 +771,10 @@ fn build_content(alert: &StoredAlert, plan: &Plan, now: NaiveDateTime) -> Report
                 (Some(Notice::Reminder), Some(p)) => format!("持续 {}", duration_text(now - p.since)),
                 _ => "新触发".to_string(),
             };
-            vec![
-                if input.group_by.is_some() { h.group.key.clone() } else { "整体".into() },
-                h.group.value.map(|v| fmt_value(v, ev.fmt)).unwrap_or_default(),
-                status,
-            ]
+            let mut row = vec![group_label(input, &h.group)];
+            row.extend(ev.value_cells(&h.group));
+            row.push(status);
+            row
         })
         .collect();
     let title = if input.group_by.is_some() {
@@ -530,19 +782,55 @@ fn build_content(alert: &StoredAlert, plan: &Plan, now: NaiveDateTime) -> Report
     } else {
         format!("当前值（{rule}）")
     };
+    let header = std::iter::once(blank(&input.group_by).unwrap_or("整体").to_string()).chain(ev.value_headers()).chain(std::iter::once("状态".to_string())).collect();
     ReportContent {
         workbook_name: "告警".into(),
         sheet_name: ev.dataset_name.clone(),
         filters,
         blocks: vec![Block::Table(TableBlock {
             title,
-            header: vec![blank(&input.group_by).unwrap_or("整体").to_string(), ev.metric_label.clone(), "状态".into()],
+            header,
             rows,
             total: None,
             raw: vec![],
             raw_total: None,
             kinds: vec![],
         })],
+        generated_at: now.format("%Y-%m-%d %H:%M:%S").to_string(),
+    }
+}
+
+/// 「已恢复」消息：之前通知过、这次评估不再满足条件的分组
+fn build_recovery_content(alert: &StoredAlert, plan: &Plan, now: NaiveDateTime) -> ReportContent {
+    let input = &alert.input;
+    let ev = &plan.ev;
+    let mut filters = Vec::new();
+    filters.extend(ev.window_desc.clone());
+    filters.extend(ev.filter_descs.iter().cloned());
+    let rule = rule_text(input, ev);
+    let rows = plan
+        .clear
+        .iter()
+        .take(MAX_LISTED)
+        .map(|c| {
+            let mut row = vec![group_label(input, &c.group)];
+            row.extend(ev.value_cells(&c.group));
+            row.push(format!("已恢复（共持续 {}）", duration_text(now - c.since)));
+            row
+        })
+        .collect();
+    let n = plan.clear.len();
+    let title = if input.group_by.is_some() {
+        format!("{n} 项已恢复正常{}（{rule}）", if n > MAX_LISTED { format!("，显示前 {MAX_LISTED} 项") } else { String::new() })
+    } else {
+        format!("已恢复正常（{rule}）")
+    };
+    let header = std::iter::once(blank(&input.group_by).unwrap_or("整体").to_string()).chain(ev.value_headers()).chain(std::iter::once("状态".to_string())).collect();
+    ReportContent {
+        workbook_name: "告警".into(),
+        sheet_name: ev.dataset_name.clone(),
+        filters,
+        blocks: vec![Block::Table(TableBlock { title, header, rows, total: None, raw: vec![], raw_total: None, kinds: vec![] })],
         generated_at: now.format("%Y-%m-%d %H:%M:%S").to_string(),
     }
 }
@@ -591,12 +879,31 @@ fn may_manage(user: &CurrentUser, created_by: &str) -> AppResult<()> {
 /// 规则本身（数据集、指标、分组、筛选、窗口、条件）是否可用；试算也走这里
 fn validate_rule(conn: &Connection, input: &AlertInput) -> AppResult<()> {
     let def = dataset::dataset(conn, &input.dataset_id)?;
-    compile(&def, input)?;
+    let compiled = compile(&def, input)?;
     if let Some(g) = blank(&input.group_by) {
         find_col(&def, g)?;
     }
     for f in &input.filters {
         find_col(&def, f.column())?;
+    }
+    if compiled.freshness.is_some() {
+        if input.window.preset != "none" {
+            return Err(AppError::bad("数据停更看的是「最新一条数据距今几天」，不能再设时间窗口"));
+        }
+        if input.guard.is_some() {
+            return Err(AppError::bad("数据停更不支持最小样本量"));
+        }
+        if input.condition.basis.is_change() {
+            return Err(AppError::bad("数据停更不能比较上期"));
+        }
+    }
+    if input.condition.basis.is_change() {
+        if !COMPARABLE.contains(&input.window.preset.as_str()) {
+            return Err(AppError::bad("比较上期需要选择时间窗口：昨天、近 7 天、近 30 天或上月"));
+        }
+        if blank(&input.window.date_column).is_none() {
+            return Err(AppError::bad("比较上期需要设置时间窗口，请选择日期列"));
+        }
     }
     if input.window.preset != "none" {
         let col = blank(&input.window.date_column).ok_or_else(|| AppError::bad("设置了时间窗口，请选择日期列"))?;
@@ -805,6 +1112,9 @@ pub struct PreviewRow {
     pub key: String,
     pub value: Option<f64>,
     pub value_text: String,
+    /// 比较上期时：上期的值和变化量
+    pub prev_text: Option<String>,
+    pub change_text: Option<String>,
     pub guard: Option<f64>,
     pub verdict: Verdict,
 }
@@ -830,15 +1140,25 @@ pub struct PreviewOutcome {
 pub fn preview(conn: &Connection, input: &AlertInput, today: NaiveDate) -> AppResult<PreviewOutcome> {
     validate_rule(conn, input)?;
     let ev = evaluate(conn, input, today)?;
-    let mut rows: Vec<PreviewRow> = ev
+    let volume = is_volume(&input.metric);
+    let change = ev.basis.is_change();
+    let mut rows: Vec<(f64, PreviewRow)> = ev
         .groups
         .iter()
-        .map(|g| PreviewRow {
-            key: g.key.clone(),
-            value: g.value,
-            value_text: g.value.map(|v| fmt_value(v, ev.fmt)).unwrap_or_else(|| "—".into()),
-            guard: g.guard,
-            verdict: verdict(g, &input.condition, input.guard.as_ref()),
+        .map(|g| {
+            let cells = ev.value_cells(g);
+            (
+                g.judged.unwrap_or(0.0),
+                PreviewRow {
+                    key: g.key.clone(),
+                    value: g.value,
+                    value_text: if g.value.is_some() { cells[0].clone() } else { "—".into() },
+                    prev_text: change.then(|| cells[1].clone()),
+                    change_text: change.then(|| cells[2].clone()),
+                    guard: g.guard,
+                    verdict: verdict(g, &input.condition, input.guard.as_ref(), volume),
+                },
+            )
         })
         .collect();
     let rank = |v: Verdict| match v {
@@ -848,16 +1168,16 @@ pub fn preview(conn: &Connection, input: &AlertInput, today: NaiveDate) -> AppRe
     };
     let worse_first = input.condition.op.bigger_is_worse();
     rows.sort_by(|a, b| {
-        rank(a.verdict).cmp(&rank(b.verdict)).then_with(|| {
-            let o = a.value.unwrap_or(0.0).partial_cmp(&b.value.unwrap_or(0.0)).unwrap_or(std::cmp::Ordering::Equal);
+        rank(a.1.verdict).cmp(&rank(b.1.verdict)).then_with(|| {
+            let o = a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal);
             if worse_first { o.reverse() } else { o }
         })
     });
-    let count = |v: Verdict| rows.iter().filter(|r| r.verdict == v).count();
+    let count = |v: Verdict| rows.iter().filter(|r| r.1.verdict == v).count();
     let (hits, clear, unknown, total) = (count(Verdict::Hit), count(Verdict::Clear), count(Verdict::Unknown), rows.len());
     rows.truncate(MAX_PREVIEW_ROWS);
     Ok(PreviewOutcome {
-        rows,
+        rows: rows.into_iter().map(|r| r.1).collect(),
         total_groups: total,
         hits,
         clear,
@@ -965,43 +1285,67 @@ async fn evaluate_and_notify(state: &AppState, alert: &StoredAlert, chans: &[Sto
     drop(permit);
 
     let to_notify = plan.hits.iter().filter(|h| h.notice.is_some()).count();
+    let want_recovery = alert.input.notify_recovery && !plan.clear.is_empty();
+    if (to_notify > 0 || want_recovery) && chans.is_empty() {
+        return Err(AppError::bad("告警没有可用的推送渠道（可能已被删除）"));
+    }
     let mut results = Vec::new();
     if to_notify > 0 {
-        if chans.is_empty() {
-            return Err(AppError::bad("告警没有可用的推送渠道（可能已被删除）"));
-        }
         let content = build_content(alert, &plan, now);
-        let title = format!("告警：{}", alert.input.name);
-        let msg = Message { title: &title, content: &content, link: None };
-        for ch in chans {
-            let r = tokio::time::timeout(Duration::from_secs(60), deliver(ch, &msg, None)).await.unwrap_or_else(|_| Err(AppError::bad("发送超时")));
-            if let Err(e) = &r {
-                tracing::warn!("告警「{}」发送到「{}」失败：{}", alert.input.name, ch.name, e.message());
-            }
-            results.push(ChannelResult { channel_id: ch.id.clone(), channel_name: format!("{}（{}）", ch.name, ch.kind.label()), ok: r.is_ok(), message: r.err().map(|e| e.message()) });
-        }
+        results.extend(send_all(&alert.input.name, chans, &format!("告警：{}", alert.input.name), &content).await);
     }
     // 至少一个渠道发出去了，才算「已通知」：否则下次评估还会把它当作新触发重试
     let delivered = results.iter().any(|r| r.ok);
 
+    // 恢复通知：发出去了才清掉触发状态，否则下次评估再试一次
+    let mut recovery_results = Vec::new();
+    if want_recovery {
+        let content = build_recovery_content(alert, &plan, now);
+        recovery_results = send_all(&alert.input.name, chans, &format!("恢复：{}", alert.input.name), &content).await;
+    }
+    let recovery_delivered = recovery_results.iter().any(|r| r.ok);
+    let recovered = if want_recovery && recovery_delivered { plan.clear.len() } else { 0 };
+    results.extend(recovery_results);
+
     let hits = plan.hits.len() as i64;
     let (st, id) = (state.clone(), alert.id.clone());
     let unknown_note = (plan.unknown > 0).then(|| format!("{} 项样本不足 / 无数据，未判断", plan.unknown));
-    let note = match (hits, to_notify) {
-        (0, _) => Some(format!("没有超出条件的项{}", unknown_note.map(|n| format!("；{n}")).unwrap_or_default())),
-        (_, 0) => Some(format!("命中 {hits} 项，都已通知过，本次不重复提醒{}", unknown_note.map(|n| format!("；{n}")).unwrap_or_default())),
-        _ => unknown_note,
+    let mut notes: Vec<String> = match (hits, to_notify) {
+        (0, _) => vec!["没有超出条件的项".into()],
+        (_, 0) => vec![format!("命中 {hits} 项，都已通知过，本次不重复提醒")],
+        _ => vec![],
     };
+    notes.extend(unknown_note);
+    if recovered > 0 {
+        notes.push(format!("{recovered} 项已恢复并通知"));
+    }
+    let note = (!notes.is_empty()).then(|| notes.join("；"));
+    let clear_now = !want_recovery || recovery_delivered;
     tokio::task::spawn_blocking(move || -> AppResult<()> {
         let conn = st.connection()?;
-        apply_state(&conn, &id, &plan, delivered, &now_local())
+        apply_state(&conn, &id, &plan, delivered, clear_now, &now_local())
     })
     .await??;
     Ok(Done { results, hits, notified: if delivered { to_notify as i64 } else { 0 }, note })
 }
 
+/// 发送到所有渠道（每个渠道最多等 60 秒），返回各渠道的结果
+async fn send_all(name: &str, chans: &[StoredChannel], title: &str, content: &ReportContent) -> Vec<ChannelResult> {
+    let msg = Message { title, content, link: None };
+    let mut results = Vec::new();
+    for ch in chans {
+        let r = tokio::time::timeout(Duration::from_secs(60), deliver(ch, &msg, None)).await.unwrap_or_else(|_| Err(AppError::bad("发送超时")));
+        if let Err(e) = &r {
+            tracing::warn!("告警「{name}」发送到「{}」失败：{}", ch.name, e.message());
+        }
+        results.push(ChannelResult { channel_id: ch.id.clone(), channel_name: format!("{}（{}）", ch.name, ch.kind.label()), ok: r.is_ok(), message: r.err().map(|e| e.message()) });
+    }
+    results
+}
+
 /// 把这次评估的结果记进触发状态
-fn apply_state(conn: &Connection, alert_id: &str, plan: &Plan, delivered: bool, now: &str) -> AppResult<()> {
+/// clear_now：已恢复的分组是否现在就清掉状态（要发恢复通知但没发出去时留着，下次重试）
+fn apply_state(conn: &Connection, alert_id: &str, plan: &Plan, delivered: bool, clear_now: bool, now: &str) -> AppResult<()> {
     for h in &plan.hits {
         let notified = delivered && h.notice.is_some();
         match &h.prev {
@@ -1026,8 +1370,8 @@ fn apply_state(conn: &Connection, alert_id: &str, plan: &Plan, delivered: bool, 
             }
         }
     }
-    for key in &plan.clear {
-        conn.execute("DELETE FROM ledger_alert_state WHERE alert_id = ? AND group_key = ?", params![alert_id, key])?;
+    for c in plan.clear.iter().filter(|_| clear_now) {
+        conn.execute("DELETE FROM ledger_alert_state WHERE alert_id = ? AND group_key = ?", params![alert_id, c.group.key])?;
     }
     Ok(())
 }
@@ -1096,7 +1440,16 @@ mod tests {
     }
 
     fn g(key: &str, value: Option<f64>, guard: Option<f64>) -> GroupValue {
-        GroupValue { key: key.into(), value, guard }
+        GroupValue::new(key.into(), value, guard)
+    }
+
+    /// 比较上期：本期 / 上期的值与样本量
+    fn gp(key: &str, cur: Option<f64>, prev: Option<f64>, guard: Option<f64>, prev_guard: Option<f64>, basis: Basis) -> GroupValue {
+        let mut x = GroupValue::new(key.into(), cur, guard);
+        x.prev = prev;
+        x.prev_guard = prev_guard;
+        x.judge(basis);
+        x
     }
 
     #[test]
@@ -1169,21 +1522,21 @@ mod tests {
 
     #[test]
     fn verdicts_respect_condition_and_guard() {
-        let over = Condition { op: Op::Gt, threshold: 0.05 };
+        let over = Condition { op: Op::Gt, threshold: 0.05, basis: Basis::Value };
         let guard = Guard { column: None, agg: "count".into(), min: 30.0 };
-        assert_eq!(verdict(&g("a", Some(0.08), Some(100.0)), &over, Some(&guard)), Verdict::Hit);
-        assert_eq!(verdict(&g("a", Some(0.03), Some(100.0)), &over, Some(&guard)), Verdict::Clear);
+        assert_eq!(verdict(&g("a", Some(0.08), Some(100.0)), &over, Some(&guard), false), Verdict::Hit);
+        assert_eq!(verdict(&g("a", Some(0.03), Some(100.0)), &over, Some(&guard), false), Verdict::Clear);
         // 恰好等于阈值：> 不算超标，≥ 才算
-        assert_eq!(verdict(&g("a", Some(0.05), None), &over, None), Verdict::Clear);
-        assert_eq!(verdict(&g("a", Some(0.05), None), &Condition { op: Op::Gte, threshold: 0.05 }, None), Verdict::Hit);
+        assert_eq!(verdict(&g("a", Some(0.05), None), &over, None, false), Verdict::Clear);
+        assert_eq!(verdict(&g("a", Some(0.05), None), &Condition { op: Op::Gte, threshold: 0.05, basis: Basis::Value }, None, false), Verdict::Hit);
         // 样本不足：2 单退 1 单（50%）不下结论
-        assert_eq!(verdict(&g("small", Some(0.5), Some(2.0)), &over, Some(&guard)), Verdict::Unknown);
+        assert_eq!(verdict(&g("small", Some(0.5), Some(2.0)), &over, Some(&guard), false), Verdict::Unknown);
         // 样本量取不到、指标没有值（分母为 0）、值不是有限数：不下结论
-        assert_eq!(verdict(&g("a", Some(0.5), None), &over, Some(&guard)), Verdict::Unknown);
-        assert_eq!(verdict(&g("a", None, Some(100.0)), &over, Some(&guard)), Verdict::Unknown);
-        assert_eq!(verdict(&g("a", Some(f64::NAN), None), &over, None), Verdict::Unknown);
+        assert_eq!(verdict(&g("a", Some(0.5), None), &over, Some(&guard), false), Verdict::Unknown);
+        assert_eq!(verdict(&g("a", None, Some(100.0)), &over, Some(&guard), false), Verdict::Unknown);
+        assert_eq!(verdict(&g("a", Some(f64::NAN), None), &over, None, false), Verdict::Unknown);
         // 低于下限
-        assert_eq!(verdict(&g("a", Some(5.0), None), &Condition { op: Op::Lt, threshold: 10.0 }, None), Verdict::Hit);
+        assert_eq!(verdict(&g("a", Some(5.0), None), &Condition { op: Op::Lt, threshold: 10.0, basis: Basis::Value }, None, false), Verdict::Hit);
     }
 
     #[test]
@@ -1215,6 +1568,125 @@ mod tests {
         assert_eq!(fmt_value(1200.0, Fmt::Number), "1,200");
         assert_eq!(duration_text(chrono::Duration::hours(5)), "5 小时");
         assert_eq!(duration_text(chrono::Duration::hours(72)), "3 天");
+    }
+
+    #[test]
+    fn compare_windows_are_adjacent_and_equal_length() {
+        let today = day("2026-10-13");
+        let ((a, b), (c, d)) = compare_windows("last_7", today).unwrap();
+        assert_eq!((a.as_str(), b.as_str(), c.as_str(), d.as_str()), ("2026-10-06", "2026-10-12", "2026-09-29", "2026-10-05"));
+        let ((a, b), (c, d)) = compare_windows("yesterday", today).unwrap();
+        assert_eq!((a.as_str(), b.as_str(), c.as_str(), d.as_str()), ("2026-10-12", "2026-10-12", "2026-10-11", "2026-10-11"));
+        let ((a, b), (c, d)) = compare_windows("last_30", today).unwrap();
+        assert_eq!((a.as_str(), b.as_str(), c.as_str(), d.as_str()), ("2026-09-13", "2026-10-12", "2026-08-14", "2026-09-12"));
+        // 上月 vs 上上月（跨年也对）
+        let ((a, b), (c, d)) = compare_windows("last_month", today).unwrap();
+        assert_eq!((a.as_str(), b.as_str(), c.as_str(), d.as_str()), ("2026-09-01", "2026-09-30", "2026-08-01", "2026-08-31"));
+        let ((a, _), (c, d)) = compare_windows("last_month", day("2026-01-05")).unwrap();
+        assert_eq!((a.as_str(), c.as_str(), d.as_str()), ("2025-12-01", "2025-11-01", "2025-11-30"));
+        // 本月、不设窗口：没法比较
+        assert!(compare_windows("this_month", today).is_none());
+        assert!(compare_windows("none", today).is_none());
+    }
+
+    #[test]
+    fn change_basis_judgement() {
+        // 相对变化：销售额 80 万 → 60 万 = -25%
+        let drop = Condition { op: Op::Lt, threshold: -0.2, basis: Basis::ChangePct };
+        let x = gp("A", Some(600_000.0), Some(800_000.0), None, None, Basis::ChangePct);
+        assert_eq!(x.judged, Some(-0.25));
+        assert_eq!(verdict(&x, &drop, None, true), Verdict::Hit);
+        let mild = gp("B", Some(780_000.0), Some(800_000.0), None, None, Basis::ChangePct);
+        assert_eq!(verdict(&mild, &drop, None, true), Verdict::Clear);
+        // 上期为 0：相对变化没有意义，不判断
+        let from_zero = gp("C", Some(10.0), Some(0.0), None, None, Basis::ChangePct);
+        assert_eq!(from_zero.judged, None);
+        assert_eq!(verdict(&from_zero, &drop, None, true), Verdict::Unknown);
+        // 上期是负数：以绝对值为基准，由 -100 变 -50 是改善 +50%
+        assert_eq!(gp("D", Some(-50.0), Some(-100.0), None, None, Basis::ChangePct).judged, Some(0.5));
+        // 绝对变化：退款率 4% → 8% = 上升 4 个百分点
+        let rise = Condition { op: Op::Gt, threshold: 0.03, basis: Basis::ChangeAbs };
+        let r = gp("A", Some(0.08), Some(0.04), None, None, Basis::ChangeAbs);
+        assert!((r.judged.unwrap() - 0.04).abs() < 1e-12);
+        assert_eq!(verdict(&r, &rise, None, false), Verdict::Hit);
+        // 没有上期的值（比率类指标，上期没有这个分组）：不判断
+        assert_eq!(verdict(&gp("N", Some(0.08), None, None, None, Basis::ChangeAbs), &rise, None, false), Verdict::Unknown);
+    }
+
+    #[test]
+    fn change_guard_looks_at_the_right_period() {
+        let guard = Guard { column: None, agg: "count".into(), min: 30.0 };
+        let drop = Condition { op: Op::Lt, threshold: -0.2, basis: Basis::ChangePct };
+        // 「量」类指标：基数（上期）够大就行，本期掉到很少正是要抓的
+        let x = gp("A", Some(5.0), Some(100.0), Some(2.0), Some(50.0), Basis::ChangePct);
+        assert_eq!(verdict(&x, &drop, Some(&guard), true), Verdict::Hit);
+        // 上期本来就很小：不判断
+        let small = gp("B", Some(1.0), Some(10.0), Some(1.0), Some(5.0), Basis::ChangePct);
+        assert_eq!(verdict(&small, &drop, Some(&guard), true), Verdict::Unknown);
+        // 比率类指标：本期和上期的样本量都要够
+        let rise = Condition { op: Op::Gt, threshold: 0.03, basis: Basis::ChangeAbs };
+        let thin_now = gp("C", Some(0.5), Some(0.04), Some(2.0), Some(100.0), Basis::ChangeAbs);
+        assert_eq!(verdict(&thin_now, &rise, Some(&guard), false), Verdict::Unknown);
+        let thin_before = gp("D", Some(0.5), Some(0.04), Some(100.0), Some(2.0), Basis::ChangeAbs);
+        assert_eq!(verdict(&thin_before, &rise, Some(&guard), false), Verdict::Unknown);
+        let both = gp("E", Some(0.5), Some(0.04), Some(100.0), Some(100.0), Basis::ChangeAbs);
+        assert_eq!(verdict(&both, &rise, Some(&guard), false), Verdict::Hit);
+    }
+
+    #[test]
+    fn merge_periods_treats_missing_volume_as_zero() {
+        let cur = vec![g("A", Some(50.0), None), g("N", Some(8.0), None)];
+        let prev = vec![g("A", Some(100.0), None), g("Z", Some(70.0), None)];
+        let m = merge_periods(cur.clone(), prev.clone(), true);
+        let by = |k: &str| m.iter().find(|x| x.key == k).unwrap();
+        assert_eq!(by("A").prev, Some(100.0));
+        // 新出现的分组：上期为 0；上期有、本期没有的分组：本期为 0（卖着卖着没了）
+        assert_eq!(by("N").prev, Some(0.0));
+        assert_eq!((by("Z").value, by("Z").prev), (Some(0.0), Some(70.0)));
+        // 比率类指标：没有可比的一期，保持没有值，也不凭空造出只在上期有的分组
+        let m = merge_periods(cur, prev, false);
+        assert_eq!(m.len(), 2);
+        assert_eq!(m.iter().find(|x| x.key == "N").unwrap().prev, None);
+    }
+
+    #[test]
+    fn change_and_delta_formatting() {
+        assert_eq!(fmt_delta(0.03, Fmt::Percent), "+3.0 个百分点");
+        assert_eq!(fmt_delta(-0.015, Fmt::Percent), "-1.5 个百分点");
+        assert_eq!(fmt_delta(-250_000.0, Fmt::Money), "-25万");
+        assert_eq!(fmt_delta(30.0, Fmt::Number), "+30");
+        assert_eq!(fmt_threshold(-0.2, Basis::ChangePct, Fmt::Money), "-20.0%");
+        assert_eq!(fmt_threshold(0.12, Basis::ChangePct, Fmt::Money), "+12.0%");
+        assert_eq!(fmt_value(5.0, Fmt::Days), "5 天");
+    }
+
+    #[test]
+    fn new_rule_fields_parse_and_default() {
+        let input: AlertInput = serde_json::from_value(serde_json::json!({
+            "name": "店铺停更", "datasetId": "d", "metric": { "kind": "freshness", "dateColumn": "下单时间" },
+            "groupBy": "店铺", "condition": { "op": "gt", "threshold": 3 }, "schedule": { "kind": "manual" }, "channelIds": [],
+            "notifyRecovery": true
+        }))
+        .unwrap();
+        assert!(matches!(&input.metric, Metric::Freshness { date_column } if date_column == "下单时间"));
+        assert!(input.notify_recovery);
+        assert_eq!(input.condition.basis, Basis::Value, "旧规则没有 basis 字段：按当前值判断");
+        let change: AlertInput = serde_json::from_value(serde_json::json!({
+            "name": "x", "datasetId": "d", "metric": { "kind": "agg", "agg": "sum", "column": "金额" },
+            "window": { "dateColumn": "时间", "preset": "last_7" },
+            "condition": { "op": "lt", "threshold": -0.2, "basis": "change_pct" }, "schedule": { "kind": "manual" }, "channelIds": []
+        }))
+        .unwrap();
+        assert_eq!(change.condition.basis, Basis::ChangePct);
+        assert!(!change.notify_recovery, "恢复通知默认关闭");
+        // 判断依据变了，旧的触发状态要作废
+        let mut value_basis = change.clone();
+        value_basis.condition.basis = Basis::Value;
+        assert_ne!(definition_key(&change), definition_key(&value_basis));
+        // 是否通知恢复不影响触发状态
+        let mut recov = change.clone();
+        recov.notify_recovery = true;
+        assert_eq!(definition_key(&change), definition_key(&recov));
     }
 
     #[test]

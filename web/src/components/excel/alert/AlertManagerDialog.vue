@@ -122,6 +122,7 @@ function toInput(a: Alert, enabled: boolean): AlertInput {
     schedule: a.schedule,
     channelIds: a.channelIds,
     repeat: a.repeat,
+    notifyRecovery: a.notifyRecovery,
     enabled,
   }
 }
@@ -168,12 +169,18 @@ function metricText(a: Alert) {
     return a.metricLabel
   const part = (p: { column?: string | null, agg: keyof typeof AGG_LABEL }) => `${p.column || t('行数')}（${AGG_LABEL[p.agg]}）`
   const m: AlertMetric = a.metric
+  if (m.kind === 'freshness')
+    return t('「{0}」最新数据距今', [m.dateColumn])
   return m.kind === 'agg' ? part(m) : `${part(m.numerator)} / ${part(m.denominator)}`
 }
 
 function conditionText(a: Alert) {
-  const v = a.metric.kind === 'ratio' ? `${Math.round(a.condition.threshold * 1e6) / 1e4}%` : String(a.condition.threshold)
-  return `${metricText(a)} ${OP_LABEL[a.condition.op]} ${v}`
+  const basis = a.condition.basis ?? 'value'
+  const percent = a.metric.kind === 'ratio' || basis === 'change_pct'
+  const unit = a.metric.kind === 'freshness' ? ` ${t('天')}` : percent ? '%' : ''
+  const v = percent ? `${Math.round(a.condition.threshold * 1e6) / 1e4}${unit}` : `${a.condition.threshold}${unit}`
+  const subject = basis === 'value' ? metricText(a) : t('{0} 较上期变化', [metricText(a)])
+  return `${subject} ${OP_LABEL[a.condition.op]} ${v}`
 }
 
 function scheduleText(a: Alert) {
