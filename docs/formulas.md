@@ -12,12 +12,15 @@ Gridlake 的公式引擎是 Univer（浏览器里计算，函数集与 Excel 基
 | `DSUMIFS` | `DSUMIFS(数据集, 求和列, 条件列1, 条件1, …)` | 按多个条件求和 |
 | `DCOUNTIFS` | `DCOUNTIFS(数据集, 条件列1, 条件1, …)` | 按多个条件计数 |
 | `DAVERAGEIFS` | `DAVERAGEIFS(数据集, 平均列, 条件列1, 条件1, …)` | 按多个条件求平均 |
+| `DMAXIFS` | `DMAXIFS(数据集, 取值列, 条件列1, 条件1, …)` | 按多个条件取最大值；没有符合条件的数值时为 0（同 Excel 的 `MAXIFS`） |
+| `DMINIFS` | `DMINIFS(数据集, 取值列, 条件列1, 条件1, …)` | 按多个条件取最小值；同上 |
 | `DLOOKUP` | `DLOOKUP(数据集, 返回列, 条件列1, 条件1, …)` | 数据集版 VLOOKUP：返回**第一条**匹配行的值，找不到为 `#N/A` |
 
 ```
 =DSUMIFS("订单", "金额", "店铺", B2, "状态", "已完成")
 =DCOUNTIFS("订单", "状态", "已退款")
 =DAVERAGEIFS("订单", "金额", "渠道", "直播")
+=DMAXIFS("订单", "金额", "店铺", B2)
 =DLOOKUP("商品成本", "成本价", "商品ID", A2)
 ```
 

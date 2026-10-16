@@ -21,7 +21,7 @@ import { pxToExcelWidth, pxToPt, univerToExcelStyle } from './style-map'
 import { exportTables } from './tables'
 
 /** 平台函数：Excel 无法计算，导出时写入计算结果，原公式记在批注里 */
-const PLATFORM_FUNCTION = /\b(?:DSUMIFS|DCOUNTIFS|DAVERAGEIFS|DLOOKUP|IMPORTRANGE)\s*\(/i
+const PLATFORM_FUNCTION = /\b(?:DSUMIFS|DCOUNTIFS|DAVERAGEIFS|DMAXIFS|DMINIFS|DLOOKUP|IMPORTRANGE)\s*\(/i
 
 export interface ExportSummary {
   sheets: number

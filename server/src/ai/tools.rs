@@ -234,7 +234,7 @@ pub fn definitions() -> Json {
             "type": "function",
             "function": {
                 "name": "write_formula",
-                "description": "建议在当前工作表的某个单元格写入公式（用户确认后写入）。大数据集用 DSUMIFS(\"数据集名\",\"求和列\",\"条件列\",条件,...)、DCOUNTIFS(\"数据集名\",\"条件列\",条件,...)、DAVERAGEIFS、DLOOKUP(\"数据集名\",\"返回列\",\"查找列\",值)，条件写法同 SUMIFS（\">=2026-09-01\"、\"*退款*\"、单元格引用）",
+                "description": "建议在当前工作表的某个单元格写入公式（用户确认后写入）。大数据集用 DSUMIFS(\"数据集名\",\"求和列\",\"条件列\",条件,...)、DCOUNTIFS(\"数据集名\",\"条件列\",条件,...)、DAVERAGEIFS、DMAXIFS、DMINIFS（用法同 DSUMIFS，取最大 / 最小值）、DLOOKUP(\"数据集名\",\"返回列\",\"查找列\",值)，条件写法同 SUMIFS（\">=2026-09-01\"、\"*退款*\"、单元格引用）",
                 "parameters": {
                     "type": "object",
                     "properties": { "cell": { "type": "string", "description": "单元格地址，如 B3" }, "formula": { "type": "string", "description": "以 = 开头" }, "explanation": { "type": "string", "description": "公式含义（给用户看）" } },

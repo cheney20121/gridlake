@@ -1,4 +1,4 @@
-//! 公式下推：表格里的 DSUMIFS / DCOUNTIFS / DAVERAGEIFS 批量在服务端计算
+//! 公式下推：表格里的 DSUMIFS / DCOUNTIFS / DAVERAGEIFS / DMAXIFS / DMINIFS 批量在服务端计算
 //!
 //! 工作表里的数据表（TSUM / TCOUNT / TAVERAGE / TMIN / TMAX / TVALUE）也走这里：请求带上数据表的
 //! 筛选 / 关键字 / 排序作为范围（query），条件在范围之内再筛；TVALUE 取范围内按排序的第 N 行

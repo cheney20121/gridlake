@@ -8,7 +8,7 @@ import { findDataTable, hasDataTables, tableQuery } from '@/features/excel/datat
 import request from '@/utils/request'
 
 /**
- * 公式下推：DSUMIFS / DCOUNTIFS / DAVERAGEIFS 在服务端对大数据表（千万行）计算
+ * 公式下推：DSUMIFS / DCOUNTIFS / DAVERAGEIFS / DMAXIFS / DMINIFS 在服务端对大数据表（千万行）计算
  *
  *   =DSUMIFS("资金流水", "动账金额", "店铺", B2, "动账场景", "*退款*")
  *   =DCOUNTIFS("资金流水", "动账方向", "入账")
@@ -240,6 +240,8 @@ const DESCRIPTIONS: Record<string, string> = {
   DSUMIFS: '对数据集（服务端大数据表）按多个条件求和：DSUMIFS(数据集, 求和列, 条件列1, 条件1, ...)',
   DCOUNTIFS: '对数据集按多个条件计数：DCOUNTIFS(数据集, 条件列1, 条件1, ...)',
   DAVERAGEIFS: '对数据集按多个条件求平均：DAVERAGEIFS(数据集, 平均列, 条件列1, 条件1, ...)',
+  DMAXIFS: '对数据集按多个条件取最大值：DMAXIFS(数据集, 取值列, 条件列1, 条件1, ...)，没有符合条件的数值时为 0（与 Excel 的 MAXIFS 一致）',
+  DMINIFS: '对数据集按多个条件取最小值：DMINIFS(数据集, 取值列, 条件列1, 条件1, ...)，没有符合条件的数值时为 0（与 Excel 的 MINIFS 一致）',
   DLOOKUP: '在数据集中查找：DLOOKUP(数据集, 返回列, 条件列1, 条件1, ...)，返回第一条匹配行的值，找不到为 #N/A',
   TSUM: '对工作表里的数据表求和（按数据表当前的筛选）：TSUM("表名[列名]", 条件列1, 条件1, ...)',
   TCOUNT: '数据表的行数（按数据表当前的筛选）：TCOUNT("表名", 条件列1, 条件1, ...)',
@@ -272,6 +274,8 @@ export function registerDatasetFunctions(univerAPI: FUniver) {
   formula.registerFunction('DSUMIFS', (...args) => evaluate('sum', args), DESCRIPTIONS.DSUMIFS)
   formula.registerFunction('DCOUNTIFS', (...args) => evaluate('count', args), DESCRIPTIONS.DCOUNTIFS)
   formula.registerFunction('DAVERAGEIFS', (...args) => evaluate('average', args), DESCRIPTIONS.DAVERAGEIFS)
+  formula.registerFunction('DMAXIFS', (...args) => evaluate('max', args), DESCRIPTIONS.DMAXIFS)
+  formula.registerFunction('DMINIFS', (...args) => evaluate('min', args), DESCRIPTIONS.DMINIFS)
   formula.registerFunction('DLOOKUP', (...args) => evaluate('lookup', args), DESCRIPTIONS.DLOOKUP)
   formula.registerFunction('TSUM', (...args) => evaluateTable('sum', args), DESCRIPTIONS.TSUM)
   formula.registerFunction('TCOUNT', (...args) => evaluateTable('count', args), DESCRIPTIONS.TCOUNT)
