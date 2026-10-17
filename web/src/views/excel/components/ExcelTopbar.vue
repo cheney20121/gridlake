@@ -19,7 +19,7 @@ import NotificationBell from './NotificationBell.vue'
  * 编辑器顶栏：首页入口、文件菜单（工作簿名）、命令面板入口、登录用户与数据范围、保存状态、协作头像、
  * 资金台账的月份与锁账、查看明细、AI 助手、审批。只负责展示与发出事件，业务由页面处理
  */
-export type FileCommand = 'manage' | 'template' | 'publish' | 'import' | 'export' | 'snapshots' | 'save'
+export type FileCommand = 'manage' | 'template' | 'publish' | 'share' | 'import' | 'export' | 'snapshots' | 'save'
 export type ApprovalCommand = 'start' | 'center'
 
 defineProps<{
@@ -139,6 +139,9 @@ const saveStatusText = computed(() => {
               </el-dropdown-item>
               <el-dropdown-item command="publish">
                 {{ $t('发布为模板…') }}
+              </el-dropdown-item>
+              <el-dropdown-item v-if="ledgerUser.authRequired && !ledgerUser.restricted" command="share">
+                {{ $t('分享链接…') }}
               </el-dropdown-item>
               <el-dropdown-item command="import" divided>
                 {{ $t('导入 .xlsx（追加为新页签）') }}

@@ -35,7 +35,7 @@ pub async fn workbook_meta(State(db): State<AppState>, Path(id): Path<String>) -
     Ok(ok(blocking(&db, move |conn| workbook::meta(conn, &id)).await?))
 }
 
-fn gzip_json_response(data: Vec<u8>, version: i64) -> axum::response::Response {
+pub fn gzip_json_response(data: Vec<u8>, version: i64) -> axum::response::Response {
     use axum::http::header;
     use axum::response::IntoResponse;
     (

@@ -25,11 +25,13 @@ export interface LedgerScope {
 
 export interface LedgerMe {
   authRequired: boolean
-  mode: 'off' | 'local' | 'gateway' | 'proxy'
+  mode: 'off' | 'local' | 'gateway' | 'proxy' | 'share'
   user: LedgerUser | null
   scope: LedgerScope
   /** 启用了哪些场景包（服务端 LEDGER_PACKS）；老版本服务端没有这个字段 */
   packs?: { ecommerce: boolean }
+  /** 通过分享链接访问时：被分享的工作簿（此时 mode 为 share，只能只读查看它） */
+  share?: { workbookId: string, workbookName: string }
 }
 
 export function getLedgerMeApi() {

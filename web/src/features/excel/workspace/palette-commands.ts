@@ -25,7 +25,7 @@ const KEYWORDS: Record<string, string> = {
 }
 
 export type DataCenterCommand = 'sql' | 'anomaly' | 'connector' | 'report' | 'mcp' | 'audit' | 'datascope' | 'template' | 'trash' | LedgerCommand
-export type FileCommand = 'manage' | 'template' | 'publish' | 'import' | 'export' | 'snapshots' | 'save'
+export type FileCommand = 'manage' | 'template' | 'publish' | 'share' | 'import' | 'export' | 'snapshots' | 'save'
 
 /** 命令面板需要的页面状态与动作 */
 export interface PaletteContext {
@@ -35,6 +35,8 @@ export interface PaletteContext {
   ecommerce: boolean
   isAdmin: boolean
   authRequired: boolean
+  /** 数据范围受限：不能创建分享链接 */
+  restricted: boolean
   connectorFailures: number
   homeHref: string
   sheets: { id: string, name: string }[]
@@ -81,6 +83,7 @@ export function buildPaletteCommands(c: PaletteContext): PaletteCommand[] {
     { id: 'file.manage', title: t('打开 / 新建 / 管理工作簿'), keywords: 'open new 文件夹', run: () => c.onFile('manage') },
     { id: 'file.template', title: t('从模板新建'), keywords: 'template 模板', run: () => c.onFile('template') },
     { id: 'file.publish', title: t('发布为模板'), keywords: 'template publish', run: () => c.onFile('publish') },
+    ...(c.authRequired && !c.restricted ? [{ id: 'file.share', title: t('分享链接（只读给没有账号的人）'), keywords: 'share link 分享 外部 客户 只读 链接', run: () => c.onFile('share') }] : []),
     { id: 'file.import', title: t('导入 Excel 文件（.xlsx）'), keywords: 'xlsx excel 打开', run: () => c.onFile('import') },
     { id: 'file.export', title: t('导出为 Excel（.xlsx）'), keywords: 'xlsx excel 下载 export', run: () => c.onFile('export') },
     { id: 'dc.anomaly', title: t('异常发现'), keywords: 'anomaly 异常 偏离 骤降 暴跌 骤增 不对劲 检查 巡检', run: () => c.onDataCenter('anomaly') },

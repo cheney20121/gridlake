@@ -17,7 +17,7 @@
 - **数据范围受限的用户**（管理员给用户设置了「只能看某些店铺」）：只能调用下表「受限用户」列为 ✓ 的接口，其余一律返回 403；✓ 的接口读取的数据也已按范围过滤。
 - **审计**：「审计」列非空的接口会记入操作审计，列里是审计里显示的操作名。
 
-共 202 个接口。
+共 205 个接口。
 
 ## 存活检查与运维
 
@@ -71,6 +71,8 @@
 | DELETE | `/api/ledger/workbooks/{id}/purge` | 彻底删除（只能删回收站里的，含全部版本） | 工作簿管理（所有者或管理员）权限（含回收站） | ✓ | 彻底删除工作簿 |
 | POST | `/api/ledger/workbooks/{id}/restore` | { version, operator }  以历史版本内容生成新版本 | 工作簿编辑权限 | ✓ | 恢复工作簿历史版本 |
 | PUT | `/api/ledger/workbooks/{id}/share` | { visibility: private \| view \| edit }  修改共享范围（所有者与管理员） | 工作簿管理（所有者或管理员）权限 | ✓ | 修改工作簿共享范围 |
+| GET | `/api/ledger/workbooks/{id}/shares` | 这个工作簿的分享链接（所有者与管理员） | 工作簿管理（所有者或管理员）权限 | ✗ |  |
+| POST | `/api/ledger/workbooks/{id}/shares` | { note?, days? }  新建分享链接；响应里的 token 只显示这一次 | 工作簿管理（所有者或管理员）权限 | ✗ | 创建分享链接 |
 | PUT | `/api/ledger/workbooks/{id}/star` | { starred } | 工作簿查看权限 | ✓ |  |
 | POST | `/api/ledger/workbooks/{id}/untrash` | 从回收站恢复 | 工作簿管理（所有者或管理员）权限（含回收站） | ✓ | 恢复工作簿 |
 | GET | `/api/ledger/workbooks/{id}/versions` |  | 工作簿查看权限 | ✓ |  |
@@ -302,6 +304,7 @@
 | POST | `/api/ledger/collects/{id}/remind` | { period, units? }  催办：给没提交的单位的负责人发站内通知，任务配了渠道的还把名单推到群 / 邮箱。 管理员或这个任务的确认人可以催；同一个单位 1 小时内不重复催 | 登录用户 | ✓ | 催办收集填报 |
 | POST | `/api/ledger/collects/{id}/review` | { period, units: [..], action: confirm \| return \| reopen, reason? } 确认人（或管理员）确认并锁定 / 退回重填（要写原因）/ 撤销确认；一次要么全部成功要么都不变 | 登录用户 | ✓ | 审核填报（确认 / 退回） |
 | POST | `/api/ledger/collects/{id}/workbook` | { unit, period }  为我负责的单位生成这一期的填报工作簿（已经生成过的直接返回）； 里面放好了填报区，单位列和期次列作为固定列自动带上。管理员可以为任何单位生成 | 登录用户 | ✓ | 生成填报工作簿 |
+| DELETE | `/api/ledger/shares/{id}` | 吊销分享链接（立即生效；工作簿的所有者或管理员） | 登录用户 | ✗ | 吊销分享链接 |
 | GET | `/api/ledger/tokens` | 我的访问令牌（不含令牌本身） | 登录用户 | ✓ |  |
 | POST | `/api/ledger/tokens` | { name, days? }  新建访问令牌；响应里的 token 只显示这一次 | 登录用户 | ✓ | 创建访问令牌 |
 | DELETE | `/api/ledger/tokens/{id}` | 吊销我的访问令牌（立即生效） | 登录用户 | ✓ | 吊销访问令牌 |

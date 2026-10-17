@@ -54,6 +54,17 @@ export function usePlatformDialogs(options: {
     return false
   }
 
+  /** 分享链接给访客看的是已保存的版本：分享前先保存 */
+  async function saveForShare() {
+    if (!persistenceManager.isDirty())
+      return true
+    const r = await persistenceManager.save({ description: t('创建分享链接前保存') })
+    if (r.state === 'saved' || r.state === 'unchanged')
+      return true
+    ElMessage.error(t('工作簿保存失败，请先处理保存问题再分享'))
+    return false
+  }
+
   async function onTemplateCreated(meta: WorkbookMeta, warnings: string[]) {
     await openWorkbook(meta)
     ElMessage.success(t('已用模板创建「{0}」', [meta.name]))
@@ -143,6 +154,7 @@ export function usePlatformDialogs(options: {
     publishWorkbookId,
     openPublish,
     saveForPublish,
+    saveForShare,
     onTemplateCreated,
     openWorkbookById,
     reportVisible,

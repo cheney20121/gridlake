@@ -22,6 +22,12 @@ const routes: RouteRecordRaw[] = [
     meta: { title: t('首页') },
     component: () => import('@/views/excel/home/index.vue'),
   },
+  {
+    path: '/share/:token',
+    name: 'Share',
+    meta: { title: t('分享'), public: true },
+    component: () => import('@/views/share/index.vue'),
+  },
   { path: '/:catchAll(.*)', redirect: '/excel/home' },
 ]
 

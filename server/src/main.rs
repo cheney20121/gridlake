@@ -40,6 +40,7 @@ mod metrics;
 mod msg_i18n;
 mod netguard;
 mod pat;
+mod share;
 mod pivot;
 mod pivot_calc;
 mod recon;
@@ -289,6 +290,8 @@ async fn serve(config: config::Config) -> anyhow::Result<()> {
         .route("/ledger/approvals/{id}/cancel", post(approval::cancel_approval))
         .route("/ledger/audit", get(auth::audit))
         .route("/ledger/workbooks/{id}/share", put(routes::share_workbook))
+        .route("/ledger/workbooks/{id}/shares", get(share::list_route).post(share::create_route))
+        .route("/ledger/shares/{id}", delete(share::revoke_route))
         .route("/health", get(routes::health))
         .route("/admin/status", get(routes::admin_status))
         .route("/admin/metrics", get(routes::admin_metrics))

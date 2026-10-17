@@ -784,5 +784,15 @@
   "数据停更看的是「最新一条数据距今几天」，不能再设时间窗口": "Data staleness looks at how many days ago the latest record is, so a time window cannot be set",
   "数据停更不支持最小样本量": "Data staleness does not support a minimum sample size",
   "数据停更不能比较上期": "Data staleness cannot be compared with the previous period",
-  "比较上期需要选择时间窗口：昨天、近 7 天、近 30 天或上月": "Comparing with the previous period needs a time window: yesterday, last 7 days, last 30 days or last month"
+  "比较上期需要选择时间窗口：昨天、近 7 天、近 30 天或上月": "Comparing with the previous period needs a time window: yesterday, last 7 days, last 30 days or last month",
+  "分享链接无效或已失效": "The share link is invalid or has expired",
+  "分享链接只能查看这个工作簿，不能进行这项操作": "A share link can only view this workbook; this operation is not allowed",
+  "分享链接只能查看被分享的工作簿": "A share link can only view the shared workbook",
+  "这个数据集不在被分享的工作簿里，分享链接不能访问": "This dataset is not used by the shared workbook, so the share link cannot access it",
+  "备注最多 60 个字": "The note can be at most 60 characters",
+  "一个工作簿最多 {0} 个分享链接，请先吊销不用的": "A workbook can have at most {0} share links; revoke unused ones first",
+  "分享链接不存在": "The share link does not exist",
+  "工作簿内容无法解析：{0}": "The workbook content cannot be parsed: {0}",
+  "没有开启登录（LEDGER_AUTH_MODE=off）：所有能访问页面的人本来就可以打开，不需要分享链接": "Login is not enabled (LEDGER_AUTH_MODE=off): everyone who can reach the page can already open it, so share links are not needed",
+  "工作簿内容过大": "The workbook content is too large"
 }

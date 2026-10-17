@@ -374,6 +374,9 @@ const ROUTES: &[(&str, &str, Rule, &str)] = &[
     ("DELETE", "/ledger/workbooks/{id}/purge", Wb(Need::Manage, true), "彻底删除工作簿"),
     ("PUT", "/ledger/workbooks/{id}/star", Wb(Need::View, false), ""),
     ("PUT", "/ledger/workbooks/{id}/share", Wb(Need::Manage, false), "修改工作簿共享范围"),
+    ("GET", "/ledger/workbooks/{id}/shares", Wb(Need::Manage, false), ""),
+    ("POST", "/ledger/workbooks/{id}/shares", Wb(Need::Manage, false), "创建分享链接"),
+    ("DELETE", "/ledger/shares/{id}", Open, "吊销分享链接"),
     ("POST", "/ledger/workbooks/{id}/duplicate", Wb(Need::View, false), "复制工作簿"),
     ("GET", "/ledger/workbooks/{id}/versions", Wb(Need::View, false), ""),
     ("GET", "/ledger/workbooks/{id}/versions/{version}/content", Wb(Need::View, false), ""),
@@ -539,6 +542,11 @@ fn match_template(template: &str, path: &str) -> Option<Vec<(String, String)>> {
     Some(params)
 }
 
+/// 路径是否匹配模板；匹配时返回路径参数（分享链接的白名单用）
+pub fn match_path(template: &str, path: &str) -> Option<Vec<(String, String)>> {
+    match_template(template, path)
+}
+
 fn find_route(method: &Method, path: &str) -> Option<(&'static (&'static str, &'static str, Rule, &'static str), Vec<(String, String)>)> {
     ROUTES.iter().find_map(|r| if r.0 == method.as_str() { match_template(r.1, path).map(|p| (r, p)) } else { None })
 }
@@ -622,6 +630,10 @@ pub async fn guard(State(db): State<AppState>, ConnectInfo(peer): ConnectInfo<So
     }
     if req.method() == Method::OPTIONS {
         return next.run(req).await;
+    }
+    // 分享链接：不走登录与权限表，只能调用白名单里的只读接口（见 share.rs）
+    if let Some(token) = crate::share::token_of(req.headers()) {
+        return share_request(&db, peer, req, next, token).await;
     }
     // 防跨站请求伪造：会话 cookie 登录的写请求必须带 x-requested-with（/mcp、/admin 用自己的令牌，不看 cookie）
     let raw_path = normalize(req.uri().path());
@@ -734,6 +746,86 @@ pub async fn guard(State(db): State<AppState>, ConnectInfo(peer): ConnectInfo<So
     resp
 }
 
+/// 带分享令牌的请求：只允许白名单里的只读接口；工作簿接口只能读被分享的那一个，数据集接口只能读它用到的数据集；
+/// 请求在创建人的数据范围内执行
+async fn share_request(db: &AppState, peer: SocketAddr, mut req: Request, next: Next, token: String) -> Response {
+    use crate::share;
+    let started = Instant::now();
+    let method = req.method().clone();
+    let path = normalize(req.uri().path()).to_string();
+    let invalid = || AppError::Forbidden("分享链接无效或已失效".into()).into_response();
+    if !share::is_share_token(&token) {
+        return invalid();
+    }
+    let t = token.clone();
+    let info = match run(db, move |c| share::resolve(c, &t)).await {
+        Ok(Some(s)) => s,
+        Ok(None) => return invalid(),
+        Err(e) => return e.into_response(),
+    };
+    let Some((template, id)) = share::allowed(&method, &path) else {
+        return AppError::Forbidden("分享链接只能查看这个工作簿，不能进行这项操作".into()).into_response();
+    };
+    let principal = info.principal();
+    let ip = client_ip(req.headers(), peer.ip());
+    let scope = match resolve_scope(db, &info.creator).await {
+        Ok(s) => s,
+        Err(e) => return e.into_response(),
+    };
+    let json = |r: AppResult<Response>| r.unwrap_or_else(|e| e.into_response());
+    match template {
+        "/ledger/me" => {
+            let me = Me {
+                auth_required: true,
+                mode: "share",
+                user: Some(CurrentUser { id: String::new(), name: "访客".into(), admin: false, enforced: true }),
+                scope: Scope::all(),
+                packs: Packs { ecommerce: false },
+                share: Some(ShareMe { workbook_id: info.workbook_id.clone(), workbook_name: info.workbook_name.clone() }),
+            };
+            json(Ok(ok(me).into_response()))
+        }
+        "/ledger/datasets" => {
+            let allowed = info.datasets.clone();
+            let r = run(db, move |c| Ok(crate::dataset::list(c)?.into_iter().filter(|d| allowed.contains(&d.def.id)).collect::<Vec<_>>())).await;
+            json(r.map(|v| ok(v).into_response()))
+        }
+        "/ledger/workbooks/{id}" | "/ledger/workbooks/{id}/content" => {
+            if id.as_deref() != Some(info.workbook_id.as_str()) {
+                return AppError::Forbidden("分享链接只能查看被分享的工作簿".into()).into_response();
+            }
+            if template.ends_with("/content") {
+                let i = info.clone();
+                let r = run(db, move |c| share::open(c, &i)).await;
+                let target = Target { kind: "工作簿", id: info.workbook_id.clone(), name: info.workbook_name.clone() };
+                record(db, &principal, &ip, &method, &path, "打开分享链接", Some(target), Some(info.id.clone()), r.as_ref().map_or_else(|e| e.status(), |_| 200), started);
+                json(r.map(|(meta, gz, _)| crate::routes::gzip_json_response(gz, meta.version)))
+            } else {
+                let wb = info.workbook_id.clone();
+                let r = run(db, move |c| crate::workbook::meta(c, &wb)).await;
+                // 不把所有者、共享范围这些内部信息给访客
+                json(r.map(|mut m| {
+                    m.owner_id = None;
+                    m.owner_name = None;
+                    m.created_by = None;
+                    m.updated_by = None;
+                    ok(m).into_response()
+                }))
+            }
+        }
+        // 数据集的只读查询
+        _ => {
+            if !id.as_deref().is_some_and(|d| info.may_read_dataset(d)) {
+                return AppError::Forbidden("这个数据集不在被分享的工作簿里，分享链接不能访问".into()).into_response();
+            }
+            req.extensions_mut().insert(principal.clone());
+            req.extensions_mut().insert(Identity(Some(principal)));
+            req.extensions_mut().insert(ScopeExt(scope.clone()));
+            crate::scope::CURRENT.scope(scope, next.run(req)).await
+        }
+    }
+}
+
 /// 用户的数据范围（管理员与没有规则的用户不受限）。规则读不出来时拒绝请求，而不是当作不受限
 async fn resolve_scope(db: &AppState, user: &CurrentUser) -> AppResult<Arc<Scope>> {
     if !user.enforced || user.admin {
@@ -803,6 +895,8 @@ const FULL_ONLY: &[(&str, &str)] = &[
     ("POST", "/ledger/templates"), ("PUT", "/ledger/templates/{id}"), ("DELETE", "/ledger/templates/{id}"),
     ("GET", "/ledger/connectors"), ("GET", "/ledger/connectors/{id}/runs"),
     ("GET", "/ledger/data-scope"),
+    // 分享链接把工作簿和它用到的数据集开放给没有账号的人：受限用户不能创建（要创建的人本身就得能看到全部数据）
+    ("GET", "/ledger/workbooks/{id}/shares"), ("POST", "/ledger/workbooks/{id}/shares"), ("DELETE", "/ledger/shares/{id}"),
 ];
 
 /// 受限用户能不能调用：只有登记在 `RESTRICTED_OK` 里的才行（HEAD 按 GET 算）
@@ -928,6 +1022,16 @@ pub struct Me {
     scope: Scope,
     /// 启用了哪些场景包（前端据此显示 / 隐藏对应入口）
     packs: Packs,
+    /// 通过分享链接访问时：分享的是哪个工作簿（此时 mode 为 share，只能只读查看它）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    share: Option<ShareMe>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShareMe {
+    workbook_id: String,
+    workbook_name: String,
 }
 
 #[derive(Serialize)]
@@ -944,7 +1048,7 @@ pub async fn me(State(db): State<AppState>, Extension(id): Extension<Identity>, 
         AuthMode::Proxy => "proxy",
     };
     let scope = scope.map_or_else(Scope::all, |Extension(s)| (*s.0).clone());
-    Ok(ok(Me { auth_required: db.auth.enabled(), mode, user: id.0, scope, packs: Packs { ecommerce: crate::ecommerce::enabled() } }))
+    Ok(ok(Me { auth_required: db.auth.enabled(), mode, user: id.0, scope, packs: Packs { ecommerce: crate::ecommerce::enabled() }, share: None }))
 }
 
 // ── 审计 ──────────────────────────────────────────────

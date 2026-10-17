@@ -2,6 +2,7 @@ import type { AxiosInstance, AxiosRequestConfig, InternalAxiosRequestConfig } fr
 import axios from 'axios'
 import { lang, t } from '@/i18n'
 import { getToken, removeToken } from './auth'
+import { getShareToken } from './share-token'
 
 /**
  * 请求表格服务：响应为信封 { code, data, msg }，code 为 200 时返回 data，否则提示 msg 并抛出。
@@ -58,11 +59,20 @@ function showTokenExpired() {
 
 /** 错误提示停留时间：服务端的说明可能很长（如「服务繁忙…」「内存不足…」），按长度留够阅读时间 */
 function toast(msg: string) {
+  // 分享页里部件偶尔会请求访客不能访问的接口：不弹错误打扰访客，分享页自己处理「链接失效」
+  if (getShareToken()) {
+    console.warn('[share]', msg)
+    return
+  }
   ElMessage({ type: 'error', message: msg, duration: Math.min(8, Math.max(2, Math.ceil(msg.length / 8))) * 1000 })
 }
 
 instance.interceptors.request.use((config: InternalAxiosRequestConfig & CustomConfig) => {
-  const token = getToken()
+  // 分享页：只带分享令牌（访客没有账号）
+  const share = getShareToken()
+  const token = share ? undefined : getToken()
+  if (share)
+    config.headers['x-share-token'] = share
   if (token)
     config.headers['x-user-token'] = token
   // 前后端分开部署（跨域）时 cookie 不会带过去，用请求头告诉服务端界面语言

@@ -403,6 +403,24 @@ CREATE TABLE IF NOT EXISTS ledger_pat (
   expires_at TIMESTAMP,
   last_used_at TIMESTAMP
 );
+-- 工作簿的只读分享链接（只存摘要；见 share.rs）
+CREATE TABLE IF NOT EXISTS ledger_share (
+  id VARCHAR PRIMARY KEY,
+  workbook_id VARCHAR NOT NULL,
+  note VARCHAR,
+  token_hash VARCHAR NOT NULL,
+  prefix VARCHAR NOT NULL,
+  created_by VARCHAR,
+  created_by_name VARCHAR,
+  creator_admin BOOLEAN DEFAULT false,
+  created_at TIMESTAMP,
+  expires_at TIMESTAMP,
+  last_used_at TIMESTAMP,
+  view_count BIGINT DEFAULT 0,
+  -- 这个工作簿用到的数据集 id（JSON 数组），打开分享页时按当前内容刷新；分享链接只能读这些数据集
+  datasets VARCHAR DEFAULT '[]',
+  content_version BIGINT DEFAULT 0
+);
 CREATE TABLE IF NOT EXISTS ledger_user (
   id VARCHAR PRIMARY KEY,
   name VARCHAR NOT NULL,

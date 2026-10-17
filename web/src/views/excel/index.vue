@@ -41,6 +41,7 @@ import SqlWorkbench from '@/components/excel/sql/SqlWorkbench.vue'
 import PublishTemplateDialog from '@/components/excel/template/PublishTemplateDialog.vue'
 import TemplateGalleryDialog from '@/components/excel/template/TemplateGalleryDialog.vue'
 import SaveConflictDialog from '@/components/excel/workbook/SaveConflictDialog.vue'
+import ShareLinkDialog from '@/components/excel/workbook/ShareLinkDialog.vue'
 import WorkbookManagerDialog from '@/components/excel/workbook/WorkbookManagerDialog.vue'
 import { useBodyClass } from '@/composables/useBodyClass'
 import { useUniver } from '@/composables/useUniver'
@@ -311,6 +312,7 @@ const {
   publishWorkbookId,
   openPublish,
   saveForPublish,
+  saveForShare,
   onTemplateCreated,
   openWorkbookById,
   reportVisible,
@@ -392,6 +394,8 @@ watch(isLedgerWorkbook, v => appRibbon?.setTabVisible('ribbon.ledger', v))
 /** 功能区：Excel 用户习惯的「插入 → 数据透视表 / 图表」，平台功能集中在「分析」页签，台账功能在上下文页签 */
 /** 公式诊断 */
 const diagnoseVisible = ref(false)
+/** 分享链接 */
+const shareVisible = ref(false)
 
 /** 平台功能：功能区与命令面板共用 */
 function appRibbonTabs(): RibbonTab[] {
@@ -438,6 +442,7 @@ const paletteCommands = computed<PaletteCommand[]>(() => buildPaletteCommands({
   ecommerce: ledgerUser.ecommerce,
   isAdmin: ledgerUser.isAdmin,
   authRequired: ledgerUser.authRequired,
+  restricted: ledgerUser.restricted,
   connectorFailures: connectorFailures.value,
   homeHref,
   sheets: paletteSheets.value,
@@ -512,6 +517,8 @@ function onFileCommand(command: FileCommand) {
     templateVisible.value = true
   else if (command === 'publish')
     openPublish()
+  else if (command === 'share')
+    shareVisible.value = true
   else if (command === 'import' || command === 'export')
     onXlsxCommand(command)
   else if (command === 'snapshots')
@@ -818,6 +825,12 @@ let dataLoaded = false
       :operator="operatorName()"
       :before-publish="saveForPublish"
       @open-gallery="templateVisible = true"
+    />
+    <ShareLinkDialog
+      v-model:visible="shareVisible"
+      :workbook-id="currentWorkbookId"
+      :workbook-name="uiStore.fileName"
+      :before-share="saveForShare"
     />
     <SaveConflictDialog
       v-model:visible="conflictVisible"

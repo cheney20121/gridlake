@@ -160,6 +160,16 @@ pub fn is_alive(conn: &Connection, id: &str) -> bool {
     conn.query_row(&format!("SELECT count(*) FROM ledger_workbook WHERE id = ? AND {ALIVE}"), params![id], |r| r.get::<_, i64>(0)).unwrap_or(0) > 0
 }
 
+/// 解压工作簿内容（超过上限按损坏处理）
+pub fn gunzip_json(gz: &[u8]) -> AppResult<Vec<u8>> {
+    let mut json = Vec::new();
+    GzDecoder::new(gz).take(MAX_JSON_BYTES as u64 + 1).read_to_end(&mut json).map_err(|_| AppError::bad("工作簿内容已损坏"))?;
+    if json.len() > MAX_JSON_BYTES {
+        return Err(AppError::bad("工作簿内容过大"));
+    }
+    Ok(json)
+}
+
 /// 校验上传内容：gzip → 合法 JSON 对象（含 sheets）；返回 (压缩字节, 原始大小)
 fn validate(gz: &[u8]) -> AppResult<(Vec<u8>, i64)> {
     let mut json = Vec::new();
@@ -434,6 +444,7 @@ fn purge_ids(conn: &Connection, ids: &[String]) -> AppResult<usize> {
         for id in ids {
             conn.execute("DELETE FROM ledger_workbook_version WHERE workbook_id = ?", params![id])?;
             crate::comment::purge_workbook(conn, id)?;
+            crate::share::purge_workbook(conn, id)?;
             conn.execute("DELETE FROM ledger_workbook WHERE id = ? AND deleted_at IS NOT NULL", params![id])?;
         }
         Ok(ids.len())
