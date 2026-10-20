@@ -392,6 +392,15 @@ CREATE TABLE IF NOT EXISTS ledger_session (
   created_at TIMESTAMP,
   expires_at TIMESTAMP NOT NULL
 );
+-- 单点登录（OIDC）身份：身份提供方里的 (issuer, sub) 对应哪个内置账号（见 oidc.rs）
+CREATE TABLE IF NOT EXISTS ledger_oidc_identity (
+  issuer VARCHAR NOT NULL,
+  subject VARCHAR NOT NULL,
+  account_id VARCHAR NOT NULL,
+  created_at TIMESTAMP,
+  last_login_at TIMESTAMP,
+  PRIMARY KEY (issuer, subject)
+);
 -- 个人访问令牌（只存摘要；见 pat.rs）
 CREATE TABLE IF NOT EXISTS ledger_pat (
   id VARCHAR PRIMARY KEY,

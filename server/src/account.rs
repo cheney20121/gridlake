@@ -92,7 +92,7 @@ fn check_password(p: &str) -> AppResult<()> {
     Ok(())
 }
 
-fn check_username(u: &str) -> AppResult<()> {
+pub(crate) fn check_username(u: &str) -> AppResult<()> {
     let ok = (2..=32).contains(&u.chars().count()) && u.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.' | '@'));
     if !ok {
         return Err(AppError::bad("用户名为 2 ~ 32 位，只能包含字母、数字和 _ - . @"));
@@ -188,7 +188,7 @@ pub struct AccountPatch {
     pub password: Option<String>,
 }
 
-fn enabled_admins(conn: &Connection) -> AppResult<i64> {
+pub(crate) fn enabled_admins(conn: &Connection) -> AppResult<i64> {
     Ok(conn.query_row("SELECT count(*) FROM ledger_account WHERE admin AND NOT disabled", [], |r| r.get(0))?)
 }
 
@@ -305,6 +305,11 @@ pub fn login(conn: &Connection, username: &str, password: &str, days: i64) -> Ap
         return Err(AppError::bad("账号已停用，请联系管理员"));
     }
     clear_failures(conn, &key)?;
+    start_session(conn, &id, days)
+}
+
+/// 给账号开一个会话（密码登录和单点登录共用）：清理过期会话、记最后登录时间、登记到用户目录
+pub(crate) fn start_session(conn: &Connection, id: &str, days: i64) -> AppResult<LoginResult> {
     let token = URL_SAFE_NO_PAD.encode(random_bytes::<32>());
     let now = now_local();
     conn.execute("DELETE FROM ledger_session WHERE expires_at < CAST(? AS TIMESTAMP)", params![now])?;
@@ -313,7 +318,7 @@ pub fn login(conn: &Connection, username: &str, password: &str, days: i64) -> Ap
         params![token_hash(&token), id, now, expires_after(days)],
     )?;
     conn.execute("UPDATE ledger_account SET last_login_at = CAST(? AS TIMESTAMP) WHERE id = ?", params![now, id])?;
-    let a = one(conn, &id)?;
+    let a = one(conn, id)?;
     crate::approval::touch_user(conn, &to_user(&a))?;
     Ok(LoginResult { token, days, user: to_user(&a) })
 }
@@ -418,7 +423,7 @@ pub fn csrf_blocked(method: &axum::http::Method, headers: &HeaderMap) -> bool {
 }
 
 /// 会话 cookie 要不要加 Secure：LEDGER_COOKIE_SECURE=1/0 强制；默认看可信反向代理传来的 X-Forwarded-Proto
-fn cookie_secure(db: &AppState, headers: &HeaderMap, peer: std::net::IpAddr) -> bool {
+pub(crate) fn cookie_secure(db: &AppState, headers: &HeaderMap, peer: std::net::IpAddr) -> bool {
     match std::env::var("LEDGER_COOKIE_SECURE").ok().as_deref().map(str::trim) {
         Some("1" | "true" | "yes") => true,
         Some("0" | "false" | "no") => false,
@@ -427,7 +432,7 @@ fn cookie_secure(db: &AppState, headers: &HeaderMap, peer: std::net::IpAddr) -> 
 }
 
 /// Set-Cookie 的值；max_age_secs 为 0 表示清除
-fn session_cookie(token: &str, max_age_secs: i64, secure: bool) -> String {
+pub(crate) fn session_cookie(token: &str, max_age_secs: i64, secure: bool) -> String {
     format!("{SESSION_COOKIE}={token}; Path=/; Max-Age={max_age_secs}; HttpOnly; SameSite=Lax{}", if secure { "; Secure" } else { "" })
 }
 

@@ -75,7 +75,7 @@
 
 | # | 需求 | 说明 | 量 |
 |---|---|---|---|
-| 17 | 认证扩展：原生 OIDC / LDAP / SAML、2FA、~~个人访问令牌（PAT）供脚本调用~~（✅ 已完成，见 `server/src/pat.rs`） | 现在 OIDC 要靠反向代理 | L |
+| 17 | 认证扩展：~~原生 OIDC~~（✅ 已完成，见 `server/src/oidc.rs`）、LDAP / SAML、2FA、~~个人访问令牌（PAT）供脚本调用~~（✅ 已完成，见 `server/src/pat.rs`） | LDAP / SAML 现在仍要靠反向代理 | M |
 | 18 | 权限通用化：**行级权限已完成**——引入「维度」（店铺 / 地区 / 部门…），规则按（用户，维度）设置取值，数据集绑定（列，维度），同一个用户在不同数据集上受不同规则限制；老写法 `shops` 仍兼容；**未做**：列级权限、用户组 / 角色、一个数据集同时绑定多个维度 | 见 `server/src/scope.rs` | L |
 | 19 | 更多连接器：S3 / 对象存储、Snowflake / BigQuery、MongoDB、Google Sheets，以及增量同步（CDC） | 现有 ClickHouse / MySQL / PG / HTTP / 文件夹 | L |
 | 20 | 更多下推函数：✅ `DAVERAGEIFS`、`DMAXIFS`、`DMINIFS` 已完成；**未做**：去重计数（`DCOUNTDISTINCTIFS`，分组合并不能直接相加，要单独设计）、`XLOOKUP`；公式诊断覆盖更多不支持的写法 | 与 #10 的兼容矩阵一起做 | M |

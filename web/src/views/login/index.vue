@@ -2,7 +2,7 @@
 import type { LedgerMe } from '@/api/auth'
 import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getLedgerMeApi, loginApi } from '@/api/auth'
+import { getLedgerMeApi, loginApi, ssoLoginUrl } from '@/api/auth'
 import { LEDGER_SAME_ORIGIN } from '@/api/ledger-base'
 import LanguageSwitch from '@/components/common/LanguageSwitch.vue'
 import { t } from '@/i18n'
@@ -25,7 +25,34 @@ const me = ref<LedgerMe | null>(null)
 const failed = ref('')
 const form = reactive({ username: '', password: '' })
 const submitting = ref(false)
-const error = ref('')
+const error = ref(ssoErrorText(route.query.sso_error))
+
+/** 单点登录失败时服务端带回来的错误代码 → 给用户看的说明（细节只在服务日志里） */
+function ssoErrorText(code: unknown) {
+  if (typeof code !== 'string' || !code)
+    return ''
+  switch (code) {
+    case 'denied': return t('你取消了授权，或没有被授予访问权限。')
+    case 'expired': return t('登录请求已过期或不完整，请重新点击登录。')
+    case 'token': return t('身份提供方返回的登录凭证没有通过校验，请联系管理员。')
+    case 'disabled': return t('账号已停用，请联系管理员。')
+    case 'not_provisioned': return t('你的账号还没有开通，请联系管理员。')
+    case 'unreachable': return t('连不上身份提供方，请稍后再试或联系管理员。')
+    case 'config': return t('单点登录的配置有误，请联系管理员。')
+    case 'busy': return t('正在登录的人太多了，请稍后再试。')
+    case 'idp_error': return t('身份提供方返回了错误，请稍后再试。')
+    default: return t('单点登录失败，请重试；仍然不行请联系管理员。')
+  }
+}
+
+/** 单点登录入口：只在页面与服务同源时可用（登录结果靠服务端写的 cookie 带回来） */
+function ssoUrl() {
+  const sso = me.value?.sso
+  if (!sso || !LEDGER_SAME_ORIGIN)
+    return ''
+  // 服务端登录后用 302 把浏览器送回这个路径，要带上前端路由的 base
+  return ssoLoginUrl(sso.loginPath, router.resolve(redirect()).href)
+}
 
 function redirect() {
   const r = route.query.redirect
@@ -105,6 +132,16 @@ async function submit() {
             {{ $t('登录') }}
           </el-button>
         </el-form>
+        <template v-if="ssoUrl()">
+          <div class="my-4 flex items-center gap-3 text-xs text-gray-400">
+            <span class="h-px flex-1 bg-gray-200" />
+            {{ $t('或') }}
+            <span class="h-px flex-1 bg-gray-200" />
+          </div>
+          <a :href="ssoUrl()" class="block" data-testid="login-sso">
+            <el-button class="w-full">{{ $t('用 {0} 登录', [me?.sso?.name ?? '']) }}</el-button>
+          </a>
+        </template>
         <div class="mt-4 text-xs text-gray-400 leading-5">
           {{ $t('账号由管理员在首页「自动化 → 账号管理」里创建；忘记密码请联系管理员重置。') }}
         </div>

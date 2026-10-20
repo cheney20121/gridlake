@@ -32,6 +32,13 @@ export interface LedgerMe {
   packs?: { ecommerce: boolean }
   /** 通过分享链接访问时：被分享的工作簿（此时 mode 为 share，只能只读查看它） */
   share?: { workbookId: string, workbookName: string }
+  /** 服务端配置了单点登录（OIDC）：登录页显示「用 XX 登录」；loginPath 是整页跳转的入口，不是 fetch */
+  sso?: { name: string, loginPath: string }
+}
+
+/** 开始单点登录的地址（整页跳转）；登录完成后服务端把浏览器送回 returnTo（站内路径） */
+export function ssoLoginUrl(loginPath: string, returnTo: string) {
+  return `${LEDGER_BASE}/api${loginPath}?return=${encodeURIComponent(returnTo)}`
 }
 
 export function getLedgerMeApi() {

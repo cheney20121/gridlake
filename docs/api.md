@@ -17,7 +17,7 @@
 - **数据范围受限的用户**（管理员给用户设置了「只能看某些店铺」）：只能调用下表「受限用户」列为 ✓ 的接口，其余一律返回 403；✓ 的接口读取的数据也已按范围过滤。
 - **审计**：「审计」列非空的接口会记入操作审计，列里是审计里显示的操作名。
 
-共 205 个接口。
+共 207 个接口。
 
 ## 存活检查与运维
 
@@ -37,6 +37,8 @@
 | PUT | `/api/ledger/accounts/{id}` | { name?, admin?, disabled?, password? }（管理员） | 仅管理员 | — | 修改账号 |
 | POST | `/api/ledger/auth/login` | { username, password } → { token, days, user }，同时用 Set-Cookie 写入 HttpOnly 会话 cookie。 响应里的 token 供脚本 / 前后端分开部署时放进 x-user-token 请求头；浏览器页面不需要保存它 | 无需登录 | ✓ |  |
 | POST | `/api/ledger/auth/logout` | 作废当前令牌，并清除会话 cookie | 登录用户 | ✓ | 退出登录 |
+| GET | `/api/ledger/auth/oidc/callback` | 身份提供方登录后回到这里；成功 → 写会话 cookie 并 302 回应用，失败 → 302 到登录页带错误代码 | 无需登录 | ✓ |  |
+| GET | `/api/ledger/auth/oidc/login` | → 302 到身份提供方 查询参数：`return=/路径` | 无需登录 | ✓ |  |
 | POST | `/api/ledger/auth/password` | { oldPassword, newPassword } | 登录用户 | ✓ | 修改密码 |
 | GET | `/api/ledger/me` | 是否要求登录与当前用户（没登录时 user 为空，由前端跳转登录页） | 无需登录 | ✓ |  |
 

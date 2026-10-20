@@ -101,7 +101,7 @@ macOS 上如果编译 DuckDB 报 `'memory' file not found`，加上：`export CX
 | `LEDGER_AUTH_MODE` | 说明 |
 |---|---|
 | `off`（默认） | 不登录，任何能访问页面的人都可以使用全部功能。**只适合本机试用**：监听非本机地址（或 `LEDGER_CORS=*`）时服务会拒绝启动，确认已有其他保护才可用 `LEDGER_ALLOW_NO_AUTH=1` 放行 |
-| `local`（推荐） | 内置账号：管理员在页面里建账号；密码 PBKDF2-SHA256 保存，失败次数限制（重启不清零），登录记入审计；会话令牌放在 HttpOnly cookie 里，页面脚本读不到 |
+| `local`（推荐） | 内置账号：管理员在页面里建账号；密码 PBKDF2-SHA256 保存，失败次数限制（重启不清零），登录记入审计；会话令牌放在 HttpOnly cookie 里，页面脚本读不到；可再配 `LEDGER_OIDC_*` 加上**单点登录**（Keycloak / Okta / Azure AD 等，首次登录自动建账号） |
 | `gateway` | 对接已有的统一登录：浏览器带的令牌由服务端转给网关校验 |
 | `proxy` | 由反向代理（nginx `auth_request`、OAuth2 Proxy 等）传入身份，可接 OIDC / LDAP |
 

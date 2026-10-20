@@ -66,6 +66,72 @@ pub struct Config {
     pub allow_no_auth: bool,
     /// 允许自己审批自己提交的单据（小团队一个人兼任提交与审批时使用）；默认不允许
     pub allow_self_approve: bool,
+    /// 单点登录（OIDC）：只在 local 模式下可用，登录页多一个「用公司账号登录」；见 oidc.rs
+    pub oidc: Option<OidcConfig>,
+}
+
+/// OIDC 单点登录的配置（授权码 + PKCE）。身份提供方（Keycloak / Okta / Azure AD / Authentik / Casdoor / 企业微信等）要求支持 OIDC Discovery
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OidcConfig {
+    /// 签发者地址，不带结尾斜杠；`<issuer>/.well-known/openid-configuration` 要能访问到
+    pub issuer: String,
+    pub client_id: String,
+    /// 机密客户端的密钥；公开客户端（只靠 PKCE）可以不设
+    pub client_secret: Option<String>,
+    /// 回调地址，必须与身份提供方里登记的完全一致：`https://你的域名/api/ledger/auth/oidc/callback`
+    pub redirect_url: String,
+    pub scopes: String,
+    /// 登录页按钮上的名字，如「Keycloak」「公司账号」
+    pub display_name: String,
+    /// 取登录名的声明，依次回退到 email 的 @ 之前、sub
+    pub username_claim: String,
+    pub name_claim: String,
+    pub groups_claim: String,
+    /// 属于这个组的人是管理员（每次 SSO 登录时同步）；不设置就不通过 SSO 管理权限
+    pub admin_group: Option<String>,
+    /// 第一次 SSO 登录时自动建账号；关闭后只有已经绑定过的账号能用 SSO
+    pub auto_create: bool,
+    /// 第一次 SSO 登录时，把身份绑定到同名的已有账号（默认不绑，避免身份提供方里的同名用户顶替本地账号）
+    pub link_by_username: bool,
+}
+
+impl OidcConfig {
+    /// 解析 LEDGER_OIDC_*；没设置 LEDGER_OIDC_ISSUER 就是没启用
+    pub fn parse(get: impl Fn(&str) -> Option<String>) -> anyhow::Result<Option<Self>> {
+        let Some(issuer) = get("LEDGER_OIDC_ISSUER") else { return Ok(None) };
+        let on = |k: &str, default: bool| get(k).map_or(default, |v| matches!(v.to_lowercase().as_str(), "1" | "true" | "yes" | "on"));
+        let issuer = issuer.trim_end_matches('/').to_string();
+        let url = reqwest::Url::parse(&issuer).with_context(|| format!("LEDGER_OIDC_ISSUER 不是有效的网址（当前：{issuer}）"))?;
+        // 我们直接信任令牌接口返回的内容（OIDC 规范允许：经 TLS 从令牌接口直接拿到的 id_token 不必再验签），所以必须是加密连接
+        let loopback = url.host_str().is_some_and(|h| h == "localhost" || h.parse::<std::net::IpAddr>().is_ok_and(|ip| ip.is_loopback()));
+        if url.scheme() != "https" && !(url.scheme() == "http" && (loopback || on("LEDGER_OIDC_ALLOW_HTTP", false))) {
+            bail!("LEDGER_OIDC_ISSUER 必须是 https 地址（身份令牌靠 HTTPS 保证真实性）；内网明文部署请自担风险并设置 LEDGER_OIDC_ALLOW_HTTP=1");
+        }
+        let client_id = get("LEDGER_OIDC_CLIENT_ID").context("设置了 LEDGER_OIDC_ISSUER 就必须同时设置 LEDGER_OIDC_CLIENT_ID")?;
+        let redirect_url = get("LEDGER_OIDC_REDIRECT_URL").context("设置了 LEDGER_OIDC_ISSUER 就必须同时设置 LEDGER_OIDC_REDIRECT_URL（形如 https://你的域名/api/ledger/auth/oidc/callback）")?;
+        let redirect = reqwest::Url::parse(&redirect_url).with_context(|| format!("LEDGER_OIDC_REDIRECT_URL 不是有效的网址（当前：{redirect_url}）"))?;
+        if !matches!(redirect.scheme(), "http" | "https") {
+            bail!("LEDGER_OIDC_REDIRECT_URL 应以 http:// 或 https:// 开头");
+        }
+        let scopes = get("LEDGER_OIDC_SCOPES").unwrap_or_else(|| "openid profile email".into());
+        if !scopes.split_whitespace().any(|s| s == "openid") {
+            bail!("LEDGER_OIDC_SCOPES 必须包含 openid");
+        }
+        Ok(Some(Self {
+            issuer,
+            client_id,
+            client_secret: get("LEDGER_OIDC_CLIENT_SECRET"),
+            redirect_url,
+            scopes,
+            display_name: get("LEDGER_OIDC_NAME").unwrap_or_else(|| "SSO".into()),
+            username_claim: get("LEDGER_OIDC_USERNAME_CLAIM").unwrap_or_else(|| "preferred_username".into()),
+            name_claim: get("LEDGER_OIDC_NAME_CLAIM").unwrap_or_else(|| "name".into()),
+            groups_claim: get("LEDGER_OIDC_GROUPS_CLAIM").unwrap_or_else(|| "groups".into()),
+            admin_group: get("LEDGER_OIDC_ADMIN_GROUP"),
+            auto_create: on("LEDGER_OIDC_AUTO_CREATE", true),
+            link_by_username: on("LEDGER_OIDC_LINK_BY_USERNAME", false),
+        }))
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -249,6 +315,7 @@ impl Config {
             session_days: env("LEDGER_SESSION_DAYS").map(|v| v.parse().context("LEDGER_SESSION_DAYS 应为整数")).transpose()?.unwrap_or(7).clamp(1, 365),
             allow_no_auth: matches!(env("LEDGER_ALLOW_NO_AUTH").as_deref().map(str::to_lowercase).as_deref(), Some("1" | "true" | "yes")),
             allow_self_approve: matches!(env("LEDGER_ALLOW_SELF_APPROVE").as_deref().map(str::to_lowercase).as_deref(), Some("1" | "true" | "yes")),
+            oidc: OidcConfig::parse(env)?,
             audit_days: env("LEDGER_AUDIT_DAYS").map(|v| v.parse().context("LEDGER_AUDIT_DAYS 应为整数")).transpose()?.unwrap_or(365).max(1),
             connector_max_rows: env("LEDGER_CONNECTOR_MAX_ROWS").map(|v| v.parse().context("LEDGER_CONNECTOR_MAX_ROWS 应为整数")).transpose()?.unwrap_or(20_000_000),
             db_path,
@@ -256,6 +323,9 @@ impl Config {
         .and_then(|c| {
             if c.auth_mode == AuthMode::Gateway && !c.auth_url.as_deref().is_some_and(|u| u.starts_with("http://") || u.starts_with("https://")) {
                 bail!("LEDGER_AUTH_MODE=gateway 需要同时设置 LEDGER_AUTH_URL（以 http:// 或 https:// 开头的网关用户信息接口）");
+            }
+            if c.oidc.is_some() && c.auth_mode != AuthMode::Local {
+                bail!("LEDGER_OIDC_* 单点登录需要同时设置 LEDGER_AUTH_MODE=local（SSO 登录后使用内置账号体系的会话；网关 / 代理模式请直接在网关侧做 SSO）");
             }
             Ok(c)
         })
@@ -320,7 +390,7 @@ impl Config {
             self.packs.describe(),
             match self.auth_mode {
                 AuthMode::Off => "关闭".to_string(),
-                AuthMode::Local => format!("内置账号（登录有效 {} 天）", self.session_days),
+                AuthMode::Local => format!("内置账号（登录有效 {} 天{}）", self.session_days, self.oidc.as_ref().map(|o| format!("，SSO：{}", o.issuer)).unwrap_or_default()),
                 AuthMode::Gateway => format!("网关校验（管理员 {} 人）", self.admins.len()),
                 AuthMode::Proxy => format!("代理注入（管理员 {} 人）", self.admins.len()),
             },

@@ -16,7 +16,7 @@ const SERVER_DIR = path.resolve(WEB_DIR, '../server')
 
 // UITEST_PORT_OFFSET：整体平移端口，方便同时跑多份界面测试（如两个检出目录、或测试时本机正在手动开发）
 const PORT_OFFSET = Number(process.env.UITEST_PORT_OFFSET || 0)
-export const PORTS = { gateway: 19101 + PORT_OFFSET, ledger: 18901 + PORT_OFFSET, web: 5291 + PORT_OFFSET, llm: 19102 + PORT_OFFSET }
+export const PORTS = { gateway: 19101 + PORT_OFFSET, ledger: 18901 + PORT_OFFSET, web: 5291 + PORT_OFFSET, llm: 19102 + PORT_OFFSET, oidc: 19103 + PORT_OFFSET }
 export const WEB = `http://127.0.0.1:${PORTS.web}`
 export const API = `http://127.0.0.1:${PORTS.ledger}/api`
 /** mock_gateway.py 里的四个用户：Alice / Bob / Carol 是普通用户，Root 是管理员 */
@@ -80,9 +80,9 @@ async function waitHttp(url, timeoutMs, what) {
   throw new Error(`等待超时：${what}（${url}）`)
 }
 
-/** auth：gateway（默认，模拟登录网关 + 固定令牌）/ local（内置账号，管理员见 LOCAL_ADMIN） */
+/** auth：gateway（默认，模拟登录网关 + 固定令牌）/ local（内置账号，管理员见 LOCAL_ADMIN）；oidc：再配上模拟的单点登录身份提供方（只在 local 下有意义） */
 /** packs：服务端的 LEDGER_PACKS。界面测试默认启用电商场景包（多数用例要用台账），测「没启用」时传 'none' */
-export async function startServices({ auth = 'gateway', packs = 'ecommerce' } = {}) {
+export async function startServices({ auth = 'gateway', packs = 'ecommerce', oidc = false } = {}) {
   // UI_DB：指定一个现成的数据库（如 1 亿行压测库）供手动查看，退出时不删除；默认用临时目录
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ui-test-data-'))
   const dbPath = process.env.UI_DB || path.join(tmp, 'ledger.duckdb')
@@ -106,6 +106,8 @@ export async function startServices({ auth = 'gateway', packs = 'ecommerce' } = 
     bin = path.join(SERVER_DIR, 'target/debug/gridlake')
   }
 
+  if (oidc)
+    start('oidc', 'python3', [path.join(SERVER_DIR, 'tests/e2e/mock_oidc.py'), String(PORTS.oidc)])
   start('gateway', 'python3', [path.join(SERVER_DIR, 'tests/e2e/mock_gateway.py'), String(PORTS.gateway)])
   start('ledger', bin, [], {
     env: {
@@ -113,6 +115,17 @@ export async function startServices({ auth = 'gateway', packs = 'ecommerce' } = 
       ...(auth === 'local'
         ? { LEDGER_AUTH_MODE: 'local', LEDGER_ADMIN_USER: LOCAL_ADMIN.username, LEDGER_ADMIN_PASSWORD: LOCAL_ADMIN.password }
         : { LEDGER_AUTH_MODE: 'gateway', LEDGER_AUTH_URL: `http://127.0.0.1:${PORTS.gateway}/current_user` }),
+      // 单点登录：回调地址是浏览器能访问到的页面同源地址（经 vite 代理到表格服务）
+      ...(oidc
+        ? {
+            LEDGER_OIDC_ISSUER: `http://127.0.0.1:${PORTS.oidc}`,
+            LEDGER_OIDC_CLIENT_ID: 'gridlake',
+            LEDGER_OIDC_CLIENT_SECRET: 's3cret',
+            LEDGER_OIDC_REDIRECT_URL: `http://127.0.0.1:${PORTS.web}/ledger-api/api/ledger/auth/oidc/callback`,
+            LEDGER_OIDC_ADMIN_GROUP: 'gl-admins',
+            LEDGER_OIDC_NAME: 'Mock-SSO',
+          }
+        : {}),
       LEDGER_ADDR: `127.0.0.1:${PORTS.ledger}`,
       LEDGER_DB: dbPath,
       LEDGER_PACKS: packs,
@@ -136,6 +149,8 @@ export async function startServices({ auth = 'gateway', packs = 'ecommerce' } = 
   }
   try {
     await waitHttp(`http://127.0.0.1:${PORTS.gateway}/webconfig`, 15_000, '模拟网关')
+    if (oidc)
+      await waitHttp(`http://127.0.0.1:${PORTS.oidc}/__last`, 15_000, '模拟身份提供方')
     await waitHttp(`${API}/health`, 30_000, '表格服务')
     await waitHttp(`${WEB}/`, 180_000, '前端开发服务器')
   }

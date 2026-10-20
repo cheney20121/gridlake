@@ -98,6 +98,11 @@ pub struct Auth {
 }
 
 impl Auth {
+    /// 访问身份服务用的 HTTP 客户端（已加载 LEDGER_AUTH_CA_FILE 里的内部 CA）
+    pub(crate) fn http(&self) -> &reqwest::Client {
+        &self.client
+    }
+
     pub fn new(config: &Config) -> anyhow::Result<Self> {
         let (audit_tx, rx) = unbounded_channel();
         let mut http = reqwest::Client::builder().timeout(Duration::from_secs(5));
@@ -480,7 +485,7 @@ const ROUTES: &[(&str, &str, Rule, &str)] = &[
 
 /// 不需要登录的接口：存活检查、运维（自带令牌）、外部 AI 接入（自带令牌）、当前用户（返回是否已登录）
 fn is_public(path: &str) -> bool {
-    path == "/health" || path == "/mcp" || path.starts_with("/admin/") || path == "/ledger/me" || path == "/ledger/auth/login"
+    path == "/health" || path == "/mcp" || path.starts_with("/admin/") || path == "/ledger/me" || path == "/ledger/auth/login" || path.starts_with("/ledger/auth/oidc/")
 }
 
 /// 内置账号：按请求头 x-user-token 查会话（结果缓存 30 秒；账号变动时 clear_cache 立即作废）
@@ -782,6 +787,7 @@ async fn share_request(db: &AppState, peer: SocketAddr, mut req: Request, next: 
                 scope: Scope::all(),
                 packs: Packs { ecommerce: false },
                 share: Some(ShareMe { workbook_id: info.workbook_id.clone(), workbook_name: info.workbook_name.clone() }),
+                sso: None,
             };
             json(Ok(ok(me).into_response()))
         }
@@ -1025,6 +1031,17 @@ pub struct Me {
     /// 通过分享链接访问时：分享的是哪个工作簿（此时 mode 为 share，只能只读查看它）
     #[serde(skip_serializing_if = "Option::is_none")]
     share: Option<ShareMe>,
+    /// 配置了单点登录（OIDC）时：登录页据此显示「用 XX 登录」按钮
+    #[serde(skip_serializing_if = "Option::is_none")]
+    sso: Option<SsoInfo>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SsoInfo {
+    name: String,
+    /// 开始登录的接口路径（相对 API 根）；整页跳转过去，不是 fetch
+    login_path: &'static str,
 }
 
 #[derive(Serialize)]
@@ -1048,7 +1065,7 @@ pub async fn me(State(db): State<AppState>, Extension(id): Extension<Identity>, 
         AuthMode::Proxy => "proxy",
     };
     let scope = scope.map_or_else(Scope::all, |Extension(s)| (*s.0).clone());
-    Ok(ok(Me { auth_required: db.auth.enabled(), mode, user: id.0, scope, packs: Packs { ecommerce: crate::ecommerce::enabled() }, share: None }))
+    Ok(ok(Me { auth_required: db.auth.enabled(), mode, user: id.0, scope, packs: Packs { ecommerce: crate::ecommerce::enabled() }, share: None, sso: db.config.oidc.as_ref().map(|o| SsoInfo { name: o.display_name.clone(), login_path: crate::oidc::LOGIN_PATH }) }))
 }
 
 // ── 审计 ──────────────────────────────────────────────

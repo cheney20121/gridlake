@@ -39,6 +39,7 @@ mod mcp;
 mod metrics;
 mod msg_i18n;
 mod netguard;
+mod oidc;
 mod pat;
 mod share;
 mod pivot;
@@ -265,6 +266,8 @@ async fn serve(config: config::Config) -> anyhow::Result<()> {
         .route("/ledger/report-channels/{id}/test", post(routes::test_report_channel))
         .route("/ledger/me", get(auth::me))
         .route("/ledger/auth/login", post(account::login_route))
+        .route("/ledger/auth/oidc/login", get(oidc::login_route))
+        .route("/ledger/auth/oidc/callback", get(oidc::callback_route))
         .route("/ledger/auth/logout", post(account::logout_route))
         .route("/ledger/auth/password", post(account::password_route))
         .route("/ledger/tokens", get(pat::list_route).post(pat::create_route))

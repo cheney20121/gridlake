@@ -2625,5 +2625,17 @@
   "正在加载…": "Loading…",
   "这个分享链接已失效或不存在": "This share link has expired or does not exist",
   "可能已过期、被分享人撤销，或者工作簿已被删除。请向分享人要一个新的链接。": "It may have expired, been revoked, or the workbook may have been deleted. Ask the person who shared it for a new link.",
-  "打开失败": "Failed to open"
+  "打开失败": "Failed to open",
+  "用 {0} 登录": "Sign in with {0}",
+  "或": "or",
+  "你取消了授权，或没有被授予访问权限。": "You cancelled the sign-in, or you have not been granted access.",
+  "登录请求已过期或不完整，请重新点击登录。": "The sign-in request has expired or is incomplete. Please try again.",
+  "身份提供方返回的登录凭证没有通过校验，请联系管理员。": "The sign-in credentials returned by the identity provider failed validation. Contact an administrator.",
+  "账号已停用，请联系管理员。": "This account is disabled. Contact an administrator.",
+  "你的账号还没有开通，请联系管理员。": "Your account has not been set up yet. Contact an administrator.",
+  "连不上身份提供方，请稍后再试或联系管理员。": "Cannot reach the identity provider. Try again later or contact an administrator.",
+  "单点登录的配置有误，请联系管理员。": "Single sign-on is misconfigured. Contact an administrator.",
+  "正在登录的人太多了，请稍后再试。": "Too many sign-ins in progress. Please try again shortly.",
+  "身份提供方返回了错误，请稍后再试。": "The identity provider returned an error. Please try again later.",
+  "单点登录失败，请重试；仍然不行请联系管理员。": "Single sign-on failed. Try again; if it keeps failing, contact an administrator."
 }
