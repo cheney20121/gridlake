@@ -48,7 +48,7 @@ pub struct Config {
     pub auth_url: Option<String>,
     /// 校验结果缓存秒数（令牌被网关吊销后最多这么久仍有效）
     pub auth_cache_secs: u64,
-    /// gateway 模式：网关用内部 CA 签发 HTTPS 证书时，这个 PEM 文件里的根证书（可含多个）会被信任；
+    /// 内部 CA 签发 HTTPS 证书时，这个 PEM 文件里的根证书（可含多个）会被信任（网关 / 单点登录的身份提供方 / 对象存储连接器）；
     /// 程序只内置公共根证书，不配置的话企业内网网关的证书校验会失败，所有人登录不了
     pub auth_ca_file: Option<PathBuf>,
     /// 管理员：用户 id 或登录名，逗号分隔；网关标记为超级管理员 / 租户管理员的用户同样是管理员
@@ -183,6 +183,16 @@ impl PackSetting {
             Self::Only(v) => v.join("+"),
         }
     }
+}
+
+/// 读取 LEDGER_AUTH_CA_FILE（PEM，可含多个证书）：访问身份服务、对象存储时额外信任这些内部 CA。配错在启动时就报错
+pub fn load_root_certs(path: &std::path::Path) -> anyhow::Result<Vec<reqwest::Certificate>> {
+    let pem = std::fs::read(path).map_err(|e| anyhow::anyhow!("读取 LEDGER_AUTH_CA_FILE 失败（{}）：{e}", path.display()))?;
+    let certs = reqwest::Certificate::from_pem_bundle(&pem).map_err(|e| anyhow::anyhow!("LEDGER_AUTH_CA_FILE 不是有效的 PEM 证书（{}）：{e}", path.display()))?;
+    if certs.is_empty() {
+        bail!("LEDGER_AUTH_CA_FILE 里没有证书：{}", path.display());
+    }
+    Ok(certs)
 }
 
 fn env(key: &str) -> Option<String> {

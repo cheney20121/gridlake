@@ -295,9 +295,16 @@ fn parse_list(xml: &str) -> ListPage {
 
 // ── 列出与下载 ────────────────────────────────────────
 
-pub fn client() -> AppResult<reqwest::Client> {
+pub fn client(ca_file: Option<&Path>) -> AppResult<reqwest::Client> {
     // 列表和小文件不该卡很久；大文件下载靠整体超时之外的「每次读取」超时兜底
-    reqwest::Client::builder().connect_timeout(Duration::from_secs(15)).read_timeout(Duration::from_secs(120)).build().map_err(|e| AppError::bad(format!("无法创建网络客户端：{e}")))
+    let mut b = reqwest::Client::builder().connect_timeout(Duration::from_secs(15)).read_timeout(Duration::from_secs(120));
+    // 自建存储（MinIO 等）常用内部 CA 签发的证书：和网关 / 单点登录共用 LEDGER_AUTH_CA_FILE
+    if let Some(path) = ca_file {
+        for c in crate::config::load_root_certs(path).map_err(|e| AppError::bad(e.to_string()))? {
+            b = b.add_root_certificate(c);
+        }
+    }
+    b.build().map_err(|e| AppError::bad(format!("无法创建网络客户端：{e}")))
 }
 
 fn display_path(bucket: &str, key: &str) -> String {

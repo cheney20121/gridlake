@@ -223,7 +223,7 @@ impl Runtime {
             inbox_roots: config.inbox_roots.clone(),
             max_rows: config.connector_max_rows,
             max_file_bytes: config.max_upload_mb as u64 * 1024 * 1024,
-            s3_client: s3::client().map_err(|e| anyhow::anyhow!(e.message()))?,
+            s3_client: s3::client(config.auth_ca_file.as_deref()).map_err(|e| anyhow::anyhow!(e.message()))?,
             running: Mutex::new(HashSet::new()),
         })
     }

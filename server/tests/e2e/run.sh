@@ -33,6 +33,23 @@ trap cleanup EXIT
 
 wait_http() { for _ in $(seq 1 50); do curl -s -o /dev/null "$1" && return 0; sleep 0.2; done; return 1; }
 
+# 测试用的内部 CA 与服务器证书（TLS 测试用：对象存储连接器通过 LEDGER_AUTH_CA_FILE 信任它）。没有 openssl 时跳过，依赖它的测试会自行跳过
+TLS_DIR="$TMP/tls"
+if command -v openssl >/dev/null && mkdir -p "$TLS_DIR" && (
+  cd "$TLS_DIR" &&
+  openssl req -x509 -newkey rsa:2048 -nodes -keyout ca.key -out ca.pem -days 30 -subj "/CN=Gridlake Test CA" \
+    -addext "basicConstraints=critical,CA:TRUE" -addext "keyUsage=critical,keyCertSign,cRLSign" &&
+  openssl req -newkey rsa:2048 -nodes -keyout server.key -out server.csr -subj "/CN=localhost" &&
+  printf 'subjectAltName=IP:127.0.0.1,DNS:localhost\nbasicConstraints=CA:FALSE\nextendedKeyUsage=serverAuth\n' >ext.cnf &&
+  openssl x509 -req -in server.csr -CA ca.pem -CAkey ca.key -CAcreateserial -out server.pem -days 30 -extfile ext.cnf
+) >"$TMP/tls.log" 2>&1; then
+  export LEDGER_E2E_TLS_DIR="$TLS_DIR"
+  CA_ENV="LEDGER_AUTH_CA_FILE=$TLS_DIR/ca.pem"
+else
+  CA_ENV=""
+  echo "（没有生成测试证书，TLS 相关的测试会跳过）"
+fi
+
 failed=()
 ran=0
 for t in tests/e2e/test_*.py; do
@@ -50,7 +67,7 @@ for t in tests/e2e/test_*.py; do
   # 测试文件里的环境变量放在最后，可以覆盖默认值（如 test_30 改用内置账号 LEDGER_AUTH_MODE=local）
   env LEDGER_AI_BASE_URL="http://127.0.0.1:${LLM_PORT}/v1" LEDGER_AI_MODEL=mock-model LEDGER_AI_STREAM=0 \
     LEDGER_AUTH_MODE=gateway LEDGER_AUTH_URL="http://127.0.0.1:${GW_PORT}/current_user" LEDGER_PACKS=ecommerce \
-    LEDGER_ADDR="127.0.0.1:${PORT}" LEDGER_DB="$TMP/data/ledger.duckdb" LEDGER_BACKUP_AT=off $EXTRA_ENV \
+    LEDGER_ADDR="127.0.0.1:${PORT}" LEDGER_DB="$TMP/data/ledger.duckdb" LEDGER_BACKUP_AT=off $CA_ENV $EXTRA_ENV \
     "$BIN" >"$TMP/server.log" 2>&1 & SRV=$!
   PIDS=("$GW" "$SRV")
   if wait_http "http://127.0.0.1:${PORT}/api/health" && wait_http "http://127.0.0.1:${GW_PORT}/webconfig"; then

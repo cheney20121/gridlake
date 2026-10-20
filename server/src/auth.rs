@@ -107,12 +107,7 @@ impl Auth {
         let (audit_tx, rx) = unbounded_channel();
         let mut http = reqwest::Client::builder().timeout(Duration::from_secs(5));
         if let Some(path) = &config.auth_ca_file {
-            let pem = std::fs::read(path).map_err(|e| anyhow::anyhow!("读取 LEDGER_AUTH_CA_FILE 失败（{}）：{e}", path.display()))?;
-            let certs = reqwest::Certificate::from_pem_bundle(&pem).map_err(|e| anyhow::anyhow!("LEDGER_AUTH_CA_FILE 不是有效的 PEM 证书（{}）：{e}", path.display()))?;
-            if certs.is_empty() {
-                anyhow::bail!("LEDGER_AUTH_CA_FILE 里没有证书：{}", path.display());
-            }
-            for c in certs {
+            for c in crate::config::load_root_certs(path)? {
                 http = http.add_root_certificate(c);
             }
         }

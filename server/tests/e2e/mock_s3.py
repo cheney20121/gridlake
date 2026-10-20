@@ -4,6 +4,8 @@
 也可以被 test_44_s3.py 直接导入，共享 OBJECTS / state。
 """
 import datetime
+import os
+import ssl
 import hashlib
 import hmac
 import sys
@@ -119,8 +121,14 @@ def access_ok(auth):
     return f"Credential={ACCESS}/" in auth
 
 
-def start():
-    srv = ThreadingHTTPServer(("127.0.0.1", PORT), H)
+def start(port=None, tls=False):
+    """后台起服务；tls=True 时用 run.sh 生成的测试证书（LEDGER_E2E_TLS_DIR）提供 HTTPS"""
+    srv = ThreadingHTTPServer(("127.0.0.1", port or PORT), H)
+    if tls:
+        d = os.environ["LEDGER_E2E_TLS_DIR"]
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ctx.load_cert_chain(os.path.join(d, "server.pem"), os.path.join(d, "server.key"))
+        srv.socket = ctx.wrap_socket(srv.socket, server_side=True)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     return srv
 

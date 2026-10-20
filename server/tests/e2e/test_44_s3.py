@@ -5,6 +5,7 @@
 """
 from lib import *  # noqa: F403
 import datetime
+import os
 import json
 
 from mock_s3 import ACCESS, BUCKET, OBJECTS, PORT, REGION, SECRET, ago, csv, start, state  # noqa: E402
@@ -114,6 +115,16 @@ check("编辑时密钥留空：沿用已保存的", s == 200, (s, r))
 rec = run()
 check("沿用密钥后仍能同步（全部已导入，跳过）", rec["status"] == "skipped", rec)
 check("全程签名校验通过", not state["bad"], state["bad"])
+
+# ── 内部 CA 签发的 https 存储（LEDGER_AUTH_CA_FILE） ──
+if os.environ.get("LEDGER_E2E_TLS_DIR"):
+    tls = start(port=19005, tls=True)
+    s, r = call("POST", "/ledger/connectors/test", R, body={"source": source(endpoint="https://127.0.0.1:19005")})
+    check("https 存储：证书由 LEDGER_AUTH_CA_FILE 里的内部 CA 签发，能连上并列出对象", s == 200 and len(r["data"]["files"]) >= 5, (s, r))
+    check("https 请求的签名同样通过", not state["bad"], state["bad"])
+    tls.shutdown()
+else:
+    print("SKIP 内部 CA 的 https 测试（没有 openssl）")
 
 srv.shutdown()
 finish()
