@@ -2292,7 +2292,7 @@
   "请填写令牌名称，如「CI」「数据同步脚本」": "Enter a token name, such as \"CI\" or \"sync script\"",
   "吊销令牌「{0}」？使用它的脚本将立即无法访问，此操作不能撤销。": "Revoke token \"{0}\"? Scripts using it lose access immediately. This can't be undone.",
   "访问令牌": "Access tokens",
-  "给脚本、CI 或其他系统调用接口用，权限与你的账号相同。令牌只在创建时显示一次，请立即保存；不用时随时吊销。": "For scripts, CI or other systems that call the API; they have the same permissions as your account. A token is shown only once when created, so save it right away; revoke it whenever you no longer need it.",
+  "给脚本、CI 或其他系统调用接口用，权限与你的账号相同；勾选「只读令牌」则只能读取数据、不能修改。令牌只在创建时显示一次，请立即保存；不用时随时吊销。": "For scripts, CI or other systems that call the API; they have the same permissions as your account. Tick “Read-only token” to allow reading data only, with no changes. A token is shown only once when created, so save it right away; revoke it whenever you no longer need it.",
   "用法：": "Usage: ",
   "令牌名称，如「数据同步脚本」": "Token name, e.g. \"sync script\"",
   "过期": "Expires",
@@ -2637,5 +2637,6 @@
   "单点登录的配置有误，请联系管理员。": "Single sign-on is misconfigured. Contact an administrator.",
   "正在登录的人太多了，请稍后再试。": "Too many sign-ins in progress. Please try again shortly.",
   "身份提供方返回了错误，请稍后再试。": "The identity provider returned an error. Please try again later.",
-  "单点登录失败，请重试；仍然不行请联系管理员。": "Single sign-on failed. Try again; if it keeps failing, contact an administrator."
+  "单点登录失败，请重试；仍然不行请联系管理员。": "Single sign-on failed. Try again; if it keeps failing, contact an administrator.",
+  "只读令牌": "Read-only token"
 }

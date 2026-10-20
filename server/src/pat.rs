@@ -2,6 +2,8 @@
 //!
 //! - 只用于内置账号登录（`LEDGER_AUTH_MODE=local`）：令牌绑定到一个内置账号，权限与该账号完全相同；
 //! - 格式 `glp_` + 32 字节随机数（43 个字符）。库里只存 SHA-256 摘要，创建时返回一次，之后看不到；
+//! - **只读令牌**以 `glr_` 开头：只能读取数据（GET / HEAD，以及 [`crate::auth::READ_ONLY_POST`] 里登记的计算类 POST），其余写操作一律 403。
+//!   「只读」写在令牌本身的前缀里而不是单独的表列：旧版程序不认识 `glr_`，降级后只会拒绝这类令牌，不会把它当成完全权限的令牌；
 //! - 用法：`Authorization: Bearer glp_…` 或 `x-user-token: glp_…`；
 //! - 可以设有效期（默认 90 天，也可以不过期），随时吊销；账号被停用、删除后令牌立即失效；
 //! - **不能用令牌创建 / 吊销令牌**，需要用登录会话操作：令牌泄露后攻击者没法给自己再造一批；
@@ -24,13 +26,20 @@ use crate::error::{AppError, AppResult, Envelope, ok};
 use crate::routes::{AppState, parse_json};
 
 pub const PREFIX: &str = "glp_";
+/// 只读令牌的前缀
+pub const PREFIX_READ_ONLY: &str = "glr_";
 const MAX_PER_ACCOUNT: i64 = 20;
 const DEFAULT_DAYS: i64 = 90;
 const MAX_DAYS: i64 = 3650;
 
 /// 令牌的字符串是不是个人访问令牌（而不是登录会话令牌）
 pub fn is_pat(token: &str) -> bool {
-    token.starts_with(PREFIX)
+    token.starts_with(PREFIX) || token.starts_with(PREFIX_READ_ONLY)
+}
+
+/// 是不是只读令牌（只看前缀；令牌内容被改动就对不上库里的摘要，认证时会失败）
+pub fn is_read_only(token: &str) -> bool {
+    token.starts_with(PREFIX_READ_ONLY)
 }
 
 #[derive(Serialize, Debug)]
@@ -45,6 +54,8 @@ pub struct Pat {
     pub expires_at: Option<String>,
     pub last_used_at: Option<String>,
     pub expired: bool,
+    /// 只读令牌：只能读取，不能修改任何数据
+    pub read_only: bool,
 }
 
 #[derive(Serialize, Debug)]
@@ -60,7 +71,8 @@ const COLS: &str = "id, name, prefix, strftime(created_at, '%Y-%m-%d %H:%M:%S'),
                     (expires_at IS NOT NULL AND expires_at <= CAST(? AS TIMESTAMP))";
 
 fn read(r: &duckdb::Row) -> duckdb::Result<Pat> {
-    Ok(Pat { id: r.get(0)?, name: r.get(1)?, prefix: r.get(2)?, created_at: r.get(3)?, expires_at: r.get(4)?, last_used_at: r.get(5)?, expired: r.get(6)? })
+    let prefix: String = r.get(2)?;
+    Ok(Pat { id: r.get(0)?, name: r.get(1)?, read_only: prefix.starts_with(PREFIX_READ_ONLY), prefix, created_at: r.get(3)?, expires_at: r.get(4)?, last_used_at: r.get(5)?, expired: r.get(6)? })
 }
 
 pub fn list(conn: &Connection, account_id: &str) -> AppResult<Vec<Pat>> {
@@ -68,8 +80,8 @@ pub fn list(conn: &Connection, account_id: &str) -> AppResult<Vec<Pat>> {
     Ok(stmt.query_map(params![now_local(), account_id], read)?.collect::<Result<Vec<_>, _>>()?)
 }
 
-/// 新建令牌；`days` 为 None 表示永不过期
-pub fn create(conn: &Connection, account_id: &str, name: &str, days: Option<i64>) -> AppResult<Created> {
+/// 新建令牌；`days` 为 None 表示永不过期；`read_only` 为真时生成只读令牌（`glr_` 开头）
+pub fn create(conn: &Connection, account_id: &str, name: &str, days: Option<i64>, read_only: bool) -> AppResult<Created> {
     let name = name.trim();
     if name.is_empty() || name.chars().count() > 40 {
         return Err(AppError::bad("令牌名称不能为空，且不超过 40 个字符"));
@@ -83,12 +95,13 @@ pub fn create(conn: &Connection, account_id: &str, name: &str, days: Option<i64>
     if existing >= MAX_PER_ACCOUNT {
         return Err(AppError::bad(format!("每个账号最多 {MAX_PER_ACCOUNT} 个访问令牌，请先吊销不用的")));
     }
-    let token = format!("{PREFIX}{}", URL_SAFE_NO_PAD.encode(random_bytes::<32>()));
+    let lead = if read_only { PREFIX_READ_ONLY } else { PREFIX };
+    let token = format!("{lead}{}", URL_SAFE_NO_PAD.encode(random_bytes::<32>()));
     let id = format!("pat_{}", URL_SAFE_NO_PAD.encode(random_bytes::<9>()));
     conn.execute(
         "INSERT INTO ledger_pat (id, account_id, name, token_hash, prefix, created_at, expires_at)
          VALUES (?, ?, ?, ?, ?, CAST(? AS TIMESTAMP), CAST(? AS TIMESTAMP))",
-        params![id, account_id, name, token_hash(&token), &token[..PREFIX.len() + 4], now_local(), days.map(expires_after)],
+        params![id, account_id, name, token_hash(&token), &token[..lead.len() + 4], now_local(), days.map(expires_after)],
     )?;
     let pat = conn.query_row(&format!("SELECT {COLS} FROM ledger_pat WHERE id = ?"), params![now_local(), id], read)?;
     Ok(Created { pat, token })
@@ -153,19 +166,22 @@ pub struct NewToken {
     /// 有效期天数；不传用 90 天，传 null 或 0 表示永不过期
     #[serde(default = "default_days")]
     pub days: Option<i64>,
+    /// 只读令牌：只能读取数据，写操作一律拒绝（适合报表、监控、给第三方看数据的脚本）
+    #[serde(default)]
+    pub read_only: bool,
 }
 
 fn default_days() -> Option<i64> {
     Some(DEFAULT_DAYS)
 }
 
-/// POST /api/ledger/tokens  { name, days? }  新建访问令牌；响应里的 token 只显示这一次
+/// POST /api/ledger/tokens  { name, days?, readOnly? }  新建访问令牌；响应里的 token 只显示这一次
 pub async fn create_route(State(db): State<AppState>, Extension(user): Extension<CurrentUser>, headers: HeaderMap, body: Bytes) -> AppResult<Json<Envelope<Created>>> {
     require_local(&db)?;
     require_session(&headers)?;
     let b: NewToken = parse_json(&body)?;
     let days = b.days.filter(|d| *d != 0);
-    Ok(ok(run(&db, move |c| create(c, &user.id, &b.name, days)).await?))
+    Ok(ok(run(&db, move |c| create(c, &user.id, &b.name, days, b.read_only)).await?))
 }
 
 /// DELETE /api/ledger/tokens/{id}  吊销我的访问令牌（立即生效）
@@ -193,7 +209,7 @@ mod tests {
     #[test]
     fn created_token_authenticates_and_is_only_stored_as_a_hash() {
         let c = db();
-        let made = create(&c, "a1", "CI", Some(30)).unwrap();
+        let made = create(&c, "a1", "CI", Some(30), false).unwrap();
         assert!(made.token.starts_with(PREFIX) && made.token.len() >= 40, "{}", made.token);
         assert_eq!(made.pat.prefix, &made.token[..8]);
         let u = user_for(&c, &made.token).unwrap().expect("应认得这个令牌");
@@ -210,12 +226,12 @@ mod tests {
     #[test]
     fn expiry_revocation_and_disabled_accounts() {
         let c = db();
-        let made = create(&c, "a1", "t", Some(1)).unwrap();
+        let made = create(&c, "a1", "t", Some(1), false).unwrap();
         c.execute("UPDATE ledger_pat SET expires_at = CAST('2000-01-01 00:00:00' AS TIMESTAMP)", []).unwrap();
         assert!(user_for(&c, &made.token).unwrap().is_none(), "过期");
         assert!(list(&c, "a1").unwrap()[0].expired);
 
-        let forever = create(&c, "a1", "never", None).unwrap();
+        let forever = create(&c, "a1", "never", None, false).unwrap();
         assert!(forever.pat.expires_at.is_none());
         assert!(user_for(&c, &forever.token).unwrap().is_some());
         c.execute("UPDATE ledger_account SET disabled = true WHERE id = 'a1'", []).unwrap();
@@ -226,27 +242,44 @@ mod tests {
         assert!(user_for(&c, &forever.token).unwrap().is_none(), "吊销后失效");
         assert!(revoke(&c, "a1", &forever.pat.id).is_err());
         // 不能吊销别人的
-        let other = create(&c, "a1", "x", None).unwrap();
+        let other = create(&c, "a1", "x", None, false).unwrap();
         assert!(revoke(&c, "someone-else", &other.pat.id).is_err());
+    }
+
+    #[test]
+    fn read_only_tokens_are_marked_by_their_prefix() {
+        let c = db();
+        let ro = create(&c, "a1", "report", None, true).unwrap();
+        assert!(ro.token.starts_with("glr_") && ro.pat.read_only && ro.pat.prefix.starts_with("glr_"));
+        assert!(is_pat(&ro.token) && is_read_only(&ro.token));
+        // 认证照常，权限由中间件按前缀限制
+        assert!(user_for(&c, &ro.token).unwrap().is_some());
+        // 把前缀改成 glp_ 冒充完全权限令牌：摘要对不上
+        let forged = format!("glp_{}", &ro.token[4..]);
+        assert!(is_pat(&forged) && !is_read_only(&forged));
+        assert!(user_for(&c, &forged).unwrap().is_none());
+        let full = create(&c, "a1", "full", None, false).unwrap();
+        assert!(!full.pat.read_only && !is_read_only(&full.token));
+        assert!(list(&c, "a1").unwrap().iter().any(|p| p.read_only));
     }
 
     #[test]
     fn validation_and_limits() {
         let c = db();
-        assert!(create(&c, "a1", "  ", None).is_err());
-        assert!(create(&c, "a1", &"x".repeat(41), None).is_err());
-        assert!(create(&c, "a1", "ok", Some(0)).is_err());
-        assert!(create(&c, "a1", "ok", Some(MAX_DAYS + 1)).is_err());
+        assert!(create(&c, "a1", "  ", None, false).is_err());
+        assert!(create(&c, "a1", &"x".repeat(41), None, false).is_err());
+        assert!(create(&c, "a1", "ok", Some(0), false).is_err());
+        assert!(create(&c, "a1", "ok", Some(MAX_DAYS + 1), false).is_err());
         for i in 0..MAX_PER_ACCOUNT {
-            create(&c, "a1", &format!("t{i}"), None).unwrap();
+            create(&c, "a1", &format!("t{i}"), None, false).unwrap();
         }
-        assert!(create(&c, "a1", "one too many", None).is_err());
+        assert!(create(&c, "a1", "one too many", None, false).is_err());
     }
 
     #[test]
     fn last_used_is_recorded_without_writing_on_every_call() {
         let c = db();
-        let made = create(&c, "a1", "t", Some(30)).unwrap();
+        let made = create(&c, "a1", "t", Some(30), false).unwrap();
         assert!(list(&c, "a1").unwrap()[0].last_used_at.is_none());
         user_for(&c, &made.token).unwrap();
         let first = list(&c, "a1").unwrap()[0].last_used_at.clone();

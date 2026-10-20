@@ -674,6 +674,9 @@ pub async fn guard(State(db): State<AppState>, ConnectInfo(peer): ConnectInfo<So
         Ok(u) => u,
         Err(e) => return e.into_response(),
     };
+    if auth.mode == AuthMode::Local && crate::pat::is_read_only(&crate::account::token_of(req.headers())) && !read_only_allows(&method, &path) {
+        return AppError::Forbidden("这是只读访问令牌，只能读取数据，不能执行修改类操作；需要写入请使用完全权限的令牌".into()).into_response();
+    }
     let ip = client_ip(req.headers(), peer.ip());
     remember_user(&db, &user);
     let scope = match resolve_scope(&db, &user).await {
@@ -904,6 +907,24 @@ const FULL_ONLY: &[(&str, &str)] = &[
     // 分享链接把工作簿和它用到的数据集开放给没有账号的人：受限用户不能创建（要创建的人本身就得能看到全部数据）
     ("GET", "/ledger/workbooks/{id}/shares"), ("POST", "/ledger/workbooks/{id}/shares"), ("DELETE", "/ledger/shares/{id}"),
 ];
+
+/// 只读访问令牌（`glr_…`，见 pat.rs）除了 GET / HEAD 之外还能调用的接口：都是「用 POST 带复杂查询条件、但不修改任何数据」的计算类接口。
+/// 默认拒绝：新增的 POST 接口不登记在这里，只读令牌就调不了
+pub(crate) const READ_ONLY_POST: &[&str] = &[
+    "/ledger/datasets/{id}/cursor",
+    "/ledger/datasets/{id}/stats",
+    "/ledger/datasets/{id}/distinct",
+    "/ledger/datasets/{id}/aggregate",
+    "/ledger/datasets/{id}/pivot",
+    "/ledger/datasets/{id}/calc/preview",
+    "/ledger/sql/run",
+    "/ledger/workbooks/ranges",
+];
+
+/// 只读令牌能不能发这个请求
+fn read_only_allows(method: &Method, path: &str) -> bool {
+    matches!(*method, Method::GET | Method::HEAD) || (*method == Method::POST && READ_ONLY_POST.iter().any(|t| match_template(t, path).is_some()))
+}
 
 /// 受限用户能不能调用：只有登记在 `RESTRICTED_OK` 里的才行（HEAD 按 GET 算）
 fn restricted_ok(method: &Method, path: &str) -> bool {
@@ -1322,6 +1343,27 @@ mod tests {
         }
         for (m, t) in RESTRICTED_OK {
             assert!(has(m, t), "RESTRICTED_OK 里的路径没有注册：{m} {t}");
+        }
+        for t in READ_ONLY_POST {
+            assert!(has("POST", t), "READ_ONLY_POST 里的路径没有注册：{t}");
+        }
+    }
+
+    #[test]
+    fn read_only_tokens_can_only_read() {
+        for (m, p) in [(Method::GET, "/ledger/workbooks"), (Method::HEAD, "/ledger/datasets/d1/rows"), (Method::POST, "/ledger/datasets/d1/cursor"), (Method::POST, "/ledger/sql/run")] {
+            assert!(read_only_allows(&m, p), "{m} {p}");
+        }
+        for (m, p) in [
+            (Method::POST, "/ledger/datasets/d1/writeback"),
+            (Method::POST, "/ledger/workbooks"),
+            (Method::PUT, "/ledger/workbooks/w1/content"),
+            (Method::DELETE, "/ledger/datasets/d1"),
+            (Method::POST, "/ledger/tokens"),
+            (Method::POST, "/ledger/auth/logout"),
+            (Method::POST, "/ledger/brand/new"),
+        ] {
+            assert!(!read_only_allows(&m, p), "{m} {p}");
         }
     }
 

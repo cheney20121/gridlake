@@ -13,6 +13,7 @@ const items = ref<AccessToken[]>([])
 const loading = ref(false)
 const name = ref('')
 const days = ref(90)
+const readOnly = ref(false)
 const creating = ref(false)
 const error = ref('')
 const created = ref<CreatedAccessToken | null>(null)
@@ -38,6 +39,7 @@ watch(visible, (v) => {
   if (v) {
     name.value = ''
     days.value = 90
+    readOnly.value = false
     error.value = ''
     created.value = null
     load()
@@ -50,7 +52,7 @@ async function create() {
     return (error.value = t('请填写令牌名称，如「CI」「数据同步脚本」'))
   creating.value = true
   try {
-    created.value = await createAccessTokenApi(name.value.trim(), days.value)
+    created.value = await createAccessTokenApi(name.value.trim(), days.value, readOnly.value)
     name.value = ''
     await load()
   }
@@ -93,7 +95,7 @@ const origin = window.location.origin
 <template>
   <el-dialog v-model="visible" :title="$t('访问令牌')" width="680px" append-to-body data-testid="token-dialog">
     <div class="mb-3 text-[13px] text-gray-500 leading-6">
-      {{ $t('给脚本、CI 或其他系统调用接口用，权限与你的账号相同。令牌只在创建时显示一次，请立即保存；不用时随时吊销。') }}
+      {{ $t('给脚本、CI 或其他系统调用接口用，权限与你的账号相同；勾选「只读令牌」则只能读取数据、不能修改。令牌只在创建时显示一次，请立即保存；不用时随时吊销。') }}
     </div>
 
     <div v-if="created" class="mb-4 border border-[#a7d7b8] rounded-lg bg-[#f1faf4] p-3" data-testid="token-created">
@@ -116,6 +118,9 @@ const origin = window.location.origin
       <el-select v-model="days" class="w-32" data-testid="token-days">
         <el-option v-for="d in DAYS" :key="d.value" :label="d.label" :value="d.value" />
       </el-select>
+      <el-checkbox v-model="readOnly" data-testid="token-readonly">
+        {{ $t('只读令牌') }}
+      </el-checkbox>
       <el-button type="primary" :loading="creating" data-testid="token-create" @click="create">
         {{ $t('创建令牌') }}
       </el-button>
@@ -125,7 +130,14 @@ const origin = window.location.origin
     </div>
 
     <el-table v-loading="loading" :data="items" size="small" :empty-text="$t('还没有访问令牌')" max-height="320">
-      <el-table-column :label="$t('名称')" min-width="120" prop="name" />
+      <el-table-column :label="$t('名称')" min-width="120">
+        <template #default="{ row }">
+          {{ row.name }}
+          <el-tag v-if="row.readOnly" size="small" type="info" class="ml-1">
+            {{ $t('只读令牌') }}
+          </el-tag>
+        </template>
+      </el-table-column>
       <el-table-column :label="$t('令牌')" width="110">
         <template #default="{ row }">
           <code class="text-xs">{{ row.prefix }}…</code>

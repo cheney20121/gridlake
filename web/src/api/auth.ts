@@ -194,6 +194,8 @@ export interface AccessToken {
   expiresAt: string | null
   lastUsedAt: string | null
   expired: boolean
+  /** 只读令牌（glr_ 开头）：只能读取数据，写操作一律被拒绝 */
+  readOnly: boolean
 }
 
 export interface CreatedAccessToken extends AccessToken {
@@ -205,9 +207,9 @@ export function listAccessTokensApi() {
   return request<AccessToken[]>({ url: url('/tokens'), method: 'get' })
 }
 
-/** days 为 0 表示永不过期 */
-export function createAccessTokenApi(name: string, days: number) {
-  return request<CreatedAccessToken>({ url: url('/tokens'), method: 'post', data: { name, days }, silent: true })
+/** days 为 0 表示永不过期；readOnly 生成只读令牌 */
+export function createAccessTokenApi(name: string, days: number, readOnly = false) {
+  return request<CreatedAccessToken>({ url: url('/tokens'), method: 'post', data: { name, days, readOnly }, silent: true })
 }
 
 export function revokeAccessTokenApi(id: string) {

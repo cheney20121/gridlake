@@ -140,4 +140,25 @@ describe('内置账号登录（界面）', { skip }, () => {
       throw e
     }
   })
+
+  it('只读访问令牌：勾选「只读令牌」创建 → 能读、写被拒绝', async () => {
+    try {
+      const call = (token, method = 'GET', path = 'workbooks', body) => page.eval(`fetch('/ledger-api/api/ledger/${path}', { method: '${method}', headers: { Authorization: 'Bearer ${token}'${body ? ", 'Content-Type': 'application/json'" : ''} }${body ? `, body: ${JSON.stringify(JSON.stringify(body))}` : ''} }).then(r => r.status)`)
+      // 上一个用例结束时对话框还开着（吊销后留在列表里）
+      await page.fill('input[data-testid="token-name"]', 'ro-test')
+      await page.click('[data-testid="token-readonly"]')
+      await page.click('[data-testid="token-create"]')
+      await page.waitFor(`!!document.querySelector('[data-testid="token-value"]')`, { what: '创建后显示完整令牌' })
+      const token = await page.eval(`document.querySelector('[data-testid="token-value"]').innerText.trim()`)
+      assert.match(token, /^glr_[\w-]{43}$/)
+      await page.waitFor(`[...document.querySelectorAll('.ec-dialog .ec-table__row')].some(r => r.innerText.includes('ro-test') && r.innerText.includes('只读令牌'))`, { what: '列表里标出只读' })
+      assert.equal(await call(token), 200, '只读令牌能读')
+      assert.equal(await call(token, 'POST', 'folders', { name: 'x', parentId: null }), 403, '只读令牌不能写')
+      assert.equal(await call(token, 'POST', 'sql/run', { sql: 'SELECT 1' }), 200, '计算类查询可以')
+    }
+    catch (e) {
+      await shot('login-local-4')
+      throw e
+    }
+  })
 })

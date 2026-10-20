@@ -308,5 +308,5 @@
 | POST | `/api/ledger/collects/{id}/workbook` | { unit, period }  为我负责的单位生成这一期的填报工作簿（已经生成过的直接返回）； 里面放好了填报区，单位列和期次列作为固定列自动带上。管理员可以为任何单位生成 | 登录用户 | ✓ | 生成填报工作簿 |
 | DELETE | `/api/ledger/shares/{id}` | 吊销分享链接（立即生效；工作簿的所有者或管理员） | 登录用户 | ✗ | 吊销分享链接 |
 | GET | `/api/ledger/tokens` | 我的访问令牌（不含令牌本身） | 登录用户 | ✓ |  |
-| POST | `/api/ledger/tokens` | { name, days? }  新建访问令牌；响应里的 token 只显示这一次 | 登录用户 | ✓ | 创建访问令牌 |
+| POST | `/api/ledger/tokens` | { name, days?, readOnly? }  新建访问令牌；响应里的 token 只显示这一次 | 登录用户 | ✓ | 创建访问令牌 |
 | DELETE | `/api/ledger/tokens/{id}` | 吊销我的访问令牌（立即生效） | 登录用户 | ✓ | 吊销访问令牌 |

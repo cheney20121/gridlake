@@ -794,5 +794,6 @@
   "分享链接不存在": "The share link does not exist",
   "工作簿内容无法解析：{0}": "The workbook content cannot be parsed: {0}",
   "没有开启登录（LEDGER_AUTH_MODE=off）：所有能访问页面的人本来就可以打开，不需要分享链接": "Login is not enabled (LEDGER_AUTH_MODE=off): everyone who can reach the page can already open it, so share links are not needed",
-  "工作簿内容过大": "The workbook content is too large"
+  "工作簿内容过大": "The workbook content is too large",
+  "这是只读访问令牌，只能读取数据，不能执行修改类操作；需要写入请使用完全权限的令牌": "This is a read-only access token: it can only read data, not make changes. Use a full-access token to write."
 }

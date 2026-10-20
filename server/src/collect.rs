@@ -1998,7 +1998,8 @@ mod tests {
 
         // 催办：先校验，再通知负责人（A 已提交所以不催）
         let c = load_collect(&conn, &id).unwrap();
-        let now = chrono::Local::now().naive_local();
+        // 固定在今天上午 10 点：下面按「加几小时」推演同一天内的催办，不能让测试跑在深夜时跨过零点
+        let now = chrono::Local::now().date_naive().and_hms_opt(10, 0, 0).unwrap();
         let go = |who: &str, period: &str, wanted: Option<&[String]>, auto: bool, at: NaiveDateTime| plan_remind(&conn, &c, &me, period, wanted, auto, at).map(|p| (p, who.to_string()));
         assert!(go("", "P9", None, false, now).unwrap_err().message().contains("没有开启"));
         assert!(go("", "P1", Some(&["店铺Z".to_string()]), false, now).unwrap_err().message().contains("不在收集任务"));
