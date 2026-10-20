@@ -154,7 +154,7 @@ struct Signed {
 
 impl S3Source {
     /// 对象 key 为 None 表示操作存储桶本身（列对象）
-    fn sign(&self, secret: &str, key: Option<&str>, query: &[(&str, &str)], now: chrono::DateTime<chrono::Utc>) -> AppResult<Signed> {
+    fn sign(&self, secret: &str, method: &str, key: Option<&str>, query: &[(&str, &str)], payload_hash: &str, now: chrono::DateTime<chrono::Utc>) -> AppResult<Signed> {
         let base = self.endpoint.as_deref().map(str::trim).filter(|e| !e.is_empty()).map(str::to_string).unwrap_or_else(|| format!("https://s3.{}.amazonaws.com", self.region_or_default()));
         let u = reqwest::Url::parse(&base).map_err(|_| AppError::bad("服务地址不是有效的网址"))?;
         let bucket = self.bucket.trim();
@@ -168,11 +168,11 @@ impl S3Source {
         let q = canonical_query(query);
         let amz_date = now.format("%Y%m%dT%H%M%SZ").to_string();
         let authorization = authorization(
-            "GET",
+            method,
             &path,
             &q,
-            &[("host", &host), ("x-amz-content-sha256", EMPTY_SHA256), ("x-amz-date", &amz_date)],
-            EMPTY_SHA256,
+            &[("host", &host), ("x-amz-content-sha256", payload_hash), ("x-amz-date", &amz_date)],
+            payload_hash,
             self.access_key.trim(),
             secret,
             self.region_or_default(),
@@ -183,12 +183,20 @@ impl S3Source {
     }
 
     async fn get(&self, client: &reqwest::Client, secret: &str, key: Option<&str>, query: &[(&str, &str)]) -> AppResult<reqwest::Response> {
-        let s = self.sign(secret, key, query, chrono::Utc::now())?;
+        self.request(client, secret, "GET", key, query, Vec::new()).await
+    }
+
+    /// 发一个签名请求；非 2xx 的响应整理成能直接排查的错误
+    pub(crate) async fn request(&self, client: &reqwest::Client, secret: &str, method: &str, key: Option<&str>, query: &[(&str, &str)], body: Vec<u8>) -> AppResult<reqwest::Response> {
+        let payload_hash = if body.is_empty() { EMPTY_SHA256.to_string() } else { hex(Sha256::digest(&body)) };
+        let s = self.sign(secret, method, key, query, &payload_hash, chrono::Utc::now())?;
+        let m = reqwest::Method::from_bytes(method.as_bytes()).map_err(|_| AppError::bad("不支持的请求方法"))?;
         let resp = client
-            .get(&s.url)
-            .header("x-amz-content-sha256", EMPTY_SHA256)
+            .request(m, &s.url)
+            .header("x-amz-content-sha256", &payload_hash)
             .header("x-amz-date", &s.amz_date)
             .header(reqwest::header::AUTHORIZATION, &s.authorization)
+            .body(body)
             .send()
             .await
             .map_err(|e| AppError::bad(format!("连不上对象存储（{}）：{e}", s.host)))?;
@@ -320,13 +328,10 @@ fn local_time(t: chrono::DateTime<chrono::Utc>) -> String {
     t.with_timezone(&chrono::Local).format("%Y-%m-%d %H:%M:%S").to_string()
 }
 
-/// 列出匹配的对象（按修改时间从旧到新）；is_imported 判断由调用方提供
-pub async fn list(src: &S3Source, secret: &str, client: &reqwest::Client, is_imported: impl Fn(&str, u64, &str) -> bool) -> AppResult<Vec<FileEntry>> {
-    check(src)?;
-    let patterns: Vec<&str> = src.pattern.split([';', '；', ',']).map(str::trim).filter(|p| !p.is_empty()).collect();
+/// 列出前缀下的全部对象（自动翻页）：（对象键，大小，修改时间 UTC）
+pub(crate) async fn list_objects(src: &S3Source, secret: &str, client: &reqwest::Client) -> AppResult<Vec<(String, u64, chrono::DateTime<chrono::Utc>)>> {
     let prefix = src.prefix.trim().trim_start_matches('/');
-    let now = chrono::Utc::now();
-    let mut out: Vec<(chrono::DateTime<chrono::Utc>, FileEntry)> = Vec::new();
+    let mut all_objects = Vec::new();
     let mut token: Option<String> = None;
     for page in 0..MAX_PAGES {
         let mut query: Vec<(&str, &str)> = vec![("list-type", "2")];
@@ -341,24 +346,34 @@ pub async fn list(src: &S3Source, secret: &str, client: &reqwest::Client, is_imp
         }
         let body = src.get(client, secret, None, &query).await?.text().await.map_err(|e| AppError::bad(format!("读取对象列表失败：{e}")))?;
         let p = parse_list(&body);
-        for (key, size, at) in p.objects {
-            let name = file_name(&key).to_string();
-            if key.ends_with('/') || name.starts_with('.') || name.starts_with("~$") || crate::import_source::kind_of(&name).is_none() || !patterns.iter().any(|pt| wildcard(pt, &name)) {
-                continue;
-            }
-            let path = display_path(src.bucket.trim(), &key);
-            let mtime = local_time(at);
-            let imported = is_imported(&path, size, &mtime);
-            let settling = now.signed_duration_since(at).to_std().map(|d| d < SETTLE).unwrap_or(false);
-            out.push((at, FileEntry { path, name, size, mtime, imported, settling }));
-        }
+        all_objects.extend(p.objects);
         match p.next {
             Some(t) => token = Some(t),
-            None => break,
+            None => return Ok(all_objects),
         }
         if page + 1 == MAX_PAGES {
-            return Err(AppError::bad(format!("前缀下的对象太多（已扫描 {} 个）：请把「前缀」写得更具体，如 reports/2026/", MAX_PAGES * 1000)));
+            break;
         }
+    }
+    Err(AppError::bad(format!("前缀下的对象太多（已扫描 {} 个）：请把「前缀」写得更具体，如 reports/2026/", MAX_PAGES * 1000)))
+}
+
+/// 列出匹配的对象（按修改时间从旧到新）；is_imported 判断由调用方提供
+pub async fn list(src: &S3Source, secret: &str, client: &reqwest::Client, is_imported: impl Fn(&str, u64, &str) -> bool) -> AppResult<Vec<FileEntry>> {
+    check(src)?;
+    let patterns: Vec<&str> = src.pattern.split([';', '；', ',']).map(str::trim).filter(|p| !p.is_empty()).collect();
+    let now = chrono::Utc::now();
+    let mut out: Vec<(chrono::DateTime<chrono::Utc>, FileEntry)> = Vec::new();
+    for (key, size, at) in list_objects(src, secret, client).await? {
+        let name = file_name(&key).to_string();
+        if key.ends_with('/') || name.starts_with('.') || name.starts_with("~$") || crate::import_source::kind_of(&name).is_none() || !patterns.iter().any(|pt| wildcard(pt, &name)) {
+            continue;
+        }
+        let path = display_path(src.bucket.trim(), &key);
+        let mtime = local_time(at);
+        let imported = is_imported(&path, size, &mtime);
+        let settling = now.signed_duration_since(at).to_std().map(|d| d < SETTLE).unwrap_or(false);
+        out.push((at, FileEntry { path, name, size, mtime, imported, settling }));
     }
     out.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.path.cmp(&b.1.path)));
     Ok(out.into_iter().map(|(_, f)| f).collect())
@@ -389,6 +404,82 @@ pub async fn download(src: &S3Source, secret: &str, client: &reqwest::Client, en
         let _ = tokio::fs::remove_file(dest).await;
     }
     result
+}
+
+// ── 上传（备份用）────────────────────────────────────
+
+/// S3 的分片上传最多 10000 片
+const MAX_PARTS: usize = 10_000;
+
+/// 从文件里读最多 n 个字节（读到文件尾可能不足）
+async fn read_chunk(f: &mut tokio::fs::File, n: usize) -> AppResult<Vec<u8>> {
+    use tokio::io::AsyncReadExt;
+    let mut buf = vec![0u8; n];
+    let mut got = 0;
+    while got < n {
+        let r = f.read(&mut buf[got..]).await.map_err(|e| AppError::bad(format!("读取文件失败：{e}")))?;
+        if r == 0 {
+            break;
+        }
+        got += r;
+    }
+    buf.truncate(got);
+    Ok(buf)
+}
+
+/// 上传本地文件为对象 key，返回上传的字节数。不超过一片大小的用一次 PUT，更大的用分片上传（失败时中止，不留下半截对象）
+pub(crate) async fn upload_file(src: &S3Source, secret: &str, client: &reqwest::Client, key: &str, path: &Path, part_bytes: usize) -> AppResult<u64> {
+    let size = tokio::fs::metadata(path).await.map_err(|e| AppError::bad(format!("读取文件失败：{}（{e}）", path.display())))?.len();
+    let mut f = tokio::fs::File::open(path).await.map_err(|e| AppError::bad(format!("读取文件失败：{}（{e}）", path.display())))?;
+    if size as usize <= part_bytes {
+        let body = read_chunk(&mut f, size as usize).await?;
+        src.request(client, secret, "PUT", Some(key), &[], body).await?;
+        return Ok(size);
+    }
+    if (size as usize).div_ceil(part_bytes) > MAX_PARTS {
+        return Err(AppError::bad(format!("文件太大（{} GB），超过分片上传的上限", size / (1 << 30))));
+    }
+    let created = src.request(client, secret, "POST", Some(key), &[("uploads", "")], Vec::new()).await?.text().await.map_err(|e| AppError::bad(format!("读取响应失败：{e}")))?;
+    let upload_id = first(&created, "UploadId").map(unescape).ok_or_else(|| AppError::bad("对象存储没有返回分片上传编号（UploadId）"))?;
+    let result: AppResult<()> = async {
+        let mut parts: Vec<String> = Vec::new();
+        loop {
+            let body = read_chunk(&mut f, part_bytes).await?;
+            if body.is_empty() {
+                break;
+            }
+            let n = (parts.len() + 1).to_string();
+            let resp = src.request(client, secret, "PUT", Some(key), &[("partNumber", &n), ("uploadId", &upload_id)], body).await?;
+            let etag = resp.headers().get(reqwest::header::ETAG).and_then(|v| v.to_str().ok()).ok_or_else(|| AppError::bad("对象存储没有返回分片的 ETag"))?;
+            parts.push(etag.to_string());
+        }
+        let xml = format!(
+            "<CompleteMultipartUpload>{}</CompleteMultipartUpload>",
+            parts.iter().enumerate().map(|(i, e)| format!("<Part><PartNumber>{}</PartNumber><ETag>{}</ETag></Part>", i + 1, e.replace('&', "&amp;").replace('"', "&quot;"))).collect::<String>()
+        );
+        let done = src.request(client, secret, "POST", Some(key), &[("uploadId", &upload_id)], xml.into_bytes()).await?;
+        // 合并失败时 S3 可能在 200 的响应体里返回 <Error>
+        let text = done.text().await.unwrap_or_default();
+        if text.contains("<Error>") {
+            return Err(AppError::bad(error_message(200, &text)));
+        }
+        Ok(())
+    }
+    .await;
+    if result.is_err() {
+        let _ = src.request(client, secret, "DELETE", Some(key), &[("uploadId", &upload_id)], Vec::new()).await;
+    }
+    result.map(|()| size)
+}
+
+/// 对象大小（HEAD）；用来核对上传后的大小与本地一致
+pub(crate) async fn head_size(src: &S3Source, secret: &str, client: &reqwest::Client, key: &str) -> AppResult<u64> {
+    let r = src.request(client, secret, "HEAD", Some(key), &[], Vec::new()).await?;
+    r.headers().get(reqwest::header::CONTENT_LENGTH).and_then(|v| v.to_str().ok()).and_then(|v| v.parse().ok()).ok_or_else(|| AppError::bad("对象存储没有返回对象大小"))
+}
+
+pub(crate) async fn delete_object(src: &S3Source, secret: &str, client: &reqwest::Client, key: &str) -> AppResult<()> {
+    src.request(client, secret, "DELETE", Some(key), &[], Vec::new()).await.map(|_| ())
 }
 
 #[cfg(test)]
@@ -456,19 +547,19 @@ mod tests {
     fn urls_for_both_address_styles() {
         let now = chrono::DateTime::parse_from_rfc3339("2013-05-24T00:00:00Z").unwrap().with_timezone(&chrono::Utc);
         // AWS：虚拟主机风格
-        let s = src().sign(SECRET, Some("日报/2026 10.csv"), &[], now).unwrap();
+        let s = src().sign(SECRET, "GET", Some("日报/2026 10.csv"), &[], EMPTY_SHA256, now).unwrap();
         assert_eq!(s.url, "https://examplebucket.s3.us-east-1.amazonaws.com/%E6%97%A5%E6%8A%A5/2026%2010.csv");
         // 自建存储：路径风格，端口保留在 Host 里
         let mut m = src();
         m.endpoint = Some("http://minio.corp:9000".into());
-        let s = m.sign(SECRET, None, &[("list-type", "2"), ("prefix", "a b/")], now).unwrap();
+        let s = m.sign(SECRET, "GET", None, &[("list-type", "2"), ("prefix", "a b/")], EMPTY_SHA256, now).unwrap();
         assert_eq!(s.url, "http://minio.corp:9000/examplebucket/?list-type=2&prefix=a%20b%2F");
         assert_eq!(s.host, "minio.corp:9000");
         // 自定义地址 + 虚拟主机风格（阿里云 OSS 等）
         let mut o = src();
         o.endpoint = Some("https://oss-cn-hangzhou.aliyuncs.com".into());
         o.path_style = Some(false);
-        assert_eq!(o.sign(SECRET, Some("a.csv"), &[], now).unwrap().url, "https://examplebucket.oss-cn-hangzhou.aliyuncs.com/a.csv");
+        assert_eq!(o.sign(SECRET, "GET", Some("a.csv"), &[], EMPTY_SHA256, now).unwrap().url, "https://examplebucket.oss-cn-hangzhou.aliyuncs.com/a.csv");
     }
 
     #[test]

@@ -26,6 +26,10 @@ pub struct BackupRecord {
     pub elapsed_ms: u128,
     /// 失败原因（成功为 None）
     pub error: Option<String>,
+    /// 已上传到对象存储时的地址（配置了 LEDGER_BACKUP_S3_* 才有）
+    pub remote: Option<String>,
+    /// 上传到对象存储失败的原因。本地备份已经成功，所以不算 error，但监控指标会标为失败
+    pub remote_error: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -70,7 +74,7 @@ pub fn backup(conn: &Connection, dir: &Path) -> anyhow::Result<BackupRecord> {
         Ok(tables) => {
             std::fs::rename(&part, &target)?;
             let size = std::fs::metadata(&target).map(|m| m.len()).unwrap_or(0);
-            Ok(BackupRecord { at, file: Some(target.display().to_string()), size, tables, elapsed_ms: started.elapsed().as_millis(), error: None })
+            Ok(BackupRecord { at, file: Some(target.display().to_string()), size, tables, elapsed_ms: started.elapsed().as_millis(), error: None, remote: None, remote_error: None })
         }
         Err(e) => {
             let _ = std::fs::remove_file(&part);
@@ -316,26 +320,78 @@ pub async fn schedule_backups(state: crate::routes::AppState) {
     }
 }
 
-/// 执行一次备份（与导入等写操作串行），记录结果并清理旧备份
+/// 执行一次备份（生成备份文件的这一段与导入等写操作串行），然后上传到对象存储（不占用导入锁），记录结果并清理旧备份
 pub async fn run_backup(state: &crate::routes::AppState) -> BackupRecord {
-    let _guard = state.import_lock.lock().await;
-    let st = state.clone();
-    let r = tokio::task::spawn_blocking(move || -> anyhow::Result<BackupRecord> {
-        st.checkpoint();
-        let conn = st.connection()?;
-        let r = backup(&conn, &st.config.backup_dir)?;
-        copy_secret(&st.config.db_path, &st.config.backup_dir);
-        prune(&st.config.backup_dir, st.config.backup_keep);
-        Ok(r)
-    })
-    .await;
-    let record = match r {
-        Ok(Ok(r)) => r,
-        Ok(Err(e)) => BackupRecord { at: crate::db::now_local(), file: None, size: 0, tables: 0, elapsed_ms: 0, error: Some(format!("{e:#}")) },
-        Err(e) => BackupRecord { at: crate::db::now_local(), file: None, size: 0, tables: 0, elapsed_ms: 0, error: Some(e.to_string()) },
+    let r = {
+        let _guard = state.import_lock.lock().await;
+        let st = state.clone();
+        tokio::task::spawn_blocking(move || -> anyhow::Result<BackupRecord> {
+            st.checkpoint();
+            let conn = st.connection()?;
+            let r = backup(&conn, &st.config.backup_dir)?;
+            copy_secret(&st.config.db_path, &st.config.backup_dir);
+            prune(&st.config.backup_dir, st.config.backup_keep);
+            Ok(r)
+        })
+        .await
     };
+    let mut record = match r {
+        Ok(Ok(r)) => r,
+        Ok(Err(e)) => BackupRecord { at: crate::db::now_local(), file: None, size: 0, tables: 0, elapsed_ms: 0, error: Some(format!("{e:#}")), remote: None, remote_error: None },
+        Err(e) => BackupRecord { at: crate::db::now_local(), file: None, size: 0, tables: 0, elapsed_ms: 0, error: Some(e.to_string()), remote: None, remote_error: None },
+    };
+    if record.error.is_none()
+        && let (Some(src), Some(file)) = (state.config.backup_s3.as_ref(), record.file.clone())
+    {
+        match upload_remote(state, src, Path::new(&file)).await {
+            Ok(url) => record.remote = Some(url),
+            Err(e) => {
+                tracing::error!("备份已生成，但上传到对象存储失败：{e}");
+                record.remote_error = Some(e);
+            }
+        }
+    }
     if let Ok(mut last) = state.last_backup.lock() {
         *last = Some(record.clone());
     }
     record
+}
+
+/// 把备份文件传到对象存储，核对大小，再清理对象存储上较早的备份。不上传 secret.key：它和备份放在一起就等于没加密，请单独保管
+async fn upload_remote(state: &crate::routes::AppState, src: &crate::connector::s3::S3Source, file: &Path) -> Result<String, String> {
+    use crate::connector::s3;
+    let rt = &state.connectors;
+    let secret = src.secret_key.clone().unwrap_or_default();
+    let name = file.file_name().and_then(|n| n.to_str()).ok_or("备份文件名无效")?;
+    let key = format!("{}{name}", src.prefix);
+    let url = format!("s3://{}/{key}", src.bucket);
+    let local = std::fs::metadata(file).map_err(|e| e.to_string())?.len();
+    let started = Instant::now();
+    s3::upload_file(src, &secret, rt.s3_client(), &key, file, state.config.backup_s3_part_bytes).await.map_err(|e| e.message())?;
+    let remote = s3::head_size(src, &secret, rt.s3_client(), &key).await.map_err(|e| e.message())?;
+    if remote != local {
+        return Err(format!("上传后核对失败：本地 {local} 字节，对象存储上 {remote} 字节（{url}）"));
+    }
+    tracing::info!("备份已上传到 {url}（{} ，{} ms）", human(local), started.elapsed().as_millis());
+    // 保留最近 N 份；清理失败只记日志，不影响这次备份的结果
+    match s3::list_objects(src, &secret, rt.s3_client()).await {
+        Ok(objects) => {
+            let mut keys: Vec<String> = objects.into_iter().map(|(k, _, _)| k).filter(|k| remote_backup_name(k)).collect();
+            keys.sort_by(|a, b| b.cmp(a));
+            for old in keys.into_iter().skip(state.config.backup_s3_keep) {
+                match s3::delete_object(src, &secret, rt.s3_client(), &old).await {
+                    Ok(()) => tracing::info!("已清理对象存储上较早的备份：s3://{}/{old}", src.bucket),
+                    Err(e) => tracing::warn!("清理对象存储上的旧备份失败（{old}）：{}", e.message()),
+                }
+            }
+        }
+        Err(e) => tracing::warn!("列出对象存储上的备份失败，跳过清理：{}", e.message()),
+    }
+    Ok(url)
+}
+
+/// 对象键的文件名是不是备份文件（只清理它们，不碰同一前缀下别的东西）
+fn remote_backup_name(key: &str) -> bool {
+    let n = key.rsplit('/').next().unwrap_or(key);
+    n.starts_with("ledger-") && n.ends_with(".duckdb")
 }

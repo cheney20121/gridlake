@@ -822,5 +822,13 @@
   "：没有权限，需要 s3:ListBucket 与 s3:GetObject": ": no permission; s3:ListBucket and s3:GetObject are required",
   "：存储桶不存在（检查名称、区域和服务地址）": ": the bucket does not exist (check the name, region and service address)",
   "：对象不存在（可能刚被删除）": ": the object does not exist (it may have just been deleted)",
-  "：区域填错了（存储桶不在这个区域）": ": wrong region (the bucket is not in this region)"
+  "：区域填错了（存储桶不在这个区域）": ": wrong region (the bucket is not in this region)",
+  "上传后核对失败：本地 {0} 字节，对象存储上 {1} 字节（{2}）": "Verification after upload failed: {0} bytes locally, {1} bytes in the object storage ({2})",
+  "不支持的请求方法": "Unsupported request method",
+  "读取文件失败：{0}": "Failed to read the file: {0}",
+  "文件太大（{0} GB），超过分片上传的上限": "The file is too large ({0} GB), over the multipart upload limit",
+  "读取响应失败：{0}": "Failed to read the response: {0}",
+  "对象存储没有返回分片上传编号（UploadId）": "The object storage did not return a multipart upload ID (UploadId)",
+  "对象存储没有返回分片的 ETag": "The object storage did not return the ETag of a part",
+  "对象存储没有返回对象大小": "The object storage did not return the object size"
 }

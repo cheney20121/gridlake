@@ -32,6 +32,12 @@ pub struct Config {
     pub backup_at: Option<NaiveTime>,
     /// 保留最近几份备份
     pub backup_keep: usize,
+    /// 备份完成后上传到对象存储（S3 协议）；None 为不上传。见 LEDGER_BACKUP_S3_*
+    pub backup_s3: Option<crate::connector::s3::S3Source>,
+    /// 对象存储上保留最近几份
+    pub backup_s3_keep: usize,
+    /// 分片上传的分片大小（字节）
+    pub backup_s3_part_bytes: usize,
     /// 允许跨域访问的来源：None 不允许（前端与本服务同源部署时不需要）；Some(["*"]) 允许任意来源
     pub cors: Option<Vec<String>>,
     /// 运维接口（/api/admin/*）的令牌；未设置时只允许本机直接访问
@@ -185,6 +191,29 @@ impl PackSetting {
     }
 }
 
+/// 备份上传到对象存储的配置（LEDGER_BACKUP_S3_*）；没设置 LEDGER_BACKUP_S3_BUCKET 就是不上传
+fn backup_s3_from_env() -> anyhow::Result<Option<crate::connector::s3::S3Source>> {
+    let Some(bucket) = env("LEDGER_BACKUP_S3_BUCKET") else { return Ok(None) };
+    let mut prefix = env("LEDGER_BACKUP_S3_PREFIX").unwrap_or_else(|| "gridlake-backups/".into());
+    if !prefix.is_empty() && !prefix.ends_with('/') {
+        prefix.push('/');
+    }
+    let s = crate::connector::s3::S3Source {
+        endpoint: env("LEDGER_BACKUP_S3_ENDPOINT"),
+        region: env("LEDGER_BACKUP_S3_REGION").unwrap_or_default(),
+        bucket,
+        prefix,
+        pattern: "ledger-*.duckdb".into(),
+        recursive: false,
+        path_style: env("LEDGER_BACKUP_S3_PATH_STYLE").map(|v| matches!(v.to_lowercase().as_str(), "1" | "true" | "yes")),
+        access_key: env("LEDGER_BACKUP_S3_ACCESS_KEY").context("设置了 LEDGER_BACKUP_S3_BUCKET 就必须同时设置 LEDGER_BACKUP_S3_ACCESS_KEY 与 LEDGER_BACKUP_S3_SECRET_KEY")?,
+        secret_key: Some(env("LEDGER_BACKUP_S3_SECRET_KEY").context("设置了 LEDGER_BACKUP_S3_BUCKET 就必须同时设置 LEDGER_BACKUP_S3_SECRET_KEY")?),
+        secret_enc: None,
+    };
+    crate::connector::s3::check(&s).map_err(|e| anyhow::anyhow!("LEDGER_BACKUP_S3_*：{}", e.message()))?;
+    Ok(Some(s))
+}
+
 /// 读取 LEDGER_AUTH_CA_FILE（PEM，可含多个证书）：访问身份服务、对象存储时额外信任这些内部 CA。配错在启动时就报错
 pub fn load_root_certs(path: &std::path::Path) -> anyhow::Result<Vec<reqwest::Certificate>> {
     let pem = std::fs::read(path).map_err(|e| anyhow::anyhow!("读取 LEDGER_AUTH_CA_FILE 失败（{}）：{e}", path.display()))?;
@@ -297,6 +326,9 @@ impl Config {
             threads: env("LEDGER_THREADS").map(|v| v.parse().context("LEDGER_THREADS 应为正整数")).transpose()?.filter(|n| *n > 0),
             backup_dir: env("LEDGER_BACKUP_DIR").map(PathBuf::from).unwrap_or_else(|| data_dir.join("backups")),
             backup_at,
+            backup_s3: backup_s3_from_env()?,
+            backup_s3_keep: env("LEDGER_BACKUP_S3_KEEP").map(|v| v.parse().context("LEDGER_BACKUP_S3_KEEP 应为整数")).transpose()?.unwrap_or(30).max(1),
+            backup_s3_part_bytes: env("LEDGER_BACKUP_S3_PART_MB").map(|v| v.parse::<usize>().context("LEDGER_BACKUP_S3_PART_MB 应为整数")).transpose()?.filter(|n| (1..=5000).contains(n)).unwrap_or(64) * 1024 * 1024,
             backup_keep: env("LEDGER_BACKUP_KEEP").map(|v| v.parse().context("LEDGER_BACKUP_KEEP 应为整数")).transpose()?.unwrap_or(7).max(1),
             cors: env("LEDGER_CORS").map(|v| v.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()),
             admin_token: env("LEDGER_ADMIN_TOKEN"),
@@ -380,7 +412,7 @@ impl Config {
     /// 启动时打印的生效配置（不含令牌）
     pub fn summary(&self) -> String {
         format!(
-            "db={} web={} memory_limit={} heavy={}（排队最长 {}s） threads={} backup={} keep={} dir={} cors={} admin={} inbox={} packs={} auth={}",
+            "db={} web={} memory_limit={} heavy={}（排队最长 {}s） threads={} backup={} keep={} dir={} backup_s3={} cors={} admin={} inbox={} packs={} auth={}",
             self.db_path.display(),
             self.web_dir.as_ref().map(|d| d.display().to_string()).unwrap_or_else(|| "未启用".into()),
             match (&self.memory_limit, self.memory_limit_auto) {
@@ -394,6 +426,7 @@ impl Config {
             self.backup_at.map(|t| format!("每天 {}", t.format("%H:%M"))).unwrap_or_else(|| "关闭".into()),
             self.backup_keep,
             self.backup_dir.display(),
+            self.backup_s3.as_ref().map(|s| format!("s3://{}/{}（保留 {} 份）", s.bucket, s.prefix, self.backup_s3_keep)).unwrap_or_else(|| "关闭".into()),
             self.cors.as_ref().map(|c| c.join(",")).unwrap_or_else(|| "关闭".into()),
             if self.admin_token.is_some() { "令牌" } else { "仅本机" },
             self.inbox_roots.iter().map(|r| r.display().to_string()).collect::<Vec<_>>().join(","),

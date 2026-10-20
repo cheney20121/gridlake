@@ -61,7 +61,7 @@ pub async fn admin_metrics(
             .ok()
             .and_then(|t| t.and_local_timezone(chrono::Local).single())
             .map_or(0, |t| (chrono::Local::now() - t).num_seconds());
-        (b.error.is_none(), age, b.size)
+        (b.error.is_none() && b.remote_error.is_none(), age, b.size)
     });
     let snap = crate::metrics::Snapshot {
         version: crate::admin::VERSION,

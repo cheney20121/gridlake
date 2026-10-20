@@ -228,6 +228,11 @@ impl Runtime {
         })
     }
 
+    /// 对象存储用的 HTTP 客户端（已加载内部 CA）；备份上传也用它
+    pub(crate) fn s3_client(&self) -> &reqwest::Client {
+        &self.s3_client
+    }
+
     fn is_running(&self, id: &str) -> bool {
         self.running.lock().map(|r| r.contains(id)).unwrap_or(false)
     }

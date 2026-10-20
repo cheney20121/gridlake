@@ -37,7 +37,8 @@ OBJECTS = {
     "reports/just-uploaded.csv": (ago(seconds=10), csv(("O8", 800))),
     "other/x.csv": (ago(days=1), csv(("X", 1))),
 }
-state = {"bad": [], "list_calls": 0, "gets": []}
+state = {"bad": [], "list_calls": 0, "gets": [], "puts": [], "deleted": [], "aborted": 0}
+UPLOADS = {}
 
 
 def enc(s, slash=False):
@@ -65,41 +66,99 @@ class H(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
 
-    def _send(self, status, body, ctype="application/xml"):
+    def _send(self, status, body, ctype="application/xml", head=False, etag=None):
         self.send_response(status)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
+        if etag:
+            self.send_header("ETag", etag)
         self.end_headers()
-        self.wfile.write(body)
+        if not head:
+            self.wfile.write(body)
 
     def do_GET(self):
+        self.dispatch("GET")
+
+    def do_HEAD(self):
+        self.dispatch("HEAD")
+
+    def do_PUT(self):
+        self.dispatch("PUT")
+
+    def do_POST(self):
+        self.dispatch("POST")
+
+    def do_DELETE(self):
+        self.dispatch("DELETE")
+
+    def dispatch(self, method):
         raw_path, _, raw_query = self.path.partition("?")
         hdr = {k.lower(): v for k, v in self.headers.items()}
+        body = self.rfile.read(int(hdr.get("content-length", 0)))
         auth = hdr.get("authorization", "")
         try:
             fields = dict(p.strip().split("=", 1) for p in auth[len("AWS4-HMAC-SHA256 "):].split(","))
             access = fields["Credential"].split("/")[0]
             signed = fields["SignedHeaders"].split(";")
-            want = expected_signature("GET", raw_path, raw_query, hdr, signed, hdr["x-amz-date"], hdr["x-amz-content-sha256"])
+            want = expected_signature(method, raw_path, raw_query, hdr, signed, hdr["x-amz-date"], hdr["x-amz-content-sha256"])
             ok = access == ACCESS and want == fields["Signature"]
+            if ok and hdr["x-amz-content-sha256"] != hashlib.sha256(body).hexdigest():
+                ok, want = False, "payload hash does not match the body"
         except Exception as e:  # noqa: BLE001
             ok = False
             want = repr(e)
+        head = method == "HEAD"
         if not ok:
             if access_ok(auth):
                 state["bad"].append((self.path, want))
-            return self._send(403, xml_error("SignatureDoesNotMatch", "The request signature we calculated does not match the signature you provided."))
+            return self._send(403, xml_error("SignatureDoesNotMatch", "The request signature we calculated does not match the signature you provided."), head=head)
         path = urllib.parse.unquote(raw_path)
         bucket, _, key = path.lstrip("/").partition("/")
         if bucket != BUCKET:
-            return self._send(404, xml_error("NoSuchBucket", "The specified bucket does not exist"))
+            return self._send(404, xml_error("NoSuchBucket", "The specified bucket does not exist"), head=head)
         q = {k: urllib.parse.unquote(v) for k, _, v in (p.partition("=") for p in raw_query.split("&") if p)}
-        if not key:
+        if method == "GET" and not key:
             return self.list(q)
-        if key not in OBJECTS:
-            return self._send(404, xml_error("NoSuchKey", "The specified key does not exist."))
-        state["gets"].append(key)
-        self._send(200, OBJECTS[key][1], "text/csv")
+        if method in ("GET", "HEAD"):
+            if key not in OBJECTS:
+                return self._send(404, xml_error("NoSuchKey", "The specified key does not exist."), head=head)
+            if method == "GET":
+                state["gets"].append(key)
+            return self._send(200, OBJECTS[key][1], "text/csv", head=head)
+        if method == "PUT" and "partNumber" in q:
+            UPLOADS[q["uploadId"]]["parts"][int(q["partNumber"])] = body
+            return self._send(200, b"", etag=f'"{hashlib.md5(body).hexdigest()}"')
+        if method == "PUT":
+            OBJECTS[key] = (datetime.datetime.now(datetime.timezone.utc), body)
+            state["puts"].append((key, len(body), "single"))
+            return self._send(200, b"", etag=f'"{hashlib.md5(body).hexdigest()}"')
+        if method == "POST" and "uploads" in q:
+            uid = f"upload-{len(UPLOADS) + 1}"
+            UPLOADS[uid] = {"key": key, "parts": {}}
+            return self._send(200, f"<InitiateMultipartUploadResult><Bucket>{BUCKET}</Bucket><Key>{key}</Key><UploadId>{uid}</UploadId></InitiateMultipartUploadResult>".encode())
+        if method == "POST" and "uploadId" in q:
+            up = UPLOADS.get(q["uploadId"])
+            if not up:
+                return self._send(404, xml_error("NoSuchUpload", "The specified upload does not exist."))
+            import re
+            listed = re.findall(r"<PartNumber>(\d+)</PartNumber><ETag>(.*?)</ETag>", body.decode())
+            nums = [int(n) for n, _ in listed]
+            if nums != sorted(up["parts"]) or any(e.replace("&quot;", '"') != f'"{hashlib.md5(up["parts"][int(n)]).hexdigest()}"' for n, e in listed):
+                return self._send(400, xml_error("InvalidPart", "One or more of the specified parts could not be found or the ETag does not match."))
+            data = b"".join(up["parts"][n] for n in nums)
+            OBJECTS[up["key"]] = (datetime.datetime.now(datetime.timezone.utc), data)
+            state["puts"].append((up["key"], len(data), f"multipart:{len(nums)}"))
+            del UPLOADS[q["uploadId"]]
+            return self._send(200, f"<CompleteMultipartUploadResult><Key>{up['key']}</Key></CompleteMultipartUploadResult>".encode())
+        if method == "DELETE" and "uploadId" in q:
+            UPLOADS.pop(q["uploadId"], None)
+            state["aborted"] += 1
+            return self._send(204, b"")
+        if method == "DELETE":
+            OBJECTS.pop(key, None)
+            state["deleted"].append(key)
+            return self._send(204, b"")
+        self._send(405, xml_error("MethodNotAllowed", "no"))
 
     def list(self, q):
         state["list_calls"] += 1
