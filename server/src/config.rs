@@ -36,6 +36,8 @@ pub struct Config {
     pub backup_s3: Option<crate::connector::s3::S3Source>,
     /// 对象存储上保留最近几份
     pub backup_s3_keep: usize,
+    /// 上传后把备份下载回来做恢复演练（多一次下载流量）
+    pub backup_s3_verify: bool,
     /// 分片上传的分片大小（字节）
     pub backup_s3_part_bytes: usize,
     /// 允许跨域访问的来源：None 不允许（前端与本服务同源部署时不需要）；Some(["*"]) 允许任意来源
@@ -327,6 +329,7 @@ impl Config {
             backup_dir: env("LEDGER_BACKUP_DIR").map(PathBuf::from).unwrap_or_else(|| data_dir.join("backups")),
             backup_at,
             backup_s3: backup_s3_from_env()?,
+            backup_s3_verify: env("LEDGER_BACKUP_S3_VERIFY").is_some_and(|v| matches!(v.to_lowercase().as_str(), "download" | "1" | "true" | "yes")),
             backup_s3_keep: env("LEDGER_BACKUP_S3_KEEP").map(|v| v.parse().context("LEDGER_BACKUP_S3_KEEP 应为整数")).transpose()?.unwrap_or(30).max(1),
             backup_s3_part_bytes: env("LEDGER_BACKUP_S3_PART_MB").map(|v| v.parse::<usize>().context("LEDGER_BACKUP_S3_PART_MB 应为整数")).transpose()?.filter(|n| (1..=5000).contains(n)).unwrap_or(64) * 1024 * 1024,
             backup_keep: env("LEDGER_BACKUP_KEEP").map(|v| v.parse().context("LEDGER_BACKUP_KEEP 应为整数")).transpose()?.unwrap_or(7).max(1),

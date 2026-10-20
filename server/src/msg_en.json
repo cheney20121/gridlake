@@ -830,5 +830,17 @@
   "读取响应失败：{0}": "Failed to read the response: {0}",
   "对象存储没有返回分片上传编号（UploadId）": "The object storage did not return a multipart upload ID (UploadId)",
   "对象存储没有返回分片的 ETag": "The object storage did not return the ETag of a part",
-  "对象存储没有返回对象大小": "The object storage did not return the object size"
+  "对象存储没有返回对象大小": "The object storage did not return the object size",
+  "备份文件无法打开（可能已损坏）：{0}": "The backup file cannot be opened (it may be corrupted): {0}",
+  "备份的数据结构版本（{0}）比当前程序（{1}）更新，需要升级程序后才能恢复": "The backup's data structure version ({0}) is newer than this program's ({1}); upgrade the program before restoring",
+  "读取数据集定义失败：{0}": "Failed to read the dataset definitions: {0}",
+  "备份里有失效的数据集定义：{0}": "The backup contains broken dataset definitions: {0}",
+  "数据集「{0}」读取失败": "Failed to read dataset \"{0}\"",
+  "全量扫描表 {0} 失败，备份文件可能已损坏": "Full scan of table {0} failed; the backup file may be corrupted",
+  "备份文件已生成，但验证未通过，已改名为 {0}：{1}": "The backup file was created but failed verification and was renamed to {0}: {1}",
+  "source 应为 local 或 remote": "source must be local or remote",
+  "恢复演练未通过：{0}": "Restore drill failed: {0}",
+  "没有配置对象存储备份（LEDGER_BACKUP_S3_BUCKET）": "Object storage backup is not configured (LEDGER_BACKUP_S3_BUCKET)",
+  "对象存储上还没有备份": "There is no backup in the object storage yet",
+  "本地还没有备份": "There is no local backup yet"
 }

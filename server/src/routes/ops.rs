@@ -78,6 +78,30 @@ pub async fn admin_metrics(
     Ok(([(axum::http::header::CONTENT_TYPE, "text/plain; version=0.0.4; charset=utf-8")], body).into_response())
 }
 
+#[derive(serde::Deserialize)]
+pub struct VerifyQuery {
+    /// local（默认）：本地最新的备份；remote：对象存储上最新的备份（会下载回来）
+    source: Option<String>,
+    /// 全量扫描每张表的每一列，校验所有数据块（亿级数据要几分钟）
+    full: Option<bool>,
+}
+
+/// POST /api/admin/backup/verify?source=local|remote&full=1  恢复演练：用恢复时相同的方式验证最新的备份真的能用
+pub async fn admin_backup_verify(
+    State(db): State<AppState>,
+    axum::extract::ConnectInfo(peer): axum::extract::ConnectInfo<std::net::SocketAddr>,
+    headers: axum::http::HeaderMap,
+    axum::extract::Query(q): axum::extract::Query<VerifyQuery>,
+) -> AppResult<Json<Envelope<crate::admin::VerifyReport>>> {
+    require_admin(&db, &headers, peer)?;
+    let remote = match q.source.as_deref() {
+        None | Some("local") => false,
+        Some("remote") => true,
+        Some(_) => return Err(AppError::bad("source 应为 local 或 remote")),
+    };
+    crate::admin::run_verify(&db, remote, q.full.unwrap_or(false)).await.map(ok).map_err(|e| AppError::bad(format!("恢复演练未通过：{e}")))
+}
+
 /// POST /api/admin/backup  立即备份（与导入等写操作串行）
 pub async fn admin_backup(
     State(db): State<AppState>,

@@ -5,6 +5,7 @@
 //!   gridlake check                离线检查数据文件（服务需停止）
 //!   gridlake backup [目录]         离线备份（服务运行中用 POST /api/admin/backup）
 //!   gridlake restore <文件> [--yes] 从备份恢复（服务需停止）
+//!   gridlake verify <文件> [--full] 验证备份文件能用
 //!   gridlake version
 //!
 //! 环境变量见 config.rs（LEDGER_ADDR / LEDGER_DB / LEDGER_WEB_DIR / LEDGER_MEMORY_LIMIT / LEDGER_THREADS /
@@ -78,6 +79,7 @@ const USAGE: &str = "用法：
   gridlake check                 离线检查数据文件（服务需停止）
   gridlake backup [目录]          离线备份（服务运行中请用 curl -X POST http://127.0.0.1:8787/api/admin/backup）
   gridlake restore <文件> [--yes]  从备份恢复（服务需停止；原文件改名保留）
+  gridlake verify <文件> [--full]  验证备份文件能用（只读打开，服务运行中也可以；--full 全量扫描所有数据块）
   gridlake reset-password <用户名> [--admin]  重置内置账号的密码（服务需停止；新密码从标准输入读取，--admin 同时设为管理员并启用）
   gridlake mcp-bridge --url <地址> --token <令牌>  MCP stdio 转接（给只支持本地 MCP 的 AI 客户端用）
   gridlake version               显示版本";
@@ -110,6 +112,10 @@ fn main() -> anyhow::Result<()> {
         "serve" => tokio::runtime::Builder::new_multi_thread().enable_all().build()?.block_on(serve(config)),
         "check" => admin::cli_check(&config),
         "backup" => admin::cli_backup(&config, args.get(1).map(PathBuf::from)),
+        "verify" => {
+            let file = args.get(1).filter(|a| !a.starts_with("--")).ok_or_else(|| anyhow::anyhow!("请指定备份文件\n{USAGE}"))?;
+            admin::cli_verify(&PathBuf::from(file), args.iter().any(|a| a == "--full"))
+        }
         "restore" => {
             let file = args.get(1).filter(|a| !a.starts_with("--")).ok_or_else(|| anyhow::anyhow!("请指定备份文件\n{USAGE}"))?;
             admin::cli_restore(&config, &PathBuf::from(file), args.iter().any(|a| a == "--yes" || a == "-y"))
@@ -299,6 +305,7 @@ async fn serve(config: config::Config) -> anyhow::Result<()> {
         .route("/admin/status", get(routes::admin_status))
         .route("/admin/metrics", get(routes::admin_metrics))
         .route("/admin/backup", post(routes::admin_backup))
+        .route("/admin/backup/verify", post(routes::admin_backup_verify))
         .fallback(routes::api_not_found)
         .layer(axum::middleware::from_fn_with_state(state.clone(), auth::guard));
 
