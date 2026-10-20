@@ -16,7 +16,7 @@ const SERVER_DIR = path.resolve(WEB_DIR, '../server')
 
 // UITEST_PORT_OFFSET：整体平移端口，方便同时跑多份界面测试（如两个检出目录、或测试时本机正在手动开发）
 const PORT_OFFSET = Number(process.env.UITEST_PORT_OFFSET || 0)
-export const PORTS = { gateway: 19101 + PORT_OFFSET, ledger: 18901 + PORT_OFFSET, web: 5291 + PORT_OFFSET, llm: 19102 + PORT_OFFSET, oidc: 19103 + PORT_OFFSET }
+export const PORTS = { gateway: 19101 + PORT_OFFSET, ledger: 18901 + PORT_OFFSET, web: 5291 + PORT_OFFSET, llm: 19102 + PORT_OFFSET, oidc: 19103 + PORT_OFFSET, s3: 19104 + PORT_OFFSET }
 export const WEB = `http://127.0.0.1:${PORTS.web}`
 export const API = `http://127.0.0.1:${PORTS.ledger}/api`
 /** mock_gateway.py 里的四个用户：Alice / Bob / Carol 是普通用户，Root 是管理员 */
@@ -106,6 +106,8 @@ export async function startServices({ auth = 'gateway', packs = 'ecommerce', oid
     bin = path.join(SERVER_DIR, 'target/debug/gridlake')
   }
 
+  // 模拟 S3 服务（对象存储连接器的界面测试用；桶 data、Access Key AKIATEST、Secret Key s3cr3t-key）
+  start('s3', 'python3', [path.join(SERVER_DIR, 'tests/e2e/mock_s3.py'), String(PORTS.s3)])
   if (oidc)
     start('oidc', 'python3', [path.join(SERVER_DIR, 'tests/e2e/mock_oidc.py'), String(PORTS.oidc)])
   start('gateway', 'python3', [path.join(SERVER_DIR, 'tests/e2e/mock_gateway.py'), String(PORTS.gateway)])

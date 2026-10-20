@@ -143,7 +143,7 @@ describe('内置账号登录（界面）', { skip }, () => {
 
   it('只读访问令牌：勾选「只读令牌」创建 → 能读、写被拒绝', async () => {
     try {
-      const call = (token, method = 'GET', path = 'workbooks', body) => page.eval(`fetch('/ledger-api/api/ledger/${path}', { method: '${method}', headers: { Authorization: 'Bearer ${token}'${body ? ", 'Content-Type': 'application/json'" : ''} }${body ? `, body: ${JSON.stringify(JSON.stringify(body))}` : ''} }).then(r => r.status)`)
+      const call = (token, method = 'GET', path = 'workbooks', body) => page.eval(`fetch('/ledger-api/api/ledger/${path}', { method: '${method}', headers: { Authorization: 'Bearer ${token}'${body ? ', \'Content-Type\': \'application/json\'' : ''} }${body ? `, body: ${JSON.stringify(JSON.stringify(body))}` : ''} }).then(r => r.status)`)
       // 上一个用例结束时对话框还开着（吊销后留在列表里）
       await page.fill('input[data-testid="token-name"]', 'ro-test')
       await page.click('[data-testid="token-readonly"]')

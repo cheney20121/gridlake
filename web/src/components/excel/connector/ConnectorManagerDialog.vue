@@ -157,6 +157,8 @@ function sourceText(c: Connector) {
   const s = c.source
   if (s.kind === 'folder')
     return `${s.path} / ${s.pattern}`
+  if (s.kind === 's3')
+    return `s3://${s.bucket}/${s.prefix.replace(/^\//, '')}${s.pattern}`
   if (s.kind === 'http')
     return `${s.method.toUpperCase()} ${s.url.replace(/\?.*$/, '')}`
   return `${{ mysql: 'MySQL', postgres: 'PostgreSQL', clickhouse: 'ClickHouse' }[s.engine]} ${s.host}:${s.port}/${s.database}`
@@ -218,7 +220,7 @@ function duration(r: ConnectorRun) {
 
       <div v-for="c in items" :key="c.id" class="card" :class="{ 'opacity-60': !c.enabled }">
         <div class="flex items-center gap-3">
-          <span class="kind">{{ c.kind === 'folder' ? $t('文件夹') : c.kind === 'http' ? 'API' : 'DB' }}</span>
+          <span class="kind">{{ c.kind === 'folder' ? $t('文件夹') : c.kind === 's3' ? 'S3' : c.kind === 'http' ? 'API' : 'DB' }}</span>
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2">
               <span class="text-gray-900 font-medium">{{ c.name }}</span>

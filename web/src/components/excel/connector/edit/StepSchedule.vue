@@ -56,7 +56,7 @@ const form = defineModel<ConnectorForm>({ required: true })
       </el-checkbox>
     </div>
     <div class="rounded bg-[#F7F8FA] px-3 py-2 text-xs text-gray-600 leading-6">
-      <div>{{ $t('来源：{0}', [form.sourceKind === 'folder' ? $t('文件夹 {0} / {1}', [form.folder.path, form.folder.pattern]) : `${form.sourceKind === 'mysql' ? 'MySQL' : 'PostgreSQL'} ${form.db.host}:${form.db.port}/${form.db.database}`]) }}</div>
+      <div>{{ $t('来源：{0}', [form.sourceKind === 'folder' ? $t('文件夹 {0} / {1}', [form.folder.path, form.folder.pattern]) : form.sourceKind === 's3' ? `s3://${form.s3.bucket}/${form.s3.prefix}${form.s3.pattern}` : `${form.sourceKind === 'mysql' ? 'MySQL' : 'PostgreSQL'} ${form.db.host}:${form.db.port}/${form.db.database}`]) }}</div>
       <div>{{ $t('目标：{0}，{1}', [form.targetType === 'new' ? $t('新建数据集「{0}」', [form.datasetName]) : $t('数据集「{0}」', [targetDataset?.name ?? '']), MODE_OPTIONS.find(m => m.value === form.mode)?.label]) }}<span v-if="form.primaryKey.length">{{ $t('，主键 {0}', [form.primaryKey.join(' + ')]) }}</span></div>
     </div>
   </div>

@@ -9,6 +9,7 @@ import { buildSource, DEFAULT_PORT, defaultForm, formFromConnector, hostOf, used
 import SourceDatabaseForm from './edit/SourceDatabaseForm.vue'
 import SourceFolderForm from './edit/SourceFolderForm.vue'
 import SourceHttpForm from './edit/SourceHttpForm.vue'
+import SourceS3Form from './edit/SourceS3Form.vue'
 import SourceTestResult from './edit/SourceTestResult.vue'
 import StepSchedule from './edit/StepSchedule.vue'
 import StepTarget from './edit/StepTarget.vue'
@@ -73,6 +74,10 @@ const sourceKey = computed(() => JSON.stringify({ ...source.value, incrementalCo
 const sourceReady = computed(() => {
   if (form.sourceKind === 'folder')
     return !!form.folder.path.trim() && !!form.folder.pattern.trim()
+  if (form.sourceKind === 's3') {
+    const s = form.s3
+    return !!s.bucket.trim() && !!s.accessKey.trim() && !!s.pattern.trim() && (!!s.secretKey || (editing.value && !!props.connector?.hasPassword))
+  }
   if (form.sourceKind === 'http') {
     const h = form.http
     const secretOk = h.authKind === 'none' || !!h.secret || (editing.value && !!props.connector?.hasPassword)
@@ -126,7 +131,9 @@ async function next() {
     if (!form.name.trim()) {
       form.name = form.sourceKind === 'folder'
         ? (form.folder.path.split(/[\\/]/).filter(Boolean).pop() || '文件夹同步')
-        : form.sourceKind === 'http' ? `${hostOf(form.http.url)} 接口` : `${form.db.database} 同步`
+        : form.sourceKind === 's3'
+          ? `${form.s3.bucket.trim()} 对象存储`
+          : form.sourceKind === 'http' ? `${hostOf(form.http.url)} 接口` : `${form.db.database} 同步`
     }
     step.value = 1
     if (previewKey.value !== sourceKey.value)
@@ -247,6 +254,9 @@ async function save() {
           <el-radio-button value="folder">
             {{ $t('文件夹') }}
           </el-radio-button>
+          <el-radio-button value="s3">
+            {{ $t('对象存储 (S3)') }}
+          </el-radio-button>
           <el-radio-button value="mysql">
             MySQL / MariaDB
           </el-radio-button>
@@ -263,6 +273,7 @@ async function save() {
       </div>
 
       <SourceFolderForm v-if="form.sourceKind === 'folder'" v-model="form.folder" :inbox-roots="inboxRoots" />
+      <SourceS3Form v-else-if="form.sourceKind === 's3'" v-model="form.s3" :editing="editing" :has-password="!!connector?.hasPassword" />
       <SourceHttpForm v-else-if="isHttp" v-model="form.http" :editing="editing" :has-password="!!connector?.hasPassword" />
       <SourceDatabaseForm v-else v-model="form.db" :engine="form.sourceKind" :editing="editing" :has-password="!!connector?.hasPassword" />
 

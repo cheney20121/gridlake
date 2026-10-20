@@ -7,7 +7,7 @@ import path from 'node:path'
 import { after, before, describe, it } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { findChrome, launchChrome } from './cdp.mjs'
-import { api, API, llm, startServices, TOKEN, WEB } from './infra.mjs'
+import { api, API, llm, PORTS, startServices, TOKEN, WEB } from './infra.mjs'
 
 const ARTIFACTS = path.join(path.dirname(fileURLToPath(import.meta.url)), '.artifacts')
 const COOKIE = 'webexcel-token'
@@ -818,6 +818,33 @@ describe('在线表格编辑器（界面）', { skip }, () => {
       await page.click('button', '填入「订单列表」示例')
       await page.waitFor(`document.querySelector('input[placeholder*="erp.example.com"]').value === 'https://openapi-fxg.jinritemai.com/order/searchList'`, { what: '地址被填入' })
       assert.match(await page.eval(`document.querySelector('textarea').value`), /update_time_start.*\{\{watermark\}\}/)
+    })
+  })
+
+  it('数据连接：新建对象存储（S3）来源 → 测试连接列出匹配的对象 → 下一步预览出列', async () => {
+    await withPage('connector-s3', 'root', `/excel?wb=${wb.alice}`, async (page) => {
+      await editorReady(page)
+      await page.click('.data-panel button', '数据中心')
+      await page.waitFor(`[...document.querySelectorAll('.ec-dropdown-menu__item')].some(e => e.offsetParent && e.innerText.includes('数据连接'))`, { what: '数据中心菜单' })
+      await page.click('.ec-dropdown-menu__item', '数据连接')
+      await page.waitFor(`[...document.querySelectorAll('button')].some(b => b.offsetParent && b.innerText.includes('新建连接'))`, { what: '数据连接对话框' })
+      await page.click('button', '新建连接')
+      await page.waitFor(`[...document.querySelectorAll('.ec-dialog')].some(d => d.offsetParent && d.innerText.includes('新建数据连接'))`, { what: '新建连接对话框' })
+      await page.click('.ec-radio-button', '对象存储')
+      await page.waitFor(`!!document.querySelector('input[data-testid="s3-bucket"]')`, { what: '对象存储表单' })
+      await page.fill('input[data-testid="s3-endpoint"]', `http://127.0.0.1:${PORTS.s3}`)
+      await page.fill('input[data-testid="s3-bucket"]', 'data')
+      await page.fill('input[data-testid="s3-access-key"]', 'AKIATEST')
+      await page.fill('input[data-testid="s3-prefix"]', 'reports/')
+      await page.fill('input[data-testid="s3-secret-key"]', 's3cr3t-key')
+      await page.click('button', '测试连接')
+      await page.waitFor(`document.body.innerText.includes('匹配到 5 个文件')`, { what: '列出 5 个匹配的对象' })
+      const listed = await page.eval(`[...document.querySelectorAll('.ec-dialog')].find(d => d.offsetParent && d.innerText.includes('新建数据连接')).innerText`)
+      assert.match(listed, /2026-10-01\.csv/)
+      assert.match(listed, /中文 报表\.csv/)
+      assert.doesNotMatch(listed, /readme\.txt|x\.csv/)
+      await page.click('.ec-dialog__footer button', '下一步')
+      await page.waitFor(`[...document.querySelectorAll('.ec-dialog')].some(d => d.offsetParent && d.innerText.includes('order_id') && d.innerText.includes('amount'))`, { what: '预览出两列', timeout: 30_000 })
     })
   })
 

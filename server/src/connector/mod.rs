@@ -9,6 +9,7 @@ pub mod database;
 pub mod folder;
 pub mod doudian;
 pub mod http;
+pub mod s3;
 pub mod secret;
 
 use std::collections::HashSet;
@@ -28,6 +29,7 @@ use crate::routes::AppState;
 use database::DbSource;
 use http::HttpSource;
 use folder::FolderSource;
+use s3::S3Source;
 
 /// 单次同步整体超时
 const RUN_TIMEOUT: Duration = Duration::from_secs(30 * 60);
@@ -44,6 +46,7 @@ pub enum Source {
     Folder(FolderSource),
     Database(DbSource),
     Http(HttpSource),
+    S3(S3Source),
 }
 
 impl Source {
@@ -52,6 +55,7 @@ impl Source {
             Source::Folder(_) => "folder",
             Source::Database(_) => "database",
             Source::Http(_) => "http",
+            Source::S3(_) => "s3",
         }
     }
 }
@@ -200,6 +204,9 @@ pub struct Runtime {
     pub secret: secret::Secret,
     pub inbox_roots: Vec<PathBuf>,
     pub max_rows: i64,
+    /// 从对象存储下载单个文件的大小上限（同上传上限）
+    pub max_file_bytes: u64,
+    s3_client: reqwest::Client,
     running: Mutex<HashSet<String>>,
 }
 
@@ -215,6 +222,8 @@ impl Runtime {
             secret: secret::Secret::load(&data_dir)?,
             inbox_roots: config.inbox_roots.clone(),
             max_rows: config.connector_max_rows,
+            max_file_bytes: config.max_upload_mb as u64 * 1024 * 1024,
+            s3_client: s3::client().map_err(|e| anyhow::anyhow!(e.message()))?,
             running: Mutex::new(HashSet::new()),
         })
     }
@@ -370,6 +379,12 @@ fn redact(source: Source) -> (Source, bool) {
             h.secret_enc = None;
             (Source::Http(h), has)
         }
+        Source::S3(mut x) => {
+            let has = x.secret_enc.is_some();
+            x.secret_key = None;
+            x.secret_enc = None;
+            (Source::S3(x), has)
+        }
         other => (other, false),
     }
 }
@@ -401,6 +416,18 @@ fn seal(rt: &Runtime, source: Source, previous: Option<&Source>) -> AppResult<So
             }
             Ok(Source::Http(h))
         }
+        Source::S3(mut x) => {
+            match x.secret_key.take().filter(|p| !p.is_empty()) {
+                Some(p) => x.secret_enc = Some(rt.secret.encrypt(&p)?),
+                None => {
+                    x.secret_enc = match previous {
+                        Some(Source::S3(old)) => old.secret_enc.clone(),
+                        _ => None,
+                    }
+                }
+            }
+            Ok(Source::S3(x))
+        }
         other => Ok(other),
     }
 }
@@ -422,6 +449,24 @@ fn secret_of(rt: &Runtime, h: &HttpSource) -> AppResult<String> {
     match &h.secret_enc {
         Some(enc) => Ok(rt.secret.decrypt(enc).map_err(|e| AppError::bad(e.to_string()))?),
         None => Ok(String::new()),
+    }
+}
+
+fn s3_secret_of(rt: &Runtime, x: &S3Source) -> AppResult<String> {
+    if let Some(p) = x.secret_key.as_deref().filter(|p| !p.is_empty()) {
+        return Ok(p.to_string());
+    }
+    match &x.secret_enc {
+        Some(enc) => Ok(rt.secret.decrypt(enc).map_err(|e| AppError::bad(e.to_string()))?),
+        None => Err(AppError::bad("请填写访问密钥（Secret Key）")),
+    }
+}
+
+/// 对象存储来源必须有密钥（新填的，或编辑时沿用已保存的）；要在 seal 之后检查
+fn ensure_secret(source: &Source) -> AppResult<()> {
+    match source {
+        Source::S3(x) if x.secret_enc.is_none() => Err(AppError::bad("请填写访问密钥（Secret Key）")),
+        _ => Ok(()),
     }
 }
 
@@ -449,6 +494,9 @@ fn validate(conn: &Connection, rt: &Runtime, input: &ConnectorInput, self_id: Op
             if d.incremental_column.as_deref().is_some_and(|c| !c.trim().is_empty()) && input.target.primary_key.is_empty() {
                 return Err(AppError::bad("增量同步需要设置主键（用于去重 / 覆盖重复读到的行）"));
             }
+        }
+        Source::S3(x) => {
+            s3::check(x)?;
         }
         Source::Http(h) => {
             http::check(h)?;
@@ -492,6 +540,7 @@ pub fn create(conn: &Connection, rt: &Runtime, input: ConnectorInput) -> AppResu
     validate(conn, rt, &input, None)?;
     let id = format!("cn_{}", chrono::Local::now().format("%Y%m%d%H%M%S%3f"));
     let source = seal(rt, input.source, None)?;
+    ensure_secret(&source)?;
     let now = now_local();
     conn.execute(
         "INSERT INTO ledger_connector (id, name, kind, source, target, schedule, enabled, watermark, created_at, updated_at)
@@ -508,11 +557,13 @@ pub fn update(conn: &Connection, rt: &Runtime, id: &str, input: ConnectorInput) 
     }
     validate(conn, rt, &input, Some(id))?;
     let source = seal(rt, input.source, Some(&old.source))?;
+    ensure_secret(&source)?;
     // 来源查询或目标数据集变了：增量位置从头开始
     let same_source = match (&old.source, &source) {
         (Source::Database(a), Source::Database(b)) => a.same_query(b),
         (Source::Folder(a), Source::Folder(b)) => a == b,
         (Source::Http(a), Source::Http(b)) => a.same_query(b),
+        (Source::S3(a), Source::S3(b)) => a.same_location(b),
         _ => false,
     };
     let keep_watermark = same_source && old.target.dataset_id == input.target.dataset_id;
@@ -593,7 +644,7 @@ pub struct TestOutcome {
     pub inbox_roots: Vec<String>,
 }
 
-fn imported_checker(conn: &Connection, connector_id: Option<&str>) -> AppResult<impl Fn(&str, u64, &str) -> bool> {
+fn imported_checker(conn: &Connection, connector_id: Option<&str>) -> AppResult<impl Fn(&str, u64, &str) -> bool + use<>> {
     let set: HashSet<(String, i64, String)> = match connector_id {
         Some(id) => {
             let mut stmt = conn.prepare("SELECT path, size, mtime FROM ledger_connector_file WHERE connector_id = ?")?;
@@ -627,6 +678,19 @@ pub async fn test(state: &AppState, input: ProbeInput) -> AppResult<TestOutcome>
             let new = files.iter().filter(|x| !x.imported).count();
             Ok(TestOutcome {
                 message: if files.is_empty() { "目录可以访问，但没有匹配的文件".into() } else { format!("匹配到 {} 个文件，其中 {new} 个未导入", files.len()) },
+                database: None,
+                files: Some(files),
+                http: None,
+                inbox_roots: roots(rt),
+            })
+        }
+        Source::S3(x) => {
+            let imported = imported_checker(&conn, connector_id.as_deref())?;
+            drop(conn);
+            let files = s3::list(&x, &s3_secret_of(rt, &x)?, &rt.s3_client, imported).await?;
+            let new = files.iter().filter(|f| !f.imported).count();
+            Ok(TestOutcome {
+                message: if files.is_empty() { "存储桶可以访问，但没有匹配的文件".into() } else { format!("匹配到 {} 个文件，其中 {new} 个未导入", files.len()) },
                 database: None,
                 files: Some(files),
                 http: None,
@@ -693,12 +757,28 @@ pub async fn preview(state: &AppState, input: ProbeInput) -> AppResult<PreviewOu
             let _ = std::fs::remove_file(&staged);
             Ok(PreviewOutcome { sample_of: latest.name, preview: r? })
         }
+        Source::S3(x) => {
+            let secret = s3_secret_of(rt, x)?;
+            let files = s3::list(x, &secret, &rt.s3_client, |_, _, _| false).await?;
+            let latest = files.last().ok_or_else(|| AppError::bad("存储桶里没有匹配的文件，放入一个样例文件后再预览"))?.clone();
+            let staged = stage_s3_object(state, &token, x, &secret, &latest).await?;
+            let st = state.clone();
+            let name = latest.name.clone();
+            let p = staged.clone();
+            let r = tokio::task::spawn_blocking(move || -> AppResult<_> {
+                let conn = st.connection()?;
+                dataset_import::preview(&conn, &p, &token, &name)
+            })
+            .await?;
+            let _ = std::fs::remove_file(&staged);
+            Ok(PreviewOutcome { sample_of: latest.path, preview: r? })
+        }
         Source::Database(_) | Source::Http(_) => {
             let staged = dataset_import::staged_path(&state.tmp_dir, &token, "preview.csv")?;
             let r = match &source {
                 Source::Database(d) => database::extract(d, &password_of(rt, d)?, None, Some(PREVIEW_LIMIT), PREVIEW_LIMIT as i64 + 1, &staged).await,
                 Source::Http(h) => http::extract(h, &secret_of(rt, h)?, None, Some(PREVIEW_LIMIT), PREVIEW_LIMIT as i64 + 1, &staged).await,
-                Source::Folder(_) => unreachable!(),
+                Source::Folder(_) | Source::S3(_) => unreachable!(),
             };
             if let Err(e) = r {
                 let _ = std::fs::remove_file(&staged);
@@ -840,11 +920,27 @@ async fn stage_inbox_file(state: &AppState, token: &str, src: &Path, name: &str)
     tokio::task::spawn_blocking(move || -> AppResult<PathBuf> {
         let tmp = st.tmp_dir.join(format!("preview-{token}-src.upload"));
         std::fs::copy(&src, &tmp).map_err(|e| AppError::bad(format!("读取文件失败：{name}（{e}）")))?;
-        let conn = st.connection()?;
-        let (file_name, _) = crate::import_source::prepare(&conn, &st.tmp_dir, &token, vec![crate::import_source::Upload { name, path: tmp }])?;
-        dataset_import::staged_path(&st.tmp_dir, &token, &file_name)
+        prepare_staged(&st, &token, name, tmp)
     })
     .await?
+}
+
+/// 从对象存储下载一个对象，再按上传文件的同一套规则整理成可导入的表格文件
+async fn stage_s3_object(state: &AppState, token: &str, src: &S3Source, secret: &str, entry: &folder::FileEntry) -> AppResult<PathBuf> {
+    let tmp = state.tmp_dir.join(format!("preview-{token}-src.upload"));
+    if let Err(e) = s3::download(src, secret, &state.connectors.s3_client, entry, &tmp, state.connectors.max_file_bytes).await {
+        let _ = std::fs::remove_file(&tmp);
+        return Err(e);
+    }
+    let (st, token, name) = (state.clone(), token.to_string(), entry.name.clone());
+    tokio::task::spawn_blocking(move || prepare_staged(&st, &token, name, tmp)).await?
+}
+
+/// 把拿到手的原始文件（压缩包解开、GBK 转码、xlsx 取工作表……）整理成导入用的暂存文件
+fn prepare_staged(st: &AppState, token: &str, name: String, tmp: PathBuf) -> AppResult<PathBuf> {
+    let conn = st.connection()?;
+    let (file_name, _) = crate::import_source::prepare(&conn, &st.tmp_dir, token, vec![crate::import_source::Upload { name, path: tmp }])?;
+    dataset_import::staged_path(&st.tmp_dir, token, &file_name)
 }
 
 /// 本次写入的导入方式：目标数据集还没建时为新建
@@ -894,10 +990,17 @@ async fn execute(state: &AppState, c: Stored, run_id: &str) -> AppResult<(Tally,
     let mut target = c.target.clone();
     let mut tally = Tally::default();
     match &c.source {
-        Source::Folder(f) => {
-            let files = {
-                let conn = state.connection()?;
-                folder::list(&rt.inbox_roots, f, imported_checker(&conn, Some(&c.id))?)?
+        Source::Folder(_) | Source::S3(_) => {
+            let files = match &c.source {
+                Source::S3(x) => {
+                    let imported = imported_checker(&state.connection()?, Some(&c.id))?;
+                    s3::list(x, &s3_secret_of(rt, x)?, &rt.s3_client, imported).await?
+                }
+                Source::Folder(f) => {
+                    let conn = state.connection()?;
+                    folder::list(&rt.inbox_roots, f, imported_checker(&conn, Some(&c.id))?)?
+                }
+                _ => unreachable!(),
             };
             let settling = files.iter().filter(|x| !x.imported && x.settling).count();
             let mut pending: Vec<folder::FileEntry> = files.into_iter().filter(|x| !x.imported && !x.settling).collect();
@@ -916,7 +1019,10 @@ async fn execute(state: &AppState, c: Stored, run_id: &str) -> AppResult<(Tally,
             for (i, file) in pending.iter().enumerate() {
                 // 先复制到临时目录：不改动源文件（GBK 会转码），也避免读到导入过程中被覆盖的文件
                 let token = format!("cn{}_{i}", run_id.replace(|ch: char| !ch.is_ascii_alphanumeric(), ""));
-                let staged = stage_inbox_file(state, &token, Path::new(&file.path), &file.name).await?;
+                let staged = match &c.source {
+                    Source::S3(x) => stage_s3_object(state, &token, x, &s3_secret_of(rt, x)?, file).await?,
+                    _ => stage_inbox_file(state, &token, Path::new(&file.path), &file.name).await?,
+                };
                 let r = commit_file(state, &c.id, &mut target, staged.clone(), file.name.clone()).await;
                 let _ = std::fs::remove_file(&staged);
                 let outcome = r.map_err(|e| {
@@ -937,14 +1043,14 @@ async fn execute(state: &AppState, c: Stored, run_id: &str) -> AppResult<(Tally,
             let incremental = match &c.source {
                 Source::Database(d) => d.incremental_column.as_deref().is_some_and(|x| !x.trim().is_empty()),
                 Source::Http(h) => h.incremental_field.as_deref().is_some_and(|x| !x.trim().is_empty()),
-                Source::Folder(_) => false,
+                Source::Folder(_) | Source::S3(_) => false,
             };
             let watermark = if incremental { c.watermark.clone() } else { None };
             let staged = dataset_import::staged_path(&state.tmp_dir, &format!("cn{}", run_id.replace(|ch: char| !ch.is_ascii_alphanumeric(), "")), "query.csv")?;
             let extracted = match &c.source {
                 Source::Database(d) => database::extract(d, &password_of(rt, d)?, watermark.as_deref(), None, rt.max_rows, &staged).await,
                 Source::Http(h) => http::extract(h, &secret_of(rt, h)?, watermark.as_deref(), None, rt.max_rows, &staged).await,
-                Source::Folder(_) => unreachable!(),
+                Source::Folder(_) | Source::S3(_) => unreachable!(),
             };
             let extracted = match extracted {
                 Ok(x) => x,

@@ -4,12 +4,13 @@ import { t as tr } from '@/i18n'
 
 /** 新建 / 修改连接器对话框的表单状态与转换（表单 ↔ 接口入参） */
 
-export type SourceKind = 'folder' | DbEngine | 'http'
+export type SourceKind = 'folder' | 's3' | DbEngine | 'http'
 export type AuthKind = 'none' | 'bearer' | 'basic' | 'header' | 'doudian'
 export type PageKind = 'none' | 'page' | 'offset' | 'cursor'
 export type Step = 0 | 1 | 2
 
 export interface FolderForm { path: string, pattern: string }
+export interface S3Form { endpoint: string, region: string, bucket: string, prefix: string, pattern: string, recursive: boolean, pathStyle: 'auto' | 'path' | 'virtual', accessKey: string, secretKey: string }
 export interface DbForm { host: string, port: number, database: string, user: string, password: string, ssl: 'disable' | 'prefer' | 'require', sql: string, incrementalColumn: string }
 export interface HttpForm {
   url: string
@@ -36,6 +37,7 @@ export interface ConnectorForm {
   name: string
   sourceKind: SourceKind
   folder: FolderForm
+  s3: S3Form
   db: DbForm
   http: HttpForm
   targetType: 'new' | 'existing'
@@ -60,7 +62,7 @@ export const KIND_OPTIONS: { value: DatasetColumnKind, label: string }[] = [
 ]
 
 export const MODE_OPTIONS: { value: SyncMode, label: string, hint: string }[] = [
-  { value: 'replace', label: tr('全量替换'), hint: tr('每次用最新数据整体替换（商品成本、档案类）；文件夹来源只取最新的文件') },
+  { value: 'replace', label: tr('全量替换'), hint: tr('每次用最新数据整体替换（商品成本、档案类）；文件夹 / 对象存储来源只取最新的文件') },
   { value: 'append', label: tr('增量追加'), hint: tr('只加入新数据，按主键跳过已有的行（流水、日报类）') },
   { value: 'upsert', label: tr('增量更新'), hint: tr('按主键新增或覆盖已有的行（订单状态、退款等会变化的数据）') },
 ]
@@ -82,6 +84,7 @@ export function defaultForm(): ConnectorForm {
     name: '',
     sourceKind: 'folder',
     folder: { path: '', pattern: '*.csv' },
+    s3: { endpoint: '', region: '', bucket: '', prefix: '', pattern: '*.csv', recursive: false, pathStyle: 'auto', accessKey: '', secretKey: '' },
     db: { host: '', port: 3306, database: '', user: '', password: '', ssl: 'prefer', sql: '', incrementalColumn: '' },
     http: defaultHttpForm(),
     targetType: 'new',
@@ -105,6 +108,11 @@ export function formFromConnector(c: Connector): ConnectorForm {
   if (c.source.kind === 'folder') {
     form.sourceKind = 'folder'
     form.folder = { path: c.source.path, pattern: c.source.pattern }
+  }
+  else if (c.source.kind === 's3') {
+    const s = c.source
+    form.sourceKind = 's3'
+    form.s3 = { endpoint: s.endpoint ?? '', region: s.region, bucket: s.bucket, prefix: s.prefix, pattern: s.pattern, recursive: s.recursive, pathStyle: s.pathStyle == null ? 'auto' : s.pathStyle ? 'path' : 'virtual', accessKey: s.accessKey, secretKey: '' }
   }
   else if (c.source.kind === 'database') {
     const s = c.source
@@ -182,6 +190,21 @@ export function buildSource(form: ConnectorForm): ConnectorSource {
     return { kind: 'folder', path: form.folder.path.trim(), pattern: form.folder.pattern.trim() }
   if (form.sourceKind === 'http')
     return httpSource(form.http)
+  if (form.sourceKind === 's3') {
+    const s = form.s3
+    return {
+      kind: 's3',
+      endpoint: s.endpoint.trim() || null,
+      region: s.region.trim(),
+      bucket: s.bucket.trim(),
+      prefix: s.prefix.trim(),
+      pattern: s.pattern.trim(),
+      recursive: s.recursive,
+      pathStyle: s.pathStyle === 'auto' ? null : s.pathStyle === 'path',
+      accessKey: s.accessKey.trim(),
+      secretKey: s.secretKey || undefined,
+    }
+  }
   return {
     kind: 'database',
     engine: form.sourceKind,

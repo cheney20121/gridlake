@@ -2,7 +2,7 @@ import type { DatasetColumnKind, ImportPreview } from '@/api/dataset'
 import { LEDGER_BASE } from '@/api/ledger-base'
 import request from '@/utils/request'
 
-/** 数据连接器：按计划把文件夹 / 数据库 / HTTP 接口的数据自动同步进数据集（设计见 docs/connectors-design.md） */
+/** 数据连接器：按计划把文件夹 / 对象存储 / 数据库 / HTTP 接口的数据自动同步进数据集（设计见 docs/connectors-design.md） */
 const url = (path: string) => `${LEDGER_BASE}/api/ledger/connectors${path}`
 
 export interface FolderSource {
@@ -61,7 +61,24 @@ export interface HttpSource {
   initialWatermark?: string | null
 }
 
-export type ConnectorSource = FolderSource | DatabaseSource | HttpSource
+/** 对象存储（S3 及兼容 S3 协议的存储） */
+export interface S3Source {
+  kind: 's3'
+  /** 自建 / 其他云的服务地址；留空是 AWS S3 */
+  endpoint?: string | null
+  region: string
+  bucket: string
+  prefix: string
+  pattern: string
+  recursive: boolean
+  /** 路径风格；不传时：填了 endpoint 用路径风格，AWS 用虚拟主机风格 */
+  pathStyle?: boolean | null
+  accessKey: string
+  /** 只在提交时填写；留空表示沿用已保存的密钥 */
+  secretKey?: string
+}
+
+export type ConnectorSource = FolderSource | DatabaseSource | HttpSource | S3Source
 
 export type SyncMode = 'replace' | 'append' | 'upsert'
 
@@ -106,7 +123,7 @@ export interface ConnectorRun {
 export interface Connector {
   id: string
   name: string
-  kind: 'folder' | 'database' | 'http'
+  kind: 'folder' | 'database' | 'http' | 's3'
   source: ConnectorSource
   hasPassword: boolean
   target: ConnectorTarget
