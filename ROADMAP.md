@@ -65,7 +65,7 @@
 |---|---|---|---|
 | 8 | ✅ **通用化：** 电商台账已拆成可选“场景包”（`server/src/ecommerce/`、`web/src/packs/ecommerce/`，`LEDGER_PACKS`），核心只保留数据集 / 透视 / 公式 / SQL / 仪表盘；库里没有台账数据时默认不启用 | 降低陌生用户的理解成本 | L |
 | 9 | 🟡 国际化：✅ 前端——自写的 `t('中文原文')`（`web/src/i18n/`，缺译文回退中文）、语言切换器、约 2650 条英文，Element Plus / Univer 界面同步切换，`pnpm i18n:check` 进 CI；✅ 后端错误信息——`server/src/msg_en.json`（约 840 条模板与短语），请求带 `x-lang` / cookie `gridlake-lang` 时翻译，`scripts/extract-messages.py` 进 CI。**未完成**：约 680 行前端脚本里的运行时提示和标签（逐个确认过的才会翻译：和服务端对暗号的名字、会进列别名的名称、搜索关键词等保持中文）、电商台账场景（有意保持中文）、AI 与 MCP 的工具说明、定时推送的消息正文、英文版部署手册和 `docs/` | 默认语言跟随浏览器 | L |
-| 10 | 🟡 `docs/`：✅ 架构说明（`architecture.md`）、平台函数与 xlsx 兼容说明（`formulas.md`）、REST API 参考（`api.md`，由源码生成，CI 检查是最新的）；配置项在部署手册的变量表里。**未做**：OpenAPI（机器可读）、完整的 Excel 公式兼容矩阵（逐个函数列出支持情况）、英文文档、部署手册文件名改英文 | 降低上手和对接成本 | M |
+| 10 | 🟡 `docs/`：✅ 架构说明（`architecture.md`）、平台函数与 xlsx 兼容说明（`formulas.md`）、REST API 参考（`api.md`，由源码生成，CI 检查是最新的）；配置项在部署手册的变量表里。✅ OpenAPI 3.0 描述（`openapi.json`，同源生成，含权限与认证；**请求体字段未逐个建模**）。**未做**：完整的 Excel 公式兼容矩阵（逐个函数列出支持情况）、英文文档、部署手册文件名改英文 | 降低上手和对接成本 | M |
 | 11 | 🟡 CI 增强：✅ `clippy -D warnings`、`cargo audit` + `pnpm audit`（`security.yml`）、Dependabot、macOS 单元测试 + Linux 全量、许可证检查、actionlint、接口文档 / 错误信息英文 / i18n 检查。**未做**：`cargo fmt --check`（仓库没有统一的 rustfmt 配置，开启会产生约 2500 处格式改动）、覆盖率统计与徽章 | 剩下两项收益小 | S |
 | 12 | 🟡 代码拆分：✅ `routes.rs` 已按功能拆成 `routes/` 下 16 个文件；连接器、报表、SQL、模板等也都是目录模块；目录 `demo-web-vue3` 已改名为 `web`。**未拆**：`ai/tools.rs`（约 1800 行）、`views/excel/index.vue`（约 960 行） | 降低贡献门槛 | M |
 | 13 | ✅ 生产代码已加 `#![cfg_attr(not(test), deny(clippy::unwrap_used))]`（`main.rs`），不允许 `unwrap()`；剩下约 25 处带说明文字的 `expect`（锁、编译期常量等不可能失败的位置）保留 | 测试代码不受限制 | M |
@@ -101,6 +101,6 @@
 发布前（P0）和 P1 的主要部分已经落地，现在的重点从“补齐”转到“发布”和“按需深化”：
 
 1. **先发布：** 创建 GitHub 仓库（`scripts/set-repo.sh`）、打 `v0.1.0` 标签实跑发布流水线（Linux arm64 / macOS 构建、GHCR 推送还没验证过）、部署一个只读的在线 Demo；这些没做完，其余功能再多也没人能装上。
-2. **补齐 P1 的尾巴：** #9 剩余的运行时提示和英文文档、#10 的 OpenAPI 和公式兼容矩阵、#12 拆 `ai/tools.rs` 与编辑器首页组件、#15 的一键恢复界面。都是增量工作，可以穿插在功能开发之间。
+2. **补齐 P1 的尾巴：** #9 剩余的运行时提示和英文文档、#10 的公式兼容矩阵与 OpenAPI 请求体建模、#12 拆 `ai/tools.rs` 与编辑器首页组件、#15 的一键恢复界面。都是增量工作，可以穿插在功能开发之间。
 3. **按社区反馈在 P2 里选：** 认证上 LDAP / SAML 与 2FA（#17），连接器上 Google Sheets / Snowflake / BigQuery（#19），AI 评测集（#21），iframe 嵌入（#22）。多租户（#25）工作量大，先评估再决定。
 4. **持续做：** 夜间浸泡的亿级基线（#14）、依赖更新（Dependabot）、每次新增接口时补 `RESTRICTED_OK` / `FULL_ONLY` 分类和 `msg_en.json`（CI 会检查）。

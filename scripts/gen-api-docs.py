@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
-"""生成 docs/api.md：REST 接口参考。
+"""生成 docs/api.md（REST 接口参考，给人看）和 docs/openapi.json（OpenAPI 3.0，给工具用：Postman / Swagger UI / 代码生成器）。
 
 数据来源（都在后端源码里，所以文档不会和代码脱节）：
   - 每个处理函数上方形如 `/// POST /api/ledger/xxx  { 请求体 }  说明` 的文档注释；
   - server/src/auth.rs 的 ROUTES（权限规则与审计名称）和 RESTRICTED_OK（数据范围受限用户可用的接口）。
 
-    scripts/gen-api-docs.py            # 重新生成 docs/api.md
-    scripts/gen-api-docs.py --check    # 只检查 docs/api.md 是否是最新的（CI 用）
+    scripts/gen-api-docs.py            # 重新生成 docs/api.md 和 docs/openapi.json
+    scripts/gen-api-docs.py --check    # 只检查它们是否是最新的（CI 用）
+
+openapi.json 只描述「有哪些接口、要什么权限、路径与查询参数、响应信封」，请求体字段没有逐个建模（后端用 Rust 结构体解析，
+注释里只有概要），请求体标为任意 JSON 对象，字段说明见对应接口的 description。
 
 新增 / 修改接口后：在处理函数上写好 `/// METHOD /api/路径  说明`，再运行本脚本。
 """
+import json
 import pathlib
 import re
 import sys
@@ -17,6 +21,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SRC = ROOT / "server" / "src"
 OUT = ROOT / "docs" / "api.md"
+OPENAPI = ROOT / "docs" / "openapi.json"
 
 ROUTE_DOC = re.compile(r"^\s*///\s*(GET|POST|PUT|DELETE)\s+(/api/\S+)\s*(.*)$")
 METHOD_ORDER = {"GET": 0, "POST": 1, "PUT": 2, "DELETE": 3}
@@ -69,8 +74,12 @@ SEGMENT_GROUP = dict(GROUPS)
 NEED = {"View": "查看", "Edit": "编辑", "Manage": "管理（所有者或管理员）"}
 
 
+QUERIES = {}
+
+
 def doc_routes():
     found = {}
+    QUERIES.clear()
     for f in sorted(SRC.rglob("*.rs")):
         lines = f.read_text(encoding="utf-8").split("\n")
         for i, line in enumerate(lines):
@@ -82,6 +91,7 @@ def doc_routes():
             desc = [rest.strip()] if rest.strip() else []
             if query:
                 desc.append(f"查询参数：`{query}`")
+                QUERIES[(method, path)] = query
             for nxt in lines[i + 1:]:
                 if not nxt.strip().startswith("///") or ROUTE_DOC.match(nxt):
                     break
@@ -218,17 +228,133 @@ def build():
     return "\n".join(out).rstrip("\n") + "\n"
 
 
+SECURITY = {
+    "无需登录": [],
+    "运维令牌": [{"adminToken": []}],
+    "MCP 令牌": [{"mcpToken": []}],
+}
+LOGIN_SECURITY = [{"userToken": []}, {"personalToken": []}, {"sessionCookie": []}]
+
+
+def version():
+    m = re.search(r'^version\s*=\s*"([^"]+)"', (ROOT / "server" / "Cargo.toml").read_text(encoding="utf-8"), re.M)
+    return m.group(1) if m else "0.0.0"
+
+
+def summary_of(desc):
+    """说明的第一句（去掉请求体示意 `{ … }`），作为 OpenAPI 的 summary"""
+    d = re.sub(r"\{[^{}]*\}", "", desc)
+    d = re.sub(r"\s+", " ", d).strip(" ，。:：")
+    first = re.split(r"[。；;]", d)[0].strip()
+    return (first or d)[:80]
+
+
+def operation_id(method, path):
+    slug = re.sub(r"[^A-Za-z0-9]+", "_", re.sub(r"\{([^}]+)\}", r"by_\1", path[len("/api/"):])).strip("_")
+    return f"{method.lower()}_{slug}"
+
+
+def build_openapi():
+    docs = doc_routes()
+    rules, restricted = auth_tables()
+    paths = {}
+    for (method, path), desc in sorted(docs.items(), key=lambda kv: (kv[0][1], METHOD_ORDER[kv[0][0]])):
+        perm = permission(method, path, rules)
+        label = rules.get((method, path), ("", "", ""))[2]
+        params = [{"name": n, "in": "path", "required": True, "schema": {"type": "string"}} for n in re.findall(r"\{([^}]+)\}", path)]
+        for q in QUERIES.get((method, path), "").split("&"):
+            name = q.split("=")[0].strip().lstrip("?")
+            if re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]*", name):
+                params.append({"name": name, "in": "query", "required": False, "schema": {"type": "string"}})
+        op = {
+            "tags": [group_of(path)],
+            "summary": summary_of(desc),
+            "description": desc,
+            "operationId": operation_id(method, path),
+            "x-permission": perm,
+            "x-restricted-users": (method, path) in restricted or perm == "无需登录",
+            "responses": {code: {"$ref": f"#/components/responses/{name}"} for code, name in (("200", "Ok"), ("400", "BadRequest"), ("401", "Unauthorized"), ("403", "Forbidden"))},
+        }
+        # 默认要登录（顶层 security）；公开接口、运维令牌、MCP 令牌的单独写出来
+        if perm in SECURITY:
+            op["security"] = SECURITY[perm]
+        if label:
+            op["x-audit"] = label
+        if params:
+            op["parameters"] = params
+        if method in ("POST", "PUT"):
+            op["requestBody"] = {"required": False, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": True, "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"}}}}
+        paths.setdefault(path[len("/api"):], {})[method.lower()] = op
+    doc = {
+        "openapi": "3.0.3",
+        "info": {
+            "title": "Gridlake REST API",
+            "version": version(),
+            "description": "由 scripts/gen-api-docs.py 根据后端源码生成，请不要手工编辑。约定、认证方式与权限说明见 docs/api.md。",
+            "license": {"name": "Apache-2.0", "url": "https://www.apache.org/licenses/LICENSE-2.0"},
+        },
+        "servers": [{"url": "/api", "description": "页面与服务同源时的基础路径"}],
+        "security": LOGIN_SECURITY,
+        "paths": paths,
+        "components": {
+            "responses": {
+                "Ok": {"description": "成功。JSON 接口返回信封 { code, data, msg }；下载 / 导出 / 事件流返回原始内容", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Envelope"}}}},
+                "BadRequest": {"description": "参数不合法", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Envelope"}}}},
+                "Unauthorized": {"description": "未登录或登录已失效"},
+                "Forbidden": {"description": "没有权限"},
+            },
+            "securitySchemes": {
+                "userToken": {"type": "apiKey", "in": "header", "name": "x-user-token", "description": "登录会话令牌（内置账号登录接口返回的 token），或网关模式下网关发的令牌"},
+                "personalToken": {"type": "http", "scheme": "bearer", "description": "个人访问令牌（glp_… 完全权限，glr_… 只读），也可放在 x-user-token 里"},
+                "sessionCookie": {"type": "apiKey", "in": "cookie", "name": "gridlake_session", "description": "浏览器登录后的 HttpOnly 会话 cookie；写请求还必须带请求头 x-requested-with"},
+                "adminToken": {"type": "apiKey", "in": "header", "name": "x-admin-token", "description": "运维令牌 LEDGER_ADMIN_TOKEN（也可用 Authorization: Bearer）；未配置时只允许本机访问"},
+                "mcpToken": {"type": "http", "scheme": "bearer", "description": "外部 AI 接入（MCP）令牌"},
+            },
+            "schemas": {
+                "Envelope": {
+                    "type": "object",
+                    "properties": {"code": {"type": "integer", "description": "HTTP 状态码"}, "data": {"description": "结果；出错时为 null"}, "msg": {"type": "string", "description": "可直接展示给用户的说明"}},
+                    "required": ["code", "msg"],
+                }
+            },
+        },
+    }
+    check_openapi(doc)
+    return json.dumps(doc, ensure_ascii=False, indent=2) + "\n"
+
+
+def check_openapi(doc):
+    """结构自检：路径参数都声明了、operationId 不重复、引用的安全方案都存在"""
+    ids = set()
+    schemes = set(doc["components"]["securitySchemes"])
+    for path, ops in doc["paths"].items():
+        want = set(re.findall(r"\{([^}]+)\}", path))
+        for method, op in ops.items():
+            have = {p["name"] for p in op.get("parameters", []) if p["in"] == "path"}
+            if have != want:
+                sys.exit(f"OpenAPI 自检失败：{method} {path} 的路径参数 {want} 与声明 {have} 不一致")
+            if op["operationId"] in ids:
+                sys.exit(f"OpenAPI 自检失败：operationId 重复 {op['operationId']}")
+            ids.add(op["operationId"])
+            for sec in op.get("security", doc["security"]):
+                if not set(sec) <= schemes:
+                    sys.exit(f"OpenAPI 自检失败：{method} {path} 用了未定义的安全方案 {sec}")
+
+
 def main():
     text = build()
+    openapi = build_openapi()
     if "--check" in sys.argv:
-        if not OUT.exists() or OUT.read_text(encoding="utf-8") != text:
-            print("docs/api.md 已过期：请运行 scripts/gen-api-docs.py 并提交结果", file=sys.stderr)
+        stale = [name for name, f, t in (("docs/api.md", OUT, text), ("docs/openapi.json", OPENAPI, openapi)) if not f.exists() or f.read_text(encoding="utf-8") != t]
+        if stale:
+            print(f"{'、'.join(stale)} 已过期：请运行 scripts/gen-api-docs.py 并提交结果", file=sys.stderr)
             sys.exit(1)
-        print("docs/api.md 是最新的")
+        print("docs/api.md 与 docs/openapi.json 是最新的")
         return
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(text, encoding="utf-8")
-    print(f"已生成 {OUT.relative_to(ROOT)}（{text.count(chr(10))} 行）")
+    OPENAPI.write_text(openapi, encoding="utf-8")
+    print(f"已生成 {OUT.relative_to(ROOT)}（{text.count(chr(10))} 行）和 {OPENAPI.relative_to(ROOT)}（{openapi.count(chr(10))} 行）")
 
 
 main()
