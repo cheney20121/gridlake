@@ -54,14 +54,14 @@ export function autoConfirmText(r: ReconAutoResult, labels: { left: string, righ
       : t('没有可以自动勾对的了。剩下的请手工勾对，或调整容差 / 日期窗口 / 对账键。')
   }
   const parts = [
-    r.exact ? `金额相同 ${r.exact.toLocaleString()} 组` : '',
-    r.tolerance ? `容差内 ${r.tolerance.toLocaleString()} 组` : '',
-    r.sum ? `合计相等的多笔 ${r.sum.toLocaleString()} 组` : '',
+    r.exact ? t('金额相同 {0} 组', [r.exact.toLocaleString()]) : '',
+    r.tolerance ? t('容差内 {0} 组', [r.tolerance.toLocaleString()]) : '',
+    r.sum ? t('合计相等的多笔 {0} 组', [r.sum.toLocaleString()]) : '',
   ].filter(Boolean).join('、')
   return [
-    `将自动勾对 ${r.groups.toLocaleString()} 组（${parts}），共 ${r.matchedRows.toLocaleString()} 笔。`,
-    r.clearedBroken ? `同时清理 ${r.clearedBroken} 个失效的勾对组（对应的行被改过或删了）。` : '',
-    `勾对后仍未勾对：${labels.left} ${r.leftOpen.toLocaleString()} 笔，${labels.right} ${r.rightOpen.toLocaleString()} 笔。`,
+    t('将自动勾对 {0} 组（{1}），共 {2} 笔。', [r.groups.toLocaleString(), parts, r.matchedRows.toLocaleString()]),
+    r.clearedBroken ? t('同时清理 {0} 个失效的勾对组（对应的行被改过或删了）。', [r.clearedBroken]) : '',
+    t('勾对后仍未勾对：{0} {1} 笔，{2} {3} 笔。', [labels.left, r.leftOpen.toLocaleString(), labels.right, r.rightOpen.toLocaleString()]),
     ...r.warnings,
   ].filter(Boolean).join('\n')
 }

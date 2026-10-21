@@ -65,7 +65,7 @@ async function load() {
   }
   catch (e) {
     if (!c.signal.aborted)
-      error.value = errorText(e, '图表计算失败')
+      error.value = errorText(e, t('图表计算失败'))
   }
   finally {
     if (controller === c)

@@ -25,7 +25,7 @@ import {
   updateInput,
   writeInputRows,
 } from '@/features/excel/writeback/input-table'
-import { t as tr } from '@/i18n'
+import { isEnglish, t as tr } from '@/i18n'
 import { useLedgerUserStore } from '@/stores/ledger-user'
 import WritebackCreateForm from './WritebackCreateForm.vue'
 import WritebackRecords from './WritebackRecords.vue'
@@ -134,7 +134,7 @@ const newTitles = computed(() => form.newColumns.map(c => c.title.trim()).filter
 
 function startCreate() {
   creating.value = true
-  form.name = `填报${inputs.value.length + 1}`
+  form.name = tr('填报{0}', [inputs.value.length + 1])
   if (!form.datasetId && writable.value[0])
     form.datasetId = writable.value[0].id
 }
@@ -193,7 +193,7 @@ async function create() {
       if (!ds)
         return
     }
-    const spec: InputSpec = { id: `in_${Date.now().toString(36)}`, name: form.name.trim() || `填报${inputs.value.length + 1}`, datasetId: ds.id, datasetName: ds.name, row, col, fields, mode, keys }
+    const spec: InputSpec = { id: `in_${Date.now().toString(36)}`, name: form.name.trim() || tr('填报{0}', [inputs.value.length + 1]), datasetId: ds.id, datasetName: ds.name, row, col, fields, mode, keys }
     saveInputs(s, [...getInputs(s), plain(spec)])
     await renderInput(api, s, spec, ds)
     inputs.value = plain(getInputs(s))
@@ -263,7 +263,7 @@ async function submit() {
     if (spec.mode === 'append')
       clearInputRows(s, spec)
     ElMessage.success(changed
-      ? `已写入「${outcome.datasetName}」：新增 ${outcome.inserted} 行${outcome.updated ? `，更新 ${outcome.updated} 行` : ''}${outcome.unchanged ? `，${outcome.unchanged} 行无变化` : ''}${spec.mode === 'append' ? '；填报区已清空' : ''}`
+      ? tr('已写入「{0}」：新增 {1} 行{2}{3}{4}', [outcome.datasetName, outcome.inserted, outcome.updated ? tr('，更新 {0} 行', [outcome.updated]) : '', outcome.unchanged ? tr('，{0} 行无变化', [outcome.unchanged]) : '', spec.mode === 'append' ? tr('；填报区已清空') : ''])
       : tr('{0} 行与数据集完全相同，无需更新', [outcome.unchanged]))
     if (changed)
       emit('datasetsChanged')
@@ -335,7 +335,7 @@ async function deleteSelected() {
     }
     s.deleteRows(sheetRows[picked[0]!]!, picked.length)
     result.value = null
-    ElMessage.success(`已从「${outcome.datasetName}」删除 ${outcome.deleted} 行${outcome.notFound ? `（另有 ${outcome.notFound} 行在数据集里本来就没有）` : ''}`)
+    ElMessage.success(tr('已从「{0}」删除 {1} 行{2}', [outcome.datasetName, outcome.deleted, outcome.notFound ? tr('（另有 {0} 行在数据集里本来就没有）', [outcome.notFound]) : '']))
     emit('changed')
     if (outcome.deleted)
       emit('datasetsChanged')
@@ -429,14 +429,14 @@ watch(() => current.value?.datasetId, loadRecords, { immediate: true })
 
 async function undo(r: WritebackRecord) {
   const ok = await ElMessageBox.confirm(
-    `撤销 ${r.createdAt} ${r.operator || ''} 的提交：${r.mode === 'delete' ? `把删除的 ${r.deleted} 行插回数据集` : `${r.inserted ? `删除新增的 ${r.inserted} 行` : ''}${r.inserted && r.updated ? '，' : ''}${r.updated ? `把更新的 ${r.updated} 行恢复为提交前的值` : ''}`}。工作表里的内容不会改变。`,
+    tr('撤销 {0} {1} 的提交：{2}。工作表里的内容不会改变。', [r.createdAt, r.operator || '', r.mode === 'delete' ? tr('把删除的 {0} 行插回数据集', [r.deleted]) : [r.inserted ? tr('删除新增的 {0} 行', [r.inserted]) : '', r.updated ? tr('把更新的 {0} 行恢复为提交前的值', [r.updated]) : ''].filter(Boolean).join(isEnglish ? ', ' : '，')]),
     tr('撤销提交'),
     { type: 'warning', confirmButtonText: tr('撤销') },
   ).then(() => true, () => false)
   if (!ok)
     return
   const u = await undoWritebackApi(r.id, props.operator)
-  ElMessage.success(`已撤销：「${u.datasetName}」${u.reinserted ? `插回 ${u.reinserted} 行` : `删除 ${u.removed} 行、恢复 ${u.restored} 行`}`)
+  ElMessage.success(tr('已撤销：「{0}」{1}', [u.datasetName, u.reinserted ? tr('插回 {0} 行', [u.reinserted]) : tr('删除 {0} 行、恢复 {1} 行', [u.removed, u.restored])]))
   emit('datasetsChanged')
   loadRecords()
 }

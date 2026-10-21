@@ -141,7 +141,7 @@ function toggleRuns(c: Connector) {
 function summary(r: ConnectorRun) {
   if (r.status === 'skipped')
     return r.message || t('没有新数据')
-  const parts = [`读取 ${r.rowsRead.toLocaleString()} 行`]
+  const parts = [t('读取 {0} 行', [r.rowsRead.toLocaleString()])]
   if (r.inserted)
     parts.push(t('新增 {0}', [r.inserted.toLocaleString()]))
   if (r.updated)
@@ -184,7 +184,7 @@ function duration(r: ConnectorRun) {
   if (!r.finishedAt)
     return ''
   const s = (new Date(r.finishedAt.replace(' ', 'T')).getTime() - new Date(r.startedAt.replace(' ', 'T')).getTime()) / 1000
-  return s < 60 ? `${Math.max(0, Math.round(s))} 秒` : `${Math.round(s / 60)} 分钟`
+  return s < 60 ? t('{0} 秒', [Math.max(0, Math.round(s))]) : t('{0} 分钟', [Math.round(s / 60)])
 }
 </script>
 

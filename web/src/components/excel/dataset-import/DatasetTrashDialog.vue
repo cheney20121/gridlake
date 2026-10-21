@@ -52,8 +52,8 @@ async function restore(t: TrashedDataset) {
 
 async function purge(t: TrashedDataset) {
   const dependents = items.value.filter(x => (x.kind === 'view' || x.kind === 'recon' || x.kind === 'summary') && x.blocked?.includes(`「${t.name}」`))
-  const extra = dependents.length ? `回收站里基于它的关联视图「${dependents.map(x => x.name).join('」「')}」也会一并删除。` : ''
-  if (!(await confirm(`彻底删除「${t.name}」${t.rowCount != null ? `及其 ${t.rowCount.toLocaleString()} 行数据` : ''}，删除后不可恢复。${extra}`, tr('彻底删除'), tr('彻底删除'))))
+  const extra = dependents.length ? tr('回收站里基于它的关联视图「{0}」也会一并删除。', [dependents.map(x => x.name).join('」「')]) : ''
+  if (!(await confirm(tr('彻底删除「{0}」{1}，删除后不可恢复。{2}', [t.name, t.rowCount != null ? tr('及其 {0} 行数据', [t.rowCount.toLocaleString()]) : '', extra]), tr('彻底删除'), tr('彻底删除'))))
     return
   const names = await purgeDatasetApi(t.id)
   ElMessage.success(names.length > 1 ? tr('已彻底删除：{0}', [names.join('、')]) : tr('已彻底删除'))

@@ -298,7 +298,7 @@ function renderInner(sheet: FWorksheet, specIn: PivotSpec, result: PivotResult) 
 
   const matrix: ICellData[][] = Array.from({ length: totalRows }, () => Array.from({ length: totalCols }, () => ({})))
   const filterDesc = filterDescOf(req)
-  matrix[0]![0] = { v: `数据透视表 · ${spec.datasetName}${filterDesc ? ` · ${filterDesc}` : ''}`, s: STYLE.title }
+  matrix[0]![0] = { v: `${tr('数据透视表')} · ${spec.datasetName}${filterDesc ? ` · ${filterDesc}` : ''}`, s: STYLE.title }
 
   // 表头
   const fieldRow = dataStartRow - 1
@@ -406,14 +406,14 @@ function renderInner(sheet: FWorksheet, specIn: PivotSpec, result: PivotResult) 
 function filterDescOf(req: PivotRequest) {
   const parts = (req.filters ?? []).map((f) => {
     if (f.op === 'in')
-      return `${f.column}：${f.values.slice(0, 2).map(v => v || BLANK).join('、')}${f.values.length > 2 ? ` 等 ${f.values.length} 项` : ''}`
+      return `${f.column}：${f.values.slice(0, 2).map(v => v || BLANK).join('、')}${f.values.length > 2 ? tr(' 等 {0} 项', [f.values.length]) : ''}`
     if (f.op === 'between')
       return `${f.column}：${f.min ?? '…'} ~ ${f.max ?? '…'}`
     if (f.op === 'contains')
-      return `${f.column} 包含「${f.value}」`
+      return tr('{0} 包含「{1}」', [f.column, f.value])
     if (f.op === 'prefixes')
-      return `${f.column} 以「${f.values.map(v => v || BLANK).join('」「')}」之一开头`
-    return `${f.column} 以「${f.value}」开头`
+      return tr('{0} 以「{1}」之一开头', [f.column, f.values.map(v => v || BLANK).join('」「')])
+    return tr('{0} 以「{1}」开头', [f.column, f.value])
   })
   if (req.keyword)
     parts.push(tr('关键字「{0}」', [req.keyword]))

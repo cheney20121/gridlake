@@ -1,5 +1,6 @@
 import type { FUniver } from '@univerjs/core/facade'
 import type { FWorksheet } from '@univerjs/sheets/facade'
+import { t } from '@/i18n'
 
 /**
  * 行列分组（大纲）：Univer 开源版没有，这里按 Excel 的模型实现
@@ -125,7 +126,7 @@ export function group(sheet: FWorksheet, dim: Dim, start: number, end: number): 
   const o = getOutline(sheet)
   for (let i = start; i <= end; i++) {
     if ((o[dim][i] ?? 0) >= MAX_LEVEL)
-      return `最多 ${MAX_LEVEL} 级分组`
+      return t('最多 {0} 级分组', [MAX_LEVEL])
   }
   for (let i = start; i <= end; i++)
     o[dim][i] = (o[dim][i] ?? 0) + 1
@@ -149,7 +150,7 @@ export function ungroup(sheet: FWorksheet, dim: Dim, start: number, end: number)
       o[dim][i] = l - 1
   }
   if (!changed)
-    return dim === 'rows' ? '选中的行没有分组' : '选中的列没有分组'
+    return dim === 'rows' ? t('选中的行没有分组') : t('选中的列没有分组')
   // 记录在被取消的范围内结束的分组：级别变化后键会失效
   pruneCollapsed(o, dim)
   saveOutline(sheet, o)

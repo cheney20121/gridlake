@@ -72,7 +72,7 @@ async function publish() {
 }
 
 function partsText(parts: Record<string, number>) {
-  return Object.entries(parts).map(([k, n]) => `${n} 个${PART_LABEL[k] ?? '部件'}`).join('、')
+  return Object.entries(parts).map(([k, n]) => tr('{0} 个{1}', [n, PART_LABEL[k] ?? tr('部件')])).join('、')
 }
 </script>
 

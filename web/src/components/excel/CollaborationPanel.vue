@@ -31,9 +31,9 @@ const status = computed(() => STATUS[session.status.value] ?? STATUS.off!)
 function formatLastActive(timestamp: number): string {
   const diff = Date.now() - timestamp
   if (diff < 60_000)
-    return '刚刚活跃'
+    return t('刚刚活跃')
   if (diff < 300_000)
-    return `${Math.floor(diff / 60_000)} 分钟前活跃`
+    return t('{0} 分钟前活跃', [Math.floor(diff / 60_000)])
   return new Date(timestamp).toLocaleTimeString('zh-CN')
 }
 

@@ -138,11 +138,11 @@ export async function applyTableView(api: FUniver, p: TableViewPayload): Promise
 export async function undoTableView(api: FUniver, undo: TableViewUndo): Promise<string> {
   const found = findById(api, undo.tableId)
   if (!found)
-    return `数据表「${undo.name}」已不存在`
+    return tr('数据表「{0}」已不存在', [undo.name])
   if (viewKey(found.spec) !== undo.afterKey)
-    return `数据表「${undo.name}」的视图已被修改，保留现有设置`
+    return tr('数据表「{0}」的视图已被修改，保留现有设置', [undo.name])
   await save(api, { ...found.spec, ...undo.before, keyword: undo.before.keyword }, found.cells)
-  return `已恢复数据表「${undo.name}」原来的视图`
+  return tr('已恢复数据表「{0}」原来的视图', [undo.name])
 }
 
 /** 一列样式的指纹：撤销时对不上说明应用后又被改过 */
@@ -185,9 +185,9 @@ export async function applyColumnFormat(api: FUniver, p: ColumnFormatPayload): P
   await save(api, next, found.cells)
   const bits: string[] = []
   if (p.numFmt !== undefined)
-    bits.push(p.numFmt === 'default' ? '恢复默认数字格式' : `数字格式「${NUM_FMT_LABEL[p.numFmt]}」`)
+    bits.push(p.numFmt === 'default' ? tr('恢复默认数字格式') : tr('数字格式「{0}」', [NUM_FMT_LABEL[p.numFmt]]))
   if (p.rules !== undefined)
-    bits.push(p.rules.length ? `${p.rules.length} 条条件格式` : '清除条件格式')
+    bits.push(p.rules.length ? tr('{0} 条条件格式', [p.rules.length]) : tr('清除条件格式'))
   return {
     message: tr('已设置数据表「{0}」{1}列：{2}', [p.table, p.column, bits.join('、')]),
     undo: { kind: 'column_format', tableId: next.id, name: p.table, column: p.column, before: prev, afterKey: styleKey(next, p.column) },
@@ -198,11 +198,11 @@ export async function applyColumnFormat(api: FUniver, p: ColumnFormatPayload): P
 export async function undoColumnFormat(api: FUniver, undo: ColumnFormatUndo): Promise<string> {
   const found = findById(api, undo.tableId)
   if (!found)
-    return `数据表「${undo.name}」已不存在`
+    return tr('数据表「{0}」已不存在', [undo.name])
   if (styleKey(found.spec, undo.column) !== undo.afterKey)
-    return `数据表「${undo.name}」${undo.column}列的样式已被修改，保留现有设置`
+    return tr('数据表「{0}」{1}列的样式已被修改，保留现有设置', [undo.name, undo.column])
   await save(api, withColumnStyle(found.spec, undo.column, undo.before, found.cells), found.cells)
-  return `已恢复数据表「${undo.name}」${undo.column}列原来的样式`
+  return tr('已恢复数据表「{0}」{1}列原来的样式', [undo.name, undo.column])
 }
 
 /** create_data_table 建议的内容：没给的项用默认（全部列、不筛选、不排序） */
@@ -257,14 +257,14 @@ export async function applyTableCreate(api: FUniver, p: TableCreatePayload): Pro
 export async function undoTableCreate(api: FUniver, undo: TableCreateUndo): Promise<string> {
   const found = findById(api, undo.tableId)
   if (!found)
-    return `数据表「${undo.name}」已不存在`
+    return tr('数据表「{0}」已不存在', [undo.name])
   if (found.cells) {
     if (editCount((found.spec as CellTableSpec).edits) > 0)
-      return `数据表「${undo.name}」里有手工调整，保留现有内容`
+      return tr('数据表「{0}」里有手工调整，保留现有内容', [undo.name])
     removeCellTable(api, undo.tableId)
   }
   else {
     removeFloat(api, undo.tableId)
   }
-  return `已删除数据表「${undo.name}」`
+  return tr('已删除数据表「{0}」', [undo.name])
 }

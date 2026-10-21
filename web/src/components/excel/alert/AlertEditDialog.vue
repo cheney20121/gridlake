@@ -26,7 +26,7 @@ const emit = defineEmits<{
   (e: 'addChannel'): void
 }>()
 
-const WEEKDAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+const WEEKDAYS = [t('周一'), t('周二'), t('周三'), t('周四'), t('周五'), t('周六'), t('周日')]
 
 const datasets = ref<DatasetInfo[]>([])
 const connectors = ref<Connector[]>([])

@@ -23,6 +23,9 @@ const emit = defineEmits<{
   (e: 'changed'): void
 }>()
 
+/** 「正在勾对…」既是提示文字，也用来判断当前是不是在勾对，所以只算一次 */
+const BUSY_MATCH = t('正在勾对…')
+
 const id = computed(() => props.dataset.id)
 const info = ref<ReconInfo | null>(null)
 const summary = ref<ReconSummary | null>(null)
@@ -37,7 +40,7 @@ const selR = reactive(new Map<string, number>())
 const amountL = ref<number | null>(null)
 const amountR = ref<number | null>(null)
 
-const labels = computed(() => ({ left: info.value?.def.left.label ?? 'A 方', right: info.value?.def.right.label ?? 'B 方' }))
+const labels = computed(() => ({ left: info.value?.def.left.label ?? t('A 方'), right: info.value?.def.right.label ?? t('B 方') }))
 const tolerance = computed(() => info.value?.def.tolerance ?? 0)
 const sel = computed(() => summarizeSelection([...selL.values()], [...selR.values()], tolerance.value))
 
@@ -115,8 +118,7 @@ async function match() {
     return
   let note: string | undefined
   if (!s.balanced) {
-    const text = `${labels.value.left} 合计 ${formatMoney(s.leftTotal)}，${labels.value.right} 合计 ${formatMoney(s.rightTotal)}，相差 ${formatMoney(s.diff)}`
-      + `${tolerance.value ? `，超过了容差 ${formatMoney(tolerance.value)}` : ''}。仍要勾对的话，请写明差额的原因（如银行手续费、汇率差）：`
+    const text = t('{0} 合计 {1}，{2} 合计 {3}，相差 {4}{5}。仍要勾对的话，请写明差额的原因（如银行手续费、汇率差）：', [labels.value.left, formatMoney(s.leftTotal), labels.value.right, formatMoney(s.rightTotal), formatMoney(s.diff), tolerance.value ? t('，超过了容差 {0}', [formatMoney(tolerance.value)]) : ''])
     note = await ElMessageBox.prompt(text, t('合计不相等'), {
       confirmButtonText: t('确认勾对'),
       inputPlaceholder: t('差额原因（必填）'),
@@ -125,10 +127,10 @@ async function match() {
     if (!note)
       return
   }
-  busy.value = '正在勾对…'
+  busy.value = BUSY_MATCH
   try {
     await matchReconApi(id.value, { left: [...selL.keys()], right: [...selR.keys()], note, force: !s.balanced })
-    ElMessage.success(`已勾对 ${s.leftCount + s.rightCount} 笔${s.balanced ? '' : `（差额 ${formatMoney(s.diff)} 已记录）`}`)
+    ElMessage.success(t('已勾对 {0} 笔{1}', [s.leftCount + s.rightCount, s.balanced ? '' : t('（差额 {0} 已记录）', [formatMoney(s.diff)])]))
     await refresh()
   }
   catch {
@@ -141,7 +143,7 @@ async function match() {
 }
 
 async function autoMatch() {
-  busy.value = '正在试算…'
+  busy.value = t('正在试算…')
   try {
     const dry = await autoMatchReconApi(id.value, true)
     busy.value = ''
@@ -153,7 +155,7 @@ async function autoMatch() {
     const ok = await ElMessageBox.confirm(text, t('自动勾对'), { confirmButtonText: dry.groups ? t('执行勾对') : t('清理'), dangerouslyUseHTMLString: false, customClass: 'pre-wrap-box' }).then(() => true, () => false)
     if (!ok)
       return
-    busy.value = '正在勾对…'
+    busy.value = BUSY_MATCH
     const r = await autoMatchReconApi(id.value, false)
     ElMessage.success(t('已自动勾对 {0} 组（{1} 笔）', [r.groups.toLocaleString(), r.matchedRows.toLocaleString()]))
     await refresh()
@@ -164,11 +166,11 @@ async function autoMatch() {
 }
 
 async function unmatchAll(mode: 'auto' | 'all') {
-  const what = mode === 'auto' ? '全部自动勾对的结果' : '全部勾对（含手工勾对）'
+  const what = mode === 'auto' ? t('全部自动勾对的结果') : t('全部勾对（含手工勾对）')
   const ok = await ElMessageBox.confirm(t('取消{0}？这些行会回到未勾对，可以重新勾对。', [what]), t('取消勾对'), { type: 'warning', confirmButtonText: t('取消勾对'), confirmButtonClass: 'ec-button--danger' }).then(() => true, () => false)
   if (!ok)
     return
-  busy.value = '正在取消…'
+  busy.value = t('正在取消…')
   try {
     const r = await unmatchReconApi(id.value, { mode })
     ElMessage.success(t('已取消 {0} 组', [r.groups.toLocaleString()]))
@@ -273,7 +275,7 @@ const g = computed(() => summary.value?.groups)
       </div>
 
       <el-tabs v-model="tab" class="recon-tabs min-h-0 flex flex-1 flex-col">
-        <el-tab-pane name="open" :label="`未勾对${summary ? `（${labels.left} ${summary.left.all.rows - summary.left.matched.rows}&emsp;${labels.right} ${summary.right.all.rows - summary.right.matched.rows}）` : ''}`" class="h-full">
+        <el-tab-pane name="open" :label="`${$t('未勾对')}${summary ? `（${labels.left} ${summary.left.all.rows - summary.left.matched.rows}&emsp;${labels.right} ${summary.right.all.rows - summary.right.matched.rows}）` : ''}`" class="h-full">
           <div class="h-full flex flex-col gap-2">
             <div class="grid grid-cols-2 min-h-0 flex-1 gap-3">
               <ReconItemPane
@@ -312,13 +314,13 @@ const g = computed(() => summary.value?.groups)
               <el-button v-if="sel.leftCount || sel.rightCount" link size="small" @click="selL.clear(); selR.clear()">
                 {{ $t('清空选择') }}
               </el-button>
-              <el-button class="ml-auto" size="small" type="primary" :disabled="!sel.ready || !!busy" :loading="busy === '正在勾对…'" @click="match">
+              <el-button class="ml-auto" size="small" type="primary" :disabled="!sel.ready || !!busy" :loading="busy === BUSY_MATCH" @click="match">
                 {{ $t('勾对{0}', [sel.ready && !sel.balanced ? $t('（有差额）') : '']) }}
               </el-button>
             </div>
           </div>
         </el-tab-pane>
-        <el-tab-pane name="matched" :label="`已勾对${g ? `（${g.total.toLocaleString()} 组）` : ''}`" class="h-full">
+        <el-tab-pane name="matched" :label="`${$t('已勾对')}${g ? $t('（{0} 组）', [g.total.toLocaleString()]) : ''}`" class="h-full">
           <ReconGroupList :recon-id="id" :labels="labels" :reload="reload" @changed="refresh" />
         </el-tab-pane>
       </el-tabs>
@@ -327,7 +329,7 @@ const g = computed(() => summary.value?.groups)
       {{ $t('加载中…') }}
     </div>
 
-    <div v-if="busy && busy !== '正在勾对…'" class="absolute inset-0 z-10 flex items-center justify-center bg-white/60 text-sm text-gray-600">
+    <div v-if="busy && busy !== BUSY_MATCH" class="absolute inset-0 z-10 flex items-center justify-center bg-white/60 text-sm text-gray-600">
       <span class="i-svg-spinners-90-ring-with-bg mr-2 text-xl text-[#107C41]" />{{ busy }}
     </div>
   </div>

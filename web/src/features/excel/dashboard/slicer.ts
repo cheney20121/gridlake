@@ -109,9 +109,9 @@ export function slicerSummary(s: SlicerSpec, presetLabel: (p: DatePreset) => str
     if (s.range?.preset)
       return presetLabel(s.range.preset)
     const r = slicerRange(s)
-    return r ? `${r.min} ~ ${r.max}` : '全部'
+    return r ? `${r.min} ~ ${r.max}` : t('全部')
   }
   if (!s.values.length)
-    return '全部'
-  return s.values.length === 1 ? (s.values[0] || t('（空白）')) : `${s.values[0] || '（空白）'} 等 ${s.values.length} 项`
+    return t('全部')
+  return s.values.length === 1 ? (s.values[0] || t('（空白）')) : t('{0} 等 {1} 项', [s.values[0] || t('（空白）'), s.values.length])
 }

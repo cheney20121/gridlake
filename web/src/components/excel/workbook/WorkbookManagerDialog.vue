@@ -139,14 +139,14 @@ const currentFolderId = computed(() => (view.value.kind === 'folder' && view.val
 const breadcrumb = computed(() => {
   const v = view.value
   if (keyword.value.trim())
-    return `搜索「${keyword.value.trim()}」`
+    return tr('搜索「{0}」', [keyword.value.trim()])
   if (v.kind === 'all')
-    return '全部工作簿'
+    return tr('全部工作簿')
   if (v.kind === 'starred')
-    return '星标'
+    return tr('星标')
   if (v.kind === 'trash')
-    return '回收站'
-  return v.id === ROOT ? '我的工作簿' : `我的工作簿 / ${pathOf(v.id)}`
+    return tr('回收站')
+  return v.id === ROOT ? tr('我的工作簿') : `${tr('我的工作簿')} / ${pathOf(v.id)}`
 })
 
 const subfolders = computed(() => {
@@ -217,7 +217,7 @@ async function confirm(message: string, title: string, button: string) {
   return ElMessageBox.confirm(message, title, { type: 'warning', confirmButtonText: button, confirmButtonClass: 'ec-button--danger' }).then(() => true, () => false)
 }
 
-const trashDaysText = computed(() => (trashDays.value ? `（保留 ${trashDays.value} 天）` : ''))
+const trashDaysText = computed(() => (trashDays.value ? tr('（保留 {0} 天）', [trashDays.value]) : ''))
 
 // ── 工作簿操作 ──
 
@@ -265,7 +265,7 @@ async function remove(items: WorkbookMeta[]) {
     ElMessage.warning(tr('不能删除当前打开的工作簿，请先打开其他工作簿'))
     return
   }
-  const what = items.length === 1 ? `「${items[0]!.name}」` : `选中的 ${items.length} 个工作簿`
+  const what = items.length === 1 ? `「${items[0]!.name}」` : tr('选中的 {0} 个工作簿', [items.length])
   if (!(await confirm(tr('把{0}移到回收站？可在回收站恢复{1}。', [what, trashDaysText.value]), tr('删除工作簿'), tr('移到回收站'))))
     return
   for (const w of items)
@@ -300,7 +300,7 @@ const moveTarget = computed({
   },
 })
 
-const emptyText = computed(() => keyword.value.trim() ? '没有匹配的工作簿' : view.value.kind === 'starred' ? '还没有星标的工作簿（点名称前的 ☆ 加星标）' : '这里还没有工作簿')
+const emptyText = computed(() => keyword.value.trim() ? tr('没有匹配的工作簿') : view.value.kind === 'starred' ? tr('还没有星标的工作簿（点名称前的 ☆ 加星标）') : tr('这里还没有工作簿'))
 
 function moveWorkbooks(items: WorkbookMeta[]) {
   const first = items[0]
@@ -366,8 +366,8 @@ async function deleteFolder(f: WorkbookFolder) {
     return
   }
   const msg = inside.length
-    ? `删除文件夹「${f.name}」${ids.size > 1 ? `及其 ${ids.size - 1} 个子文件夹` : ''}，其中的 ${inside.length} 个工作簿移到回收站（恢复时回到「我的工作簿」）。`
-    : `删除文件夹「${f.name}」${ids.size > 1 ? `及其 ${ids.size - 1} 个子文件夹` : ''}？`
+    ? tr('删除文件夹「{0}」{1}，其中的 {2} 个工作簿移到回收站（恢复时回到「我的工作簿」）。', [f.name, ids.size > 1 ? tr('及其 {0} 个子文件夹', [ids.size - 1]) : '', inside.length])
+    : tr('删除文件夹「{0}」{1}？', [f.name, ids.size > 1 ? tr('及其 {0} 个子文件夹', [ids.size - 1]) : ''])
   if (!(await confirm(msg, tr('删除文件夹'), tr('删除'))))
     return
   const n = await deleteFolderApi(f.id, props.operator)

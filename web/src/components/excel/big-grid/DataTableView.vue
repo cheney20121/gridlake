@@ -100,7 +100,7 @@ async function openCursor(force = false) {
   }
   catch (e) {
     if (!isCancel(e) && c === controller) {
-      error.value = errorText(e, '查询失败，请重试')
+      error.value = errorText(e, t('查询失败，请重试'))
       console.warn('[big-grid] 建游标失败:', e)
     }
   }
@@ -173,13 +173,13 @@ function filterLabel(f: DatasetFilter): string {
   const title = columns.value.find(c => c.key === f.column)?.title ?? f.column
   switch (f.op) {
     case 'in': {
-      const shown = f.values.slice(0, 2).map(v => v || '（空白）').join('、')
-      return `${title}：${shown}${f.values.length > 2 ? ` 等 ${f.values.length} 项` : ''}`
+      const shown = f.values.slice(0, 2).map(v => v || t('（空白）')).join('、')
+      return `${title}：${shown}${f.values.length > 2 ? t(' 等 {0} 项', [f.values.length]) : ''}`
     }
     case 'between': return `${title}：${f.min ?? '…'} ~ ${f.max ?? '…'}`
     case 'contains': return t('{0} 包含「{1}」', [title, f.value])
-    case 'prefix': return `${title} 以「${f.value || '（空白）'}」开头`
-    case 'prefixes': return `${title} 以「${f.values.map(v => v || '（空白）').join('」「')}」之一开头`
+    case 'prefix': return t('{0} 以「{1}」开头', [title, f.value || t('（空白）')])
+    case 'prefixes': return t('{0} 以「{1}」之一开头', [title, f.values.map(v => v || t('（空白）')).join('」「')])
   }
 }
 
@@ -331,10 +331,10 @@ function doGoto() {
 // ── 导出 ──
 /** 当前筛选的文字描述（写入 Excel 汇总页签） */
 const queryDesc = computed(() => [
-  props.drill ? `下钻：${props.drill.title}` : '',
+  props.drill ? t('下钻：{0}', [props.drill.title]) : '',
   ...userFilters.value.map(filterLabel),
-  keyword.value.trim() ? `关键字「${keyword.value.trim()}」` : '',
-  sort.value ? `按「${columns.value.find(c => c.key === sort.value!.column)?.title ?? sort.value.column}」${sort.value.desc ? '降序' : '升序'}` : '',
+  keyword.value.trim() ? t('关键字「{0}」', [keyword.value.trim()]) : '',
+  sort.value ? t('按「{0}」{1}', [columns.value.find(c => c.key === sort.value!.column)?.title ?? sort.value.column, sort.value.desc ? t('降序') : t('升序')]) : '',
 ].filter(Boolean).join('；'))
 
 function exportData(format: 'csv' | 'xlsx') {

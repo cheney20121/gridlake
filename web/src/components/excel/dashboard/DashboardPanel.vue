@@ -272,10 +272,10 @@ async function detachCells() {
 function keyProblem(f: CellTableSpec) {
   const pk = datasetById(f.datasetId)?.primaryKey ?? []
   if (!pk.length)
-    return '这个数据集没有主键，无法按行保留'
+    return t('这个数据集没有主键，无法按行保留')
   const shown = f.fields.length ? f.fields : columns.value.map(c => c.title)
   const missing = pk.filter(k => !shown.includes(k))
-  return missing.length ? `主键列「${missing.join('」「')}」需要显示在表里` : null
+  return missing.length ? t('主键列「{0}」需要显示在表里', [missing.join('」「')]) : null
 }
 
 /** 清掉记下的手工调整，按数据集重新写入 */

@@ -5,6 +5,7 @@ import type { WorkbookMeta } from '@/api/workbook'
 import { computed, reactive, ref, watch } from 'vue'
 import { KIND_LABEL, PART_LABEL, useTemplateApi } from '@/api/template'
 import { compatible, suggestColumns, suggestDataset } from '@/features/excel/template/match'
+import { t as tr } from '@/i18n'
 import { useLedgerUserStore } from '@/stores/ledger-user'
 
 /**
@@ -91,7 +92,7 @@ function optionsFor(need: TemplateDataset, title: string) {
 }
 
 function partsText(need: TemplateDataset) {
-  return Object.entries(need.parts).map(([k, n]) => `${n} 个${PART_LABEL[k] ?? '部件'}`).join('、')
+  return Object.entries(need.parts).map(([k, n]) => tr('{0} 个{1}', [n, PART_LABEL[k] ?? tr('部件')])).join('、')
 }
 
 /** 每份数据的问题（未选择数据集、有列未对应、数据集为空） */
@@ -102,14 +103,14 @@ const problems = computed(() => {
     if (byParams[need.key]) {
       const missing = need.paramSource!.params.filter(p => !paramValues[need.key]?.[p.name]?.trim() && !p.default?.trim())
       if (missing.length)
-        out[need.key] = `请填写参数「${missing.map(p => p.name).join('」「')}」`
+        out[need.key] = tr('请填写参数「{0}」', [missing.map(p => p.name).join('」「')])
       continue
     }
     const ds = datasetOf(b?.datasetId ?? '')
     if (!ds)
-      out[need.key] = need.builtinId ? `内置数据集「${need.name}」不可用` : '请选择数据集'
+      out[need.key] = need.builtinId ? tr('内置数据集「{0}」不可用', [need.name]) : tr('请选择数据集')
     else if (need.columns.some(c => !b?.columns[c.title]))
-      out[need.key] = `还有 ${need.columns.filter(c => !b?.columns[c.title]).length} 列没有对应`
+      out[need.key] = tr('还有 {0} 列没有对应', [need.columns.filter(c => !b?.columns[c.title]).length])
   }
   return out
 })

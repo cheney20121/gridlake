@@ -10,19 +10,19 @@ export const PART_LABEL: Record<string, string> = {
   'webexcel-table': t('表格卡片'),
   'webexcel-datatable': t('数据表'),
   'input': t('填报区'),
-  'formula': '公式',
+  'formula': t('公式'),
 }
 
 /** 访问来源的中文名 */
 export const ACCESS_LABEL: Record<string, string> = {
   browse: t('明细浏览'),
   pivot: t('透视 / 图表 / 看板'),
-  formula: '公式',
+  formula: t('公式'),
   export: t('导出'),
   ai: t('AI 助手'),
   mcp: t('外部 AI（MCP）'),
   report: t('定时推送'),
-  sql: 'SQL 查询',
+  sql: t('SQL 查询'),
 }
 
 export function partsText(parts: Record<string, number>) {
@@ -37,11 +37,11 @@ export function referenceCount(u: DatasetUsage) {
 /** 一句话影响范围（如「3 个工作簿、1 个定时推送、1 个数据连接」），没有引用时为空 */
 export function impactSummary(u: DatasetUsage) {
   return [
-    u.workbooks.length && `${u.workbooks.length} 个工作簿`,
-    u.reports.length && `${u.reports.length} 个定时推送`,
-    u.views.length && `${u.views.length} 个关联视图`,
-    u.sqlQueries.length && `${u.sqlQueries.length} 个 SQL 查询`,
-    u.connectors.length && `${u.connectors.length} 个数据连接`,
-    u.templates.length && `${u.templates.length} 个模板`,
+    u.workbooks.length && t('{0} 个工作簿', [u.workbooks.length]),
+    u.reports.length && t('{0} 个定时推送', [u.reports.length]),
+    u.views.length && t('{0} 个关联视图', [u.views.length]),
+    u.sqlQueries.length && t('{0} 个 SQL 查询', [u.sqlQueries.length]),
+    u.connectors.length && t('{0} 个数据连接', [u.connectors.length]),
+    u.templates.length && t('{0} 个模板', [u.templates.length]),
   ].filter(Boolean).join('、')
 }

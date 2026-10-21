@@ -96,15 +96,15 @@ export const PART_LABEL: Record<string, string> = {
   'webexcel-table': t('明细卡'),
   'webexcel-slicer': t('切片器'),
   'webexcel-datatable': t('数据表'),
-  'formula': '公式',
+  'formula': t('公式'),
 }
 
 export const KIND_LABEL: Record<ColumnKind, string> = {
   text: t('文本'),
-  id: '编号',
-  money: '金额',
-  number: '数值',
-  datetime: '日期时间',
+  id: t('编号'),
+  money: t('金额'),
+  number: t('数值'),
+  datetime: t('日期时间'),
 }
 
 export function listTemplatesApi() {

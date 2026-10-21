@@ -37,7 +37,7 @@ function downloadCsv() {
   const text = [r.columns.map(c => cell(c.name)).join(','), ...r.rows.map(row => row.map(cell).join(','))].join('\r\n')
   const a = document.createElement('a')
   a.href = URL.createObjectURL(new Blob([`\uFEFF${text}`], { type: 'text/csv;charset=utf-8' }))
-  a.download = `查询结果_${new Date().toISOString().slice(0, 10)}.csv`
+  a.download = tr('查询结果_{0}.csv', [new Date().toISOString().slice(0, 10)])
   a.click()
   setTimeout(() => URL.revokeObjectURL(a.href), 1000)
 }

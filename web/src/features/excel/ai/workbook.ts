@@ -80,7 +80,7 @@ export interface Applied {
   undo: UndoStep
 }
 
-const KIND_NAME: Record<string, string> = { pivot: t('透视表'), chart: t('图表'), formula: '公式', calc: t('计算列'), table_view: t('数据表视图'), column_format: t('列样式'), table_create: t('新建数据表'), dataset_save: t('另存数据集') }
+const KIND_NAME: Record<string, string> = { pivot: t('透视表'), chart: t('图表'), formula: t('公式'), calc: t('计算列'), table_view: t('数据表视图'), column_format: t('列样式'), table_create: t('新建数据表'), dataset_save: t('另存数据集') }
 
 async function applyOne(api: FUniver, kind: string, p: Record<string, any>, onDatasetsChanged: () => void, operator?: string): Promise<Applied> {
   switch (kind) {
@@ -156,7 +156,7 @@ export async function applyAction(api: FUniver, action: AiAction, onDatasetsChan
       await undoApplied(api, { kind: 'plan', steps: done }, onDatasetsChanged, operator)
       if (reason === '已取消')
         throw new Error(t('已取消'))
-      throw new Error(`第 ${i + 1} 步（${KIND_NAME[step.kind] ?? step.kind}）失败：${reason}${done.length ? `；已撤回前面 ${done.length} 步` : ''}`)
+      throw new Error(t('第 {0} 步（{1}）失败：{2}{3}', [i + 1, KIND_NAME[step.kind] ?? step.kind, reason, done.length ? t('；已撤回前面 {0} 步', [done.length]) : '']))
     }
   }
   return { message: t('已应用方案「{0}」（{1} 步）：{2}', [action.payload.title, steps.length, messages.join('；')]), undo: { kind: 'plan', steps: done } }
@@ -178,35 +178,35 @@ export async function undoApplied(api: FUniver, undo: UndoStep, onDatasetsChange
     case 'pivot': {
       const sheet = sheetById(api, undo.sheetId)
       if (!sheet)
-        return `透视表页签「${undo.name}」已不存在`
+        return t('透视表页签「{0}」已不存在', [undo.name])
       api.getActiveWorkbook()?.deleteSheet(sheet)
-      return `已删除透视表页签「${undo.name}」`
+      return t('已删除透视表页签「{0}」', [undo.name])
     }
     case 'chart': {
       removeChart(api, undo.chartId)
-      return `已删除图表「${undo.title}」`
+      return t('已删除图表「{0}」', [undo.title])
     }
     case 'formula': {
       const sheet = sheetById(api, undo.sheetId)
       if (!sheet)
-        return `${undo.cell} 所在的工作表已不存在`
+        return t('{0} 所在的工作表已不存在', [undo.cell])
       const range = sheet.getRange(undo.cell)
       if ((range.getFormula() || String(range.getValue() ?? '')) !== undo.written)
-        return `${undo.cell} 已被修改，保留现有内容`
+        return t('{0} 已被修改，保留现有内容', [undo.cell])
       if (undo.oldFormula)
         range.setValue(undo.oldFormula)
       else if (undo.oldValue != null && undo.oldValue !== '')
         range.setValue(undo.oldValue as string | number | boolean)
       else
         range.clearContent()
-      return `已恢复 ${undo.cell} 原来的内容`
+      return t('已恢复 {0} 原来的内容', [undo.cell])
     }
     case 'calc': {
       await removeCalcApi(undo.datasetId, undo.name).catch((e) => {
         throw new Error(t('删除计算列「{0}」失败：{1}', [undo.name, e instanceof Error ? e.message : String(e)]))
       })
       onDatasetsChanged()
-      return `已删除计算列「${undo.name}」`
+      return t('已删除计算列「{0}」', [undo.name])
     }
     case 'table_view':
       return undoTableView(api, undo)

@@ -4,6 +4,7 @@ import type { DatasetFilter, DatasetQuery, DistinctResult } from '@/api/dataset'
 import { useDebounceFn } from '@vueuse/core'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { getDistinctApi } from '@/api/dataset'
+import { t } from '@/i18n'
 
 /** 列头筛选菜单（Excel 自动筛选）：排序、按值勾选、包含文字、数值 / 日期区间 */
 const props = defineProps<{
@@ -98,7 +99,7 @@ function checkAll(all: boolean) {
   checked.value = all ? null : new Set()
 }
 
-const display = (v: string) => (v === '' ? '（空白）' : v)
+const display = (v: string) => (v === '' ? t('（空白）') : v)
 
 function apply() {
   if (numeric.value || isContribution.value) {

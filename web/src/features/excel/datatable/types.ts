@@ -124,12 +124,12 @@ export function hasDataTables(api: FUniver) {
 export function checkTableName(api: FUniver, name: string, selfId?: string): string | null {
   const n = name.trim()
   if (!n)
-    return '表名不能为空'
+    return tr('表名不能为空')
   if (/[[\]"'!]/.test(n))
-    return '表名不能包含 [ ] " \' ! 等字符'
+    return tr('表名不能包含 [ ] " \' ! 等字符')
   const dup = findDataTable(api, n)
   if (dup && dup.spec.id !== selfId)
-    return `工作簿里已有名为「${n}」的数据表`
+    return tr('工作簿里已有名为「{0}」的数据表', [n])
   return null
 }
 

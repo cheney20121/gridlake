@@ -94,9 +94,9 @@ const suggestions = computed(() => {
     setValue()
   }
   for (const t of texts)
-    out.push({ label: `按「${t.title}」看${measure ? `「${measure.title}」合计` : '行数'}`, apply: start(cloneField(t)) })
+    out.push({ label: tr('按「{0}」看{1}', [t.title, measure ? tr('「{0}」合计', [measure.title]) : tr('行数')]), apply: start(cloneField(t)) })
   if (date)
-    out.push({ label: `按月看${measure ? `「${measure.title}」` : '行数'}走势`, apply: start({ ...cloneField(date), granularity: 'month' }) })
+    out.push({ label: tr('按月看{0}走势', [measure ? `「${measure.title}」` : tr('行数')]), apply: start({ ...cloneField(date), granularity: 'month' }) })
   return out
 })
 const isBlank = computed(() => !areas.rows.length && !areas.columns.length && !areas.values.length && !areas.filters.length)
@@ -260,7 +260,7 @@ async function apply() {
   if (!spec.request.values.length) {
     // 还没有值字段：只保存定义，页签里给出提示
     s.setCustomMetadata({ ...(s.getCustomMetadata() ?? {}), pivot: spec })
-    s.getRange(0, 0).setValue(`数据透视表 · ${ds.name}：从右侧字段列表把字段拖入「行」「列」「值」`)
+    s.getRange(0, 0).setValue(tr('数据透视表 · {0}：从右侧字段列表把字段拖入「行」「列」「值」', [ds.name]))
     lastResult.value = null
     error.value = ''
     return
@@ -280,7 +280,7 @@ async function apply() {
   }
   catch (e) {
     if (!isCancel(e) && my === seq) {
-      error.value = errorText(e, '计算失败')
+      error.value = errorText(e, tr('计算失败'))
     }
   }
   finally {
@@ -449,7 +449,7 @@ async function createNew() {
   const s = await createPivotSheet(api, { version: 1, datasetId: ds.id, datasetName: ds.name, request: { rows: [], columns: [], values: [] } })
   sheet.value = s
   loadSpec(getPivotSpec(s))
-  s.getRange(0, 0).setValue(`数据透视表 · ${ds.name}：从右侧字段列表把字段拖入「行」「列」「值」`)
+  s.getRange(0, 0).setValue(tr('数据透视表 · {0}：从右侧字段列表把字段拖入「行」「列」「值」', [ds.name]))
   emit('changed')
 }
 

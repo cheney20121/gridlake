@@ -255,7 +255,7 @@ export class CollabSession {
         hooks.adoptVersion(e.version)
         return
       case 'replaced':
-        hooks.toast(`${e.by || '有人'} 用别的方式更新了这个工作簿（如恢复历史版本），已重新载入`, 'warning')
+        hooks.toast(tr('{0} 用别的方式更新了这个工作簿（如恢复历史版本），已重新载入', [e.by || tr('有人')]), 'warning')
         await hooks.reload()
         this.restart()
         return
@@ -263,7 +263,7 @@ export class CollabSession {
         hooks.save().catch(() => {})
         return
       case 'stale':
-        this.staleBy.value = this.peers.value.find(p => p.id === e.from)?.name ?? '有人'
+        this.staleBy.value = this.peers.value.find(p => p.id === e.from)?.name ?? tr('有人')
     }
   }
 

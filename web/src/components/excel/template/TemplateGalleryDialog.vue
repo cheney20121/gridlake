@@ -59,14 +59,14 @@ const shown = computed(() => {
 function partsText(t: TemplateInfo) {
   return Object.entries(t.summary)
     .filter(([k, n]) => k !== 'sheets' && n > 0)
-    .map(([k, n]) => `${n} 个${PART_LABEL[k] ?? '部件'}`)
+    .map(([k, n]) => tr('{0} 个{1}', [n, PART_LABEL[k] ?? tr('部件')]))
     .join(' · ')
 }
 
 function needsText(t: TemplateInfo) {
   if (!t.datasets.length)
     return tr('不需要数据')
-  return t.datasets.map(d => d.builtinId ? `内置「${d.name}」` : `${d.name}（${d.columns.map(c => c.title).join('、')}）`).join(' + ')
+  return t.datasets.map(d => d.builtinId ? tr('内置「{0}」', [d.name]) : `${d.name}（${d.columns.map(c => c.title).join('、')}）`).join(' + ')
 }
 
 function open(t: TemplateInfo) {

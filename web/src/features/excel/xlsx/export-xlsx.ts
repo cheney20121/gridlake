@@ -462,7 +462,7 @@ export async function buildWorkbookXlsx(api: FUniver, fileName: string): Promise
     ws.views = [{ state: 'frozen', ySplit: 1 }]
     if (t.rows.length < t.total) {
       summary.dataTablesTruncated.push(t.loc.spec.name)
-      ws.getCell(1, t.columns.length + 2).value = `只导出了前 ${t.rows.length.toLocaleString()} 行（共 ${t.total.toLocaleString()} 行）；完整明细请在数据集里导出`
+      ws.getCell(1, t.columns.length + 2).value = tr('只导出了前 {0} 行（共 {1} 行）；完整明细请在数据集里导出', [t.rows.length.toLocaleString(), t.total.toLocaleString()])
     }
     summary.dataTables++
   }

@@ -75,7 +75,7 @@ function onDataset(side: SideForm) {
       form.keys = [{ left: same.title, right: same.title }]
   }
   if (!props.reconId && !form.name.trim() && form.left.dataset && form.right.dataset)
-    form.name = `${dsOf(form.left.dataset)?.name}对账`
+    form.name = t('{0}对账', [dsOf(form.left.dataset)?.name ?? ''])
 }
 
 watch(() => props.visible, async (v) => {
@@ -132,17 +132,17 @@ watch(def, () => {
 const missing = computed(() => {
   const f = form
   if (!f.left.dataset || !f.right.dataset)
-    return '请选择两个数据集'
+    return t('请选择两个数据集')
   if (f.left.dataset === f.right.dataset)
-    return '两侧不能是同一个数据集'
+    return t('两侧不能是同一个数据集')
   if (!f.left.amount || !f.right.amount)
-    return '请选择两侧的金额列'
+    return t('请选择两侧的金额列')
   if (!f.left.label.trim() || !f.right.label.trim() || f.left.label.trim() === f.right.label.trim())
-    return '两侧的名称不能为空，也不能相同'
+    return t('两侧的名称不能为空，也不能相同')
   if (form.useDays && (!f.left.date || !f.right.date))
-    return '设置了日期窗口，两侧都要选日期列'
+    return t('设置了日期窗口，两侧都要选日期列')
   if (form.keys.some(k => !!k.left !== !!k.right))
-    return '对账键要两侧都选'
+    return t('对账键要两侧都选')
   return ''
 })
 

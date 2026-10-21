@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 /**
  * 条件格式「图标集」与 Excel 的互转（纯函数，不依赖 Univer / exceljs）。
  *
@@ -63,7 +64,7 @@ export function iconSetToExcel(config: UniverIconConfig[], isShowValue: boolean 
   const type = config[0]?.iconType
   const size = type ? ICON_SET_SIZE[type] : undefined
   if (!type || !size)
-    return '图标集（Excel 没有这种图标）'
+    return t('图标集（Excel 没有这种图标）')
   if (config.some(c => c.iconType !== type))
     return '图标集（混用了不同的图标）'
   if (n !== size)

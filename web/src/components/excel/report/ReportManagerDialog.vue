@@ -33,7 +33,7 @@ const emit = defineEmits<{
   (e: 'open', workbookId: string, sheetId: string): void
 }>()
 
-const WEEKDAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+const WEEKDAYS = [t('周一'), t('周二'), t('周三'), t('周四'), t('周五'), t('周六'), t('周日')]
 
 const tab = ref<'reports' | 'channels'>('reports')
 const items = ref<Report[]>([])
@@ -175,7 +175,7 @@ function scheduleText(r: Report) {
 }
 
 function channelNames(r: Report) {
-  return r.channelIds.map(id => channels.value.find(c => c.id === id)?.name ?? '（已删除）').join('、')
+  return r.channelIds.map(id => channels.value.find(c => c.id === id)?.name ?? t('（已删除）')).join('、')
 }
 
 const STATUS: Record<ReportRun['status'], { text: string, cls: string }> = {
@@ -184,7 +184,7 @@ const STATUS: Record<ReportRun['status'], { text: string, cls: string }> = {
   partial: { text: t('部分失败'), cls: 'text-[#92400E]' },
   failed: { text: t('失败'), cls: 'text-[#B91C1C]' },
 }
-const TRIGGER: Record<ReportRun['trigger'], string> = { manual: '手动', schedule: '定时', after_sync: '同步后' }
+const TRIGGER: Record<ReportRun['trigger'], string> = { manual: t('手动'), schedule: t('定时'), after_sync: t('同步后') }
 
 // ── 渠道 ──
 

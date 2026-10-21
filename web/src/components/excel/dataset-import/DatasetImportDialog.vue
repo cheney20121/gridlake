@@ -108,7 +108,7 @@ async function startUpload(files: File[]) {
   }
   catch (e) {
     if (!c.signal.aborted)
-      uploadError.value = errorText(e, '文件读取失败')
+      uploadError.value = errorText(e, tr('文件读取失败'))
   }
   finally {
     progress.value = null
@@ -131,7 +131,7 @@ async function onUrl() {
     await runPreview(() => previewDatasetImportUrlApi(link))
   }
   catch (e) {
-    uploadError.value = errorText(e, '读取网址失败')
+    uploadError.value = errorText(e, tr('读取网址失败'))
   }
 }
 

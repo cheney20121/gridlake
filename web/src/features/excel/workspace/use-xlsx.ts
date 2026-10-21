@@ -36,11 +36,25 @@ export function useXlsx(options: {
       while (datasetFormulasBusy() && Date.now() < deadline)
         await new Promise(r => setTimeout(r, 50))
       const { exportWorkbookXlsx, DATA_TABLE_EXPORT_ROWS } = await import('@/features/excel/xlsx/export-xlsx')
-      const base = uiStore.fileName.replace(/\.[^.]+$/, '') || '工作簿'
+      const base = uiStore.fileName.replace(/\.[^.]+$/, '') || t('工作簿')
       const name = currentPeriod.value ? `${base}_${currentPeriod.value}.xlsx` : `${base}.xlsx`
       const r = await exportWorkbookXlsx(api, name)
       ElMessage.success({
-        message: `已导出 ${r.sheets} 个页签、${r.formulas} 个公式${r.charts ? `、${r.charts} 个图表（Excel 中为图片）` : ''}${r.dataTables ? `、${r.dataTables} 个数据表（单独页签，Excel 表格）` : ''}${r.cellTables ? `、${r.cellTables} 个单元格模式的数据表（原位置包成 Excel 表格）` : ''}${r.tableFormulas ? `；${r.tableFormulas} 个数据表公式已转为 Excel 写法（如 SUM(表[列])），在 Excel 里照样能算` : ''}${r.tableFormulasAsValue ? `；${r.tableFormulasAsValue} 个数据表公式导出为数值` : ''}${r.dataTablesTruncated.length ? `；数据表「${r.dataTablesTruncated.join('」「')}」行数较多，只导出了前 ${DATA_TABLE_EXPORT_ROWS.toLocaleString()} 行` : ''}${r.arrayFormulas ? `；${r.arrayFormulas} 个动态数组公式（FILTER、UNIQUE 等）按溢出范围写成数组公式` : ''}${r.definedNames.exported ? `；命名区域 ${r.definedNames.exported} 个` : ''}${r.outlineGroups ? `；行列分组 ${r.outlineGroups} 个` : ''}${r.platformFormulas ? `；${r.platformFormulas} 个平台函数公式（DSUMIFS 等，Excel 无法计算）已转为数值，原公式见单元格批注` : ''}${r.chartsFailed.length ? `；图表「${r.chartsFailed.join('」「')}」未能导出` : ''}${exportFeatureText(r.features)}`,
+        message: [
+          t('已导出 {0} 个页签、{1} 个公式', [r.sheets, r.formulas]),
+          r.charts ? t('、{0} 个图表（Excel 中为图片）', [r.charts]) : '',
+          r.dataTables ? t('、{0} 个数据表（单独页签，Excel 表格）', [r.dataTables]) : '',
+          r.cellTables ? t('、{0} 个单元格模式的数据表（原位置包成 Excel 表格）', [r.cellTables]) : '',
+          r.tableFormulas ? t('；{0} 个数据表公式已转为 Excel 写法（如 SUM(表[列])），在 Excel 里照样能算', [r.tableFormulas]) : '',
+          r.tableFormulasAsValue ? t('；{0} 个数据表公式导出为数值', [r.tableFormulasAsValue]) : '',
+          r.dataTablesTruncated.length ? t('；数据表「{0}」行数较多，只导出了前 {1} 行', [r.dataTablesTruncated.join('」「'), DATA_TABLE_EXPORT_ROWS.toLocaleString()]) : '',
+          r.arrayFormulas ? t('；{0} 个动态数组公式（FILTER、UNIQUE 等）按溢出范围写成数组公式', [r.arrayFormulas]) : '',
+          r.definedNames.exported ? t('；命名区域 {0} 个', [r.definedNames.exported]) : '',
+          r.outlineGroups ? t('；行列分组 {0} 个', [r.outlineGroups]) : '',
+          r.platformFormulas ? t('；{0} 个平台函数公式（DSUMIFS 等，Excel 无法计算）已转为数值，原公式见单元格批注', [r.platformFormulas]) : '',
+          r.chartsFailed.length ? t('；图表「{0}」未能导出', [r.chartsFailed.join('」「')]) : '',
+          exportFeatureText(r.features),
+        ].join(''),
         duration: 6000,
       })
     }
@@ -52,10 +66,21 @@ export function useXlsx(options: {
     }
   }
 
+  /** 条件格式 / 数据验证 / 批注 / 超链接 / 表格的个数说明（导出和导入共用） */
+  function featureParts(f: { conditionalFormats: number, dataValidations: number, notes: number, hyperlinks: number, tables: number }) {
+    return [
+      f.conditionalFormats && t('条件格式 {0} 条', [f.conditionalFormats]),
+      f.dataValidations && t('数据验证 {0} 条', [f.dataValidations]),
+      f.notes && t('批注 {0} 个', [f.notes]),
+      f.hyperlinks && t('超链接 {0} 个', [f.hyperlinks]),
+      f.tables && t('表格 {0} 个', [f.tables]),
+    ].filter(Boolean)
+  }
+
   /** 导出结果里的条件格式 / 数据验证 / 批注 / 超链接说明 */
   function exportFeatureText(f: { conditionalFormats: number, dataValidations: number, notes: number, hyperlinks: number, tables: number, skipped: string[] }) {
-    const parts = [f.conditionalFormats && `条件格式 ${f.conditionalFormats} 条`, f.dataValidations && `数据验证 ${f.dataValidations} 条`, f.notes && `批注 ${f.notes} 个`, f.hyperlinks && `超链接 ${f.hyperlinks} 个`, f.tables && `表格 ${f.tables} 个`].filter(Boolean)
-    return `${parts.length ? `；含${parts.join('、')}` : ''}${f.skipped.length ? `；${f.skipped.length} 项规则 Excel 无对应格式未导出（${f.skipped.slice(0, 3).join('、')}${f.skipped.length > 3 ? '…' : ''}）` : ''}`
+    const parts = featureParts(f)
+    return `${parts.length ? t('；含{0}', [parts.join('、')]) : ''}${f.skipped.length ? t('；{0} 项规则 Excel 无对应格式未导出（{1}）', [f.skipped.length, `${f.skipped.slice(0, 3).join('、')}${f.skipped.length > 3 ? '…' : ''}`]) : ''}`
   }
 
   async function onXlsxFile(e: Event) {
@@ -69,16 +94,16 @@ export function useXlsx(options: {
     try {
       const { importXlsx } = await import('@/features/excel/xlsx/import-xlsx')
       const r = await importXlsx(api, await file.arrayBuffer())
-      const lines = r.sheets.map(s => `「${escapeHtml(s.name)}」${s.rows.toLocaleString()} 行 × ${s.cols} 列，公式 ${s.formulas.toLocaleString()} 个，合并 ${s.merges} 处${s.outlineGroups ? `，分组 ${s.outlineGroups} 个` : ''}`)
+      const lines = r.sheets.map(s => t('「{0}」{1} 行 × {2} 列，公式 {3} 个，合并 {4} 处{5}', [escapeHtml(s.name), s.rows.toLocaleString(), s.cols, s.formulas.toLocaleString(), s.merges, s.outlineGroups ? t('，分组 {0} 个', [s.outlineGroups]) : '']))
       for (const s of r.skipped)
         lines.push(t('<span style="color:#92400E">「{0}」{1} 行，超过表格页签上限，未导入。请用「+ 导入数据」导入为数据集（支持千万行）</span>', [escapeHtml(s.name), s.rows.toLocaleString()]))
       const f = r.features
-      const brought = [f.conditionalFormats && `条件格式 ${f.conditionalFormats} 条`, f.dataValidations && `数据验证 ${f.dataValidations} 条`, f.notes && `批注 ${f.notes} 个`, f.hyperlinks && `超链接 ${f.hyperlinks} 个`, f.tables && `表格 ${f.tables} 个`, r.definedNames?.imported && `命名区域 ${r.definedNames.imported} 个`].filter(Boolean)
+      const brought = [...featureParts(f), r.definedNames?.imported && t('命名区域 {0} 个', [r.definedNames.imported])].filter(Boolean)
       if (brought.length)
         lines.push(t('<span style="color:#0B5A2E">同时导入：{0}</span>', [brought.join('、')]))
-      const dropped = [r.unsupported.images && `图片 ${r.unsupported.images} 张`, ...f.skipped.slice(0, 5).map(escapeHtml), r.definedNames?.skipped.length && `命名区域「${r.definedNames.skipped.slice(0, 3).map(escapeHtml).join('」「')}」${r.definedNames.skipped.length > 3 ? ` 等 ${r.definedNames.skipped.length} 个` : ''}（指向多个区域、未导入的页签或重名）`].filter(Boolean)
+      const dropped = [r.unsupported.images && t('图片 {0} 张', [r.unsupported.images]), ...f.skipped.slice(0, 5).map(escapeHtml), r.definedNames?.skipped.length && t('命名区域「{0}」{1}（指向多个区域、未导入的页签或重名）', [r.definedNames.skipped.slice(0, 3).map(escapeHtml).join('」「'), r.definedNames.skipped.length > 3 ? t(' 等 {0} 个', [r.definedNames.skipped.length]) : ''])].filter(Boolean)
       if (dropped.length)
-        lines.push(`<span style="color:#6B7280">未能导入：${dropped.join('、')}${f.skipped.length > 5 ? ` 等 ${f.skipped.length} 项` : ''}</span>`)
+        lines.push(t('<span style="color:#6B7280">未能导入：{0}{1}</span>', [dropped.join('、'), f.skipped.length > 5 ? t(' 等 {0} 项', [f.skipped.length]) : '']))
       if (r.unknownFunctions)
         lines.push(t('<span style="color:#B91C1C">{0} 个公式使用了当前不支持的函数（显示 #NAME?）</span>', [r.unknownFunctions]))
       await ElMessageBox.alert(lines.join('<br>') || t('文件中没有可导入的页签'), t('已导入「{0}」', [escapeHtml(file.name)]), {

@@ -130,10 +130,10 @@ async function next() {
   if (step.value === 0) {
     if (!form.name.trim()) {
       form.name = form.sourceKind === 'folder'
-        ? (form.folder.path.split(/[\\/]/).filter(Boolean).pop() || '文件夹同步')
+        ? (form.folder.path.split(/[\\/]/).filter(Boolean).pop() || tr('文件夹同步'))
         : form.sourceKind === 's3'
-          ? `${form.s3.bucket.trim()} 对象存储`
-          : form.sourceKind === 'http' ? `${hostOf(form.http.url)} 接口` : `${form.db.database} 同步`
+          ? tr('{0} 对象存储', [form.s3.bucket.trim()])
+          : form.sourceKind === 'http' ? tr('{0} 接口', [hostOf(form.http.url)]) : tr('{0} 同步', [form.db.database])
     }
     step.value = 1
     if (previewKey.value !== sourceKey.value)
@@ -165,19 +165,19 @@ const needsKey = computed(() => form.mode === 'upsert' || (isDb.value && !!form.
 const targetError = computed(() => {
   if (form.targetType === 'new') {
     if (!form.datasetName.trim())
-      return '请填写数据集名称'
+      return tr('请填写数据集名称')
     if (!form.columns.length)
-      return '请先预览数据，确定要导入的列'
+      return tr('请先预览数据，确定要导入的列')
     if (duplicateTitle.value !== undefined)
-      return `列名不能为空或重复：「${duplicateTitle.value}」`
+      return tr('列名不能为空或重复：「{0}」', [duplicateTitle.value])
     if (props.datasets.some(d => d.name === form.datasetName.trim()))
-      return `已存在名为「${form.datasetName.trim()}」的数据集，要同步到它请选择「已有数据集」`
+      return tr('已存在名为「{0}」的数据集，要同步到它请选择「已有数据集」', [form.datasetName.trim()])
   }
   else if (!targetDataset.value) {
-    return '请选择目标数据集'
+    return tr('请选择目标数据集')
   }
   if (needsKey.value && !form.primaryKey.length)
-    return form.mode === 'upsert' ? '「增量更新」需要设置主键' : '增量同步需要设置主键（用于去重重复读到的行）'
+    return form.mode === 'upsert' ? tr('「增量更新」需要设置主键') : tr('增量同步需要设置主键（用于去重重复读到的行）')
   return ''
 })
 

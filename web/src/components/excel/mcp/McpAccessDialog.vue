@@ -51,9 +51,9 @@ watch(tab, async (t) => {
 
 function datasetNames(ids: string[] | null) {
   if (!ids)
-    return '全部数据集'
-  const names = ids.map(id => props.datasets.find(d => d.id === id)?.name ?? '（已删除）')
-  return names.length > 3 ? `${names.slice(0, 3).join('、')} 等 ${names.length} 个` : names.join('、')
+    return tr('全部数据集')
+  const names = ids.map(id => props.datasets.find(d => d.id === id)?.name ?? tr('（已删除）'))
+  return names.length > 3 ? tr('{0} 等 {1} 个', [names.slice(0, 3).join('、'), names.length]) : names.join('、')
 }
 
 // ── 新建 / 修改 ──
