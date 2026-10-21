@@ -44,6 +44,7 @@ scripts/check-version.sh                  # 后端与前端版本号一致
 python3 -I scripts/gen-third-party.py --check   # 依赖的许可证；依赖变了要重新生成 THIRD_PARTY_LICENSES.md
 python3 -I scripts/gen-api-docs.py --check      # 新增 / 修改接口后运行 scripts/gen-api-docs.py 重新生成 docs/api.md
 python3 -I scripts/extract-messages.py          # 新增的中文错误信息要在 server/src/msg_en.json 里有英文
+python3 -I scripts/check-env-docs.py            # 新增的 LEDGER_* 环境变量要写进 deploy/部署手册.md 的变量表
 ```
 
 ## 代码约定
@@ -55,6 +56,7 @@ python3 -I scripts/extract-messages.py          # 新增的中文错误信息要
 - **领域专用的功能做成场景包**，不要塞进核心：核心（数据集 / 透视表 / 公式 / SQL / 仪表盘 / 协作）必须是通用的。电商资金台账就是一个包（`server/src/ecommerce/`、`web/src/packs/ecommerce/`，开关 `LEDGER_PACKS`），结构说明见 [docs/architecture.md](docs/architecture.md) 的「场景包」。核心代码不能依赖包里的业务逻辑；两边都要用的通用函数放核心。
 - **新增 HTTP 接口**：在处理函数上方写 `/// METHOD /api/路径  说明`（接口文档由它生成，缺了脚本会报错）；还必须想清楚「数据范围受限的用户」能不能调用它，并在 `server/src/auth.rs` 里登记：确认读写都经过数据范围过滤的放进 `RESTRICTED_OK`，会绕过过滤的放进 `FULL_ONLY`。受限用户**默认调不了**未登记的接口，`routes_are_all_classified` 测试也会在漏登记时失败。
 - **界面文案要能翻译**：新增的界面文字写成 `t('中文原文')`（模板里 `$t('…')`），带变量用占位符 `t('共 {0} 行', [n])`，再在 `web/src/i18n/locales/en-US.json` 里补英文，`pnpm i18n:check` 会提醒漏掉的。中文原文就是键，所以改了原文要同步改 JSON。**不要翻译会当数据用的字符串**：数据集 / 列名、公式里的字符串、按名字查找或比较用的标签；这些翻译后英文界面会查不到数据。
+- **新增环境变量要写进部署手册**：代码里读取的每个 `LEDGER_*` 变量都要出现在 `deploy/部署手册.md` 的变量表里（`scripts/check-env-docs.py` 检查，CI 会跑）；常用的可以再加一条注释示例到 `deploy/ledger.env.example`（脚本会检查示例里的变量名真实存在，防止拼错）。
 - **接口错误信息要有英文**：`AppError::bad(format!("找不到「{x}」"))` 这类中文错误信息，在 `server/src/msg_en.json` 里加一条「中文模板 → 英文模板」（占位符按出现顺序写成 `{0}` `{1}`，`scripts/extract-messages.py --dump` 能打印出当前的模板）；请求带 `x-lang: en-US`（浏览器是 cookie `gridlake-lang`）时服务端按它翻译。先拼进变量再传出去的信息脚本找不到，可以用 `LEDGER_E2E_COLLECT_UNTRANSLATED=1 server/tests/e2e/run.sh` 收集漏网的。
 - 涉及 SQL 拼接一律走 `schema::ident` / `schema::literal` 或参数绑定，不要直接拼用户输入。
 - 不要提交：数据库文件、`secret.key`、`.env.local`、真实客户数据、公司内部域名或账号。示例数据请用合成数据。
