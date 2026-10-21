@@ -89,8 +89,9 @@ pub fn search_text_sql() -> String {
 /// - 只增加表 / 列（`CREATE TABLE IF NOT EXISTS`、`ADD COLUMN IF NOT EXISTS`）不用改它，升级是可重复执行的；
 /// - 一旦做了旧版本程序无法兼容的改动（改列含义、搬数据、删表 / 列），把它加 1，并在 CHANGELOG 里写明；
 ///   （版本 2：数据范围规则从 ledger_data_scope 搬到 ledger_scope_rule——旧版读不到新规则会悄悄放开限制，所以必须拒绝打开）
+///   （版本 3：账号可以启用两步验证——旧版不认识它，会让启用了两步验证的账号只凭密码登录，所以必须拒绝打开）
 /// - 新版程序写过的数据文件，旧版程序拒绝打开（见 `check_version`），避免旧版悄悄读写出错。回退要用升级前的备份
-pub const SCHEMA_VERSION: i64 = 2;
+pub const SCHEMA_VERSION: i64 = 3;
 
 const META_SQL: &str = "CREATE TABLE IF NOT EXISTS ledger_meta (key VARCHAR PRIMARY KEY, value VARCHAR NOT NULL);";
 
@@ -146,6 +147,9 @@ pub fn migrate_sql() -> String {
          ALTER TABLE ledger_dataset ADD COLUMN IF NOT EXISTS owner_name VARCHAR;
          ALTER TABLE ledger_dataset ADD COLUMN IF NOT EXISTS scope_column VARCHAR;
          ALTER TABLE ledger_dataset ADD COLUMN IF NOT EXISTS scope_dimension VARCHAR;
+         ALTER TABLE ledger_account ADD COLUMN IF NOT EXISTS totp_secret_enc VARCHAR;
+         ALTER TABLE ledger_account ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN DEFAULT false;
+         ALTER TABLE ledger_account ADD COLUMN IF NOT EXISTS totp_last_step BIGINT;
          ALTER TABLE ledger_dataset ADD COLUMN IF NOT EXISTS scope_open BOOLEAN;
          INSERT INTO ledger_scope_rule (subject_id, dimension, subject_name, mode, vals, updated_by, updated_at)
            SELECT subject_id, '店铺', subject_name, CASE WHEN mode = 'shops' THEN 'values' ELSE mode END, shops, updated_by, updated_at FROM ledger_data_scope
@@ -378,7 +382,16 @@ CREATE TABLE IF NOT EXISTS ledger_account (
   disabled BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMP,
   updated_at TIMESTAMP,
-  last_login_at TIMESTAMP
+  last_login_at TIMESTAMP,
+  totp_secret_enc VARCHAR,
+  totp_enabled BOOLEAN DEFAULT false,
+  totp_last_step BIGINT
+);
+-- 两步验证（TOTP）的一次性恢复码（只存摘要；见 totp.rs）
+CREATE TABLE IF NOT EXISTS ledger_totp_recovery (
+  account_id VARCHAR NOT NULL,
+  code_hash VARCHAR NOT NULL,
+  PRIMARY KEY (account_id, code_hash)
 );
 -- 登录失败计数（按用户名；连续失败后临时锁定，重启不清零）
 CREATE TABLE IF NOT EXISTS ledger_login_failure (

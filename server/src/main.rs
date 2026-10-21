@@ -55,6 +55,7 @@ mod scope;
 mod sqlq;
 mod tabular;
 mod template;
+mod totp;
 mod views;
 mod web;
 mod workbook;
@@ -276,6 +277,10 @@ async fn serve(config: config::Config) -> anyhow::Result<()> {
         .route("/ledger/auth/oidc/callback", get(oidc::callback_route))
         .route("/ledger/auth/logout", post(account::logout_route))
         .route("/ledger/auth/password", post(account::password_route))
+        .route("/ledger/auth/2fa", get(totp::status_route))
+        .route("/ledger/auth/2fa/setup", post(totp::setup_route))
+        .route("/ledger/auth/2fa/enable", post(totp::enable_route))
+        .route("/ledger/auth/2fa/disable", post(totp::disable_route))
         .route("/ledger/tokens", get(pat::list_route).post(pat::create_route))
         .route("/ledger/tokens/{id}", delete(pat::revoke_route))
         .route("/ledger/accounts", get(account::list_route).post(account::create_route))

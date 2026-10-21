@@ -116,9 +116,11 @@ pub struct Account {
     pub disabled: bool,
     pub created_at: String,
     pub last_login_at: Option<String>,
+    /// 是否启用了两步验证（TOTP，见 totp.rs）
+    pub two_factor: bool,
 }
 
-const COLS: &str = "id, username, name, admin, disabled, strftime(created_at, '%Y-%m-%d %H:%M:%S'), strftime(last_login_at, '%Y-%m-%d %H:%M:%S')";
+const COLS: &str = "id, username, name, admin, disabled, strftime(created_at, '%Y-%m-%d %H:%M:%S'), strftime(last_login_at, '%Y-%m-%d %H:%M:%S'), COALESCE(totp_enabled, false)";
 
 fn read(r: &duckdb::Row) -> duckdb::Result<Account> {
     Ok(Account {
@@ -129,6 +131,7 @@ fn read(r: &duckdb::Row) -> duckdb::Result<Account> {
         disabled: r.get(4)?,
         created_at: r.get::<_, Option<String>>(5)?.unwrap_or_default(),
         last_login_at: r.get(6)?,
+        two_factor: r.get(7)?,
     })
 }
 
@@ -186,6 +189,8 @@ pub struct AccountPatch {
     pub disabled: Option<bool>,
     /// 管理员重置密码
     pub password: Option<String>,
+    /// 管理员重置两步验证（用户手机丢了又没有恢复码）：清掉密钥和恢复码，对方已登录的会话失效
+    pub reset_totp: Option<bool>,
 }
 
 pub(crate) fn enabled_admins(conn: &Connection) -> AppResult<i64> {
@@ -221,6 +226,10 @@ pub fn update(conn: &Connection, actor: &CurrentUser, id: &str, patch: &AccountP
     if let Some(p) = patch.password.as_deref() {
         check_password(p)?;
         conn.execute("UPDATE ledger_account SET password_hash = ?, updated_at = CAST(? AS TIMESTAMP) WHERE id = ?", params![hash_password(p), now, id])?;
+        conn.execute("DELETE FROM ledger_session WHERE account_id = ?", params![id])?;
+    }
+    if patch.reset_totp == Some(true) {
+        crate::totp::clear(conn, id)?;
         conn.execute("DELETE FROM ledger_session WHERE account_id = ?", params![id])?;
     }
     let a = one(conn, id)?;
@@ -272,15 +281,18 @@ fn clear_failures(conn: &Connection, key: &str) -> AppResult<()> {
     Ok(())
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct LoginResult {
     pub token: String,
     pub days: i64,
     pub user: CurrentUser,
+    /// 密码对了，但这个账号启用了两步验证、还没给验证码：此时没有令牌，前端再带上 code 重新提交
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub need_code: bool,
 }
 
-pub fn login(conn: &Connection, username: &str, password: &str, days: i64) -> AppResult<LoginResult> {
+pub fn login(conn: &Connection, secret: &crate::connector::secret::Secret, username: &str, password: &str, code: Option<&str>, days: i64) -> AppResult<LoginResult> {
     let key = username.trim().to_lowercase();
     if key.is_empty() || password.is_empty() {
         return Err(AppError::bad("请输入用户名和密码"));
@@ -304,6 +316,17 @@ pub fn login(conn: &Connection, username: &str, password: &str, days: i64) -> Ap
     if disabled {
         return Err(AppError::bad("账号已停用，请联系管理员"));
     }
+    // 两步验证：密码对了还要动态码（或恢复码）；输错的码和输错密码一样计入失败次数，6 位数字没法被穷举
+    if crate::totp::is_enabled(conn, &id)? {
+        let Some(code) = code.map(str::trim).filter(|c| !c.is_empty()) else {
+            let a = one(conn, &id)?;
+            return Ok(LoginResult { token: String::new(), days: 0, user: to_user(&a), need_code: true });
+        };
+        if !crate::totp::check_login_code(conn, secret, &id, code)? {
+            note_failure(conn, &key)?;
+            return Err(AppError::bad("验证码不正确（或已经用过）；手机丢了可以用恢复码，或请管理员重置两步验证"));
+        }
+    }
     clear_failures(conn, &key)?;
     start_session(conn, &id, days)
 }
@@ -320,7 +343,7 @@ pub(crate) fn start_session(conn: &Connection, id: &str, days: i64) -> AppResult
     conn.execute("UPDATE ledger_account SET last_login_at = CAST(? AS TIMESTAMP) WHERE id = ?", params![now, id])?;
     let a = one(conn, id)?;
     crate::approval::touch_user(conn, &to_user(&a))?;
-    Ok(LoginResult { token, days, user: to_user(&a) })
+    Ok(LoginResult { token, days, user: to_user(&a), need_code: false })
 }
 
 static DUMMY_HASH: OnceLock<String> = OnceLock::new();
@@ -450,6 +473,9 @@ pub struct LoginBody {
     pub username: String,
     #[serde(default)]
     pub password: String,
+    /// 启用了两步验证时：验证器里的 6 位动态码，或一次性恢复码
+    #[serde(default)]
+    pub code: Option<String>,
 }
 
 /// POST /api/ledger/auth/login  { username, password } → { token, days, user }，同时用 Set-Cookie 写入 HttpOnly 会话 cookie。
@@ -460,9 +486,16 @@ pub async fn login_route(State(db): State<AppState>, ConnectInfo(peer): ConnectI
     let b: LoginBody = parse_json(&body)?;
     let days = db.config.session_days;
     let username = b.username.trim().to_string();
-    let r = run(&db, move |c| login(c, &b.username, &b.password, days)).await;
-    crate::auth::audit_login(&db, &headers, peer.ip(), &username, if r.is_ok() { 200 } else { 400 }, started);
+    let st = db.clone();
+    let r = run(&db, move |c| login(c, &st.connectors.secret, &b.username, &b.password, b.code.as_deref(), days)).await;
+    // 只差动态码的那一步不算登录结果，不记审计
+    if !r.as_ref().is_ok_and(|r| r.need_code) {
+        crate::auth::audit_login(&db, &headers, peer.ip(), &username, if r.is_ok() { 200 } else { 400 }, started);
+    }
     let r = r?;
+    if r.need_code {
+        return Ok(ok(r).into_response());
+    }
     let cookie = session_cookie(&r.token, days * 86400, cookie_secure(&db, &headers, peer.ip()));
     Ok(([(axum::http::header::SET_COOKIE, cookie)], ok(r)).into_response())
 }

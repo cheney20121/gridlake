@@ -52,10 +52,44 @@ export interface LoginResult {
   /** 令牌有效天数 */
   days: number
   user: LedgerUser
+  /** 密码对了，但这个账号启用了两步验证、还没给验证码：没有令牌，带上 code 再提交一次 */
+  needCode?: boolean
 }
 
-export function loginApi(username: string, password: string) {
-  return request<LoginResult>({ url: url('/auth/login'), method: 'post', data: { username, password }, silent: true })
+export function loginApi(username: string, password: string, code?: string) {
+  return request<LoginResult>({ url: url('/auth/login'), method: 'post', data: { username, password, ...(code ? { code } : {}) }, silent: true })
+}
+
+// ── 两步验证（TOTP）──
+
+export interface TwoFactorStatus {
+  enabled: boolean
+  /** 还剩几个没用过的恢复码 */
+  recoveryLeft: number
+}
+
+export interface TwoFactorSetup {
+  /** Base32 密钥（手工输入用） */
+  secret: string
+  /** otpauth:// 地址 */
+  uri: string
+}
+
+export function getTwoFactorApi() {
+  return request<TwoFactorStatus>({ url: url('/auth/2fa'), method: 'get' })
+}
+
+export function setupTwoFactorApi() {
+  return request<TwoFactorSetup>({ url: url('/auth/2fa/setup'), method: 'post', silent: true })
+}
+
+/** 用验证器里的 6 位数字确认并启用；返回一次性恢复码（只此一次） */
+export function enableTwoFactorApi(code: string) {
+  return request<{ recoveryCodes: string[] }>({ url: url('/auth/2fa/enable'), method: 'post', data: { code }, silent: true })
+}
+
+export function disableTwoFactorApi(password: string, code: string) {
+  return request<boolean>({ url: url('/auth/2fa/disable'), method: 'post', data: { password, code }, silent: true })
 }
 
 export function logoutApi() {
@@ -72,6 +106,8 @@ export interface Account {
   name: string
   admin: boolean
   disabled: boolean
+  /** 是否启用了两步验证 */
+  twoFactor: boolean
   createdAt: string
   lastLoginAt: string | null
 }
@@ -84,7 +120,7 @@ export function createAccountApi(data: { username: string, name: string, passwor
   return request<Account>({ url: url('/accounts'), method: 'post', data })
 }
 
-export function updateAccountApi(id: string, data: { name?: string, admin?: boolean, disabled?: boolean, password?: string }) {
+export function updateAccountApi(id: string, data: { name?: string, admin?: boolean, disabled?: boolean, password?: string, resetTotp?: boolean }) {
   return request<Account>({ url: url(`/accounts/${id}`), method: 'put', data })
 }
 

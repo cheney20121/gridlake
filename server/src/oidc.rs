@@ -595,8 +595,10 @@ mod tests {
         let other = login_identity(&conn, &c, &c.issuer, &who("s2", "ZHANG", Some(false)), 7).unwrap();
         assert_eq!(other.user.id, "ZHANG-2");
         // 密码登录用不了 SSO 账号
-        assert!(crate::account::login(&conn, "zhang", "", 7).is_err());
-        assert!(crate::account::login(&conn, "zhang", "!sso", 7).is_err());
+        let dir = tempfile::tempdir().unwrap();
+        let secret = crate::connector::secret::Secret::load(dir.path()).unwrap();
+        assert!(crate::account::login(&conn, &secret, "zhang", "", None, 7).is_err());
+        assert!(crate::account::login(&conn, &secret, "zhang", "!sso", None, 7).is_err());
     }
 
     #[test]

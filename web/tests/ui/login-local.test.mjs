@@ -1,15 +1,30 @@
 // 内置账号（LEDGER_AUTH_MODE=local）的界面流程：未登录跳转登录页 → 登录 → 回到原页面 → 管理员建账号 → 新账号登录 → 修改密码 → 退出
 import assert from 'node:assert/strict'
+import { Buffer } from 'node:buffer'
+import { createHmac } from 'node:crypto'
 import path from 'node:path'
 import { after, before, describe, it } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { findChrome, launchChrome } from './cdp.mjs'
 import { LOCAL_ADMIN, startServices, WEB } from './infra.mjs'
 
+/** 验证器里的 6 位动态码（RFC 6238，HMAC-SHA1，30 秒一步）；offset 取前后的时间步 */
+function totp(secretB32, offset = 0) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+  let bits = ''
+  for (const c of secretB32.replace(/=+$/, '').toUpperCase()) bits += alphabet.indexOf(c).toString(2).padStart(5, '0')
+  const key = Buffer.from(bits.match(/.{8}/g).map(b => Number.parseInt(b, 2)))
+  const msg = Buffer.alloc(8)
+  msg.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30_000) + offset))
+  const h = createHmac('sha1', key).update(msg).digest()
+  const o = h[19] & 15
+  return String((h.readUInt32BE(o) & 0x7FFFFFFF) % 1_000_000).padStart(6, '0')
+}
+
 const ARTIFACTS = path.join(path.dirname(fileURLToPath(import.meta.url)), '.artifacts')
 const skip = findChrome() ? false : '本机没有 Chrome / Chromium（可用 CHROME_BIN 指定）'
 // 未登录时 /ledger/me 之外的请求会 401（页面跳转登录前可能已发出）；故意输错密码时登录接口返回 400
-const ALLOWED = [/401|Unauthorized/i, /status of 400 .*\/ledger\/auth\/login/, /command "formula\.mutation\.set-trigger-formula-calculation-start" is not registered/]
+const ALLOWED = [/status of 400 .*\/ledger\/auth\/2fa\//, /status of 403 .*\/ledger\/folders/, /401|Unauthorized/i, /status of 400 .*\/ledger\/auth\/login/, /command "formula\.mutation\.set-trigger-formula-calculation-start" is not registered/]
 
 describe('内置账号登录（界面）', { skip }, () => {
   let services
@@ -158,6 +173,58 @@ describe('内置账号登录（界面）', { skip }, () => {
     }
     catch (e) {
       await shot('login-local-4')
+      throw e
+    }
+  })
+
+  it('两步验证：开启 → 保存恢复码 → 退出后登录要验证码 → 用验证码登录 → 停用', async () => {
+    try {
+      // 上一个用例结束时 alice 已登录、停在首页
+      await page.click('[data-testid="user-menu"] .cursor-pointer')
+      await page.waitFor(`!!document.querySelector('[data-testid="user-menu-twofactor"]')`, { what: '用户菜单里有两步验证' })
+      await page.click('[data-testid="user-menu-twofactor"]')
+      await page.waitFor(`!!document.querySelector('[data-testid="twofactor-start"]')`, { what: '未启用时有「开始设置」' })
+      await page.click('[data-testid="twofactor-start"]')
+      await page.waitFor(`!!document.querySelector('[data-testid="twofactor-secret"]')`, { what: '显示密钥' })
+      const secret = (await page.eval(`document.querySelector('[data-testid="twofactor-secret"]').innerText`)).trim()
+      assert.match(secret, /^[A-Z2-7]{32}$/)
+      await page.fill('input[data-testid="twofactor-code"]', '000000')
+      await page.click('[data-testid="twofactor-enable"]')
+      await page.waitFor(`document.querySelector('[data-testid="twofactor-error"]')?.innerText.includes('验证码不正确')`, { what: '错误的验证码被拒绝' })
+      await page.fill('input[data-testid="twofactor-code"]', totp(secret))
+      await page.click('[data-testid="twofactor-enable"]')
+      await page.waitFor(`document.querySelectorAll('[data-testid="twofactor-recovery-code"]').length === 10`, { what: '启用后显示 10 个恢复码' })
+      const recovery = await page.eval(`[...document.querySelectorAll('[data-testid="twofactor-recovery-code"]')].map(e => e.innerText.trim())`)
+      assert.equal(new Set(recovery).size, 10)
+      await page.press('Escape')
+      await logout()
+
+      // 登录：先密码，再验证码
+      await login('alice', 'alice-pass-2')
+      await page.waitFor(`!!document.querySelector('input[data-testid="login-code"]')`, { what: '密码对了之后出现验证码输入框' })
+      assert.equal(await page.eval(`!!document.querySelector('input[data-testid="login-password"]')`), false, '密码框收起')
+      await page.fill('input[data-testid="login-code"]', '000000')
+      await page.click('[data-testid="login-submit"]')
+      await page.waitFor(`document.querySelector('[data-testid="login-error"]')?.innerText.includes('验证码不正确')`, { what: '验证码错误的提示' })
+      await page.fill('input[data-testid="login-code"]', totp(secret, 1))
+      await page.click('[data-testid="login-submit"]')
+      await page.waitFor(`location.pathname === '/excel/home'`, { what: '验证码对了，进入首页', timeout: 60_000 })
+
+      // 停用：密码 + 恢复码
+      await page.click('[data-testid="user-menu"] .cursor-pointer')
+      await page.waitFor(`!!document.querySelector('[data-testid="user-menu-twofactor"]')`, { what: '用户菜单' })
+      await page.click('[data-testid="user-menu-twofactor"]')
+      await page.waitFor(`!!document.querySelector('[data-testid="twofactor-disable"]')`, { what: '已启用时显示停用' })
+      await page.fill('input[data-testid="twofactor-disable-password"]', 'alice-pass-2')
+      await page.fill('input[data-testid="twofactor-disable-code"]', recovery[0])
+      await page.click('[data-testid="twofactor-disable"]')
+      await page.waitFor(`!!document.querySelector('.ec-message-box')`, { what: '停用确认' })
+      await page.click('.ec-message-box__btns button', '停用')
+      await page.waitFor(`!!document.querySelector('[data-testid="twofactor-start"]')`, { what: '停用后回到「开始设置」' })
+      assert.deepEqual(page.errors.filter(e => !ALLOWED.some(re => re.test(e))), [])
+    }
+    catch (e) {
+      await shot('login-local-5')
       throw e
     }
   })

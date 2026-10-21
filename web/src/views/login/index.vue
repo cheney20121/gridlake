@@ -23,7 +23,9 @@ const router = useRouter()
 const userStore = useLedgerUserStore()
 const me = ref<LedgerMe | null>(null)
 const failed = ref('')
-const form = reactive({ username: '', password: '' })
+const form = reactive({ username: '', password: '', code: '' })
+/** 密码对了、这个账号启用了两步验证：等用户输入验证码 */
+const needCode = ref(false)
 const submitting = ref(false)
 const error = ref(ssoErrorText(route.query.sso_error))
 
@@ -85,9 +87,17 @@ async function submit() {
     error.value = t('请输入用户名和密码')
     return
   }
+  if (needCode.value && !form.code.trim()) {
+    error.value = t('请输入验证码')
+    return
+  }
   submitting.value = true
   try {
-    const r = await loginApi(form.username.trim(), form.password)
+    const r = await loginApi(form.username.trim(), form.password, needCode.value ? form.code.trim() : undefined)
+    if (r.needCode) {
+      needCode.value = true
+      return
+    }
     // 同源部署：服务端已写入 HttpOnly 会话 cookie，页面不保存令牌（脚本读不到，XSS 偷不走）；
     // 跨域部署：浏览器不会向另一个来源带 cookie，只能把令牌放在 cookie / 请求头里自己带
     if (!LEDGER_SAME_ORIGIN)
@@ -119,10 +129,18 @@ async function submit() {
       </div>
       <template v-else-if="me?.mode === 'local'">
         <el-form label-position="top" @submit.prevent="submit">
-          <el-form-item :label="$t('用户名')">
+          <template v-if="needCode">
+            <div class="mb-3 text-[13px] text-gray-600 leading-6">
+              {{ $t('这个账号启用了两步验证：请输入验证器 App 里现在显示的 6 位数字。手机不在身边可以输入一次性恢复码。') }}
+            </div>
+            <el-form-item :label="$t('验证码')">
+              <el-input v-model="form.code" autocomplete="one-time-code" data-testid="login-code" @keyup.enter="submit" />
+            </el-form-item>
+          </template>
+          <el-form-item v-else :label="$t('用户名')">
             <el-input v-model="form.username" autocomplete="username" data-testid="login-username" />
           </el-form-item>
-          <el-form-item :label="$t('密码')">
+          <el-form-item v-if="!needCode" :label="$t('密码')">
             <el-input v-model="form.password" type="password" show-password autocomplete="current-password" data-testid="login-password" @keyup.enter="submit" />
           </el-form-item>
           <div v-if="error" class="mb-3 text-[13px] text-[#B91C1C]" data-testid="login-error">

@@ -406,6 +406,10 @@ const ROUTES: &[(&str, &str, Rule, &str)] = &[
     ("PUT", "/ledger/accounts/{id}", Admin, "修改账号"),
     ("POST", "/ledger/auth/logout", Open, "退出登录"),
     ("POST", "/ledger/auth/password", Open, "修改密码"),
+    ("GET", "/ledger/auth/2fa", Open, ""),
+    ("POST", "/ledger/auth/2fa/setup", Open, "开始设置两步验证"),
+    ("POST", "/ledger/auth/2fa/enable", Open, "启用两步验证"),
+    ("POST", "/ledger/auth/2fa/disable", Open, "停用两步验证"),
     ("GET", "/ledger/tokens", Open, ""),
     ("POST", "/ledger/tokens", Open, "创建访问令牌"),
     ("DELETE", "/ledger/tokens/{id}", Open, "吊销访问令牌"),
@@ -856,6 +860,7 @@ const RESTRICTED_OK: &[(&str, &str)] = &[
     ("GET", "/ledger/ai/status"), ("GET", "/ledger/ai/threads"), ("POST", "/ledger/ai/threads"), ("GET", "/ledger/ai/threads/{id}"), ("DELETE", "/ledger/ai/threads/{id}"), ("PUT", "/ledger/ai/threads/{id}/summary"), ("POST", "/ledger/ai/threads/{id}/chat"), ("GET", "/ledger/ai/threads/{id}/events"), ("POST", "/ledger/ai/threads/{id}/stop"), ("POST", "/ledger/ai/actions/{id}"),
     ("GET", "/ledger/templates"), ("POST", "/ledger/templates/{id}/use"), ("GET", "/ledger/templates/{id}/uses"),
     ("POST", "/ledger/auth/logout"), ("POST", "/ledger/auth/password"),
+    ("GET", "/ledger/auth/2fa"), ("POST", "/ledger/auth/2fa/setup"), ("POST", "/ledger/auth/2fa/enable"), ("POST", "/ledger/auth/2fa/disable"),
     ("GET", "/ledger/tokens"), ("POST", "/ledger/tokens"), ("DELETE", "/ledger/tokens/{id}"),
     ("GET", "/ledger/users"),
     // 我的填报：只返回自己负责的单位；单位和期次里数得到的行数来自按他的范围过滤后的数据集

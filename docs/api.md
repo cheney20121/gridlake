@@ -17,7 +17,7 @@
 - **数据范围受限的用户**（管理员给用户设置了「只能看某些店铺」）：只能调用下表「受限用户」列为 ✓ 的接口，其余一律返回 403；✓ 的接口读取的数据也已按范围过滤。
 - **审计**：「审计」列非空的接口会记入操作审计，列里是审计里显示的操作名。
 
-共 208 个接口。
+共 212 个接口。
 
 ## 存活检查与运维
 
@@ -36,6 +36,10 @@
 | GET | `/api/ledger/accounts` | 账号列表（管理员） | 仅管理员 | — |  |
 | POST | `/api/ledger/accounts` | { username, name, password, admin }（管理员） | 仅管理员 | — | 新建账号 |
 | PUT | `/api/ledger/accounts/{id}` | { name?, admin?, disabled?, password? }（管理员） | 仅管理员 | — | 修改账号 |
+| GET | `/api/ledger/auth/2fa` | 我的两步验证状态 | 登录用户 | ✓ |  |
+| POST | `/api/ledger/auth/2fa/disable` | { password, code }  停用两步验证（要再输一次密码和动态码 / 恢复码） | 登录用户 | ✓ | 停用两步验证 |
+| POST | `/api/ledger/auth/2fa/enable` | { code }  用验证器里的 6 位数字确认并启用；返回 10 个一次性恢复码（只显示这一次） | 登录用户 | ✓ | 启用两步验证 |
+| POST | `/api/ledger/auth/2fa/setup` | 开始设置两步验证：返回密钥和 otpauth 地址（还没启用，要再验证一次动态码） | 登录用户 | ✓ | 开始设置两步验证 |
 | POST | `/api/ledger/auth/login` | { username, password } → { token, days, user }，同时用 Set-Cookie 写入 HttpOnly 会话 cookie。 响应里的 token 供脚本 / 前后端分开部署时放进 x-user-token 请求头；浏览器页面不需要保存它 | 无需登录 | ✓ |  |
 | POST | `/api/ledger/auth/logout` | 作废当前令牌，并清除会话 cookie | 登录用户 | ✓ | 退出登录 |
 | GET | `/api/ledger/auth/oidc/callback` | 身份提供方登录后回到这里；成功 → 写会话 cookie 并 302 回应用，失败 → 302 到登录页带错误代码 | 无需登录 | ✓ |  |

@@ -842,5 +842,16 @@
   "恢复演练未通过：{0}": "Restore drill failed: {0}",
   "没有配置对象存储备份（LEDGER_BACKUP_S3_BUCKET）": "Object storage backup is not configured (LEDGER_BACKUP_S3_BUCKET)",
   "对象存储上还没有备份": "There is no backup in the object storage yet",
-  "本地还没有备份": "There is no local backup yet"
+  "本地还没有备份": "There is no local backup yet",
+  "验证码不正确（或已经用过）；手机丢了可以用恢复码，或请管理员重置两步验证": "The verification code is incorrect (or was already used); if you lost your phone, use a recovery code or ask an administrator to reset two-step verification",
+  "两步验证密钥已损坏，请联系管理员重置": "The two-step verification key is damaged; ask an administrator to reset it",
+  "已经启用了两步验证；要换手机请先停用再重新设置": "Two-step verification is already enabled; to switch phones, disable it first and set it up again",
+  "已经启用了两步验证": "Two-step verification is already enabled",
+  "请先点「开始设置」生成密钥": "Click \"Start setup\" first to generate a key",
+  "请重新开始设置": "Please start the setup again",
+  "验证码不正确：请确认手机时间准确，并输入验证器 App 里现在显示的 6 位数字": "The verification code is incorrect: make sure your phone's clock is accurate and enter the 6 digits currently shown in your authenticator app",
+  "两步验证只在内置账号登录方式下可用（LEDGER_AUTH_MODE=local）": "Two-step verification is only available with built-in accounts (LEDGER_AUTH_MODE=local)",
+  "不能用访问令牌设置两步验证，请在网页里登录后操作": "Two-step verification cannot be changed with an access token; sign in on the web page instead",
+  "密码不正确": "The password is incorrect",
+  "验证码不正确": "The verification code is incorrect"
 }

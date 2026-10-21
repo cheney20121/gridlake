@@ -49,6 +49,12 @@ async function patch(a: Account, data: Parameters<typeof updateAccountApi>[1], d
   await load()
 }
 
+async function resetTwoFactor(a: Account) {
+  const ok = await ElMessageBox.confirm(t('重置「{0}」的两步验证？对方下次登录只需要密码（可以自己重新开启），已登录的设备会退出。', [a.name]), t('重置两步验证'), { type: 'warning', confirmButtonText: t('重置'), cancelButtonText: t('取消') }).then(() => true, () => false)
+  if (ok)
+    await patch(a, { resetTotp: true }, t('已重置两步验证'))
+}
+
 async function resetPassword(a: Account) {
   try {
     const { value } = await ElMessageBox.prompt(t('给「{0}」设置新密码（至少 8 位）。设置后对方已登录的设备会退出。', [a.name]), t('重置密码'), {
@@ -95,10 +101,13 @@ async function rename(a: Account) {
           <el-switch :model-value="row.admin" size="small" @change="(v: string | number | boolean) => patch(row, { admin: !!v })" />
         </template>
       </el-table-column>
-      <el-table-column :label="$t('状态')" width="80">
+      <el-table-column :label="$t('状态')" width="110">
         <template #default="{ row }">
           <el-tag :type="row.disabled ? 'info' : 'success'" size="small">
             {{ row.disabled ? $t('已停用') : $t('正常') }}
+          </el-tag>
+          <el-tag v-if="row.twoFactor" size="small" type="warning" class="ml-1" :title="$t('已启用两步验证')">
+            2FA
           </el-tag>
         </template>
       </el-table-column>
@@ -107,10 +116,13 @@ async function rename(a: Account) {
           {{ row.lastLoginAt ?? '—' }}
         </template>
       </el-table-column>
-      <el-table-column :label="$t('操作')" width="150">
+      <el-table-column :label="$t('操作')" width="230">
         <template #default="{ row }">
           <el-button link size="small" type="primary" @click="resetPassword(row)">
             {{ $t('重置密码') }}
+          </el-button>
+          <el-button v-if="row.twoFactor" link size="small" type="primary" :data-testid="`account-reset-2fa-${row.username}`" @click="resetTwoFactor(row)">
+            {{ $t('重置两步验证') }}
           </el-button>
           <el-button v-if="row.id !== ledgerUser.user?.id" link size="small" :type="row.disabled ? 'primary' : 'danger'" @click="patch(row, { disabled: !row.disabled }, row.disabled ? '已启用' : '已停用，对方已登录的设备会退出')">
             {{ row.disabled ? $t('启用') : $t('停用') }}

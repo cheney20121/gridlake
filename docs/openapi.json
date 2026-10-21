@@ -1415,6 +1415,133 @@
         ]
       }
     },
+    "/ledger/auth/2fa": {
+      "get": {
+        "tags": [
+          "登录与账号"
+        ],
+        "summary": "我的两步验证状态",
+        "description": "我的两步验证状态",
+        "operationId": "get_ledger_auth_2fa",
+        "x-permission": "登录用户",
+        "x-restricted-users": true,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/ledger/auth/2fa/disable": {
+      "post": {
+        "tags": [
+          "登录与账号"
+        ],
+        "summary": "停用两步验证（要再输一次密码和动态码 / 恢复码）",
+        "description": "{ password, code }  停用两步验证（要再输一次密码和动态码 / 恢复码）",
+        "operationId": "post_ledger_auth_2fa_disable",
+        "x-permission": "登录用户",
+        "x-restricted-users": true,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-audit": "停用两步验证",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CodeBody"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ledger/auth/2fa/enable": {
+      "post": {
+        "tags": [
+          "登录与账号"
+        ],
+        "summary": "用验证器里的 6 位数字确认并启用",
+        "description": "{ code }  用验证器里的 6 位数字确认并启用；返回 10 个一次性恢复码（只显示这一次）",
+        "operationId": "post_ledger_auth_2fa_enable",
+        "x-permission": "登录用户",
+        "x-restricted-users": true,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-audit": "启用两步验证",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CodeBody"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ledger/auth/2fa/setup": {
+      "post": {
+        "tags": [
+          "登录与账号"
+        ],
+        "summary": "开始设置两步验证：返回密钥和 otpauth 地址（还没启用，要再验证一次动态码）",
+        "description": "开始设置两步验证：返回密钥和 otpauth 地址（还没启用，要再验证一次动态码）",
+        "operationId": "post_ledger_auth_2fa_setup",
+        "x-permission": "登录用户",
+        "x-restricted-users": true,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-audit": "开始设置两步验证"
+      }
+    },
     "/ledger/auth/login": {
       "post": {
         "tags": [
@@ -8325,6 +8452,10 @@
           "password": {
             "type": "string",
             "description": "管理员重置密码"
+          },
+          "esetTotp": {
+            "type": "boolean",
+            "description": "管理员重置两步验证（用户手机丢了又没有恢复码）：清掉密钥和恢复码，对方已登录的会话失效"
           }
         }
       },
@@ -8685,6 +8816,17 @@
           "period",
           "action"
         ]
+      },
+      "CodeBody": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          }
+        }
       },
       "CollectInput": {
         "type": "object",
@@ -9297,6 +9439,10 @@
           },
           "password": {
             "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "description": "启用了两步验证时：验证器里的 6 位动态码，或一次性恢复码"
           }
         }
       },
