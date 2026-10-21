@@ -8,8 +8,8 @@
     scripts/gen-api-docs.py            # 重新生成 docs/api.md 和 docs/openapi.json
     scripts/gen-api-docs.py --check    # 只检查它们是否是最新的（CI 用）
 
-openapi.json 只描述「有哪些接口、要什么权限、路径与查询参数、响应信封」，请求体字段没有逐个建模（后端用 Rust 结构体解析，
-注释里只有概要），请求体标为任意 JSON 对象，字段说明见对应接口的 description。
+openapi.json 描述「有哪些接口、要什么权限、路径与查询参数、响应信封」，以及请求体：处理函数里用 parse_json / Json<T> 解析的，
+由 scripts/rust_schema.py 从 Rust 的 serde 结构体推出字段（名字、类型、是否必填、说明）；认不出类型的标为任意 JSON 对象。
 
 新增 / 修改接口后：在处理函数上写好 `/// METHOD /api/路径  说明`，再运行本脚本。
 """
@@ -17,6 +17,9 @@ import json
 import pathlib
 import re
 import sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import rust_schema  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SRC = ROOT / "server" / "src"
@@ -75,11 +78,45 @@ NEED = {"View": "查看", "Edit": "编辑", "Manage": "管理（所有者或管�
 
 
 QUERIES = {}
+HANDLERS = {}  # (方法, 路径) -> 处理函数的源码（用来找请求体类型）
+
+
+def handler_text(lines, start):
+    """文档注释之后的处理函数源码：从 fn 行到顶格的 `}` 为止"""
+    j = start
+    while j < len(lines) and not re.match(r"\s*(pub(\([a-z]+\))?\s+)?(async\s+)?fn\s", lines[j]):
+        j += 1
+    k = j
+    while k < len(lines) and lines[k] != "}":
+        k += 1
+    return "\n".join(lines[j:k + 1])
+
+
+BODY_PATTERNS = [
+    re.compile(r"let\s+(?:mut\s+)?\w+\s*:\s*([\w:]+(?:<[^=]*?>)?)\s*=\s*(?:crate::routes::)?parse_json\("),
+    re.compile(r"parse_json::<([\w:<>]+)>\("),
+]
+JSON_PARAM = re.compile(r"Json<([\w:]+(?:<[\w:]+>)?)>\s*[,)]")
+
+
+def body_type(method, path):
+    """处理函数用 parse_json 或 Json<T> 参数解析的请求体类型；认不出返回 None"""
+    text = HANDLERS.get((method, path), "")
+    for pat in BODY_PATTERNS:
+        m = pat.search(text)
+        if m:
+            return m.group(1).strip()
+    sig = text.split("->")[0]
+    m = JSON_PARAM.search(sig)
+    if m and not m.group(1).startswith("Envelope"):
+        return m.group(1)
+    return None
 
 
 def doc_routes():
     found = {}
     QUERIES.clear()
+    HANDLERS.clear()
     for f in sorted(SRC.rglob("*.rs")):
         lines = f.read_text(encoding="utf-8").split("\n")
         for i, line in enumerate(lines):
@@ -99,6 +136,7 @@ def doc_routes():
                 if text:
                     desc.append(text)
             found[(method, path)] = " ".join(desc)
+            HANDLERS[(method, path)] = handler_text(lines, i + 1)
     return found
 
 
@@ -258,6 +296,7 @@ def build_openapi():
     docs = doc_routes()
     rules, restricted = auth_tables()
     paths = {}
+    schemas = {}
     for (method, path), desc in sorted(docs.items(), key=lambda kv: (kv[0][1], METHOD_ORDER[kv[0][0]])):
         perm = permission(method, path, rules)
         label = rules.get((method, path), ("", "", ""))[2]
@@ -283,7 +322,16 @@ def build_openapi():
         if params:
             op["parameters"] = params
         if method in ("POST", "PUT"):
-            op["requestBody"] = {"required": False, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": True, "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"}}}}
+            ty = body_type(method, path)
+            sig = HANDLERS.get((method, path), "").split("->")[0]
+            schema = rust_schema.request_schema(ty, schemas) if ty else None
+            if schema:
+                op["requestBody"] = {"required": True, "content": {"application/json": {"schema": schema}}}
+            elif "Multipart" in sig:
+                op["requestBody"] = {"required": True, "content": {"multipart/form-data": {"schema": {"type": "object", "properties": {"file": {"type": "string", "format": "binary"}}}}}}
+            elif re.search(r"\b(Bytes|Json<|Json\()", sig):
+                # 请求体在函数里手工解析，没有可推导的结构体
+                op["requestBody"] = {"required": False, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": True, "description": "字段见 description 里的概要，以后端对应的 Rust 代码为准"}}}}
         paths.setdefault(path[len("/api"):], {})[method.lower()] = op
     doc = {
         "openapi": "3.0.3",
@@ -311,6 +359,7 @@ def build_openapi():
                 "mcpToken": {"type": "http", "scheme": "bearer", "description": "外部 AI 接入（MCP）令牌"},
             },
             "schemas": {
+                **{k: schemas[k] for k in sorted(schemas)},
                 "Envelope": {
                     "type": "object",
                     "properties": {"code": {"type": "integer", "description": "HTTP 状态码"}, "data": {"description": "结果；出错时为 null"}, "msg": {"type": "string", "description": "可直接展示给用户的说明"}},
@@ -324,7 +373,11 @@ def build_openapi():
 
 
 def check_openapi(doc):
-    """结构自检：路径参数都声明了、operationId 不重复、引用的安全方案都存在"""
+    """结构自检：路径参数都声明了、operationId 不重复、引用的安全方案都存在、所有 $ref 都能解析"""
+    refs = set(re.findall(r'"\$ref": "#/components/([a-zA-Z]+)/([^"]+)"', json.dumps(doc)))
+    for kind, name in sorted(refs):
+        if name not in doc["components"].get(kind, {}):
+            sys.exit(f"OpenAPI 自检失败：引用了不存在的 components/{kind}/{name}")
     ids = set()
     schemes = set(doc["components"]["securitySchemes"])
     for path, ops in doc["paths"].items():

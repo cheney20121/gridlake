@@ -55,19 +55,7 @@
           {
             "adminToken": []
           }
-        ],
-        "requestBody": {
-          "required": false,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
-              }
-            }
-          }
-        }
+        ]
       }
     },
     "/admin/backup/verify": {
@@ -116,19 +104,7 @@
               "type": "string"
             }
           }
-        ],
-        "requestBody": {
-          "required": false,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
-              }
-            }
-          }
-        }
+        ]
       }
     },
     "/admin/metrics": {
@@ -270,13 +246,11 @@
         },
         "x-audit": "新建账号",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/NewAccount"
               }
             }
           }
@@ -319,13 +293,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/AccountPatch"
               }
             }
           }
@@ -368,13 +340,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/DecideInput"
               }
             }
           }
@@ -467,13 +437,11 @@
         },
         "x-audit": "新建 AI 会话",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/NewThread"
               }
             }
           }
@@ -587,13 +555,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/ChatInput"
               }
             }
           }
@@ -669,19 +635,7 @@
               "type": "string"
             }
           }
-        ],
-        "requestBody": {
-          "required": false,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
-              }
-            }
-          }
-        }
+        ]
       }
     },
     "/ledger/ai/threads/{id}/summary": {
@@ -720,13 +674,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/AiSummaryBody"
               }
             }
           }
@@ -783,13 +735,11 @@
         },
         "x-audit": "新建告警",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/AlertInput"
               }
             }
           }
@@ -821,13 +771,11 @@
           }
         },
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/AlertInput"
               }
             }
           }
@@ -870,13 +818,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/AlertInput"
               }
             }
           }
@@ -952,19 +898,7 @@
               "type": "string"
             }
           }
-        ],
-        "requestBody": {
-          "required": false,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
-              }
-            }
-          }
-        }
+        ]
       }
     },
     "/ledger/alerts/{id}/runs": {
@@ -1159,13 +1093,11 @@
         },
         "x-audit": "录入千川消耗",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/AdSpendInput"
               }
             }
           }
@@ -1232,13 +1164,11 @@
         },
         "x-audit": "发起文件审批",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/NewApproval"
               }
             }
           }
@@ -1343,13 +1273,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/CancelBody"
               }
             }
           }
@@ -1392,13 +1320,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/DecideBody"
               }
             }
           }
@@ -1515,13 +1441,11 @@
         },
         "security": [],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/LoginBody"
               }
             }
           }
@@ -1552,19 +1476,7 @@
             "$ref": "#/components/responses/Forbidden"
           }
         },
-        "x-audit": "退出登录",
-        "requestBody": {
-          "required": false,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
-              }
-            }
-          }
-        }
+        "x-audit": "退出登录"
       }
     },
     "/ledger/auth/oidc/callback": {
@@ -1657,13 +1569,11 @@
         },
         "x-audit": "修改密码",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/PasswordBody"
               }
             }
           }
@@ -1738,13 +1648,11 @@
         },
         "x-audit": "保存余额",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/SaveBalances"
               }
             }
           }
@@ -1801,13 +1709,17 @@
         },
         "x-audit": "导入银行流水",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
-            "application/json": {
+            "multipart/form-data": {
               "schema": {
                 "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
               }
             }
           }
@@ -1909,13 +1821,11 @@
         },
         "x-audit": "月结操作",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/CloseAction"
               }
             }
           }
@@ -2085,7 +1995,7 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "description": "字段见 description 里的概要，以后端对应的 Rust 代码为准"
               }
             }
           }
@@ -2142,13 +2052,11 @@
         },
         "x-audit": "新建收集任务",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/CollectInput"
               }
             }
           }
@@ -2259,13 +2167,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/UpdateInput"
               }
             }
           }
@@ -2343,13 +2249,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/OpenPeriod"
               }
             }
           }
@@ -2400,13 +2304,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/SetDeadline"
               }
             }
           }
@@ -2492,13 +2394,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/RemindInput"
               }
             }
           }
@@ -2541,13 +2441,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/ReviewInput"
               }
             }
           }
@@ -2590,13 +2488,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/OpenWorkbook"
               }
             }
           }
@@ -2639,13 +2535,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/EditBody"
               }
             }
           }
@@ -2723,13 +2617,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/ResolveBody"
               }
             }
           }
@@ -2786,13 +2678,11 @@
         },
         "x-audit": "新建数据连接",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/ConnectorInput"
               }
             }
           }
@@ -2824,13 +2714,11 @@
           }
         },
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/ProbeInput"
               }
             }
           }
@@ -2862,13 +2750,11 @@
           }
         },
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/ProbeInput"
               }
             }
           }
@@ -2911,13 +2797,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/ConnectorInput"
               }
             }
           }
@@ -2993,19 +2877,7 @@
               "type": "string"
             }
           }
-        ],
-        "requestBody": {
-          "required": false,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
-              }
-            }
-          }
-        }
+        ]
       }
     },
     "/ledger/connectors/{id}/runs": {
@@ -3191,7 +3063,7 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "description": "字段见 description 里的概要，以后端对应的 Rust 代码为准"
               }
             }
           }
@@ -3230,7 +3102,7 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "description": "字段见 description 里的概要，以后端对应的 Rust 代码为准"
               }
             }
           }
@@ -3334,13 +3206,11 @@
         },
         "x-audit": "导入数据集",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/CommitRequest"
               }
             }
           }
@@ -3372,13 +3242,17 @@
           }
         },
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
-            "application/json": {
+            "multipart/form-data": {
               "schema": {
                 "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
               }
             }
           }
@@ -3410,13 +3284,11 @@
           }
         },
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/UrlImportBody"
               }
             }
           }
@@ -3449,13 +3321,11 @@
         },
         "x-audit": "新建填报数据集",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/NewInputDataset"
               }
             }
           }
@@ -3487,13 +3357,11 @@
           }
         },
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/SummaryBody"
               }
             }
           }
@@ -3577,13 +3445,11 @@
         },
         "x-audit": "创建关联视图",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/CreateViewBody"
               }
             }
           }
@@ -3615,13 +3481,11 @@
           }
         },
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/ViewDef"
               }
             }
           }
@@ -3664,13 +3528,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/CreateViewBody"
               }
             }
           }
@@ -3713,13 +3575,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/RenameDataset"
               }
             }
           }
@@ -3804,13 +3664,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/AggregateRequest"
               }
             }
           }
@@ -3889,13 +3747,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/CalcBody"
               }
             }
           }
@@ -3937,13 +3793,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/CalcBody"
               }
             }
           }
@@ -3994,13 +3848,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/CalcBody"
               }
             }
           }
@@ -4085,13 +3937,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/QuerySpec"
               }
             }
           }
@@ -4133,13 +3983,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/DistinctRequest"
               }
             }
           }
@@ -4258,13 +4106,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/PivotRequest"
               }
             }
           }
@@ -4411,13 +4257,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/StatsRequest"
               }
             }
           }
@@ -4458,19 +4302,7 @@
               "type": "string"
             }
           }
-        ],
-        "requestBody": {
-          "required": false,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
-              }
-            }
-          }
-        }
+        ]
       }
     },
     "/ledger/datasets/{id}/usage": {
@@ -4545,13 +4377,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/WritebackRequest"
               }
             }
           }
@@ -4584,13 +4414,11 @@
         },
         "x-audit": "导出流水明细",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/ExportRequest"
               }
             }
           }
@@ -4622,13 +4450,11 @@
           }
         },
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/RowsRequest"
               }
             }
           }
@@ -4660,13 +4486,11 @@
           }
         },
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/DetailFilter"
               }
             }
           }
@@ -4723,13 +4547,14 @@
         },
         "x-audit": "保存主体简称",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/EntityAliasInput"
+                }
               }
             }
           }
@@ -4786,13 +4611,11 @@
         },
         "x-audit": "新建文件夹",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/FolderInput"
               }
             }
           }
@@ -4835,13 +4658,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/FolderInput"
               }
             }
           }
@@ -4941,13 +4762,17 @@
         },
         "x-audit": "导入流水明细",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
-            "application/json": {
+            "multipart/form-data": {
               "schema": {
                 "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
               }
             }
           }
@@ -4980,13 +4805,11 @@
         },
         "x-audit": "导入店铺流水",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/CommitRequest"
               }
             }
           }
@@ -5018,13 +4841,17 @@
           }
         },
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
-            "application/json": {
+            "multipart/form-data": {
               "schema": {
                 "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
               }
             }
           }
@@ -5117,13 +4944,11 @@
         },
         "x-audit": "创建外部 AI 令牌",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/TokenInput"
               }
             }
           }
@@ -5166,13 +4991,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/TokenInput"
               }
             }
           }
@@ -5292,13 +5115,11 @@
           }
         },
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/ReadBody"
               }
             }
           }
@@ -5393,13 +5214,11 @@
         },
         "x-audit": "创建对账",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/ReconBody"
               }
             }
           }
@@ -5431,13 +5250,11 @@
           }
         },
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/ReconBody"
               }
             }
           }
@@ -5514,13 +5331,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/ReconBody"
               }
             }
           }
@@ -5569,7 +5384,7 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "description": "字段见 description 里的概要，以后端对应的 Rust 代码为准"
               }
             }
           }
@@ -5796,13 +5611,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/ReconManualBody"
               }
             }
           }
@@ -5889,13 +5702,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/UnmatchRequest"
               }
             }
           }
@@ -5928,13 +5739,11 @@
         },
         "x-audit": "新建推送渠道",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/ChannelInput"
               }
             }
           }
@@ -5977,13 +5786,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/ChannelInput"
               }
             }
           }
@@ -6059,19 +5866,7 @@
               "type": "string"
             }
           }
-        ],
-        "requestBody": {
-          "required": false,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
-              }
-            }
-          }
-        }
+        ]
       }
     },
     "/ledger/reports": {
@@ -6124,13 +5919,11 @@
         },
         "x-audit": "新建定时推送",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/ReportInput"
               }
             }
           }
@@ -6162,13 +5955,11 @@
           }
         },
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/PreviewInput"
               }
             }
           }
@@ -6247,13 +6038,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/ReportInput"
               }
             }
           }
@@ -6373,19 +6162,7 @@
               "type": "string"
             }
           }
-        ],
-        "requestBody": {
-          "required": false,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
-              }
-            }
-          }
-        }
+        ]
       }
     },
     "/ledger/shares/{id}": {
@@ -6475,13 +6252,11 @@
         },
         "x-audit": "新增店铺",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/ShopInput"
               }
             }
           }
@@ -6512,13 +6287,11 @@
         },
         "x-audit": "修改店铺",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/ShopUpdate"
               }
             }
           }
@@ -6575,13 +6348,11 @@
         },
         "x-audit": "保存 SQL 查询",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/QueryInput"
               }
             }
           }
@@ -6624,13 +6395,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/QueryInput"
               }
             }
           }
@@ -6708,13 +6477,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/SqlInstanceBody"
               }
             }
           }
@@ -6763,7 +6530,7 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "description": "字段见 description 里的概要，以后端对应的 Rust 代码为准"
               }
             }
           }
@@ -6796,13 +6563,11 @@
         },
         "x-audit": "执行 SQL 查询",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/SqlRunBody"
               }
             }
           }
@@ -6859,13 +6624,11 @@
         },
         "x-audit": "发布模板",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/PublishInput"
               }
             }
           }
@@ -6908,13 +6671,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/MetaInput"
               }
             }
           }
@@ -6992,13 +6753,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/UseInput"
               }
             }
           }
@@ -7091,13 +6850,11 @@
         },
         "x-audit": "创建访问令牌",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/NewToken"
               }
             }
           }
@@ -7247,13 +7004,11 @@
         },
         "x-audit": "提现自动配对",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/AutoMatchRequest"
               }
             }
           }
@@ -7338,13 +7093,11 @@
         },
         "x-audit": "提现手动配对",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/MatchInput"
               }
             }
           }
@@ -7425,7 +7178,7 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "description": "字段见 description 里的概要，以后端对应的 Rust 代码为准"
               }
             }
           }
@@ -7458,13 +7211,11 @@
         },
         "x-audit": "移动工作簿",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/MoveBody"
               }
             }
           }
@@ -7496,13 +7247,11 @@
           }
         },
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/RangesBody"
               }
             }
           }
@@ -7630,13 +7379,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/WorkbookNameBody"
               }
             }
           }
@@ -7756,13 +7503,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/NewComment"
               }
             }
           }
@@ -7885,7 +7630,7 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "description": "字段见 description 里的概要，以后端对应的 Rust 代码为准"
               }
             }
           }
@@ -7928,13 +7673,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/WorkbookNameBody"
               }
             }
           }
@@ -8014,13 +7757,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/RestoreBody"
               }
             }
           }
@@ -8063,13 +7804,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/ShareBody"
               }
             }
           }
@@ -8146,13 +7885,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/NewShare"
               }
             }
           }
@@ -8194,13 +7931,11 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "$ref": "#/components/schemas/StarBody"
               }
             }
           }
@@ -8241,19 +7976,7 @@
               "type": "string"
             }
           }
-        ],
-        "requestBody": {
-          "required": false,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
-              }
-            }
-          }
-        }
+        ]
       }
     },
     "/ledger/workbooks/{id}/versions": {
@@ -8422,19 +8145,7 @@
               "type": "string"
             }
           }
-        ],
-        "requestBody": {
-          "required": false,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
-              }
-            }
-          }
-        }
+        ]
       }
     },
     "/mcp": {
@@ -8502,7 +8213,7 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": true,
-                "description": "字段见 description 里的概要，以后端对应的 Rust 结构体为准"
+                "description": "字段见 description 里的概要，以后端对应的 Rust 代码为准"
               }
             }
           }
@@ -8599,6 +8310,2648 @@
       }
     },
     "schemas": {
+      "AccountPatch": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "admin": {
+            "type": "boolean"
+          },
+          "disabled": {
+            "type": "boolean"
+          },
+          "password": {
+            "type": "string",
+            "description": "管理员重置密码"
+          }
+        }
+      },
+      "AdSpendInput": {
+        "type": "object",
+        "properties": {
+          "shop": {
+            "type": "string"
+          },
+          "period": {
+            "type": "string"
+          },
+          "spend": {
+            "type": "number",
+            "description": "为空表示删除"
+          },
+          "emark": {
+            "type": "string"
+          },
+          "operator": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "shop",
+          "period"
+        ]
+      },
+      "AggregateCall": {
+        "type": "object",
+        "properties": {
+          "func": {
+            "type": "string",
+            "description": "sum / count / average / min / max / lookup / nth"
+          },
+          "column": {
+            "type": "string",
+            "description": "求值的列（count 可省略）"
+          },
+          "criteria": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CriterionInput"
+            }
+          },
+          "ow": {
+            "type": "integer",
+            "description": "nth：第几行（从 1 开始，按范围的排序）"
+          }
+        },
+        "required": [
+          "func"
+        ]
+      },
+      "AggregateRequest": {
+        "type": "object",
+        "properties": {
+          "calls": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AggregateCall"
+            }
+          },
+          "query": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/QuerySpec"
+              }
+            ],
+            "description": "范围：工作表里数据表的筛选 / 关键字 / 排序（TSUM 等按数据表当前显示的行计算）"
+          }
+        },
+        "required": [
+          "calls"
+        ]
+      },
+      "AiSummaryBody": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "string"
+          }
+        }
+      },
+      "AlertInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "datasetId": {
+            "type": "string"
+          },
+          "metric": {
+            "$ref": "#/components/schemas/Metric"
+          },
+          "metricLabel": {
+            "type": "string",
+            "description": "指标显示名（如「退款率」）；为空时按指标自动生成"
+          },
+          "groupBy": {
+            "type": "string",
+            "description": "分组列：按它拆开，逐组判断；为空则整体一个值"
+          },
+          "filters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Filter"
+            }
+          },
+          "window": {
+            "$ref": "#/components/schemas/Window"
+          },
+          "condition": {
+            "$ref": "#/components/schemas/Condition"
+          },
+          "guard": {
+            "$ref": "#/components/schemas/Guard"
+          },
+          "schedule": {
+            "$ref": "#/components/schemas/Schedule"
+          },
+          "channelIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "epeat": {
+            "$ref": "#/components/schemas/Repeat"
+          },
+          "notifyRecovery": {
+            "type": "boolean",
+            "description": "恢复正常（之前通知过的分组不再满足条件）时，也发一条「已恢复」通知"
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "datasetId",
+          "metric",
+          "condition",
+          "schedule",
+          "channelIds"
+        ]
+      },
+      "Auth": {
+        "type": "string",
+        "enum": [
+          "none",
+          "bearer"
+        ]
+      },
+      "AutoMatchRequest": {
+        "type": "object",
+        "properties": {
+          "period": {
+            "type": "string"
+          },
+          "operator": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "period"
+        ]
+      },
+      "BalanceInput": {
+        "type": "object",
+        "properties": {
+          "shop": {
+            "type": "string"
+          },
+          "entity": {
+            "type": "string"
+          },
+          "account": {
+            "type": "string"
+          },
+          "period": {
+            "type": "string"
+          },
+          "opening": {
+            "type": "number"
+          },
+          "closing": {
+            "type": "number"
+          },
+          "emark": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "shop",
+          "entity",
+          "account",
+          "period"
+        ]
+      },
+      "Basis": {
+        "type": "string",
+        "enum": [
+          "value",
+          "change_pct",
+          "change_abs"
+        ]
+      },
+      "BindInput": {
+        "type": "object",
+        "properties": {
+          "datasetId": {
+            "type": "string"
+          },
+          "columns": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "模板列名 → 数据集列名（未列出的按同名对应）"
+          }
+        },
+        "required": [
+          "datasetId"
+        ]
+      },
+      "CalcBody": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "formula": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "formula"
+        ]
+      },
+      "CalcItem": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string",
+            "description": "行或列字段的列名"
+          },
+          "name": {
+            "type": "string",
+            "description": "新增的取值名称，如「期末」"
+          },
+          "formula": {
+            "type": "string",
+            "description": "公式，如 `[入库] - [出库]`；`[名称]` 是该字段下已有的取值"
+          }
+        },
+        "required": [
+          "field",
+          "name",
+          "formula"
+        ]
+      },
+      "CancelBody": {
+        "type": "object",
+        "properties": {
+          "comment": {
+            "type": "string"
+          },
+          "operator": {
+            "type": "string"
+          }
+        }
+      },
+      "ChannelInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ChannelKind"
+          },
+          "target": {
+            "type": "string",
+            "description": "机器人 Webhook 地址，或邮件收件人（逗号 / 分号 / 换行分隔）；修改时留空沿用已保存的"
+          },
+          "secret": {
+            "type": "string",
+            "description": "钉钉 / 飞书加签密钥；修改时 None 沿用、空串清除"
+          }
+        },
+        "required": [
+          "name",
+          "kind"
+        ]
+      },
+      "ChannelKind": {
+        "type": "string",
+        "enum": [
+          "wecom",
+          "dingtalk",
+          "feishu",
+          "email"
+        ]
+      },
+      "ChatInput": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "context": {
+            "$ref": "#/components/schemas/Context"
+          },
+          "esume": {
+            "type": "boolean",
+            "description": "接着回答被中断的上一个问题（不新增提问）"
+          }
+        }
+      },
+      "CloseAction": {
+        "type": "object",
+        "properties": {
+          "shop": {
+            "type": "string"
+          },
+          "period": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "description": "submit 提交 / approve 通过 / reject 驳回 / cancel 撤回 / reopen 反结账"
+          },
+          "operator": {
+            "type": "string"
+          },
+          "approver": {
+            "type": "string"
+          },
+          "approverId": {
+            "type": "string",
+            "description": "审批人的用户 id（开启登录校验后必填，从登录过的用户里选）"
+          },
+          "comment": {
+            "type": "string"
+          },
+          "acceptRisk": {
+            "type": "boolean",
+            "description": "体检有不通过项时仍提交（必须填写说明）"
+          }
+        },
+        "required": [
+          "shop",
+          "period",
+          "action"
+        ]
+      },
+      "CollectInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "datasetId": {
+            "type": "string",
+            "description": "用已有的数据集（主键必须包含单位列和期次列）…"
+          },
+          "newTable": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NewTable"
+              }
+            ],
+            "description": "…或者新建一张"
+          },
+          "unitColumn": {
+            "type": "string"
+          },
+          "periodColumn": {
+            "type": "string"
+          },
+          "dimension": {
+            "type": "string",
+            "description": "数据权限的维度名，默认「填报单位」；同一个维度下的任务共用，不要在数据权限里手动改这个维度"
+          },
+          "eviewerId": {
+            "type": "string",
+            "description": "确认人（登录过系统的用户 id）；不指定就只有管理员能审核"
+          },
+          "emindChannels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "催办时同时推送的渠道（「定时推送」里配置的企业微信 / 钉钉 / 飞书群、邮件）；不选就只发站内通知"
+          },
+          "units": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UnitInput"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "units"
+        ]
+      },
+      "CommitColumn": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "include": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "source",
+          "title",
+          "kind"
+        ]
+      },
+      "CommitRequest": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/Mode"
+          },
+          "datasetId": {
+            "type": "string",
+            "description": "追加 / 替换的目标数据集"
+          },
+          "name": {
+            "type": "string",
+            "description": "新建时的数据集名称"
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommitColumn"
+            },
+            "description": "新建时使用；追加 / 替换按目标数据集的列（按原始列名对齐）"
+          },
+          "primaryKey": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "主键（列名）：用于去重；为空不去重"
+          },
+          "fileName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "mode"
+        ]
+      },
+      "Condition": {
+        "type": "object",
+        "properties": {
+          "op": {
+            "$ref": "#/components/schemas/Op"
+          },
+          "threshold": {
+            "type": "number",
+            "description": "阈值（比率用小数，如 5% 写 0.05；变化率同理）"
+          },
+          "basis": {
+            "$ref": "#/components/schemas/Basis"
+          }
+        },
+        "required": [
+          "op",
+          "threshold"
+        ]
+      },
+      "ConnectorInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/Source"
+          },
+          "target": {
+            "$ref": "#/components/schemas/Target"
+          },
+          "schedule": {
+            "$ref": "#/components/schemas/Schedule"
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "source",
+          "target",
+          "schedule"
+        ]
+      },
+      "Context": {
+        "type": "object",
+        "properties": {
+          "sheetName": {
+            "type": "string",
+            "description": "当前工作表名称"
+          },
+          "selection": {
+            "type": "string",
+            "description": "当前选区地址（如 B3:D10）与其中的值（最多 20 行 × 10 列）"
+          },
+          "selectionValues": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {}
+            }
+          },
+          "pivot": {
+            "description": "当前工作表是透视表时的定义"
+          },
+          "tables": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TableCtx"
+            },
+            "description": "工作簿里的数据表（set_table_view 的对象）"
+          }
+        },
+        "required": [
+          "tables"
+        ]
+      },
+      "CreateViewBody": {
+        "allOf": [
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name"
+            ]
+          },
+          {
+            "$ref": "#/components/schemas/ViewDef"
+          }
+        ]
+      },
+      "CriterionInput": {
+        "type": "object",
+        "properties": {
+          "column": {
+            "type": "string"
+          },
+          "value": {
+            "description": "公式中的条件值（字符串或数字）"
+          }
+        },
+        "required": [
+          "column",
+          "value"
+        ]
+      },
+      "DbSource": {
+        "type": "object",
+        "properties": {
+          "engine": {
+            "$ref": "#/components/schemas/Engine"
+          },
+          "host": {
+            "type": "string"
+          },
+          "port": {
+            "type": "integer"
+          },
+          "database": {
+            "type": "string"
+          },
+          "user": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "description": "只在请求中出现（明文），保存时加密为 password_enc，响应中永不返回"
+          },
+          "passwordEnc": {
+            "type": "string"
+          },
+          "ssl": {
+            "$ref": "#/components/schemas/SslMode"
+          },
+          "sql": {
+            "type": "string"
+          },
+          "incrementalColumn": {
+            "type": "string",
+            "description": "增量列（为空则每次全量取数）"
+          }
+        },
+        "required": [
+          "engine",
+          "host",
+          "port",
+          "database",
+          "user",
+          "sql"
+        ]
+      },
+      "DecideBody": {
+        "type": "object",
+        "properties": {
+          "approve": {
+            "type": "boolean"
+          },
+          "comment": {
+            "type": "string"
+          },
+          "operator": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "approve"
+        ]
+      },
+      "DecideInput": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "applied / dismissed / undone"
+          },
+          "esult": {
+            "type": "string"
+          },
+          "undo": {
+            "description": "应用时的撤销信息（status = applied 时保存）"
+          },
+          "operator": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "DetailFilter": {
+        "type": "object",
+        "properties": {
+          "period": {
+            "type": "string"
+          },
+          "shop": {
+            "type": "string"
+          },
+          "entity": {
+            "type": "string"
+          },
+          "scenes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "多选；\"\" 表示「动账场景为空」"
+          },
+          "directions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "billingTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "多选；\"\" 表示「计费类型为空」"
+          },
+          "entities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "shops": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "keyword": {
+            "type": "string",
+            "description": "模糊匹配订单号 / 子订单号 / 流水号 / 售后编号 / 商品名称 / 达人名称 / 备注"
+          },
+          "timeFrom": {
+            "type": "string"
+          },
+          "timeTo": {
+            "type": "string"
+          },
+          "amountMin": {
+            "type": "number"
+          },
+          "amountMax": {
+            "type": "number"
+          },
+          "ule": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuleTerm"
+            },
+            "description": "汇总项规则：存在时只返回对该汇总项有贡献的流水，并附加「贡献金额」列"
+          },
+          "talentId": {
+            "type": "string",
+            "description": "经营分析下钻的固定上下文；\"\" 表示该字段为空（如无达人的订单、非订单流水）"
+          },
+          "productId": {
+            "type": "string"
+          },
+          "orderMonth": {
+            "type": "string",
+            "description": "下单月份 YYYY-MM（取「下单时间」前 7 位）"
+          }
+        },
+        "required": [
+          "period",
+          "scenes",
+          "directions",
+          "billingTypes",
+          "entities",
+          "shops"
+        ]
+      },
+      "DistinctRequest": {
+        "allOf": [
+          {
+            "type": "object",
+            "properties": {
+              "column": {
+                "type": "string"
+              },
+              "search": {
+                "type": "string",
+                "description": "在候选值中搜索"
+              }
+            },
+            "required": [
+              "column"
+            ]
+          },
+          {
+            "$ref": "#/components/schemas/QuerySpec"
+          }
+        ]
+      },
+      "EditBody": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string"
+          },
+          "mentions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
+      "Engine": {
+        "type": "string",
+        "enum": [
+          "mysql",
+          "postgres",
+          "clickhouse"
+        ]
+      },
+      "EntityAliasInput": {
+        "type": "object",
+        "properties": {
+          "entity": {
+            "type": "string"
+          },
+          "alias": {
+            "type": "string",
+            "description": "为空表示删除简称，恢复为前端默认推导"
+          }
+        },
+        "required": [
+          "entity"
+        ]
+      },
+      "ExportRequest": {
+        "type": "object",
+        "properties": {
+          "filter": {
+            "$ref": "#/components/schemas/DetailFilter"
+          },
+          "sort": {
+            "$ref": "#/components/schemas/SortSpec"
+          }
+        },
+        "required": [
+          "filter"
+        ]
+      },
+      "Filter": {},
+      "FolderInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "parentId": {
+            "type": "string"
+          },
+          "operator": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "FolderSource": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "目录（绝对路径，或相对于第一个允许目录）"
+          },
+          "pattern": {
+            "type": "string",
+            "description": "文件名通配符，* 任意字符、? 单个字符；多个用 ; 分隔"
+          }
+        },
+        "required": [
+          "path",
+          "pattern"
+        ]
+      },
+      "Guard": {
+        "type": "object",
+        "properties": {
+          "column": {
+            "type": "string"
+          },
+          "agg": {
+            "type": "string"
+          },
+          "min": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "agg",
+          "min"
+        ]
+      },
+      "Header": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "value"
+        ]
+      },
+      "HttpSource": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "method": {
+            "$ref": "#/components/schemas/Method"
+          },
+          "headers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Header"
+            }
+          },
+          "body": {
+            "type": "string",
+            "description": "POST 的 JSON 请求体模板（可含占位符）"
+          },
+          "auth": {
+            "$ref": "#/components/schemas/Auth"
+          },
+          "secret": {
+            "type": "string",
+            "description": "只在请求中出现（明文），保存时加密为 secret_enc，响应中永不返回"
+          },
+          "secretEnc": {
+            "type": "string"
+          },
+          "ecordsPath": {
+            "type": "string",
+            "description": "记录数组在响应中的路径（如 data.list），为空时响应本身是数组"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          },
+          "incrementalField": {
+            "type": "string",
+            "description": "增量字段（记录中的字段名，展开后的写法，如 update_time）"
+          },
+          "initialWatermark": {
+            "type": "string",
+            "description": "首次同步时 {{watermark}} 的值"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "KeyPair": {
+        "type": "object",
+        "properties": {
+          "left": {
+            "type": "string"
+          },
+          "ight": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "left",
+          "ight"
+        ]
+      },
+      "LoginBody": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          }
+        }
+      },
+      "ManualRequest": {
+        "type": "object",
+        "properties": {
+          "left": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "A 方要勾对的行（行标识）"
+          },
+          "ight": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "note": {
+            "type": "string"
+          },
+          "force": {
+            "type": "boolean",
+            "description": "合计差额超过容差时，确认仍然勾对（必须写明原因）"
+          }
+        },
+        "required": [
+          "left",
+          "ight"
+        ]
+      },
+      "MatchInput": {
+        "type": "object",
+        "properties": {
+          "shop": {
+            "type": "string"
+          },
+          "period": {
+            "type": "string"
+          },
+          "serialNo": {
+            "type": "string"
+          },
+          "txnId": {
+            "type": "string",
+            "description": "为空表示取消配对"
+          },
+          "operator": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "shop",
+          "period",
+          "serialNo"
+        ]
+      },
+      "MetaInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "Method": {
+        "type": "string",
+        "enum": [
+          "get",
+          "post"
+        ]
+      },
+      "Metric": {},
+      "Mode": {
+        "type": "string",
+        "enum": [
+          "create",
+          "append",
+          "replace",
+          "upsert"
+        ]
+      },
+      "MoveBody": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "folderId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ids"
+        ]
+      },
+      "NewAccount": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          },
+          "admin": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ]
+      },
+      "NewApproval": {
+        "type": "object",
+        "properties": {
+          "workbookId": {
+            "type": "string"
+          },
+          "approverId": {
+            "type": "string",
+            "description": "审批人（用户目录里的 id）；未开启登录校验时可只填名字"
+          },
+          "approverName": {
+            "type": "string"
+          },
+          "comment": {
+            "type": "string"
+          },
+          "summary": {},
+          "operator": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "workbookId"
+        ]
+      },
+      "NewColumn": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "kind"
+        ]
+      },
+      "NewComment": {
+        "type": "object",
+        "properties": {
+          "sheetId": {
+            "type": "string"
+          },
+          "ow": {
+            "type": "integer"
+          },
+          "col": {
+            "type": "integer"
+          },
+          "parentId": {
+            "type": "string",
+            "description": "回复哪条线程（根评论的 id）；有则位置取自根评论"
+          },
+          "body": {
+            "type": "string"
+          },
+          "mentions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "被 @ 的用户 id"
+          },
+          "operator": {
+            "type": "string",
+            "description": "没开登录校验时的署名"
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
+      "NewInputDataset": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NewColumn"
+            }
+          },
+          "primaryKey": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "columns"
+        ]
+      },
+      "NewShare": {
+        "type": "object",
+        "properties": {
+          "note": {
+            "type": "string"
+          },
+          "days": {
+            "type": "integer",
+            "description": "有效期天数；不传用 30 天，传 null 或 0 表示永不过期"
+          }
+        }
+      },
+      "NewTable": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NewColumn"
+            }
+          },
+          "keyColumns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "业务主键列（同一单位同一期里区分不同行的列）；不写表示每个单位每期只填一行"
+          }
+        },
+        "required": [
+          "name",
+          "columns"
+        ]
+      },
+      "NewThread": {
+        "type": "object",
+        "properties": {
+          "workbookId": {
+            "type": "string"
+          },
+          "operator": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "workbookId"
+        ]
+      },
+      "NewToken": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "days": {
+            "type": "integer",
+            "description": "有效期天数；不传用 90 天，传 null 或 0 表示永不过期"
+          },
+          "eadOnly": {
+            "type": "boolean",
+            "description": "只读令牌：只能读取数据，写操作一律拒绝（适合报表、监控、给第三方看数据的脚本）"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "Op": {
+        "type": "string",
+        "enum": [
+          "gt",
+          "gte",
+          "lt",
+          "lte"
+        ]
+      },
+      "OpenPeriod": {
+        "type": "object",
+        "properties": {
+          "period": {
+            "type": "string"
+          },
+          "deadline": {
+            "type": "string",
+            "description": "截止日期（年-月-日），可空"
+          }
+        },
+        "required": [
+          "period"
+        ]
+      },
+      "OpenWorkbook": {
+        "type": "object",
+        "properties": {
+          "unit": {
+            "type": "string"
+          },
+          "period": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "unit",
+          "period"
+        ]
+      },
+      "Pagination": {
+        "type": "string",
+        "enum": [
+          "none"
+        ]
+      },
+      "ParamDef": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "description": "text / number / date"
+          },
+          "default": {
+            "type": "string"
+          },
+          "choices": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "文本参数的可选值（为空不限制）"
+          }
+        },
+        "required": [
+          "name",
+          "kind"
+        ]
+      },
+      "PasswordBody": {
+        "type": "object",
+        "properties": {
+          "oldPassword": {
+            "type": "string"
+          },
+          "newPassword": {
+            "type": "string"
+          }
+        }
+      },
+      "PivotField": {
+        "type": "object",
+        "properties": {
+          "column": {
+            "type": "string"
+          },
+          "granularity": {
+            "type": "string",
+            "description": "日期分组：year / quarter / month / week / day （年 / 月 / 日取文本前 4 / 7 / 10 位，适用于日期时间列与 YYYY-MM 之类的月份列；季度为 2026-Q4，周为 ISO 周 2026-W41）"
+          },
+          "label": {
+            "type": "string",
+            "description": "表头别名（为空时用列名 + 分组）"
+          }
+        },
+        "required": [
+          "column"
+        ]
+      },
+      "PivotRequest": {
+        "allOf": [
+          {
+            "type": "object",
+            "properties": {
+              "ows": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PivotField"
+                }
+              },
+              "columns": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PivotField"
+                }
+              },
+              "values": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PivotValue"
+                }
+              },
+              "sort": {
+                "$ref": "#/components/schemas/PivotSort"
+              },
+              "top": {
+                "type": "integer",
+                "description": "只保留第一个行字段按第一个值排名的前 N 项（如「退款最多的前 20 个达人」）"
+              },
+              "subtotals": {
+                "type": "boolean"
+              },
+              "grandTotals": {
+                "type": "boolean"
+              },
+              "baseField": {
+                "type": "string",
+                "description": "同比 / 环比的时间字段（行或列字段的列名）；为空时自动取第一个日期类字段"
+              },
+              "aliases": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "description": "行 / 列标签别名：字段列名 → 原值（空值为 \"\"）→ 别名。只影响按名称排序，显示由前端替换"
+              },
+              "calcItems": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CalcItem"
+                },
+                "description": "计算项：在某个行 / 列字段的取值之间做运算（如列字段「单据类型」里新增「期末 = 入库 - 出库」），见 `items`"
+              }
+            },
+            "required": [
+              "values"
+            ]
+          },
+          {
+            "$ref": "#/components/schemas/QuerySpec"
+          }
+        ]
+      },
+      "PivotSort": {
+        "type": "object",
+        "properties": {
+          "by": {
+            "type": "string",
+            "description": "key：按名称；value：按某个值字段（看该层级的小计）"
+          },
+          "valueIndex": {
+            "type": "integer"
+          },
+          "desc": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PivotValue": {
+        "type": "object",
+        "properties": {
+          "column": {
+            "type": "string",
+            "description": "count 时可省略"
+          },
+          "agg": {
+            "type": "string",
+            "description": "sum / count / avg / min / max / first / last / count_distinct / approx_distinct / median / approx_median / approx_p90 / approx_p95 / approx_p99 / p10 / p25 / p75 / p90 / p95 / p99 / stddev / var"
+          },
+          "show": {
+            "type": "string",
+            "description": "值显示方式：raw（默认）/ pct_total / pct_row / pct_col / pct_parent / yoy / yoy_diff / mom / mom_diff"
+          },
+          "label": {
+            "type": "string",
+            "description": "表头别名（为空时自动生成，如「订单金额（求和）」）"
+          },
+          "formula": {
+            "type": "string",
+            "description": "agg 为 calc（计算值）时的公式，如 `([金额（求和）]-[成本（求和）])/[金额（求和）]`，见 `pivot_calc`"
+          },
+          "format": {
+            "type": "string",
+            "description": "计算值的数字格式：money / number（默认）/ percent（结果是小数，如 0.25 显示为 25%）"
+          }
+        },
+        "required": [
+          "agg"
+        ]
+      },
+      "PreviewInput": {
+        "type": "object",
+        "properties": {
+          "workbookId": {
+            "type": "string"
+          },
+          "sheetId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "workbookId",
+          "sheetId"
+        ]
+      },
+      "ProbeInput": {
+        "type": "object",
+        "properties": {
+          "connectorId": {
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/Source"
+          }
+        },
+        "required": [
+          "source"
+        ]
+      },
+      "PublishInput": {
+        "type": "object",
+        "properties": {
+          "workbookId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "eplaceId": {
+            "type": "string",
+            "description": "覆盖已有的自建模板（重新发布）"
+          },
+          "operator": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "workbookId",
+          "name"
+        ]
+      },
+      "QueryInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "sql": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "saveAsDataset": {
+            "type": "string",
+            "description": "另存为数据集（新建时为数据集名称；已关联数据集时忽略）"
+          },
+          "columnKinds": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "结果列类型调整：列名 → 类型"
+          },
+          "schedule": {
+            "$ref": "#/components/schemas/Schedule"
+          },
+          "operator": {
+            "type": "string"
+          },
+          "params": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ParamDef"
+            },
+            "description": "参数定义（SQL 里的 `{{名称}}`）与当前取的值"
+          },
+          "values": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "templateId": {
+            "type": "string",
+            "description": "由哪个参数化查询生成的实例"
+          }
+        },
+        "required": [
+          "name",
+          "sql"
+        ]
+      },
+      "QuerySpec": {
+        "type": "object",
+        "properties": {
+          "filters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Filter"
+            }
+          },
+          "keyword": {
+            "type": "string"
+          },
+          "sort": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SortSpec"
+            }
+          },
+          "ule": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuleTerm"
+            },
+            "description": "汇总项规则：只保留贡献不为 0 的行，并提供贡献列（可按 __contribution 排序）"
+          }
+        },
+        "required": [
+          "filters",
+          "sort"
+        ]
+      },
+      "RangeRequest": {
+        "type": "object",
+        "properties": {
+          "workbook": {
+            "type": "string",
+            "description": "工作簿 ID 或名称"
+          },
+          "ange": {
+            "type": "string",
+            "description": "区域或命名区域"
+          }
+        },
+        "required": [
+          "workbook",
+          "ange"
+        ]
+      },
+      "RangesBody": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RangeRequest"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "ReadBody": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ReconBody": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "def": {
+            "$ref": "#/components/schemas/ReconDef"
+          },
+          "resetMatches": {
+            "type": "boolean",
+            "description": "修改时：换了数据集 / 金额列后确认清空已有勾对"
+          }
+        },
+        "required": [
+          "def"
+        ]
+      },
+      "ReconDef": {
+        "type": "object",
+        "properties": {
+          "left": {
+            "$ref": "#/components/schemas/Side"
+          },
+          "ight": {
+            "$ref": "#/components/schemas/Side"
+          },
+          "tolerance": {
+            "type": "number",
+            "description": "金额容差（元）：自动勾对时两侧金额相差不超过它"
+          },
+          "days": {
+            "type": "integer",
+            "description": "日期窗口（天）：自动勾对时两侧日期相差不超过它；不设则不看日期"
+          },
+          "groupByKey": {
+            "type": "boolean",
+            "description": "第三轮：同一个对账键下两侧合计相等的多笔也自动勾对（需要设置对账键）"
+          }
+        },
+        "required": [
+          "left",
+          "ight"
+        ]
+      },
+      "ReconManualBody": {
+        "allOf": [
+          {
+            "type": "object",
+            "properties": {
+              "operator": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "$ref": "#/components/schemas/ManualRequest"
+          }
+        ]
+      },
+      "RemindInput": {
+        "type": "object",
+        "properties": {
+          "period": {
+            "type": "string"
+          },
+          "units": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "只催这些单位；不写就催这一期所有还没提交的"
+          }
+        },
+        "required": [
+          "period"
+        ]
+      },
+      "RenameDataset": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "Repeat": {
+        "type": "string",
+        "enum": [
+          "until_recovered",
+          "every_run"
+        ]
+      },
+      "ReportInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "workbookId": {
+            "type": "string"
+          },
+          "sheetId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string",
+            "description": "消息标题（为空时用任务名称）"
+          },
+          "schedule": {
+            "$ref": "#/components/schemas/Schedule"
+          },
+          "channelIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "attachExcel": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "workbookId",
+          "sheetId",
+          "schedule",
+          "channelIds"
+        ]
+      },
+      "ResolveBody": {
+        "type": "object",
+        "properties": {
+          "esolved": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "esolved"
+        ]
+      },
+      "RestoreBody": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer"
+          },
+          "operator": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "version"
+        ]
+      },
+      "ReviewInput": {
+        "type": "object",
+        "properties": {
+          "period": {
+            "type": "string"
+          },
+          "units": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "action": {
+            "type": "string",
+            "description": "confirm 确认并锁定 / return 退回重填（要写原因）/ reopen 撤销确认"
+          },
+          "eason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "period",
+          "units",
+          "action"
+        ]
+      },
+      "RowsRequest": {
+        "type": "object",
+        "properties": {
+          "filter": {
+            "$ref": "#/components/schemas/DetailFilter"
+          },
+          "sort": {
+            "$ref": "#/components/schemas/SortSpec"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "filter"
+        ]
+      },
+      "RuleTerm": {},
+      "S3Source": {
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "description": "自建 / 其他云的服务地址，如 https://minio.corp:9000；不填是 AWS S3"
+          },
+          "egion": {
+            "type": "string",
+            "description": "区域，默认 us-east-1（MinIO 等通常不关心）"
+          },
+          "bucket": {
+            "type": "string"
+          },
+          "prefix": {
+            "type": "string",
+            "description": "对象键前缀，如 reports/2026/；可以为空"
+          },
+          "pattern": {
+            "type": "string",
+            "description": "文件名通配符，* 任意字符、? 单个字符；多个用 ; 分隔"
+          },
+          "ecursive": {
+            "type": "boolean",
+            "description": "是否包含前缀下的子目录（默认只看前缀下一层）"
+          },
+          "pathStyle": {
+            "type": "boolean",
+            "description": "路径风格地址；不填时：填了 endpoint 用路径风格，AWS 用虚拟主机风格"
+          },
+          "accessKey": {
+            "type": "string"
+          },
+          "secretKey": {
+            "type": "string",
+            "description": "请求里的明文密钥（只在保存 / 测试时出现，保存后变成 secret_enc）"
+          },
+          "secretEnc": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "bucket",
+          "pattern",
+          "accessKey"
+        ]
+      },
+      "SaveBalances": {
+        "type": "object",
+        "properties": {
+          "operator": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BalanceInput"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "Schedule": {
+        "type": "string",
+        "enum": [
+          "manual"
+        ]
+      },
+      "SetDeadline": {
+        "type": "object",
+        "properties": {
+          "deadline": {
+            "type": "string",
+            "description": "截止日期（年-月-日）；空 / 不写 = 取消"
+          }
+        }
+      },
+      "ShareBody": {
+        "type": "object",
+        "properties": {
+          "visibility": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "visibility"
+        ]
+      },
+      "ShopInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "douyinShopId": {
+            "type": "string"
+          },
+          "emark": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "ShopUpdate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "当前店铺名"
+          },
+          "newName": {
+            "type": "string"
+          },
+          "douyinShopId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "emark": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "Side": {
+        "type": "object",
+        "properties": {
+          "dataset": {
+            "type": "string",
+            "description": "数据集（id 或名称，保存时规范为 id）"
+          },
+          "label": {
+            "type": "string",
+            "description": "在结果里显示的「来源」，如「银行」「账面」"
+          },
+          "amount": {
+            "type": "string",
+            "description": "金额列（数值列或计算列）"
+          },
+          "sign": {
+            "type": "integer",
+            "description": "1 = 原样；-1 = 取反（让两侧同一笔业务的金额符号一致：银行收入为正，企业账的收款也要是正）"
+          },
+          "date": {
+            "type": "string"
+          },
+          "keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "对账键（两侧按顺序一一对应，文本相等才算同一个键；为空的键不参与自动勾对）"
+          },
+          "memo": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "dataset",
+          "label",
+          "amount"
+        ]
+      },
+      "SortSpec": {
+        "type": "object",
+        "properties": {
+          "column": {
+            "type": "string"
+          },
+          "desc": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "column"
+        ]
+      },
+      "Source": {
+        "oneOf": [
+          {
+            "allOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "folder"
+                    ]
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/FolderSource"
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "database"
+                    ]
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/DbSource"
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "http"
+                    ]
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/HttpSource"
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "s3"
+                    ]
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/S3Source"
+              }
+            ]
+          }
+        ],
+        "discriminator": {
+          "propertyName": "kind"
+        }
+      },
+      "SqlInstanceBody": {
+        "type": "object",
+        "properties": {
+          "values": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "name": {
+            "type": "string",
+            "description": "实例（同时也是数据集）的名称；不填按「查询名（参数=值）」"
+          },
+          "operator": {
+            "type": "string"
+          }
+        }
+      },
+      "SqlRunBody": {
+        "type": "object",
+        "properties": {
+          "sql": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "params": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ParamDef"
+            },
+            "description": "参数化查询：参数定义与取值"
+          },
+          "values": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "sql"
+        ]
+      },
+      "SslMode": {
+        "type": "string",
+        "enum": [
+          "disable",
+          "prefer",
+          "require"
+        ]
+      },
+      "StarBody": {
+        "type": "object",
+        "properties": {
+          "starred": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "starred"
+        ]
+      },
+      "StatsRequest": {
+        "type": "object",
+        "properties": {
+          "cursorId": {
+            "type": "string"
+          },
+          "from": {
+            "type": "integer",
+            "description": "行位置区间 [from, to]（含两端）"
+          },
+          "to": {
+            "type": "integer"
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "选中的列；可含 __contribution"
+          }
+        },
+        "required": [
+          "cursorId",
+          "from",
+          "to",
+          "columns"
+        ]
+      },
+      "SummaryBody": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "def": {
+            "$ref": "#/components/schemas/SummaryDef"
+          }
+        },
+        "required": [
+          "name",
+          "def"
+        ]
+      },
+      "SummaryDef": {
+        "allOf": [
+          {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "string",
+                "description": "源数据集 id"
+              },
+              "ows": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PivotField"
+                },
+                "description": "分组字段（透视表的行字段在前、列字段在后）"
+              },
+              "values": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PivotValue"
+                },
+                "description": "汇总值与计算值（不能设置显示方式）"
+              }
+            },
+            "required": [
+              "source",
+              "ows",
+              "values"
+            ]
+          },
+          {
+            "$ref": "#/components/schemas/QuerySpec"
+          }
+        ]
+      },
+      "SyncMode": {
+        "type": "string",
+        "enum": [
+          "replace",
+          "append",
+          "upsert"
+        ]
+      },
+      "TableCtx": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "datasetName": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "description": "float（浮动表格）/ cells（铺到单元格）"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Filter"
+            }
+          },
+          "sort": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SortSpec"
+            }
+          },
+          "keyword": {
+            "type": "string"
+          },
+          "columnStyles": {
+            "type": "object",
+            "additionalProperties": {},
+            "description": "列样式（列名 → { numFmt, rules }）：set_column_format 的规则是整体替换，助手要知道现有的"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "Target": {
+        "type": "object",
+        "properties": {
+          "datasetId": {
+            "type": "string",
+            "description": "已有数据集；为空时首次同步按 name + columns 新建，之后记录在这里"
+          },
+          "name": {
+            "type": "string",
+            "description": "新建数据集的名称"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/SyncMode"
+          },
+          "primaryKey": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommitColumn"
+            },
+            "description": "新建时的列（来自预览，可改名 / 改类型 / 不导入）"
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "TokenInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "allowSql": {
+            "type": "boolean"
+          },
+          "datasets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "None 或空：全部数据集"
+          },
+          "operator": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UnitInput": {
+        "type": "object",
+        "properties": {
+          "unit": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string",
+            "description": "负责人（登录过系统的用户 id）；不指派就只能由管理员代填"
+          }
+        },
+        "required": [
+          "unit"
+        ]
+      },
+      "UnmatchRequest": {
+        "type": "object",
+        "properties": {
+          "groups": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "description": "指定的勾对组"
+          },
+          "mode": {
+            "type": "string",
+            "description": "或者：auto = 全部自动勾对的；all = 全部"
+          }
+        }
+      },
+      "UpdateInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "eviewerId": {
+            "type": "string",
+            "description": "不写 / 为空 = 取消确认人"
+          },
+          "emindChannels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "units": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UnitInput"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "units"
+        ]
+      },
+      "UrlImportBody": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "UseInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "新工作簿名称"
+          },
+          "bindings": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/BindInput"
+            },
+            "description": "模板数据集 key → 绑定"
+          },
+          "clearSlicers": {
+            "type": "boolean",
+            "description": "清空切片器里模板作者选中的值（默认是）"
+          },
+          "params": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "description": "模板数据集 key → 参数值（来自参数化查询的数据集，代替 bindings：按这组值生成或复用实例）"
+          },
+          "operator": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "ViewColumn": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "右侧数据集的列名"
+          },
+          "title": {
+            "type": "string",
+            "description": "在关联视图中的列名"
+          }
+        },
+        "required": [
+          "source",
+          "title"
+        ]
+      },
+      "ViewDef": {
+        "type": "object",
+        "properties": {
+          "left": {
+            "type": "string"
+          },
+          "ight": {
+            "type": "string"
+          },
+          "on": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeyPair"
+            }
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ViewColumn"
+            }
+          }
+        },
+        "required": [
+          "left",
+          "ight",
+          "on",
+          "columns"
+        ]
+      },
+      "Window": {
+        "type": "object",
+        "properties": {
+          "dateColumn": {
+            "type": "string"
+          },
+          "preset": {
+            "type": "string",
+            "description": "none / yesterday / last_7 / last_30 / this_month / last_month"
+          }
+        },
+        "required": [
+          "preset"
+        ]
+      },
+      "WorkbookNameBody": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "operator": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "WritebackRequest": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "description": "upsert / append"
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "每行各值对应的数据集列名"
+          },
+          "ows": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {}
+            },
+            "description": "行（值为文本 / 数字 / null）"
+          },
+          "keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "数据集未登记主键时，按这些列更新"
+          },
+          "operator": {
+            "type": "string"
+          },
+          "source": {
+            "description": "来源（工作簿、页签、填报区名称），记入提交记录"
+          }
+        },
+        "required": [
+          "mode",
+          "columns",
+          "ows"
+        ]
+      },
       "Envelope": {
         "type": "object",
         "properties": {
