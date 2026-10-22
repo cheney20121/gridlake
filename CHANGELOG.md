@@ -56,5 +56,5 @@
 - 前端依赖升级以修复已知高危漏洞：axios 1.20、vue 3.5.43、js-cookie 3.0.8，并用 pnpm overrides 固定 lodash / brace-expansion / minimatch / nanoid / postcss / form-data / source-map-js 的安全版本（`pnpm audit --prod` 不再有高危）。
 - 前端版本号与后端统一为 0.1.0；`docker-compose.yml` 改为拉取发布镜像（`GRIDLAKE_IMAGE` 可覆盖）。
 
-[未发布]: https://github.com/OWNER/gridlake/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/OWNER/gridlake/releases/tag/v0.1.0
+[未发布]: https://github.com/cheney20121/gridlake/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/cheney20121/gridlake/releases/tag/v0.1.0

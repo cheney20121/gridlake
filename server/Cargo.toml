@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2024"
 description = "Gridlake 表格服务：亿级数据集、透视、公式下推、SQL、协作与权限（Rust + DuckDB）"
 license = "Apache-2.0"
+repository = "https://github.com/cheney20121/gridlake"
+homepage = "https://github.com/cheney20121/gridlake"
 
 [dependencies]
 aes-gcm = "0.10"

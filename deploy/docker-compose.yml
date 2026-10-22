@@ -6,7 +6,7 @@
 #   GRIDLAKE_IMAGE=gridlake:local docker compose -f deploy/docker-compose.yml up -d
 services:
   gridlake:
-    image: ${GRIDLAKE_IMAGE:-ghcr.io/OWNER/gridlake:0.1.0}
+    image: ${GRIDLAKE_IMAGE:-ghcr.io/cheney20121/gridlake:0.1.0}
     container_name: gridlake
     restart: unless-stopped
     ports:
