@@ -78,6 +78,10 @@ cd web && pnpm install && pnpm dev  # frontend on http://localhost:5173/excel/ho
 - AI assistant quality depends on your model and has not been systematically evaluated.
 - Not yet run long-term in Linux production — feedback is welcome.
 
+## Trademarks and affiliation
+
+Gridlake is an independent open-source project. It is **not affiliated with, endorsed by or sponsored by** Microsoft (Excel), ByteDance / Douyin (Douyin Shop, Qianchuan), the Univer team, the DuckDB Foundation, or any other product or company mentioned. Those names are used only to describe compatibility or data sources (for example "import Douyin Shop ledger exports" or "open the exported xlsx in Excel"); all trademarks belong to their respective owners.
+
 ## Contributing & license
 
 See [CONTRIBUTING.md](CONTRIBUTING.md), [ROADMAP.md](ROADMAP.md) and [CHANGELOG.md](CHANGELOG.md). Licensed under [Apache-2.0](LICENSE); third-party licenses are listed in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).

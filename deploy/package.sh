@@ -10,7 +10,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WEB="$ROOT/web"
-SERVER="$ROOT/gridlake"
+SERVER="$ROOT/server"
 VERSION="$(grep -m1 '^version' "$SERVER/Cargo.toml" | sed -E 's/.*"(.*)".*/\1/')"
 OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
 ARCH="$(uname -m)"

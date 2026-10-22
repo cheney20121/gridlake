@@ -14,3 +14,7 @@ license. The main components are:
 
 The complete list of third-party packages and their licenses is in
 THIRD_PARTY_LICENSES.md.
+
+Gridlake is an independent project and is not affiliated with or endorsed by Microsoft, ByteDance,
+the Univer team or the DuckDB Foundation. Product and company names mentioned in the documentation are
+trademarks of their respective owners and are used only to describe compatibility or data sources.

@@ -8,7 +8,7 @@
 
 ![对 200 万行订单做透视（渠道 × 状态 × 金额合计），结果写成普通工作表，可继续写公式、做图表](docs/images/pivot.png)
 
-<sub>截图：200 万行合成订单数据（由 `scripts/seed-demo.py` 生成），本机开发版服务。</sub>
+<sub>截图：200 万行合成订单数据（由 `scripts/seed-demo.py` 生成），本机发布版服务；重新生成用 `web/tests/ui/readme-shots.mjs`。</sub>
 
 ## 为什么
 
@@ -131,13 +131,17 @@ git config core.hooksPath .githooks                  # 提交前自动做上面�
 ## 现状与局限
 
 - 单机 DuckDB，没有分布式；「十亿行」没有测过
-- 界面只有中文
+- 界面有中文和英文（右上角切换），英文覆盖了绝大部分界面和服务端报错；电商台账场景、部分运行时提示、代码注释和部署文档仍是中文
 - AI 助手的效果取决于接入的模型，还没有系统评测
 - 还没有在 Linux 生产环境长期运行过；欢迎反馈问题
 
 ## 参与
 
 欢迎提 Issue 和 PR：先读 [CONTRIBUTING.md](CONTRIBUTING.md)；后续计划见 [ROADMAP.md](ROADMAP.md)，版本变化见 [CHANGELOG.md](CHANGELOG.md)。发现安全问题请按 [SECURITY.md](SECURITY.md) 私下报告，不要公开提 Issue。参与即同意遵守[行为准则](CODE_OF_CONDUCT.md)。
+
+## 商标与关联声明
+
+Gridlake 是独立的开源项目，与 Microsoft（Excel）、字节跳动 / 抖音（抖店、巨量千川）、Univer 团队、DuckDB 基金会以及文中提到的其他产品和公司**没有隶属、合作或背书关系**。这些名称只用来说明兼容性或数据来源（例如「导入抖店资金流水」「导出 xlsx 在 Excel 里打开」），商标归各自所有者。
 
 ## 许可证
 

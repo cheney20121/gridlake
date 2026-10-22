@@ -33,5 +33,5 @@ jobs:
         with:
           node-version: 24
       - name: 生产依赖里的已知漏洞（高危及以上）
-        working-directory: demo-web-vue3
+        working-directory: web
         run: pnpm audit --prod --audit-level high

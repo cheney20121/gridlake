@@ -118,6 +118,7 @@ s, r = call("PUT", "/ledger/accounts/bob", ADMIN, body={"resetTotp": True})
 check("管理员重置 bob 的两步验证", s == 200 and r["data"]["twoFactor"] is False, (s, r))
 s, r = call("GET", "/ledger/me", BOB)
 check("重置后 bob 已登录的会话失效", r["data"]["user"] is None, r)
+time.sleep(2.5)  # 审计记录攒一批（最多 2 秒）才写库
 s, r = call("GET", "/ledger/audit?pageSize=100", ADMIN)
 rows = r["data"]["items"] if isinstance(r.get("data"), dict) else r.get("data", [])
 acts = {x.get("action") for x in rows}

@@ -173,6 +173,7 @@ s, r = call("POST", "/ledger/auth/logout", headers={"Cookie": f"gridlake_session
 check("退出登录", s == 200 and me(s5)["user"] is None, (s, r))
 
 # ── 审计 ──
+time.sleep(2.5)  # 审计记录攒一批（最多 2 秒）才写库
 s, r = call("GET", "/ledger/audit?pageSize=100", ADMIN)
 rows = r["data"]["items"] if isinstance(r.get("data"), dict) else r.get("data", [])
 check("SSO 登录和失败都进了审计", any(x.get("action") == "登录" and x.get("userId") == "zhang" for x in rows) and any(x.get("action") == "登录失败" for x in rows), rows[:3])
