@@ -76,7 +76,6 @@ scripts/seed-demo.py --url http://localhost:8787 --token "$TOKEN" --rows 2000000
 
 > 镜像默认从 GitHub Container Registry 拉取发布版（`deploy/docker-compose.yml`）。想用本地源码构建：
 > `docker build -f deploy/Dockerfile -t gridlake:local . && GRIDLAKE_IMAGE=gridlake:local docker compose -f deploy/docker-compose.yml up -d`。
-> 发布到 GitHub 后用 `scripts/set-repo.sh 用户名/仓库名` 把文档里的占位符 `OWNER` 换成真实地址。
 
 ### 从源码运行（开发）
 

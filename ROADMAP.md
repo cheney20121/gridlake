@@ -54,7 +54,7 @@
 
 **P0 落地后的遗留事项（需要人工决定 / 操作）：**
 
-- 仓库发布到 GitHub 后运行 `scripts/set-repo.sh 用户名/仓库名`，替换文档和镜像地址里的 `OWNER` 占位符；再打 `v0.1.0` 标签验证发布流水线（Linux arm64 / macOS 构建、GHCR 推送尚未实跑）。
+- 仓库已建在 `cheney20121/gridlake`，占位符已替换；首次推送后看 CI，再打 `v0.1.0` 标签验证发布流水线（Linux arm64 / macOS 构建、GHCR 推送尚未实跑）。
 - **项目名：** 原名 WebExcel 与已有的同名项目重名，且包含微软的商标 Excel，已改名为 Gridlake（npm、crates.io 上无同名包，GitHub 上无同名仓库）。正式推广前仍建议到 USPTO / WIPO / 国内商标局核查 “Gridlake”——检索不等于商标查询。
 - 示例模板（`server/templates/*.json`）已核对：只含列定义和说明文字，没有真实公司 / 客户 / 联系方式。
 - 在线 Demo 需要自己部署一个实例（`seed-demo.py` 可导入数据），并建议只读或定时重置。
