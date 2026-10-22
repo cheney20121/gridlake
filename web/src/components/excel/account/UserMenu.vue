@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { logoutApi } from '@/api/auth'
 import { useLedgerUserStore } from '@/stores/ledger-user'
@@ -14,6 +14,11 @@ const ledgerUser = useLedgerUserStore()
 const passwordVisible = ref(false)
 const tokenVisible = ref(false)
 const twoFactorVisible = ref(false)
+// 管理员要求两步验证而这个账号还没开：直接弹出设置对话框
+watch(() => ledgerUser.twoFactorRequired, (v) => {
+  if (v)
+    twoFactorVisible.value = true
+}, { immediate: true })
 
 async function logout() {
   if (ledgerUser.mode === 'local')
@@ -63,5 +68,5 @@ function onCommand(cmd: string) {
   <slot v-else />
   <PasswordDialog v-model:visible="passwordVisible" />
   <AccessTokenDialog v-model:visible="tokenVisible" />
-  <TwoFactorDialog v-model:visible="twoFactorVisible" />
+  <TwoFactorDialog v-model:visible="twoFactorVisible" :required="ledgerUser.twoFactorRequired" />
 </template>

@@ -74,6 +74,8 @@ pub struct Config {
     pub allow_no_auth: bool,
     /// 允许自己审批自己提交的单据（小团队一个人兼任提交与审批时使用）；默认不允许
     pub allow_self_approve: bool,
+    /// 内置账号必须开启两步验证：没开启的账号登录后只能设置两步验证，其他接口一律 403（单点登录账号和访问令牌不受限）
+    pub require_2fa: bool,
     /// 单点登录（OIDC）：只在 local 模式下可用，登录页多一个「用公司账号登录」；见 oidc.rs
     pub oidc: Option<OidcConfig>,
 }
@@ -359,6 +361,7 @@ impl Config {
             admin_password: env("LEDGER_ADMIN_PASSWORD"),
             session_days: env("LEDGER_SESSION_DAYS").map(|v| v.parse().context("LEDGER_SESSION_DAYS 应为整数")).transpose()?.unwrap_or(7).clamp(1, 365),
             allow_no_auth: matches!(env("LEDGER_ALLOW_NO_AUTH").as_deref().map(str::to_lowercase).as_deref(), Some("1" | "true" | "yes")),
+            require_2fa: matches!(env("LEDGER_REQUIRE_2FA").as_deref().map(str::to_lowercase).as_deref(), Some("1" | "true" | "yes")),
             allow_self_approve: matches!(env("LEDGER_ALLOW_SELF_APPROVE").as_deref().map(str::to_lowercase).as_deref(), Some("1" | "true" | "yes")),
             oidc: OidcConfig::parse(env)?,
             audit_days: env("LEDGER_AUDIT_DAYS").map(|v| v.parse().context("LEDGER_AUDIT_DAYS 应为整数")).transpose()?.unwrap_or(365).max(1),
@@ -368,6 +371,9 @@ impl Config {
         .and_then(|c| {
             if c.auth_mode == AuthMode::Gateway && !c.auth_url.as_deref().is_some_and(|u| u.starts_with("http://") || u.starts_with("https://")) {
                 bail!("LEDGER_AUTH_MODE=gateway 需要同时设置 LEDGER_AUTH_URL（以 http:// 或 https:// 开头的网关用户信息接口）");
+            }
+            if c.require_2fa && c.auth_mode != AuthMode::Local {
+                bail!("LEDGER_REQUIRE_2FA=1 需要同时设置 LEDGER_AUTH_MODE=local（两步验证是内置账号的功能；网关 / 代理模式请在网关侧要求二次验证）");
             }
             if c.oidc.is_some() && c.auth_mode != AuthMode::Local {
                 bail!("LEDGER_OIDC_* 单点登录需要同时设置 LEDGER_AUTH_MODE=local（SSO 登录后使用内置账号体系的会话；网关 / 代理模式请直接在网关侧做 SSO）");

@@ -266,6 +266,25 @@ pub fn clear(conn: &Connection, account_id: &str) -> AppResult<()> {
     Ok(())
 }
 
+/// 管理员要求两步验证（LEDGER_REQUIRE_2FA）而这个账号还没开：true。单点登录账号（没有本地密码）不要求。结果缓存 30 秒，开启 / 重置时清缓存
+pub async fn needs_setup(db: &AppState, account_id: &str) -> AppResult<bool> {
+    if let Some((at, v)) = db.auth.tfa_gap.lock().ok().and_then(|m| m.get(account_id).copied())
+        && at.elapsed() < std::time::Duration::from_secs(30)
+    {
+        return Ok(v);
+    }
+    let id = account_id.to_string();
+    let need = run(db, move |c| {
+        let row: Option<(Option<bool>, String)> = c.query_row("SELECT totp_enabled, password_hash FROM ledger_account WHERE id = ?", params![id], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
+        Ok(row.is_some_and(|(enabled, hash)| !enabled.unwrap_or(false) && hash != "!sso"))
+    })
+    .await?;
+    if let Ok(mut m) = db.auth.tfa_gap.lock() {
+        m.insert(account_id.to_string(), (std::time::Instant::now(), need));
+    }
+    Ok(need)
+}
+
 // ── 接口 ──────────────────────────────────────────────
 
 fn require_local(db: &AppState) -> AppResult<()> {
@@ -323,6 +342,7 @@ pub async fn enable_route(State(db): State<AppState>, Extension(user): Extension
     let b: CodeBody = parse_json(&body)?;
     let st = db.clone();
     let codes = run(&db, move |c| enable(c, &st.connectors.secret, &user.id, &b.code)).await?;
+    db.auth.clear_cache();
     Ok(ok(Enabled { recovery_codes: codes }))
 }
 
@@ -343,6 +363,7 @@ pub async fn disable_route(State(db): State<AppState>, Extension(user): Extensio
         clear(c, &user.id)
     })
     .await?;
+    db.auth.clear_cache();
     Ok(ok(true))
 }
 

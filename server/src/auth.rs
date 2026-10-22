@@ -95,6 +95,8 @@ pub struct Auth {
     audit_rx: Mutex<Option<UnboundedReceiver<AuditRecord>>>,
     /// 最近记过「用户目录」的用户：用户 id → (时间, 名字, 是否管理员)，名字和权限没变时 10 分钟内不重复写库
     seen: Mutex<HashMap<String, (Instant, String, bool)>>,
+    /// 「还没开两步验证、而管理员要求必须开」的判断缓存：账号 id → (时间, 是否需要先设置)
+    pub(crate) tfa_gap: Mutex<HashMap<String, (Instant, bool)>>,
 }
 
 impl Auth {
@@ -122,6 +124,7 @@ impl Auth {
             audit_tx,
             audit_rx: Mutex::new(Some(rx)),
             seen: Mutex::new(HashMap::new()),
+            tfa_gap: Mutex::new(HashMap::new()),
         })
     }
 
@@ -132,6 +135,9 @@ impl Auth {
     /// 清掉身份缓存（内置账号退出、改密码、停用、改权限后立即生效）
     pub fn clear_cache(&self) {
         if let Ok(mut m) = self.cache.lock() {
+            m.clear();
+        }
+        if let Ok(mut m) = self.tfa_gap.lock() {
             m.clear();
         }
     }
@@ -673,6 +679,15 @@ pub async fn guard(State(db): State<AppState>, ConnectInfo(peer): ConnectInfo<So
         Ok(u) => u,
         Err(e) => return e.into_response(),
     };
+    // 管理员要求两步验证（LEDGER_REQUIRE_2FA）：没开启的内置账号只能设置两步验证、改密码、退出；访问令牌是独立凭证，不受限
+    if auth.mode == AuthMode::Local
+        && db.config.require_2fa
+        && !path.starts_with("/ledger/auth/")
+        && !crate::pat::is_pat(&crate::account::token_of(req.headers()))
+        && crate::totp::needs_setup(&db, &user.id).await.unwrap_or(false)
+    {
+        return AppError::Forbidden("管理员要求所有内置账号开启两步验证：请先在右上角用户菜单里设置两步验证".into()).into_response();
+    }
     if auth.mode == AuthMode::Local && crate::pat::is_read_only(&crate::account::token_of(req.headers())) && !read_only_allows(&method, &path) {
         return AppError::Forbidden("这是只读访问令牌，只能读取数据，不能执行修改类操作；需要写入请使用完全权限的令牌".into()).into_response();
     }
@@ -790,6 +805,7 @@ async fn share_request(db: &AppState, peer: SocketAddr, mut req: Request, next: 
                 packs: Packs { ecommerce: false },
                 share: Some(ShareMe { workbook_id: info.workbook_id.clone(), workbook_name: info.workbook_name.clone() }),
                 sso: None,
+                two_factor_required: false,
             };
             json(Ok(ok(me).into_response()))
         }
@@ -1052,6 +1068,9 @@ pub struct Me {
     /// 通过分享链接访问时：分享的是哪个工作簿（此时 mode 为 share，只能只读查看它）
     #[serde(skip_serializing_if = "Option::is_none")]
     share: Option<ShareMe>,
+    /// 管理员要求两步验证，而当前账号还没开启：前端据此弹出设置对话框，设置完才能继续用
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    two_factor_required: bool,
     /// 配置了单点登录（OIDC）时：登录页据此显示「用 XX 登录」按钮
     #[serde(skip_serializing_if = "Option::is_none")]
     sso: Option<SsoInfo>,
@@ -1086,7 +1105,11 @@ pub async fn me(State(db): State<AppState>, Extension(id): Extension<Identity>, 
         AuthMode::Proxy => "proxy",
     };
     let scope = scope.map_or_else(Scope::all, |Extension(s)| (*s.0).clone());
-    Ok(ok(Me { auth_required: db.auth.enabled(), mode, user: id.0, scope, packs: Packs { ecommerce: crate::ecommerce::enabled() }, share: None, sso: db.config.oidc.as_ref().map(|o| SsoInfo { name: o.display_name.clone(), login_path: crate::oidc::LOGIN_PATH }) }))
+    let two_factor_required = match (&id.0, db.auth.mode == AuthMode::Local && db.config.require_2fa) {
+        (Some(u), true) => crate::totp::needs_setup(&db, &u.id).await.unwrap_or(false),
+        _ => false,
+    };
+    Ok(ok(Me { auth_required: db.auth.enabled(), mode, user: id.0, scope, two_factor_required, packs: Packs { ecommerce: crate::ecommerce::enabled() }, share: None, sso: db.config.oidc.as_ref().map(|o| SsoInfo { name: o.display_name.clone(), login_path: crate::oidc::LOGIN_PATH }) }))
 }
 
 // ── 审计 ──────────────────────────────────────────────

@@ -30,6 +30,8 @@ export const useLedgerUserStore = defineStore('ledger-user', () => {
   const scope = ref<LedgerScope>({ restricted: false, shops: [] })
   /** 电商资金台账场景包是否启用：没启用时界面里不显示台账、月结、店铺档案等入口 */
   const ecommerce = ref(false)
+  /** 管理员要求两步验证（LEDGER_REQUIRE_2FA）而当前账号还没开启：界面弹出设置对话框，设置完才能继续用 */
+  const twoFactorRequired = ref(false)
 
   const isAdmin = computed(() => !authRequired.value || !!user.value?.admin)
   const name = computed(() => (authRequired.value ? user.value?.name || '' : ''))
@@ -57,6 +59,7 @@ export const useLedgerUserStore = defineStore('ledger-user', () => {
       user.value = me.user
       scope.value = me.scope ?? { restricted: false, shops: [] }
       ecommerce.value = !!me.packs?.ecommerce
+      twoFactorRequired.value = !!me.twoFactorRequired
       if (me.authRequired && !me.user) {
         removeToken()
         return false
@@ -79,5 +82,5 @@ export const useLedgerUserStore = defineStore('ledger-user', () => {
     return w.visibility === 'edit' ? 2 : w.visibility === 'view' ? 1 : 0
   }
 
-  return { loaded, authRequired, mode, user, scope, ecommerce, restricted, scopeText, isAdmin, name, ensure, reset, accessLevel }
+  return { loaded, authRequired, mode, user, scope, ecommerce, twoFactorRequired, restricted, scopeText, isAdmin, name, ensure, reset, accessLevel }
 })

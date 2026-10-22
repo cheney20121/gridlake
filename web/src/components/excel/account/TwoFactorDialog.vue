@@ -3,12 +3,16 @@ import type { TwoFactorSetup, TwoFactorStatus } from '@/api/auth'
 import { ref, watch } from 'vue'
 import { disableTwoFactorApi, enableTwoFactorApi, getTwoFactorApi, setupTwoFactorApi } from '@/api/auth'
 import { t } from '@/i18n'
+import { useLedgerUserStore } from '@/stores/ledger-user'
 
+/** 管理员要求必须开启：设置完成前不能关闭这个对话框 */
+const props = defineProps<{ required?: boolean }>()
 /**
  * 两步验证（TOTP）：登录时除了密码，还要输入验证器 App（Google Authenticator、Microsoft Authenticator、1Password 等）里的 6 位动态码。
  * 开启：生成密钥 → 在验证器里添加（点开地址或手工输入密钥）→ 输入现在显示的 6 位数字确认 → 保存一次性恢复码（手机丢了用）。
  */
 const visible = defineModel<boolean>('visible', { default: false })
+const ledgerUser = useLedgerUserStore()
 const status = ref<TwoFactorStatus | null>(null)
 const setup = ref<TwoFactorSetup | null>(null)
 const recovery = ref<string[]>([])
@@ -28,7 +32,7 @@ watch(visible, (v) => {
     code.value = password.value = error.value = ''
     load()
   }
-})
+}, { immediate: true })
 
 async function run<T>(fn: () => Promise<T>): Promise<T | undefined> {
   error.value = ''
@@ -60,6 +64,14 @@ async function confirm() {
   }
 }
 
+/** 必须开启的场景：恢复码保存好了，刷新页面让之前被拦住的数据重新加载 */
+async function finishRequired() {
+  ledgerUser.reset()
+  await ledgerUser.ensure()
+  visible.value = false
+  window.location.reload()
+}
+
 async function disable() {
   const ok = await ElMessageBox.confirm(t('停用后登录只需要密码，账号安全性会降低。确定停用两步验证？'), t('停用两步验证'), { type: 'warning', confirmButtonText: t('停用'), cancelButtonText: t('取消') }).then(() => true, () => false)
   if (!ok)
@@ -84,7 +96,10 @@ async function copy(text: string) {
 </script>
 
 <template>
-  <el-dialog v-model="visible" :title="$t('两步验证')" width="520px" append-to-body data-testid="twofactor-dialog">
+  <el-dialog v-model="visible" :title="$t('两步验证')" width="520px" append-to-body :show-close="!props.required" :close-on-click-modal="!props.required" :close-on-press-escape="!props.required" data-testid="twofactor-dialog">
+    <div v-if="props.required && !recovery.length" class="mb-3 rounded bg-[#FEF3C7] px-3 py-2 text-[13px] text-[#92400E] leading-6" data-testid="twofactor-required">
+      {{ $t('管理员要求所有账号开启两步验证：设置完成前其他功能暂时不能使用。') }}
+    </div>
     <div v-if="status" class="text-[13px] leading-6">
       <!-- 刚启用：展示恢复码（只此一次） -->
       <div v-if="recovery.length" class="mb-3 border border-[#a7d7b8] rounded-lg bg-[#f1faf4] p-3" data-testid="twofactor-recovery">
@@ -159,7 +174,10 @@ async function copy(text: string) {
       </div>
     </div>
     <template #footer>
-      <el-button @click="visible = false">
+      <el-button v-if="props.required && recovery.length" type="primary" data-testid="twofactor-continue" @click="finishRequired">
+        {{ $t('我已保存恢复码，继续') }}
+      </el-button>
+      <el-button v-else-if="!props.required" @click="visible = false">
         {{ $t('关闭') }}
       </el-button>
     </template>

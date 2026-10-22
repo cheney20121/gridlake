@@ -32,6 +32,8 @@ export interface LedgerMe {
   packs?: { ecommerce: boolean }
   /** 通过分享链接访问时：被分享的工作簿（此时 mode 为 share，只能只读查看它） */
   share?: { workbookId: string, workbookName: string }
+  /** 管理员要求两步验证而当前账号还没开启：必须先设置，其他功能暂时不可用 */
+  twoFactorRequired?: boolean
   /** 服务端配置了单点登录（OIDC）：登录页显示「用 XX 登录」；loginPath 是整页跳转的入口，不是 fetch */
   sso?: { name: string, loginPath: string }
 }

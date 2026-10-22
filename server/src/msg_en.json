@@ -853,5 +853,6 @@
   "两步验证只在内置账号登录方式下可用（LEDGER_AUTH_MODE=local）": "Two-step verification is only available with built-in accounts (LEDGER_AUTH_MODE=local)",
   "不能用访问令牌设置两步验证，请在网页里登录后操作": "Two-step verification cannot be changed with an access token; sign in on the web page instead",
   "密码不正确": "The password is incorrect",
-  "验证码不正确": "The verification code is incorrect"
+  "验证码不正确": "The verification code is incorrect",
+  "管理员要求所有内置账号开启两步验证：请先在右上角用户菜单里设置两步验证": "An administrator requires two-step verification for all built-in accounts: set it up first from the user menu in the top right"
 }

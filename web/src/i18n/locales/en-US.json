@@ -2843,5 +2843,7 @@
   "开始设置": "Start setup",
   "请输入验证码": "Enter the verification code",
   "这个账号启用了两步验证：请输入验证器 App 里现在显示的 6 位数字。手机不在身边可以输入一次性恢复码。": "This account uses two-step verification: enter the 6 digits currently shown in your authenticator app. If your phone is not at hand, enter a one-time recovery code.",
-  "验证码": "Verification code"
+  "验证码": "Verification code",
+  "管理员要求所有账号开启两步验证：设置完成前其他功能暂时不能使用。": "An administrator requires two-step verification for all accounts: other features are unavailable until you finish setting it up.",
+  "我已保存恢复码，继续": "I have saved the recovery codes, continue"
 }
