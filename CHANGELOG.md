@@ -4,6 +4,10 @@
 
 ## [未发布]
 
+## [0.1.0] - 2026-10-22
+
+开源版首次发布：亿级数据集、透视表、公式下推、SQL 工作台、仪表盘、AI 助手与 MCP、协作与权限、审批、定时推送、私有化部署，以及下面列出的各项。
+
 ### 新增
 - **界面文案迁移（第二批）**：英文界面里仍显示中文的代码从约 510 行降到约 425 行：保存状态、通知、相对时间、公式函数说明、对话框里的校验提示、数据集改名 / 删除确认、AI 方案摘要、导出提示、条件格式 / 数据验证 / 表格导入的「未带入」说明等。剩下的多是电商场景（有意保持中文）、示例数据、拼音和同义词表、搜索关键词，以及与服务端对暗号的名字（聚合名、占位列名、图表里的「其他 / 合计」等）。
 - **强制两步验证**：`LEDGER_REQUIRE_2FA=1` 时，没开启两步验证的内置账号登录后只能设置两步验证（接口除 `/ledger/auth/*` 外一律 403，`/ledger/me` 带 `twoFactorRequired`），界面自动弹出不能关闭的设置对话框，保存恢复码后继续；单点登录账号与个人访问令牌不受限。端到端测试 `test_47_require_2fa.py`（19 项）、界面测试 `login-require2fa`。
@@ -51,10 +55,6 @@
 - 登录失败计数改存数据库，重启服务不会清零。
 - 前端依赖升级以修复已知高危漏洞：axios 1.20、vue 3.5.43、js-cookie 3.0.8，并用 pnpm overrides 固定 lodash / brace-expansion / minimatch / nanoid / postcss / form-data / source-map-js 的安全版本（`pnpm audit --prod` 不再有高危）。
 - 前端版本号与后端统一为 0.1.0；`docker-compose.yml` 改为拉取发布镜像（`GRIDLAKE_IMAGE` 可覆盖）。
-
-## [0.1.0]
-
-- 开源版初始发布：亿级数据集、透视表、公式下推、SQL 工作台、仪表盘、AI 助手与 MCP、协作与权限、审批、定时推送、私有化部署。
 
 [未发布]: https://github.com/OWNER/gridlake/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/OWNER/gridlake/releases/tag/v0.1.0
