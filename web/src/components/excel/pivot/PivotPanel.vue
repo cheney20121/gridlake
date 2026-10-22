@@ -218,7 +218,7 @@ async function convertToTable() {
   let name: string
   try {
     const r = await ElMessageBox.prompt(
-      `行字段、列字段成为分组列，汇总值与计算值成为数值列；之后可以在数据表里按值筛选、排序、加计算列，源数据变化时自动更新。${drops.length ? `<br><br><span style="color:#92400E">不带入：${drops.join('；')}</span>` : ''}`,
+      `${tr('行字段、列字段成为分组列，汇总值与计算值成为数值列；之后可以在数据表里按值筛选、排序、加计算列，源数据变化时自动更新。')}${drops.length ? `<br><br><span style="color:#92400E">${tr('不带入：{0}', [drops.join('；')])}</span>` : ''}`,
       tr('转为数据表'),
       { inputValue: tr('{0}汇总', [ds.name]), inputPlaceholder: tr('汇总数据集的名称'), confirmButtonText: tr('转换'), dangerouslyUseHTMLString: true, inputValidator: v => !!v.trim() || tr('请填写名称') },
     )
@@ -472,7 +472,7 @@ const otherFilters = computed(() => ({
 }))
 function filterSummary(f: DatasetFilter | null | undefined) {
   if (!f)
-    return '全部'
+    return tr('全部')
   if (f.op === 'in')
     return f.values.length === 1 ? (f.values[0] || tr('（空白）')) : tr('{0} 项', [f.values.length])
   if (f.op === 'between')

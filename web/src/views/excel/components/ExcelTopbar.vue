@@ -10,6 +10,7 @@ import UserMenu from '@/components/excel/account/UserMenu.vue'
 import { collabSession } from '@/features/excel/collaboration/session'
 import { collaborationSync } from '@/features/excel/collaboration/sync-engine'
 import { persistenceManager } from '@/features/excel/persistence/manager'
+import { numberLocale, t } from '@/i18n'
 import { useApprovalStore } from '@/stores/excel-approval'
 import { useExcelUIStore } from '@/stores/excel-ui'
 import { useLedgerUserStore } from '@/stores/ledger-user'
@@ -94,12 +95,12 @@ const folderChain = computed(() => {
 /** 保存状态显示文本 */
 const saveStatusText = computed(() => {
   switch (uiStore.saveStatus) {
-    case 'dirty': return '有未保存的修改'
-    case 'saving': return '保存中...'
-    case 'saved': return uiStore.lastSavedAt ? `已保存 · ${new Date(uiStore.lastSavedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}` : '已保存'
-    case 'error': return '保存失败'
-    case 'conflict': return '保存冲突'
-    case 'offline': return '未连接服务'
+    case 'dirty': return t('有未保存的修改')
+    case 'saving': return t('保存中...')
+    case 'saved': return uiStore.lastSavedAt ? t('已保存 · {0}', [new Date(uiStore.lastSavedAt).toLocaleTimeString(numberLocale, { hour: '2-digit', minute: '2-digit' })]) : t('已保存')
+    case 'error': return t('保存失败')
+    case 'conflict': return t('保存冲突')
+    case 'offline': return t('未连接服务')
     default: return ''
   }
 })

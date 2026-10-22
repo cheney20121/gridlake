@@ -234,7 +234,7 @@ export function useAnalysis(options: {
     chipTableId = table.id
     const rows = Math.max(cellTableArea(table).rows - 1, 0)
     // 贴在选中的格子旁（表头可能已滚出视野，挂在表头上会看不到）
-    tableChip?.show(sel.startRow, sel.startColumn, `${table.name} · ${rows.toLocaleString()} 行 ⚙`, '单元格模式的数据表：随数据集、切片器刷新。点击修改列、筛选、排序或切换显示方式')
+    tableChip?.show(sel.startRow, sel.startColumn, t('{0} · {1} 行 ⚙', [table.name, rows.toLocaleString()]), t('单元格模式的数据表：随数据集、切片器刷新。点击修改列、筛选、排序或切换显示方式'))
   }
 
   function editChipTable() {
@@ -287,7 +287,7 @@ export function useAnalysis(options: {
       return
     workspaceView.value = 'workbook'
     const sheet = await createPivotSheet(api, { version: 1, datasetId: ds.id, datasetName: ds.name, request: { rows: [], columns: [], values: [], filters } })
-    sheet.getRange(0, 0).setValue(`数据透视表 · ${ds.name}：从右侧字段列表把字段拖入「行」「列」「值」`)
+    sheet.getRange(0, 0).setValue(t('数据透视表 · {0}：从右侧字段列表把字段拖入「行」「列」「值」', [ds.name]))
     uiStore.openPanel('pivot')
     persistenceManager.markDirty()
   }

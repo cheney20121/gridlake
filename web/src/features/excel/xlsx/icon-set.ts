@@ -66,16 +66,16 @@ export function iconSetToExcel(config: UniverIconConfig[], isShowValue: boolean 
   if (!type || !size)
     return t('图标集（Excel 没有这种图标）')
   if (config.some(c => c.iconType !== type))
-    return '图标集（混用了不同的图标）'
+    return t('图标集（混用了不同的图标）')
   if (n !== size)
-    return '图标集（图标个数与图标集不符）'
+    return t('图标集（图标个数与图标集不符）')
   const ids = config.map(c => Number(c.iconId))
   const natural = ids.every((id, k) => id === k)
   const reversed = ids.every((id, k) => id === n - 1 - k)
   if (!natural && !reversed)
-    return '图标集（图标的顺序被自定义）'
+    return t('图标集（图标的顺序被自定义）')
   if (config.slice(0, -1).some(c => c.operator !== 'greaterThanOrEqual' && c.operator !== 'greaterThan'))
-    return '图标集（阈值条件不是「大于等于」）'
+    return t('图标集（阈值条件不是「大于等于」）')
   // Excel 的阈值从低到高：第一个是最低档（固定为 0%），其后是 Univer 从倒数第二条往前的阈值
   const cfvo: CfValue[] = [{ type: 'percent', value: 0 }]
   for (let k = n - 2; k >= 0; k--)
@@ -89,10 +89,10 @@ export function excelToIconSet(rule: { iconSet?: string, reverse?: boolean, show
   const name = !rule.iconSet || rule.iconSet === '3TrafficLights' ? '3TrafficLights1' : rule.iconSet
   const size = ICON_SET_SIZE[name]
   if (!size)
-    return `图标集「${name}」`
+    return t('图标集「{0}」', [name])
   const cfvo = rule.cfvo ?? []
   if (cfvo.length !== size)
-    return `图标集「${name}」（阈值个数不对）`
+    return t('图标集「{0}」（阈值个数不对）', [name])
   const reverse = !!rule.reverse
   const config: UniverIconConfig[] = []
   for (let k = 0; k < size; k++) {

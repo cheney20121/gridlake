@@ -125,7 +125,7 @@ const KIND_LABEL: Record<string, string> = { money: '金额', number: '数值', 
 
 function display(v: unknown) {
   if (v == null || v === '')
-    return '（空）'
+    return t('（空）')
   if (typeof v === 'number')
     return resultKind.value === 'money' ? formatMoney(v) : String(Math.round(v * 10000) / 10000)
   return String(v)

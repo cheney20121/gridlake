@@ -4,6 +4,7 @@ import type { FWorksheet } from '@univerjs/sheets/facade'
 import type { Worksheet } from 'exceljs'
 import type { UniverIconConfig } from './icon-set'
 import type { UniverTable } from './tables'
+import { t as tr } from '@/i18n'
 import { excelToIconSet, iconSetToExcel } from './icon-set'
 import { exportTables, readExcelTables } from './tables'
 
@@ -247,7 +248,7 @@ function cfToExcel(cf: CfRule, priority: number): Record<string, unknown> | stri
         return { ...base, type: 'expression', formulae: [`ISERROR(${tl})`], style }
       if (op === 'notContainsErrors')
         return { ...base, type: 'expression', formulae: [`NOT(ISERROR(${tl}))`], style }
-      return `文本条件「${op}」`
+      return tr('文本条件「{0}」', [op])
     }
     case 'formula':
       return { ...base, type: 'expression', formulae: [String(r.value ?? '').replace(/^=/, '')], style }
@@ -262,10 +263,10 @@ function cfToExcel(cf: CfRule, priority: number): Record<string, unknown> | stri
     }
     case 'timePeriod': {
       const tp = TIME_PERIOD_TO_EXCEL[op]
-      return tp ? { ...base, type: 'timePeriod', timePeriod: tp, style } : `时间段条件「${op}」`
+      return tp ? { ...base, type: 'timePeriod', timePeriod: tp, style } : tr('时间段条件「{0}」', [op])
     }
     default:
-      return `条件格式「${r.subType ?? r.type}」`
+      return tr('条件格式「{0}」', [r.subType ?? r.type])
   }
 }
 
@@ -325,7 +326,7 @@ function excelToCf(rule: Record<string, any>, ranges: IRange[]): CfRule | string
       return typeof ic === 'string' ? ic : { ranges, stopIfTrue, rule: { type: 'iconSet', isShowValue: ic.isShowValue, config: ic.config } }
     }
     default:
-      return `条件格式「${rule.type}」`
+      return tr('条件格式「{0}」', [rule.type])
   }
 }
 
@@ -393,12 +394,12 @@ function dvToExcel(dv: DvRule): Record<string, unknown> | string {
     }
     const joined = values.map(v => v.trim()).filter(Boolean).join(',')
     if (joined.length > 255)
-      return '下拉选项超过 Excel 255 字符上限'
+      return tr('下拉选项超过 Excel 255 字符上限')
     return { ...common, type: 'list', formulae: [`"${joined.replace(/"/g, '""')}"`] }
   }
   const type = DV_TYPES_TO_EXCEL[dv.type]
   if (!type)
-    return dv.type === 'checkbox' ? '复选框' : `数据验证「${dv.type}」`
+    return dv.type === 'checkbox' ? tr('复选框') : tr('数据验证「{0}」', [dv.type])
   if (type === 'custom')
     return { ...common, type, formulae: [(dv.formula1 ?? '').replace(/^=/, '')] }
   const conv = (v: string | undefined) => (type === 'date' ? dateFormula(v) : (v ?? '').replace(/^=/, ''))
@@ -427,7 +428,7 @@ function excelToDv(v: Record<string, any>, ranges: IRange[]): DvRule | string {
     return { ...common, type: 'list', formula1: `=${first.replace(/^=/, '')}`, showDropDown: true }
   }
   if (!DV_TYPES_TO_EXCEL[v.type])
-    return `数据验证「${v.type}」`
+    return tr('数据验证「{0}」', [v.type])
   if (v.type === 'custom')
     return { ...common, type: 'custom', formula1: `=${text(f[0]).replace(/^=/, '')}` }
   const conv = (x: unknown) => {
@@ -547,7 +548,7 @@ export async function importSheetFeatures(api: FUniver, fsheet: FWorksheet, ws: 
     if (ok)
       stats.conditionalFormats++
     else
-      stats.skipped.push(`「${name}」条件格式（${ref}）`)
+      stats.skipped.push(tr('「{0}」条件格式（{1}）', [name, ref]))
   }
 
   // 表格：Univer 的表格插件按区域创建，标题行文字成为列名
@@ -556,10 +557,10 @@ export async function importSheetFeatures(api: FUniver, fsheet: FWorksheet, ws: 
     if (ok) {
       stats.tables++
       if (t.note)
-        stats.skipped.push(`「${name}」表格「${t.name}」（${t.note}）`)
+        stats.skipped.push(tr('「{0}」表格「{1}」（{2}）', [name, t.name, t.note]))
     }
     else {
-      stats.skipped.push(`「${name}」表格「${t.name}」`)
+      stats.skipped.push(tr('「{0}」表格「{1}」', [name, t.name]))
     }
   }
 
@@ -584,7 +585,7 @@ export async function importSheetFeatures(api: FUniver, fsheet: FWorksheet, ws: 
     if (ok)
       stats.dataValidations++
     else
-      stats.skipped.push(`「${name}」数据验证（${ranges.map(a1).join(',')}）`)
+      stats.skipped.push(tr('「{0}」数据验证（{1}）', [name, ranges.map(a1).join(',')]))
   }
 
   const links: { r: number, c: number, text: string, url: string }[] = []

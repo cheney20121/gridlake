@@ -116,7 +116,7 @@ async function copy(text: string) {
 
 // ── 接入说明 ──
 
-const tokenText = computed(() => secret.value || '<在这里填写令牌>')
+const tokenText = computed(() => secret.value || tr('<在这里填写令牌>'))
 /** mcp-remote 的环境变量引用写法（字面量，由 mcp-remote 展开） */
 const AUTH_REF = `Authorization:$${'{'}AUTH_HEADER}`
 
@@ -131,9 +131,9 @@ const snippet = computed(() => {
     case 'bridge':
       return JSON.stringify({ mcpServers: { gridlake: { command: '/opt/gridlake/bin/gridlake', args: ['mcp-bridge'], env: { LEDGER_MCP_URL: ep, LEDGER_MCP_TOKEN: tk } } } }, null, 2)
     case 'cherry':
-      return `类型：可流式传输的 HTTP（streamableHttp）\nURL：${ep}\n请求头：Authorization=Bearer ${tk}`
+      return tr('类型：可流式传输的 HTTP（streamableHttp）\nURL：{0}\n请求头：Authorization=Bearer {1}', [ep, tk])
     default:
-      return `MCP 服务地址（HTTP / Streamable HTTP）：${ep}\n请求头：Authorization: Bearer ${tk}`
+      return tr('MCP 服务地址（HTTP / Streamable HTTP）：{0}\n请求头：Authorization: Bearer {1}', [ep, tk])
   }
 })
 

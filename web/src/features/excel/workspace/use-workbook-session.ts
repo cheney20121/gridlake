@@ -166,7 +166,7 @@ export function useWorkbookSession(options: {
   }
 
   async function onConflictSaveCopy() {
-    const name = `${uiStore.fileName}（我的副本）`
+    const name = t('{0}（我的副本）', [uiStore.fileName])
     const meta = await createServerWorkbook(name, operatorName())
     conflictVisible.value = false
     ElMessage.success(t('已另存为「{0}」', [meta.name]))

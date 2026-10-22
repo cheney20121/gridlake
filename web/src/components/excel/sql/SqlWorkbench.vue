@@ -34,7 +34,7 @@ const emit = defineEmits<{
   (e: 'openDataset', id: string): void
 }>()
 
-const EXAMPLE = '-- 表名是数据集名称，列名是中文列名；只能查询（SELECT / WITH），不会改动数据\n-- Ctrl / ⌘ + Enter 运行\n'
+const EXAMPLE = t('-- 表名是数据集名称，列名是中文列名；只能查询（SELECT / WITH），不会改动数据\n-- Ctrl / ⌘ + Enter 运行\n')
 
 const sql = ref('')
 const mode = ref<'sql' | 'builder'>('sql')

@@ -5,6 +5,7 @@ import { LEDGER_BASE } from '@/api/ledger-base'
 import { chartBus } from '@/features/excel/chart/chart-manager'
 import { datasetById } from '@/features/excel/dashboard/slicer'
 import { findDataTable, hasDataTables, tableQuery } from '@/features/excel/datatable/types'
+import { t } from '@/i18n'
 import request from '@/utils/request'
 
 /**
@@ -52,7 +53,7 @@ interface Result {
   error?: string
 }
 
-const PLACEHOLDER = '计算中…'
+const PLACEHOLDER = t('计算中…')
 const BATCH_LIMIT = 5000
 
 const cache = new Map<string, Result>()
@@ -237,18 +238,18 @@ export function datasetFormulasBusy() {
 }
 
 const DESCRIPTIONS: Record<string, string> = {
-  DSUMIFS: '对数据集（服务端大数据表）按多个条件求和：DSUMIFS(数据集, 求和列, 条件列1, 条件1, ...)',
-  DCOUNTIFS: '对数据集按多个条件计数：DCOUNTIFS(数据集, 条件列1, 条件1, ...)',
-  DAVERAGEIFS: '对数据集按多个条件求平均：DAVERAGEIFS(数据集, 平均列, 条件列1, 条件1, ...)',
-  DMAXIFS: '对数据集按多个条件取最大值：DMAXIFS(数据集, 取值列, 条件列1, 条件1, ...)，没有符合条件的数值时为 0（与 Excel 的 MAXIFS 一致）',
-  DMINIFS: '对数据集按多个条件取最小值：DMINIFS(数据集, 取值列, 条件列1, 条件1, ...)，没有符合条件的数值时为 0（与 Excel 的 MINIFS 一致）',
-  DLOOKUP: '在数据集中查找：DLOOKUP(数据集, 返回列, 条件列1, 条件1, ...)，返回第一条匹配行的值，找不到为 #N/A',
-  TSUM: '对工作表里的数据表求和（按数据表当前的筛选）：TSUM("表名[列名]", 条件列1, 条件1, ...)',
-  TCOUNT: '数据表的行数（按数据表当前的筛选）：TCOUNT("表名", 条件列1, 条件1, ...)',
-  TAVERAGE: '数据表某列的平均值：TAVERAGE("表名[列名]", 条件列1, 条件1, ...)',
-  TMIN: '数据表某列的最小值：TMIN("表名[列名]", 条件列1, 条件1, ...)',
-  TMAX: '数据表某列的最大值：TMAX("表名[列名]", 条件列1, 条件1, ...)',
-  TVALUE: '数据表当前排序下第 N 行某列的值：TVALUE("表名[列名]", N)',
+  DSUMIFS: t('对数据集（服务端大数据表）按多个条件求和：DSUMIFS(数据集, 求和列, 条件列1, 条件1, ...)'),
+  DCOUNTIFS: t('对数据集按多个条件计数：DCOUNTIFS(数据集, 条件列1, 条件1, ...)'),
+  DAVERAGEIFS: t('对数据集按多个条件求平均：DAVERAGEIFS(数据集, 平均列, 条件列1, 条件1, ...)'),
+  DMAXIFS: t('对数据集按多个条件取最大值：DMAXIFS(数据集, 取值列, 条件列1, 条件1, ...)，没有符合条件的数值时为 0（与 Excel 的 MAXIFS 一致）'),
+  DMINIFS: t('对数据集按多个条件取最小值：DMINIFS(数据集, 取值列, 条件列1, 条件1, ...)，没有符合条件的数值时为 0（与 Excel 的 MINIFS 一致）'),
+  DLOOKUP: t('在数据集中查找：DLOOKUP(数据集, 返回列, 条件列1, 条件1, ...)，返回第一条匹配行的值，找不到为 #N/A'),
+  TSUM: t('对工作表里的数据表求和（按数据表当前的筛选）：TSUM("表名[列名]", 条件列1, 条件1, ...)'),
+  TCOUNT: t('数据表的行数（按数据表当前的筛选）：TCOUNT("表名", 条件列1, 条件1, ...)'),
+  TAVERAGE: t('数据表某列的平均值：TAVERAGE("表名[列名]", 条件列1, 条件1, ...)'),
+  TMIN: t('数据表某列的最小值：TMIN("表名[列名]", 条件列1, 条件1, ...)'),
+  TMAX: t('数据表某列的最大值：TMAX("表名[列名]", 条件列1, 条件1, ...)'),
+  TVALUE: t('数据表当前排序下第 N 行某列的值：TVALUE("表名[列名]", N)'),
 }
 
 let recalcTimer: ReturnType<typeof setTimeout> | null = null

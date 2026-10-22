@@ -64,7 +64,7 @@ const xColumns = computed(() => dataset.value?.columns ?? [])
 const numericColumns = computed(() => dataset.value?.columns.filter(c => c.kind === 'money' || c.kind === 'number') ?? [])
 const splitColumns = computed(() => dataset.value?.columns.filter(c => c.kind === 'text' || c.kind === 'id') ?? [])
 const xIsDate = computed(() => xColumns.value.find(c => c.key === datasetSource.value?.x.column)?.kind === 'datetime')
-const sheetName = computed(() => rangeSource.value ? props.univerApi?.getActiveWorkbook()?.getSheetBySheetId(rangeSource.value.sheetId)?.getSheetName() ?? '（已删除）' : '')
+const sheetName = computed(() => rangeSource.value ? props.univerApi?.getActiveWorkbook()?.getSheetBySheetId(rangeSource.value.sheetId)?.getSheetName() ?? tr('（已删除）') : '')
 const stackable = computed(() => spec.value && ['column', 'bar', 'area'].includes(spec.value.type))
 
 function datasetDefaults(datasetId: string, filters: DatasetFilter[] = []): DatasetSource {

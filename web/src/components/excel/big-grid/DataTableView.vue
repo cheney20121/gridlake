@@ -213,7 +213,7 @@ const check = computed(() => {
   if (exp.kind === 'columnSum' && columnSum.value == null)
     return null
   const actual = exp.kind === 'contribution' ? (cur.contribution ?? 0) : exp.kind === 'columnSum' ? columnSum.value! : cur.total
-  const fmt = (v: number) => exp.kind === 'count' ? `${v.toLocaleString()} 笔` : formatMoney(v)
+  const fmt = (v: number) => exp.kind === 'count' ? t('{0} 笔', [v.toLocaleString()]) : formatMoney(v)
   return {
     label: exp.label,
     expected: fmt(exp.value),
@@ -357,8 +357,8 @@ function exportData(format: 'csv' | 'xlsx') {
   ElMessage({
     type: big ? 'info' : 'success',
     message: big
-      ? `正在生成 ${cur.total.toLocaleString()} 行的${format === 'xlsx' ? ' Excel 文件' : ' CSV'}，需要几十秒到几分钟；生成完成后浏览器会自动开始下载，请不要重复点击`
-      : `开始导出 ${cur.total.toLocaleString()} 行${format === 'xlsx' ? '（含「汇总」页签）' : ''}`,
+      ? t('正在生成 {0} 行的{1}，需要几十秒到几分钟；生成完成后浏览器会自动开始下载，请不要重复点击', [cur.total.toLocaleString(), format === 'xlsx' ? t(' Excel 文件') : t(' CSV 文件')])
+      : t('开始导出 {0} 行{1}', [cur.total.toLocaleString(), format === 'xlsx' ? t('（含「汇总」页签）') : '']),
     duration: big ? 10_000 : 3000,
     showClose: big,
   })
@@ -373,7 +373,7 @@ function exportData(format: 'csv' | 'xlsx') {
         {{ $t('← 对账工作台') }}
       </el-button>
       <span class="shrink-0 whitespace-nowrap text-sm text-gray-800 font-semibold">{{ dataset.name }}</span>
-      <el-tooltip v-if="dataset.kind === 'view' && dataset.view" placement="bottom" :content="`关联视图：按 ${dataset.view.on.map(k => k.left === k.right ? k.left : `${k.left}=${k.right}`).join(' + ')} 带入 ${dataset.view.columns.map(c => c.title).join('、')}（点击修改）`">
+      <el-tooltip v-if="dataset.kind === 'view' && dataset.view" placement="bottom" :content="$t('关联视图：按 {0} 带入 {1}（点击修改）', [dataset.view.on.map(k => k.left === k.right ? k.left : `${k.left}=${k.right}`).join(' + '), dataset.view.columns.map(c => c.title).join('、')])">
         <el-tag size="small" type="info" class="cursor-pointer" @click="emit('editJoin', dataset.id)">
           {{ $t('关联 ✎') }}
         </el-tag>

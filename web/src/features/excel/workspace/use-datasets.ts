@@ -106,7 +106,7 @@ export function useDatasets(options: {
       const u = await datasetUsage(d.id)
       const formulaBooks = (u?.workbooks ?? []).filter(w => w.parts.formula)
       const hint = formulaBooks.length
-        ? `以下工作簿里的公式按名称引用它，改名后需同步修改：${formulaBooks.slice(0, 5).map(w => `「${w.name}」（${w.parts.formula} 个）`).join('、')}${formulaBooks.length > 5 ? ` 等 ${formulaBooks.length} 个` : ''}。透视表、图表、仪表盘、数据表按 ID 引用，不受影响`
+        ? t('以下工作簿里的公式按名称引用它，改名后需同步修改：{0}{1}。透视表、图表、仪表盘、数据表按 ID 引用，不受影响', [formulaBooks.slice(0, 5).map(w => t('「{0}」（{1} 个）', [w.name, w.parts.formula])).join('、'), formulaBooks.length > 5 ? t(' 等 {0} 个', [formulaBooks.length]) : ''])
         : t('没有公式按名称引用它；透视表、图表、仪表盘、数据表按 ID 引用，改名不受影响')
       const name = await ElMessageBox.prompt(hint, t('重命名数据集'), {
         inputValue: d.name,
@@ -120,13 +120,13 @@ export function useDatasets(options: {
     else {
       const u = await datasetUsage(d.id)
       const impact = u ? impactSummary(u) : ''
-      const list = (u?.workbooks ?? []).slice(0, 5).map(w => `<li>工作簿「${escapeHtml(w.name)}」：${escapeHtml(partsText(w.parts))}</li>`).concat((u?.reports ?? []).slice(0, 3).map(r => `<li>定时推送「${escapeHtml(r.name)}」</li>`)).concat((u?.connectors ?? []).map(c => `<li>数据连接「${escapeHtml(c.name)}」（${escapeHtml(c.role)}）</li>`)).concat((u?.views ?? []).map(v => `<li>关联视图「${escapeHtml(v.name)}」</li>`)).concat((u?.sqlQueries ?? []).slice(0, 3).map(q => `<li>SQL 查询「${escapeHtml(q.name)}」（${escapeHtml(q.role)}）</li>`))
-      const access = u?.access.total ? `<p style="margin-top:6px;color:#6B7280">近 30 天被查询 ${u.access.total.toLocaleString()} 次${u.access.lastDay ? `，最近一次 ${u.access.lastDay}` : ''}</p>` : ''
+      const list = (u?.workbooks ?? []).slice(0, 5).map(w => t('<li>工作簿「{0}」：{1}</li>', [escapeHtml(w.name), escapeHtml(partsText(w.parts))])).concat((u?.reports ?? []).slice(0, 3).map(r => t('<li>定时推送「{0}」</li>', [escapeHtml(r.name)]))).concat((u?.connectors ?? []).map(c => t('<li>数据连接「{0}」（{1}）</li>', [escapeHtml(c.name), escapeHtml(c.role)]))).concat((u?.views ?? []).map(v => t('<li>关联视图「{0}」</li>', [escapeHtml(v.name)]))).concat((u?.sqlQueries ?? []).slice(0, 3).map(q => t('<li>SQL 查询「{0}」（{1}）</li>', [escapeHtml(q.name), escapeHtml(q.role)])))
+      const access = u?.access.total ? t('<p style="margin-top:6px;color:#6B7280">近 30 天被查询 {0} 次{1}</p>', [u.access.total.toLocaleString(), u.access.lastDay ? t('，最近一次 {0}', [u.access.lastDay]) : '']) : ''
       const ok = await ElMessageBox.confirm(
-        `<p>把数据集「${escapeHtml(d.name)}」（${d.rowCount.toLocaleString()} 行）移到回收站？数据会保留，可在回收站恢复。</p>${
+        `${t('<p>把数据集「{0}」（{1} 行）移到回收站？数据会保留，可在回收站恢复。</p>', [escapeHtml(d.name), d.rowCount.toLocaleString()])}${
           impact
-            ? `<p style="margin-top:8px;color:#B91C1C">正在使用它的有：${impact}。在回收站期间这些地方会显示错误或暂停：</p><ul style="margin:4px 0 0 18px;list-style:disc">${list.join('')}</ul>`
-            : '<p style="margin-top:8px;color:#0B5A2E">没有工作簿、推送、视图、SQL 查询或数据连接在用它。</p>'
+            ? `${t('<p style="margin-top:8px;color:#B91C1C">正在使用它的有：{0}。在回收站期间这些地方会显示错误或暂停：</p>', [impact])}<ul style="margin:4px 0 0 18px;list-style:disc">${list.join('')}</ul>`
+            : t('<p style="margin-top:8px;color:#0B5A2E">没有工作簿、推送、视图、SQL 查询或数据连接在用它。</p>')
         }${access}`,
         t('删除数据集'),
         { type: 'warning', dangerouslyUseHTMLString: true, confirmButtonText: t('移到回收站'), confirmButtonClass: 'ec-button--danger' },

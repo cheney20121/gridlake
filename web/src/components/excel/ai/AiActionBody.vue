@@ -18,21 +18,21 @@ const detail = computed(() => {
   switch (props.kind) {
     case 'pivot': {
       const r = p.request ?? {}
-      const f = (xs: { column: string, granularity?: string | null }[] = []) => xs.map(x => x.column + (x.granularity ? `（${{ year: '年', month: '月', day: '日' }[x.granularity] ?? ''}）` : '')).join('、')
-      return [`数据集：${p.datasetName}`, r.rows?.length ? `行：${f(r.rows)}` : '', r.columns?.length ? `列：${f(r.columns)}` : '', r.filters?.length ? `筛选：${r.filters.length} 个条件` : ''].filter(Boolean).join('；')
+      const f = (xs: { column: string, granularity?: string | null }[] = []) => xs.map(x => x.column + (x.granularity ? `（${{ year: t('年'), month: t('月'), day: t('日') }[x.granularity] ?? ''}）` : '')).join('、')
+      return [t('数据集：{0}', [p.datasetName]), r.rows?.length ? t('行：{0}', [f(r.rows)]) : '', r.columns?.length ? t('列：{0}', [f(r.columns)]) : '', r.filters?.length ? t('筛选：{0} 个条件', [r.filters.length]) : ''].filter(Boolean).join('；')
     }
     case 'chart':
-      return `${CHART_LABEL[p.spec?.type] ?? '图表'} · 数据集「${p.datasetName}」· 插入当前工作表`
+      return t('{0} · 数据集「{1}」· 插入当前工作表', [CHART_LABEL[p.spec?.type] ?? t('图表'), p.datasetName])
     case 'formula':
       return p.explanation || ''
     case 'calc':
-      return `数据集「${p.datasetName}」· ${p.preview?.totalRows?.toLocaleString?.() ?? ''} 行中 ${p.preview?.nullRows ?? 0} 行结果为空`
+      return t('数据集「{0}」· {1} 行中 {2} 行结果为空', [p.datasetName, p.preview?.totalRows?.toLocaleString?.() ?? '', p.preview?.nullRows ?? 0])
     case 'table_view':
-      return `数据表「${p.table}」· ${p.preview?.note ?? ''}`
+      return t('数据表「{0}」· {1}', [p.table, p.preview?.note ?? ''])
     case 'column_format':
-      return `数据表「${p.table}」${p.column}列 · ${p.preview?.note ?? ''}`
+      return t('数据表「{0}」{1}列 · {2}', [p.table, p.column, p.preview?.note ?? ''])
     case 'table_create':
-      return `数据集「${p.datasetName}」· ${p.preview?.note ?? ''}`
+      return t('数据集「{0}」· {1}', [p.datasetName, p.preview?.note ?? ''])
     case 'dataset_save':
       return [p.purpose, p.preview?.note].filter(Boolean).join(' · ')
   }

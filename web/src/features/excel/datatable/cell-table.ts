@@ -105,7 +105,7 @@ export async function renderCellTable(api: FUniver, sheet: FWorksheet, spec: Cel
   ensureSize(sheet, spec.row + height + 1, spec.col + width + 1)
   const blocker = findBlocker(sheet, spec, height, width)
   if (blocker)
-    throw new CellTableBlockedError(`数据表「${spec.name}」需要 ${cellName(spec.row, spec.col)}:${cellName(spec.row + height - 1, spec.col + width - 1)}，但 ${blocker} 已有内容。请清空该区域或换个位置`)
+    throw new CellTableBlockedError(tr('数据表「{0}」需要 {1}，但 {2} 已有内容。请清空该区域或换个位置', [spec.name, `${cellName(spec.row, spec.col)}:${cellName(spec.row + height - 1, spec.col + width - 1)}`, blocker]))
   writing++
   try {
     clearShrunk(sheet, spec, height, width)

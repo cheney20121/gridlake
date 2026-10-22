@@ -28,7 +28,7 @@ const columnLabels = computed(() => {
   const labels: { index: number, label: string }[] = []
   for (let c = 0; c < Math.min(colCount, 20); c++) {
     const headerCell = sheet.getRange(0, c)
-    labels.push({ index: c, label: String(headerCell.getValue() ?? `列${c + 1}`) })
+    labels.push({ index: c, label: String(headerCell.getValue() ?? t('列{0}', [c + 1])) })
   }
   return labels
 })

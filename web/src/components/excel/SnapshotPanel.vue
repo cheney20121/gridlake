@@ -63,7 +63,7 @@ async function restore(v: WorkbookVersion) {
   const meta = persistenceManager.getMeta()
   if (!meta || !props.univerApi)
     return
-  const unsaved = persistenceManager.isDirty() ? '当前还有未保存的修改，恢复后将丢失。' : ''
+  const unsaved = persistenceManager.isDirty() ? t('当前还有未保存的修改，恢复后将丢失。') : ''
   const ok = await ElMessageBox.confirm(
     t('{0}恢复到第 {1} 版（{2} {3}）？会以该版本内容生成一个新版本，现有版本仍保留在历史中。', [unsaved, v.version, v.savedAt, v.savedBy ?? '']),
     t('恢复版本'),

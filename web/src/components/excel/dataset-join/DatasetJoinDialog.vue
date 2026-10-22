@@ -102,7 +102,7 @@ const conflict = computed(() => {
   for (const c of included.value) {
     const t = c.title.trim()
     if (!t || leftTitles.value.has(t) || seen.has(t))
-      return t || '（空）'
+      return t || tr('（空）')
     seen.add(t)
   }
   return null

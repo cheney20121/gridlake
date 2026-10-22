@@ -3,6 +3,7 @@ import type { FUniver } from '@univerjs/core/facade'
 import type { FormulaDoc } from '@/features/excel/data/formula-helper'
 import { computed, ref, watch } from 'vue'
 import { FORMULA_DOCS, formulaHelper } from '@/features/excel/data/formula-helper'
+import { t } from '@/i18n'
 
 const props = defineProps<{
   univerApi: FUniver | null
@@ -43,13 +44,13 @@ function insertFormula() {
 
   const range = workbook.getActiveRange()
   if (!range) {
-    applyResult.value = '请先选择目标单元格'
+    applyResult.value = t('请先选择目标单元格')
     return
   }
 
   const rangeData = range.getRange()
   formulaHelper.setFormula(rangeData.startRow, rangeData.startColumn, selectedFormula.value.example)
-  applyResult.value = `已在 ${String.fromCharCode(65 + rangeData.startColumn)}${rangeData.startRow + 1} 插入 ${selectedFormula.value.name}`
+  applyResult.value = t('已在 {0} 插入 {1}', [`${String.fromCharCode(65 + rangeData.startColumn)}${rangeData.startRow + 1}`, selectedFormula.value.name])
 }
 
 watch(() => props.univerApi, (api) => {

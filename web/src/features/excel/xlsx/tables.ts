@@ -70,12 +70,12 @@ export function exportTables(tables: UniverTable[], ws: Worksheet, sheetName: st
   for (const t of tables) {
     const r = t.range
     if (t.options?.showHeader === false) {
-      skipped.push(`「${sheetName}」表格「${t.name}」（没有标题行）`)
+      skipped.push(tr('「{0}」表格「{1}」（没有标题行）', [sheetName, t.name]))
       continue
     }
     const width = r.endColumn - r.startColumn + 1
     if (r.endRow <= r.startRow || width < 1) {
-      skipped.push(`「${sheetName}」表格「${t.name}」（只有标题行）`)
+      skipped.push(tr('「{0}」表格「{1}」（只有标题行）', [sheetName, t.name]))
       continue
     }
     // 列名：以标题行单元格的文字为准（Excel 要求非空且不重复）
@@ -105,7 +105,7 @@ export function exportTables(tables: UniverTable[], ws: Worksheet, sheetName: st
       n++
     }
     catch (e) {
-      skipped.push(`「${sheetName}」表格「${t.name}」（${e instanceof Error ? e.message : String(e)}）`)
+      skipped.push(tr('「{0}」表格「{1}」（{2}）', [sheetName, t.name, e instanceof Error ? e.message : String(e)]))
     }
   }
   return n
@@ -131,7 +131,7 @@ export function readExcelTables(ws: Worksheet, sheetName: string, skipped: strin
     if (!ref)
       continue
     if (m.headerRow === false) {
-      skipped.push(`「${sheetName}」表格「${m.name}」（没有标题行）`)
+      skipped.push(tr('「{0}」表格「{1}」（没有标题行）', [sheetName, m.name]))
       continue
     }
     const range = { ...ref }
@@ -141,7 +141,7 @@ export function readExcelTables(ws: Worksheet, sheetName: string, skipped: strin
       note = tr('汇总行未带入')
     }
     if (range.endRow <= range.startRow) {
-      skipped.push(`「${sheetName}」表格「${m.name}」（没有数据行）`)
+      skipped.push(tr('「{0}」表格「{1}」（没有数据行）', [sheetName, m.name]))
       continue
     }
     out.push({ name: m.name, range, showAutoFilter: (m.columns ?? []).some(c => c.filterButton !== false), note })

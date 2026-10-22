@@ -6,6 +6,7 @@
 
 import type { FUniver } from '@univerjs/core/facade'
 import { createElement } from 'react'
+import { t } from '@/i18n'
 
 /** 供其他浮层小部件（如协作光标标签）创建 React 元素用 */
 export const reactElement = createElement
@@ -73,7 +74,7 @@ export interface DrillHint {
 export function createDrillHint(api: FUniver, onOpen: () => void): DrillHint {
   const button = createCellButton(api, 'app.drill-hint', onOpen)
   return {
-    show: (row, col, title) => button.show(row, col, '查看明细 ↗', `查看「${title}」的明细`),
+    show: (row, col, title) => button.show(row, col, t('查看明细 ↗'), t('查看「{0}」的明细', [title])),
     hide: button.hide,
   }
 }

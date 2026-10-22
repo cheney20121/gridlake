@@ -1,5 +1,6 @@
 import type { FUniver } from '@univerjs/core/facade'
 import { createCellButton } from '@/features/excel/data/drill-hint'
+import { t } from '@/i18n'
 import { threadsAt } from './state'
 
 /**
@@ -20,7 +21,7 @@ export function createCommentHint(api: FUniver, onOpen: (row: number, col: numbe
       }
       at = { row: sel.startRow, col: sel.startColumn }
       const open = here.filter(t => !t.resolved).length
-      button.show(sel.startRow, sel.startColumn, `💬 ${here.reduce((n, t) => n + 1 + t.replies.length, 0)}`, open ? `${open} 条未解决的评论线程，点击查看` : '评论已全部解决，点击查看')
+      button.show(sel.startRow, sel.startColumn, `💬 ${here.reduce((n, t) => n + 1 + t.replies.length, 0)}`, open ? t('{0} 条未解决的评论线程，点击查看', [open]) : t('评论已全部解决，点击查看'))
     },
     hide: button.hide,
   }

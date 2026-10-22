@@ -2,6 +2,7 @@
 import type { WorkbookMeta } from '@/api/workbook'
 import { Search } from '@element-plus/icons-vue'
 import WorkbookShare from '@/components/excel/workbook/WorkbookShare.vue'
+import { t } from '@/i18n'
 
 /** 工作簿列表（最近 / 已加星标共用）：搜索、星标、所有者与共享、修改时间、大小 */
 defineProps<{
@@ -24,13 +25,13 @@ const keyword = defineModel<string>('keyword', { required: true })
 function relativeTime(iso: string) {
   const diff = (Date.now() - new Date(iso).getTime()) / 1000
   if (diff < 60)
-    return '刚刚'
+    return t('刚刚')
   if (diff < 3600)
-    return `${Math.floor(diff / 60)} 分钟前`
+    return t('{0} 分钟前', [Math.floor(diff / 60)])
   if (diff < 86400)
-    return `${Math.floor(diff / 3600)} 小时前`
+    return t('{0} 小时前', [Math.floor(diff / 3600)])
   if (diff < 86400 * 7)
-    return `${Math.floor(diff / 86400)} 天前`
+    return t('{0} 天前', [Math.floor(diff / 86400)])
   return iso.slice(0, 10)
 }
 

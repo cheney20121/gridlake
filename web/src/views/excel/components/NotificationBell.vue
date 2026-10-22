@@ -56,11 +56,11 @@ const KIND: Record<string, string> = {
 /** 通知下面一行：评论在哪个格子、审批是哪个工作簿 */
 function where(n: NotificationItem) {
   if (n.kind.startsWith('close_'))
-    return '月结中心'
+    return t('月结中心')
   if (n.kind.startsWith('collect_'))
-    return `${n.workbookName} · 我的填报`
+    return t('{0} · 我的填报', [n.workbookName])
   if (n.kind.startsWith('approval_'))
-    return `${n.workbookName} · 文件审批`
+    return t('{0} · 文件审批', [n.workbookName])
   return `${n.workbookName} · ${cellName(n.row, n.col)}`
 }
 </script>

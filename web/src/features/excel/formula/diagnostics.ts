@@ -101,7 +101,7 @@ function adviceFor(g: Omit<FormulaGroup, 'advice'>) {
   if (g.wholeColumn)
     out.push(t('整列引用（如 D:D）会扫描整列，改成实际范围（如 D2:D5000）或把数据放进数据表'))
   if (g.volatile.length)
-    out.push(`${g.volatile.join('、')} 是易失函数，任何修改都会让它重算${g.volatile.includes('OFFSET') || g.volatile.includes('INDIRECT') ? '；OFFSET / INDIRECT 可改用 INDEX' : ''}`)
+    out.push(t('{0} 是易失函数，任何修改都会让它重算{1}', [g.volatile.join('、'), g.volatile.includes('OFFSET') || g.volatile.includes('INDIRECT') ? t('；OFFSET / INDIRECT 可改用 INDEX') : '']))
   if (LOOKUP.test(g.formula) && g.count >= 200 && g.cellsEach >= 1000)
     out.push(t('大量按条件汇总 / 查找：可改用透视表，或数据集公式 DSUMIFS / DLOOKUP（服务端一次算完）'))
   if (!out.length && g.cost >= 1_000_000)

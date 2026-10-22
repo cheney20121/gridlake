@@ -62,7 +62,7 @@ async function resetPassword(a: Account) {
       inputValidator: v => (v?.length ?? 0) >= 8 || t('至少 8 位'),
       confirmButtonText: t('重置'),
     })
-    await patch(a, { password: value }, '密码已重置')
+    await patch(a, { password: value }, t('密码已重置'))
   }
   catch {}
 }
@@ -124,7 +124,7 @@ async function rename(a: Account) {
           <el-button v-if="row.twoFactor" link size="small" type="primary" :data-testid="`account-reset-2fa-${row.username}`" @click="resetTwoFactor(row)">
             {{ $t('重置两步验证') }}
           </el-button>
-          <el-button v-if="row.id !== ledgerUser.user?.id" link size="small" :type="row.disabled ? 'primary' : 'danger'" @click="patch(row, { disabled: !row.disabled }, row.disabled ? '已启用' : '已停用，对方已登录的设备会退出')">
+          <el-button v-if="row.id !== ledgerUser.user?.id" link size="small" :type="row.disabled ? 'primary' : 'danger'" @click="patch(row, { disabled: !row.disabled }, row.disabled ? $t('已启用') : $t('已停用，对方已登录的设备会退出'))">
             {{ row.disabled ? $t('启用') : $t('停用') }}
           </el-button>
         </template>
