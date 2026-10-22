@@ -1,5 +1,5 @@
 //! 生成千万行测试库：把资金流水复制成多家店铺（店铺名、流水号加后缀）
-//! cargo run --release --example make_big -- <库路径>（先把真实库复制一份再运行，不要指向正式库）
+//! cargo run --release --example make_big -- <库路径>（先把示例库复制一份再运行，不要指向正式库）
 use duckdb::Connection;
 
 fn main() {
