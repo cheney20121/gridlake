@@ -304,6 +304,7 @@ async fn serve(config: config::Config) -> anyhow::Result<()> {
         .route("/ledger/approvals/{id}/cancel", post(approval::cancel_approval))
         .route("/ledger/audit", get(auth::audit))
         .route("/ledger/workbooks/{id}/share", put(routes::share_workbook))
+        .route("/ledger/share/unlock", post(share::unlock_route))
         .route("/ledger/workbooks/{id}/shares", get(share::list_route).post(share::create_route))
         .route("/ledger/shares/{id}", delete(share::revoke_route))
         .route("/health", get(routes::health))

@@ -128,9 +128,42 @@ s, r = vcall("POST", f"/ledger/datasets/{orders}/pivot", pivot, tok=CT); check("
 s, r = vcall("POST", f"/ledger/datasets/{orders}/cursor", spec, tok=CT); check("游标也只有 A 店 2 行", s == 200 and r["data"]["total"] == 2, (s, r))
 s, r = call("POST", f"/ledger/workbooks/{CWB}/shares", C, body={"note": "c"}); check("受限用户不能再创建分享链接", s == 403 and "完整的数据权限" in msg((s, r)), (s, r))
 
+# ── 访问密码 ──
+s, r = call("POST", f"/ledger/workbooks/{WB}/shares", A, body={"note": "短密码", "password": "12345"}); check("密码太短被拒", s == 400 and "至少 6 位" in msg((s, r)), (s, r))
+s, r = call("POST", f"/ledger/workbooks/{WB}/shares", A, body={"note": "太长", "password": "x" * 129}); check("密码太长被拒", s == 400, (s, r))
+s, r = call("POST", f"/ledger/workbooks/{WB}/shares", A, body={"note": "带密码", "days": 5, "password": "open-sesame"})
+check("创建带密码的链接：列表里标出受保护，响应里没有密码或摘要", s == 200 and r["data"]["protected"] is True and "open-sesame" not in json.dumps(r) and "passwordHash" not in r["data"], (s, r))
+PT, PID = r["data"]["token"], r["data"]["id"]
+s, r = call("GET", f"/ledger/workbooks/{WB}/shares", A); check("列表里普通链接 protected=false", {x["id"]: x["protected"] for x in r["data"]}[PID] is True and sum(1 for x in r["data"] if not x["protected"]) >= 1, r)
+unlock = lambda tok, pw: call("POST", "/ledger/share/unlock", None, body={"token": tok, "password": pw})
+s, r = vcall("GET", "/ledger/me", tok=PT)
+check("没输密码：/me 只说需要密码，不透露工作簿名称", s == 200 and r["data"]["mode"] == "share" and r["data"]["share"] == {"workbookId": "", "workbookName": "", "passwordRequired": True}, (s, r))
+for label, m, pth, b in [("工作簿元信息", "GET", f"/ledger/workbooks/{WB}", None), ("工作簿内容", "GET", f"/ledger/workbooks/{WB}/content", None), ("数据集列表", "GET", "/ledger/datasets", None), ("数据集游标", "POST", f"/ledger/datasets/{orders}/cursor", spec)]:
+    s, r = vcall(m, pth, b, tok=PT); check(f"没输密码：{label}被拒", s == 403 and "需要访问密码" in msg((s, r)), (s, r))
+s, r = call("GET", f"/ledger/workbooks/{WB}/content", None, headers={"x-share-token": PT, "x-share-proof": "0" * 64}, binary=True); check("随便编的通行证无效", s == 403, s)
+s, r = call("GET", f"/ledger/workbooks/{WB}/content", None, headers={"x-share-token": PT, "x-share-proof": PT}, binary=True); check("拿令牌当通行证也无效", s == 403, s)
+s, r = unlock(PT, "wrong-pass"); check("密码错：被拒绝", s == 400 and msg((s, r)) == "访问密码不正确", (s, r))
+s, r = unlock("gls_" + "x" * 43, "open-sesame"); check("令牌无效：说明链接失效而不是密码问题", s == 403 and "无效或已失效" in msg((s, r)), (s, r))
+s, r = unlock(TOK, "open-sesame"); check("没设密码的链接不需要解锁", s in (400, 403), (s, r))
+s, r = unlock(PT, "open-sesame"); PROOF = r["data"]["proof"] if s == 200 else ""
+check("密码对：拿到通行证（64 位十六进制）", s == 200 and len(PROOF) == 64 and PROOF != PT, (s, r))
+pv = lambda m, pth, body=None: call(m, pth, None, body=body, headers={"x-share-token": PT, "x-share-proof": PROOF})
+s, r = pv("GET", "/ledger/me"); check("带通行证：/me 给出工作簿", s == 200 and r["data"]["share"] == {"workbookId": WB, "workbookName": "销售看板"}, (s, r))
+s, raw = call("GET", f"/ledger/workbooks/{WB}/content", None, headers={"x-share-token": PT, "x-share-proof": PROOF}, binary=True); check("带通行证：能读内容", s == 200, s)
+s, r = pv("POST", f"/ledger/datasets/{orders}/cursor", spec); check("带通行证：能查数据集", s == 200 and r["data"]["total"] == 5, (s, r))
+s, r = pv("POST", "/ledger/sql/run", {"sql": "SELECT 1"}); check("带通行证也仍然只读（SQL 被拒）", s == 403, (s, r))
+s, r = call("POST", f"/ledger/workbooks/{WB}/shares", A, body={"note": "同密码", "password": "open-sesame"}); T2 = r["data"]["token"]
+s, r = call("GET", f"/ledger/workbooks/{WB}/content", None, headers={"x-share-token": T2, "x-share-proof": PROOF}, binary=True); check("同一个密码的另一条链接：通行证不通用", s == 403, s)
+for _ in range(5):
+    unlock(T2, "bad-guess")
+s, r = unlock(T2, "open-sesame"); check("连续输错 5 次后锁定：即使这次对了也要等", s == 400 and "次数过多" in msg((s, r)), (s, r))
+s, r = unlock(PT, "open-sesame"); check("锁定按链接计：另一条链接不受影响", s == 200, (s, r))
+s, r = call("DELETE", f"/ledger/shares/{PID}", A); check("吊销带密码的链接", s == 200, (s, r))
+s, r = pv("GET", "/ledger/me"); check("吊销后通行证作废", s == 403 and "无效或已失效" in msg((s, r)), (s, r))
+
 # ── 审计 ──
 time.sleep(3)  # 审计按 2 秒一批异步写入
 s, r = call("GET", "/ledger/audit?size=300", R)
 actions = " ".join(x.get("action", "") for x in r["data"]["items"]) if s == 200 else str(r)
-check("审计里有创建、吊销分享链接和打开分享页", all(k in actions for k in ("创建分享链接", "吊销分享链接", "打开分享链接")), actions[:300])
+check("审计里有创建、吊销分享链接和打开分享页", all(k in actions for k in ("创建分享链接", "吊销分享链接", "打开分享链接", "分享链接密码验证通过", "分享链接密码验证失败")), actions[:300])
 finish()

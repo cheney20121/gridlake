@@ -5,6 +5,7 @@ import { nextTick, onMounted, onUnmounted, ref, watchEffect } from 'vue'
 import { useRoute } from 'vue-router'
 import { getLedgerMeApi } from '@/api/auth'
 import { getDatasetsApi } from '@/api/dataset'
+import { unlockShareApi } from '@/api/share'
 import { getWorkbookContentApi } from '@/api/workbook'
 import ChartView from '@/components/excel/chart/ChartView.vue'
 import KpiView from '@/components/excel/dashboard/KpiView.vue'
@@ -19,7 +20,7 @@ import { setDatasetCatalog } from '@/features/excel/dashboard/slicer'
 import { KPI_KEY, SLICER_KEY, TABLE_KEY } from '@/features/excel/dashboard/types'
 import { DATA_TABLE_KEY } from '@/features/excel/datatable/types'
 import { registerDatasetFunctions } from '@/features/excel/formula/dataset-functions'
-import { setShareToken } from '@/utils/share-token'
+import { setShareProof, setShareToken } from '@/utils/share-token'
 
 /**
  * 分享链接的只读查看页：不需要登录，只能看这一个工作簿（和它用到的数据集）。
@@ -35,7 +36,10 @@ const token = String(route.params.token ?? '')
 setShareToken(token)
 
 const { univerAPI, error } = useUniver('univer-container')
-const state = ref<'loading' | 'ready' | 'invalid' | 'failed'>('loading')
+const state = ref<'loading' | 'password' | 'ready' | 'invalid' | 'failed'>('loading')
+const password = ref('')
+const passwordError = ref('')
+const unlocking = ref(false)
 const title = ref('')
 const message = ref('')
 let started = false
@@ -55,6 +59,12 @@ async function open(api: FUniver) {
     const wb = me.share
     if (me.mode !== 'share' || !wb) {
       state.value = 'invalid'
+      return
+    }
+    // 设了访问密码：先让访客输入，服务端不会透露工作簿名称
+    if (wb.passwordRequired) {
+      setShareProof(null)
+      state.value = 'password'
       return
     }
     title.value = wb.workbookName
@@ -88,6 +98,31 @@ async function open(api: FUniver) {
   }
 }
 
+/** 输入访问密码：对了换到通行证，再走一遍打开流程 */
+async function unlock() {
+  if (!password.value || unlocking.value || !univerAPI.value)
+    return
+  unlocking.value = true
+  passwordError.value = ''
+  try {
+    const { proof } = await unlockShareApi(token, password.value)
+    setShareProof(proof)
+    password.value = ''
+    state.value = 'loading'
+    await open(univerAPI.value)
+  }
+  catch (e) {
+    const text = e instanceof Error ? e.message : String(e)
+    if (text.includes('无效') || text.includes('invalid'))
+      state.value = 'invalid'
+    else
+      passwordError.value = text
+  }
+  finally {
+    unlocking.value = false
+  }
+}
+
 onMounted(() => {
   watchEffect(async () => {
     if (univerAPI.value && !started) {
@@ -118,6 +153,30 @@ onUnmounted(() => {
         <template v-if="state === 'loading' && !error">
           {{ $t('正在加载…') }}
         </template>
+        <form v-else-if="state === 'password'" class="password-box" @submit.prevent="unlock">
+          <div class="text-base text-gray-800 font-medium">
+            {{ $t('这个分享链接需要访问密码') }}
+          </div>
+          <div class="mt-1 text-xs text-gray-500">
+            {{ $t('请向分享人要密码。') }}
+          </div>
+          <el-input
+            v-model="password"
+            class="mt-3"
+            type="password"
+            show-password
+            maxlength="128"
+            autofocus
+            data-testid="share-password"
+            :placeholder="$t('访问密码')"
+          />
+          <div v-if="passwordError" class="mt-2 text-xs text-[#B91C1C]" data-testid="share-password-error">
+            {{ passwordError }}
+          </div>
+          <el-button class="mt-3 w-full" type="primary" native-type="submit" :loading="unlocking" :disabled="!password" data-testid="share-unlock">
+            {{ $t('打开') }}
+          </el-button>
+        </form>
         <template v-else-if="state === 'invalid'">
           <div class="text-base text-gray-800 font-medium">
             {{ $t('这个分享链接已失效或不存在') }}
@@ -163,6 +222,10 @@ onUnmounted(() => {
     width: 100%;
     height: 100%;
   }
+}
+
+.password-box {
+  @apply w-72 text-center;
 }
 
 .share-state {

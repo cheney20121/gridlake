@@ -155,7 +155,7 @@ def auth_tables():
 
 
 def permission(method, path, rules):
-    if path in ("/api/health",) or path == "/api/ledger/me" or path == "/api/ledger/auth/login" or path.startswith("/api/ledger/auth/oidc/"):
+    if path in ("/api/health",) or path == "/api/ledger/me" or path == "/api/ledger/auth/login" or path == "/api/ledger/share/unlock" or path.startswith("/api/ledger/auth/oidc/"):
         return "无需登录"
     if path.startswith("/api/admin/"):
         return "运维令牌"

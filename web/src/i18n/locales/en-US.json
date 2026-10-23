@@ -2933,5 +2933,12 @@
   "数据表某列的最小值：TMIN(\"表名[列名]\", 条件列1, 条件1, ...)": "Minimum of a data table column: TMIN(\"Table[Column]\", condition column 1, condition 1, ...)",
   "数据表某列的最大值：TMAX(\"表名[列名]\", 条件列1, 条件1, ...)": "Maximum of a data table column: TMAX(\"Table[Column]\", condition column 1, condition 1, ...)",
   "数据表当前排序下第 N 行某列的值：TVALUE(\"表名[列名]\", N)": "Value of a column in row N of a data table under its current sorting: TVALUE(\"Table[Column]\", N)",
-  "计算中…": "Calculating…"
+  "计算中…": "Calculating…",
+  "访问密码需要 6 到 128 位": "The access password must be 6 to 128 characters",
+  "访问密码（可选，6 位以上；设了之后访客要先输入密码）": "Access password (optional, 6+ characters; visitors must enter it first)",
+  "（访问密码要另外告诉对方，不在链接里）": "(Tell them the access password separately; it is not part of the link)",
+  "有密码": "Password",
+  "这个分享链接需要访问密码": "This share link needs an access password",
+  "请向分享人要密码。": "Ask the person who shared it for the password.",
+  "访问密码": "Access password"
 }

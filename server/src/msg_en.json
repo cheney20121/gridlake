@@ -854,5 +854,11 @@
   "不能用访问令牌设置两步验证，请在网页里登录后操作": "Two-step verification cannot be changed with an access token; sign in on the web page instead",
   "密码不正确": "The password is incorrect",
   "验证码不正确": "The verification code is incorrect",
-  "管理员要求所有内置账号开启两步验证：请先在右上角用户菜单里设置两步验证": "An administrator requires two-step verification for all built-in accounts: set it up first from the user menu in the top right"
+  "管理员要求所有内置账号开启两步验证：请先在右上角用户菜单里设置两步验证": "An administrator requires two-step verification for all built-in accounts: set it up first from the user menu in the top right",
+  "这个分享链接需要访问密码": "This share link needs an access password",
+  "访问密码至少 {0} 位": "The access password must be at least {0} characters",
+  "访问密码最多 {0} 位": "The access password must be at most {0} characters",
+  "这个分享链接没有设置访问密码": "This share link has no access password",
+  "密码错误次数过多，请 10 分钟后再试": "Too many wrong passwords. Try again in 10 minutes",
+  "访问密码不正确": "The access password is incorrect"
 }

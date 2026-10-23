@@ -490,7 +490,7 @@ const ROUTES: &[(&str, &str, Rule, &str)] = &[
 
 /// 不需要登录的接口：存活检查、运维（自带令牌）、外部 AI 接入（自带令牌）、当前用户（返回是否已登录）
 fn is_public(path: &str) -> bool {
-    path == "/health" || path == "/mcp" || path.starts_with("/admin/") || path == "/ledger/me" || path == "/ledger/auth/login" || path.starts_with("/ledger/auth/oidc/")
+    path == "/health" || path == "/mcp" || path.starts_with("/admin/") || path == "/ledger/me" || path == "/ledger/auth/login" || path == "/ledger/share/unlock" || path.starts_with("/ledger/auth/oidc/")
 }
 
 /// 内置账号：按请求头 x-user-token 查会话（结果缓存 30 秒；账号变动时 clear_cache 立即作废）
@@ -533,6 +533,12 @@ async fn local_user(db: &AppState, headers: &HeaderMap) -> AppResult<CurrentUser
 pub(crate) fn audit_login(db: &AppState, headers: &HeaderMap, peer: IpAddr, username: &str, status: u16, started: Instant) {
     let who = CurrentUser { id: username.to_string(), name: username.to_string(), admin: false, enforced: true };
     record(db, &who, &client_ip(headers, peer), &Method::POST, "/ledger/auth/login", if status < 400 { "登录" } else { "登录失败" }, None, None, status, started);
+}
+
+/// 分享链接访问密码的尝试写进操作审计（成功与失败都记）；`who` 是令牌开头几位，认得出是哪一条链接即可
+pub(crate) fn audit_share_unlock(db: &AppState, headers: &HeaderMap, peer: IpAddr, who: &str, status: u16, started: Instant) {
+    let guest = CurrentUser { id: format!("share:{who}"), name: "分享链接访客".into(), admin: false, enforced: true };
+    record(db, &guest, &client_ip(headers, peer), &Method::POST, "/ledger/share/unlock", if status < 400 { "分享链接密码验证通过" } else { "分享链接密码验证失败" }, None, None, status, started);
 }
 
 fn match_template(template: &str, path: &str) -> Option<Vec<(String, String)>> {
@@ -788,6 +794,10 @@ async fn share_request(db: &AppState, peer: SocketAddr, mut req: Request, next: 
     let Some((template, id)) = share::allowed(&method, &path) else {
         return AppError::Forbidden("分享链接只能查看这个工作簿，不能进行这项操作".into()).into_response();
     };
+    let unlocked = info.unlocked(share::proof_of(req.headers()).as_deref());
+    if !unlocked && template != "/ledger/me" {
+        return AppError::Forbidden("这个分享链接需要访问密码".into()).into_response();
+    }
     let principal = info.principal();
     let ip = client_ip(req.headers(), peer.ip());
     let scope = match resolve_scope(db, &info.creator).await {
@@ -803,7 +813,11 @@ async fn share_request(db: &AppState, peer: SocketAddr, mut req: Request, next: 
                 user: Some(CurrentUser { id: String::new(), name: "访客".into(), admin: false, enforced: true }),
                 scope: Scope::all(),
                 packs: Packs { ecommerce: false },
-                share: Some(ShareMe { workbook_id: info.workbook_id.clone(), workbook_name: info.workbook_name.clone() }),
+                share: Some(if unlocked {
+                    ShareMe { workbook_id: info.workbook_id.clone(), workbook_name: info.workbook_name.clone(), password_required: false }
+                } else {
+                    ShareMe { workbook_id: String::new(), workbook_name: String::new(), password_required: true }
+                }),
                 sso: None,
                 two_factor_required: false,
             };
@@ -1089,6 +1103,9 @@ pub struct SsoInfo {
 pub struct ShareMe {
     workbook_id: String,
     workbook_name: String,
+    /// 设了访问密码、还没输对：此时不透露工作簿，前端要先让访客输入密码
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    password_required: bool,
 }
 
 #[derive(Serialize)]

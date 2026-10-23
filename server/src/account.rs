@@ -258,12 +258,12 @@ fn unix_now() -> i64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64)
 }
 
-fn locked(conn: &Connection, key: &str) -> AppResult<bool> {
+pub(crate) fn locked(conn: &Connection, key: &str) -> AppResult<bool> {
     let row: Option<(i64, i64)> = conn.query_row("SELECT failures, last_at FROM ledger_login_failure WHERE key = ?", params![key], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
     Ok(row.is_some_and(|(n, at)| n >= i64::from(MAX_FAILURES) && unix_now() - at < LOCK_WINDOW.as_secs() as i64))
 }
 
-fn note_failure(conn: &Connection, key: &str) -> AppResult<()> {
+pub(crate) fn note_failure(conn: &Connection, key: &str) -> AppResult<()> {
     let now = unix_now();
     let window = LOCK_WINDOW.as_secs() as i64;
     // 过期的记录顺手清掉，表不会一直增长
@@ -276,7 +276,7 @@ fn note_failure(conn: &Connection, key: &str) -> AppResult<()> {
     Ok(())
 }
 
-fn clear_failures(conn: &Connection, key: &str) -> AppResult<()> {
+pub(crate) fn clear_failures(conn: &Connection, key: &str) -> AppResult<()> {
     conn.execute("DELETE FROM ledger_login_failure WHERE key = ?", params![key])?;
     Ok(())
 }

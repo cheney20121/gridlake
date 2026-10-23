@@ -90,8 +90,9 @@ pub fn search_text_sql() -> String {
 /// - 一旦做了旧版本程序无法兼容的改动（改列含义、搬数据、删表 / 列），把它加 1，并在 CHANGELOG 里写明；
 ///   （版本 2：数据范围规则从 ledger_data_scope 搬到 ledger_scope_rule——旧版读不到新规则会悄悄放开限制，所以必须拒绝打开）
 ///   （版本 3：账号可以启用两步验证——旧版不认识它，会让启用了两步验证的账号只凭密码登录，所以必须拒绝打开）
+///   （版本 4：分享链接可以设访问密码——旧版不认识它，会让带密码的链接不输密码就能打开，所以必须拒绝打开）
 /// - 新版程序写过的数据文件，旧版程序拒绝打开（见 `check_version`），避免旧版悄悄读写出错。回退要用升级前的备份
-pub const SCHEMA_VERSION: i64 = 3;
+pub const SCHEMA_VERSION: i64 = 4;
 
 const META_SQL: &str = "CREATE TABLE IF NOT EXISTS ledger_meta (key VARCHAR PRIMARY KEY, value VARCHAR NOT NULL);";
 
@@ -138,6 +139,7 @@ pub fn migrate_sql() -> String {
          ALTER TABLE ledger_dataset ADD COLUMN IF NOT EXISTS deleted_by VARCHAR;
          ALTER TABLE ledger_workbook ADD COLUMN IF NOT EXISTS folder_id VARCHAR;
          ALTER TABLE ledger_workbook ADD COLUMN IF NOT EXISTS starred BOOLEAN DEFAULT false;
+         ALTER TABLE ledger_share ADD COLUMN IF NOT EXISTS password_hash VARCHAR;
          ALTER TABLE ledger_workbook ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;
          ALTER TABLE ledger_workbook ADD COLUMN IF NOT EXISTS deleted_by VARCHAR;
          ALTER TABLE ledger_workbook ADD COLUMN IF NOT EXISTS owner_id VARCHAR;
@@ -441,7 +443,9 @@ CREATE TABLE IF NOT EXISTS ledger_share (
   view_count BIGINT DEFAULT 0,
   -- 这个工作簿用到的数据集 id（JSON 数组），打开分享页时按当前内容刷新；分享链接只能读这些数据集
   datasets VARCHAR DEFAULT '[]',
-  content_version BIGINT DEFAULT 0
+  content_version BIGINT DEFAULT 0,
+  -- 访问密码的 PBKDF2 摘要；空表示不需要密码
+  password_hash VARCHAR
 );
 CREATE TABLE IF NOT EXISTS ledger_user (
   id VARCHAR PRIMARY KEY,

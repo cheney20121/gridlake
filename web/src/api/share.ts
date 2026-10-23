@@ -17,6 +17,8 @@ export interface ShareLink {
   lastUsedAt: string | null
   viewCount: number
   expired: boolean
+  /** 是否设了访问密码 */
+  protected: boolean
 }
 
 export interface CreatedShareLink extends ShareLink {
@@ -28,9 +30,14 @@ export function listShareLinksApi(workbookId: string) {
   return request<ShareLink[]>({ url: url(`/workbooks/${workbookId}/shares`), method: 'get' })
 }
 
-/** days 为 null 表示永不过期 */
-export function createShareLinkApi(workbookId: string, note: string, days: number | null) {
-  return request<CreatedShareLink>({ url: url(`/workbooks/${workbookId}/shares`), method: 'post', data: { note, days } })
+/** days 为 null 表示永不过期；password 为空表示不设访问密码 */
+export function createShareLinkApi(workbookId: string, note: string, days: number | null, password = '') {
+  return request<CreatedShareLink>({ url: url(`/workbooks/${workbookId}/shares`), method: 'post', data: { note, days, ...(password ? { password } : {}) } })
+}
+
+/** 访客输入访问密码：对了返回通行证（之后的请求带在 x-share-proof 里，见 share-token.ts） */
+export function unlockShareApi(token: string, password: string) {
+  return request<{ proof: string }>({ url: url('/share/unlock'), method: 'post', data: { token, password }, anonymous: true, silent: true })
 }
 
 export function revokeShareLinkApi(id: string) {

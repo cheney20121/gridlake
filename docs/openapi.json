@@ -6292,6 +6292,43 @@
         ]
       }
     },
+    "/ledger/share/unlock": {
+      "post": {
+        "tags": [
+          "其他"
+        ],
+        "summary": "→ 访客输入访问密码（不需要登录）",
+        "description": "{ token, password } → { proof }  访客输入访问密码（不需要登录）",
+        "operationId": "post_ledger_share_unlock",
+        "x-permission": "无需登录",
+        "x-restricted-users": true,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnlockBody"
+              }
+            }
+          }
+        }
+      }
+    },
     "/ledger/shares/{id}": {
       "delete": {
         "tags": [
@@ -7982,7 +8019,7 @@
           "工作簿、版本与共享"
         ],
         "summary": "新建分享链接",
-        "description": "{ note?, days? }  新建分享链接；响应里的 token 只显示这一次",
+        "description": "{ note?, days?, password? }  新建分享链接；响应里的 token 只显示这一次",
         "operationId": "post_ledger_workbooks_by_id_shares",
         "x-permission": "工作簿管理（所有者或管理员）权限",
         "x-restricted-users": false,
@@ -9681,6 +9718,10 @@
           "days": {
             "type": "integer",
             "description": "有效期天数；不传用 30 天，传 null 或 0 表示永不过期"
+          },
+          "password": {
+            "type": "string",
+            "description": "访问密码；不传或空表示不需要"
           }
         }
       },
@@ -10888,6 +10929,21 @@
         },
         "required": [
           "unit"
+        ]
+      },
+      "UnlockBody": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "password"
         ]
       },
       "UnmatchRequest": {

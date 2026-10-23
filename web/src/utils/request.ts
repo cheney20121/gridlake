@@ -2,7 +2,7 @@ import type { AxiosInstance, AxiosRequestConfig, InternalAxiosRequestConfig } fr
 import axios from 'axios'
 import { lang, t } from '@/i18n'
 import { getToken, removeToken } from './auth'
-import { getShareToken } from './share-token'
+import { getShareProof, getShareToken } from './share-token'
 
 /**
  * 请求表格服务：响应为信封 { code, data, msg }，code 为 200 时返回 data，否则提示 msg 并抛出。
@@ -13,6 +13,8 @@ export interface CustomConfig {
   silent?: boolean
   /** 下载文件（配合 responseType: 'blob'）：返回完整响应，便于读取文件名等响应头 */
   type?: 'download'
+  /** 不带分享令牌 / 登录令牌（分享页输入访问密码的接口本身不需要，带上反而会被当作分享请求拒绝） */
+  anonymous?: boolean
 }
 
 export interface ResultData<T> {
@@ -69,10 +71,14 @@ function toast(msg: string) {
 
 instance.interceptors.request.use((config: InternalAxiosRequestConfig & CustomConfig) => {
   // 分享页：只带分享令牌（访客没有账号）
-  const share = getShareToken()
-  const token = share ? undefined : getToken()
-  if (share)
+  const share = config.anonymous ? null : getShareToken()
+  const token = share || config.anonymous ? undefined : getToken()
+  if (share) {
     config.headers['x-share-token'] = share
+    const proof = getShareProof()
+    if (proof)
+      config.headers['x-share-proof'] = proof
+  }
   if (token)
     config.headers['x-user-token'] = token
   // 前后端分开部署（跨域）时 cookie 不会带过去，用请求头告诉服务端界面语言

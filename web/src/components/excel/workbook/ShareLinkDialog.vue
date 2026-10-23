@@ -25,7 +25,7 @@ const DAYS = [
 const links = ref<ShareLink[]>([])
 const loading = ref(false)
 const creating = ref(false)
-const form = ref({ note: '', days: 30 })
+const form = ref({ note: '', days: 30, password: '' })
 const created = ref<CreatedShareLink | null>(null)
 
 async function load() {
@@ -44,7 +44,7 @@ watch(() => props.visible, async (v) => {
   if (!v)
     return
   created.value = null
-  form.value = { note: '', days: 30 }
+  form.value = { note: '', days: 30, password: '' }
   links.value = []
   if (props.beforeShare && !(await props.beforeShare())) {
     emit('update:visible', false)
@@ -58,8 +58,14 @@ async function create() {
     return
   creating.value = true
   try {
-    created.value = await createShareLinkApi(props.workbookId, form.value.note.trim(), form.value.days || null)
+    const password = form.value.password
+    if (password && (password.length < 6 || password.length > 128)) {
+      ElMessage.warning(t('访问密码需要 6 到 128 位'))
+      return
+    }
+    created.value = await createShareLinkApi(props.workbookId, form.value.note.trim(), form.value.days || null, password)
     form.value.note = ''
+    form.value.password = ''
     await load()
   }
   finally {
@@ -116,10 +122,22 @@ function expiryText(l: ShareLink) {
         {{ $t('创建链接') }}
       </el-button>
     </div>
+    <el-input
+      v-model="form.password"
+      class="mt-2"
+      type="password"
+      show-password
+      maxlength="128"
+      autocomplete="new-password"
+      data-testid="share-new-password"
+      :placeholder="$t('访问密码（可选，6 位以上；设了之后访客要先输入密码）')"
+      @keyup.enter="create"
+    />
 
     <div v-if="created" class="created">
       <div class="mb-1 text-[13px] text-[#0B5A2E] font-medium">
         {{ $t('链接已创建。现在复制，关掉后就看不到完整链接了：') }}
+        <span v-if="created.protected" class="text-gray-600 font-normal">{{ $t('（访问密码要另外告诉对方，不在链接里）') }}</span>
       </div>
       <div class="flex items-center gap-2">
         <el-input :model-value="shareUrl(created.token)" readonly @focus="($event.target as HTMLInputElement).select()" />
@@ -136,6 +154,9 @@ function expiryText(l: ShareLink) {
       <el-table-column :label="$t('备注')" min-width="150" show-overflow-tooltip>
         <template #default="{ row }">
           {{ row.note || $t('（无备注）') }} <span class="text-xs text-gray-400">{{ row.prefix }}…</span>
+          <el-tag v-if="row.protected" size="small" type="warning" class="ml-1">
+            {{ $t('有密码') }}
+          </el-tag>
         </template>
       </el-table-column>
       <el-table-column :label="$t('有效期')" width="150">
