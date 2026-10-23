@@ -1,4 +1,4 @@
-//! 公式下推：表格里的 DSUMIFS / DCOUNTIFS / DAVERAGEIFS / DMAXIFS / DMINIFS 批量在服务端计算
+//! 公式下推：表格里的 DSUMIFS / DCOUNTIFS / DAVERAGEIFS / DMAXIFS / DMINIFS / DCOUNTDISTINCTIFS 批量在服务端计算
 //!
 //! 工作表里的数据表（TSUM / TCOUNT / TAVERAGE / TMIN / TMAX / TVALUE）也走这里：请求带上数据表的
 //! 筛选 / 关键字 / 排序作为范围（query），条件在范围之内再筛；TVALUE 取范围内按排序的第 N 行
@@ -28,7 +28,7 @@ const MAX_GROUPS: usize = 200_000;
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AggregateCall {
-    /// sum / count / average / min / max / lookup / nth
+    /// sum / count / average / min / max / lookup / nth / distinct
     pub func: String,
     /// 求值的列（count 可省略）
     pub column: Option<String>,
@@ -271,7 +271,7 @@ fn find_column<'a>(def: &'a DatasetDef, name: &str) -> Option<&'a ColumnDef> {
 
 fn prepare(def: &DatasetDef, call: &AggregateCall) -> Result<Prepared, String> {
     let func = call.func.to_lowercase();
-    if !matches!(func.as_str(), "sum" | "count" | "average" | "min" | "max" | "lookup" | "nth") {
+    if !matches!(func.as_str(), "sum" | "count" | "average" | "min" | "max" | "lookup" | "nth" | "distinct") {
         return Err(format!("不支持的函数：{}", call.func));
     }
     if func == "nth" {
@@ -288,7 +288,10 @@ fn prepare(def: &DatasetDef, call: &AggregateCall) -> Result<Prepared, String> {
         let name = call.column.as_deref().ok_or("缺少求和列")?;
         let col = find_column(def, name).ok_or_else(|| format!("数据集「{}」没有列「{name}」", def.name))?;
         let numeric = matches!(col.kind, "money" | "number");
-        if func == "lookup" || func == "nth" {
+        if func == "distinct" {
+            // 去重计数：任何类型的列都行；空值不算一个取值
+            Some(format!("NULLIF(CAST(({}) AS VARCHAR), '')", dataset::column_sql(col)))
+        } else if func == "lookup" || func == "nth" {
             // 查找 / 取第 N 行：返回原值（数值或文本）
             Some(if numeric { format!("({})::DOUBLE", dataset::column_sql(col)) } else { format!("CAST(({}) AS VARCHAR)", dataset::column_sql(col)) })
         } else {
@@ -322,6 +325,43 @@ fn prepare(def: &DatasetDef, call: &AggregateCall) -> Result<Prepared, String> {
     Ok(Prepared { func, value_expr, text, numeric })
 }
 
+/// 一个签名的 WHERE：范围 + 数值条件；`pre` 为真时，某个条件列在这些调用里都是精确值，就再加一个 IN 预筛缩小扫描范围
+#[allow(clippy::too_many_arguments)]
+fn where_for(prepared: &[Option<Prepared>], idxs: &[usize], cols: &[String], numeric: &[String], base_where: &str, base_args: &[Value], pre: bool) -> (String, Vec<Value>) {
+    let mut where_parts: Vec<String> = std::iter::once(base_where.to_string()).chain(numeric.iter().cloned()).collect();
+    let mut args: Vec<Value> = base_args.to_vec();
+    for col in cols.iter().filter(|_| pre) {
+        let mut exacts: BTreeSet<Option<String>> = BTreeSet::new();
+        let mut all_exact = true;
+        for &i in idxs {
+            let p = prepared[i].as_ref().expect("prepared");
+            for (c, m) in &p.text {
+                if c == col {
+                    match m.exact() {
+                        Some(v) => {
+                            exacts.insert(v.map(String::from));
+                        }
+                        None => all_exact = false,
+                    }
+                }
+            }
+        }
+        if all_exact && !exacts.is_empty() {
+            let named: Vec<&String> = exacts.iter().flatten().collect();
+            let mut ors = Vec::new();
+            if !named.is_empty() {
+                ors.push(format!("lower({col}) IN ({})", vec!["?"; named.len()].join(", ")));
+                args.extend(named.into_iter().map(|v| Value::Text(v.clone())));
+            }
+            if exacts.contains(&None) {
+                ors.push(format!("({col} IS NULL OR {col} = '')"));
+            }
+            where_parts.push(format!("({})", ors.join(" OR ")));
+        }
+    }
+    (if where_parts.is_empty() { "TRUE".to_string() } else { where_parts.join(" AND ") }, args)
+}
+
 /// scope：范围（数据表的筛选 / 关键字 / 排序）；None 为整个数据集
 pub fn aggregate(conn: &Connection, dataset_id: &str, calls: &[AggregateCall], scope: Option<&dataset::QuerySpec>) -> AppResult<AggregateResult> {
     let started = Instant::now();
@@ -337,6 +377,7 @@ pub fn aggregate(conn: &Connection, dataset_id: &str, calls: &[AggregateCall], s
     let mut prepared: Vec<Option<Prepared>> = Vec::with_capacity(calls.len());
     let mut groups: BTreeMap<(Vec<String>, Vec<String>), Vec<usize>> = BTreeMap::new();
     let mut lookup_groups: BTreeMap<(Vec<String>, Vec<String>), Vec<usize>> = BTreeMap::new();
+    let mut distinct_groups: BTreeMap<(Vec<String>, Vec<String>), Vec<usize>> = BTreeMap::new();
     let mut nth_calls: Vec<usize> = Vec::new();
     for (i, call) in calls.iter().enumerate() {
         match prepare(&def, call) {
@@ -346,7 +387,11 @@ pub fn aggregate(conn: &Connection, dataset_id: &str, calls: &[AggregateCall], s
             }
             Ok(p) => {
                 let cols: BTreeSet<String> = p.text.iter().map(|(c, _)| c.clone()).collect();
-                let target = if p.func == "lookup" { &mut lookup_groups } else { &mut groups };
+                let target = match p.func.as_str() {
+                    "lookup" => &mut lookup_groups,
+                    "distinct" => &mut distinct_groups,
+                    _ => &mut groups,
+                };
                 target.entry((cols.into_iter().collect(), p.numeric.clone())).or_default().push(i);
                 prepared.push(Some(p));
             }
@@ -368,38 +413,7 @@ pub fn aggregate(conn: &Connection, dataset_id: &str, calls: &[AggregateCall], s
         let value_pos: HashMap<&str, usize> = value_exprs.iter().enumerate().map(|(i, e)| (e.as_str(), i)).collect();
 
         // 预筛：某列在所有调用里都是精确值时，用 IN 缩小扫描范围
-        let mut where_parts: Vec<String> = std::iter::once(base_where.clone()).chain(numeric.iter().cloned()).collect();
-        let mut args: Vec<Value> = base_args.clone();
-        for col in cols {
-            let mut exacts: BTreeSet<Option<String>> = BTreeSet::new();
-            let mut all_exact = true;
-            for &i in idxs {
-                let p = prepared[i].as_ref().expect("prepared");
-                for (c, m) in &p.text {
-                    if c == col {
-                        match m.exact() {
-                            Some(v) => {
-                                exacts.insert(v.map(String::from));
-                            }
-                            None => all_exact = false,
-                        }
-                    }
-                }
-            }
-            if all_exact && !exacts.is_empty() {
-                let named: Vec<&String> = exacts.iter().flatten().collect();
-                let mut ors = Vec::new();
-                if !named.is_empty() {
-                    ors.push(format!("lower({col}) IN ({})", vec!["?"; named.len()].join(", ")));
-                    args.extend(named.into_iter().map(|v| Value::Text(v.clone())));
-                }
-                if exacts.contains(&None) {
-                    ors.push(format!("({col} IS NULL OR {col} = '')"));
-                }
-                where_parts.push(format!("({})", ors.join(" OR ")));
-            }
-        }
-        let where_sql = if where_parts.is_empty() { "TRUE".to_string() } else { where_parts.join(" AND ") };
+        let (where_sql, args) = where_for(&prepared, idxs, cols, numeric, &base_where, &base_args, true);
         let key_select: Vec<String> = cols.iter().map(|c| format!("lower({c})")).collect();
         let mut agg_select = vec!["count(*)::DOUBLE".to_string()];
         for e in &value_exprs {
@@ -475,37 +489,7 @@ pub fn aggregate(conn: &Connection, dataset_id: &str, calls: &[AggregateCall], s
     for ((cols, numeric), idxs) in &lookup_groups {
         let value_exprs: Vec<String> = idxs.iter().filter_map(|&i| prepared[i].as_ref().and_then(|p| p.value_expr.clone())).collect::<BTreeSet<_>>().into_iter().collect();
         let value_pos: HashMap<&str, usize> = value_exprs.iter().enumerate().map(|(i, e)| (e.as_str(), i)).collect();
-        let mut where_parts: Vec<String> = std::iter::once(base_where.clone()).chain(numeric.iter().cloned()).collect();
-        let mut args: Vec<Value> = base_args.clone();
-        for col in cols {
-            let mut exacts: BTreeSet<Option<String>> = BTreeSet::new();
-            let mut all_exact = true;
-            for &i in idxs {
-                for (c, m) in &prepared[i].as_ref().expect("prepared").text {
-                    if c == col {
-                        match m.exact() {
-                            Some(v) => {
-                                exacts.insert(v.map(String::from));
-                            }
-                            None => all_exact = false,
-                        }
-                    }
-                }
-            }
-            if all_exact && !exacts.is_empty() {
-                let named: Vec<&String> = exacts.iter().flatten().collect();
-                let mut ors = Vec::new();
-                if !named.is_empty() {
-                    ors.push(format!("lower({col}) IN ({})", vec!["?"; named.len()].join(", ")));
-                    args.extend(named.into_iter().map(|v| Value::Text(v.clone())));
-                }
-                if exacts.contains(&None) {
-                    ors.push(format!("({col} IS NULL OR {col} = '')"));
-                }
-                where_parts.push(format!("({})", ors.join(" OR ")));
-            }
-        }
-        let where_sql = if where_parts.is_empty() { "TRUE".to_string() } else { where_parts.join(" AND ") };
+        let (where_sql, args) = where_for(&prepared, idxs, cols, numeric, &base_where, &base_args, true);
         let rid = &def.rid;
         let key_select: Vec<String> = cols.iter().map(|c| format!("lower({c})")).collect();
         let mut agg = vec![format!("min({rid})")];
@@ -550,6 +534,77 @@ pub fn aggregate(conn: &Connection, dataset_id: &str, calls: &[AggregateCall], s
         }
     }
 
+    // ── DCOUNTDISTINCTIFS：去重计数不能把各分组的结果相加（同一个值可能出现在几个分组里），单独处理 ──
+    // - 条件都是精确值：按条件列分组直接 count(DISTINCT 去重列)，一个调用恰好对应一个分组（空值与空串并成一组）
+    // - 含通配符 / 比较 / 不等：取（条件列取值, 去重列取值）的不重复组合，在内存里按各调用的条件过滤后去重
+    for ((cols, numeric), idxs) in &distinct_groups {
+        let key_select: Vec<String> = cols.iter().map(|c| format!("NULLIF(lower({c}), '')")).collect();
+        let col_pos: HashMap<&str, usize> = cols.iter().enumerate().map(|(i, c)| (c.as_str(), i)).collect();
+        let matches = |i: usize, keys: &[Option<String>]| prepared[i].as_ref().expect("prepared").text.iter().all(|(c, m)| m.matches(keys[col_pos[c.as_str()]].as_deref()));
+        let expr_of = |i: usize| prepared[i].as_ref().and_then(|p| p.value_expr.clone()).expect("distinct 有去重列");
+        let (exact, loose): (Vec<usize>, Vec<usize>) = idxs.iter().copied().partition(|&i| prepared[i].as_ref().expect("prepared").text.iter().all(|(_, m)| m.exact().is_some()));
+
+        if !exact.is_empty() {
+            let exprs: Vec<String> = exact.iter().map(|&i| expr_of(i)).collect::<BTreeSet<_>>().into_iter().collect();
+            let (where_sql, args) = where_for(&prepared, &exact, cols, numeric, &base_where, &base_args, true);
+            let select = key_select.iter().cloned().chain(exprs.iter().map(|e| format!("count(DISTINCT {e})::DOUBLE"))).collect::<Vec<_>>().join(", ");
+            let group_by = if cols.is_empty() { String::new() } else { format!(" GROUP BY {}", (1..=cols.len()).map(|n| n.to_string()).collect::<Vec<_>>().join(", ")) };
+            let sql = format!("SELECT {select} FROM {} WHERE {where_sql}{group_by} LIMIT {}", def.table, MAX_GROUPS + 1);
+            let k = cols.len();
+            let rows: Vec<(Vec<Option<String>>, Vec<f64>)> = {
+                let mut stmt = conn.prepare(&sql)?;
+                stmt.query_map(params_from_iter(args.iter()), |r| {
+                    let keys = (0..k).map(|i| r.get::<_, Option<String>>(i)).collect::<duckdb::Result<Vec<_>>>()?;
+                    let counts = (0..exprs.len()).map(|i| Ok(r.get::<_, Option<f64>>(k + i)?.unwrap_or(0.0))).collect::<duckdb::Result<Vec<_>>>()?;
+                    Ok((keys, counts))
+                })?
+                .collect::<Result<Vec<_>, _>>()?
+            };
+            if rows.len() > MAX_GROUPS {
+                for &i in &exact {
+                    errors[i] = Some("条件列取值过多（超过 20 万组），请改用取值较少的列做条件".into());
+                }
+            } else {
+                for &i in &exact {
+                    let pos = exprs.iter().position(|e| *e == expr_of(i)).expect("表达式已收集");
+                    // 精确条件至多命中一个分组；没命中就是没有符合条件的行
+                    let n = rows.iter().find(|(keys, _)| matches(i, keys)).map_or(0.0, |(_, counts)| counts[pos]);
+                    values[i] = Some(serde_json::json!(n));
+                }
+            }
+        }
+
+        // 含通配符等的调用：按去重列分别取（条件列, 去重列）的不重复组合
+        let mut by_expr: BTreeMap<String, Vec<usize>> = BTreeMap::new();
+        for &i in &loose {
+            by_expr.entry(expr_of(i)).or_default().push(i);
+        }
+        for (expr, ids) in by_expr {
+            let (where_sql, args) = where_for(&prepared, &ids, cols, numeric, &base_where, &base_args, false);
+            let select = key_select.iter().cloned().chain(std::iter::once(expr.clone())).collect::<Vec<_>>().join(", ");
+            let sql = format!("SELECT DISTINCT {select} FROM {} WHERE {where_sql} LIMIT {}", def.table, MAX_GROUPS + 1);
+            let k = cols.len();
+            let rows: Vec<(Vec<Option<String>>, Option<String>)> = {
+                let mut stmt = conn.prepare(&sql)?;
+                stmt.query_map(params_from_iter(args.iter()), |r| {
+                    let keys = (0..k).map(|i| r.get::<_, Option<String>>(i)).collect::<duckdb::Result<Vec<_>>>()?;
+                    Ok((keys, r.get::<_, Option<String>>(k)?))
+                })?
+                .collect::<Result<Vec<_>, _>>()?
+            };
+            if rows.len() > MAX_GROUPS {
+                for &i in &ids {
+                    errors[i] = Some("去重列的取值太多（超过 20 万个不同组合），请把条件改成精确值，或换用取值较少的条件列".into());
+                }
+                continue;
+            }
+            for &i in &ids {
+                let hit: BTreeSet<&str> = rows.iter().filter(|(keys, _)| matches(i, keys)).filter_map(|(_, v)| v.as_deref()).collect();
+                values[i] = Some(serde_json::json!(hit.len() as f64));
+            }
+        }
+    }
+
     // ── TVALUE：范围内按排序的第 N 行 ──
     if !nth_calls.is_empty() {
         let order = dataset::order_sql(&def, scope)?;
@@ -567,7 +622,7 @@ pub fn aggregate(conn: &Connection, dataset_id: &str, calls: &[AggregateCall], s
         }
     }
 
-    Ok(AggregateResult { values, errors, signatures: groups.len() + lookup_groups.len() + nth_calls.len(), elapsed_ms: started.elapsed().as_millis() as i64 })
+    Ok(AggregateResult { values, errors, signatures: groups.len() + lookup_groups.len() + distinct_groups.len() + nth_calls.len(), elapsed_ms: started.elapsed().as_millis() as i64 })
 }
 
 #[cfg(test)]

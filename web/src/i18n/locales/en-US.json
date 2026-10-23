@@ -2940,5 +2940,6 @@
   "有密码": "Password",
   "这个分享链接需要访问密码": "This share link needs an access password",
   "请向分享人要密码。": "Ask the person who shared it for the password.",
-  "访问密码": "Access password"
+  "访问密码": "Access password",
+  "对数据集按多个条件统计不重复的取值个数：DCOUNTDISTINCTIFS(数据集, 去重列, 条件列1, 条件1, ...)，空值不算一个取值，区分大小写": "Count distinct values in a dataset by multiple conditions: DCOUNTDISTINCTIFS(dataset, distinct column, condition column 1, condition 1, ...). Blank values are not counted; values are case-sensitive"
 }

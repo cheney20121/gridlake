@@ -14,6 +14,7 @@ Gridlake 的公式引擎是 Univer（浏览器里计算，函数集与 Excel 基
 | `DAVERAGEIFS` | `DAVERAGEIFS(数据集, 平均列, 条件列1, 条件1, …)` | 按多个条件求平均 |
 | `DMAXIFS` | `DMAXIFS(数据集, 取值列, 条件列1, 条件1, …)` | 按多个条件取最大值；没有符合条件的数值时为 0（同 Excel 的 `MAXIFS`） |
 | `DMINIFS` | `DMINIFS(数据集, 取值列, 条件列1, 条件1, …)` | 按多个条件取最小值；同上 |
+| `DCOUNTDISTINCTIFS` | `DCOUNTDISTINCTIFS(数据集, 去重列, 条件列1, 条件1, …)` | 按多个条件统计**不重复的取值个数**（如某店铺有多少个不同的客户）。空值不算一个取值，取值区分大小写，去重列可以是文本或数值列；多个分组之间也会正确去重（不是各组个数相加） |
 | `DLOOKUP` | `DLOOKUP(数据集, 返回列, 条件列1, 条件1, …)` | 数据集版 VLOOKUP：返回**第一条**匹配行的值，找不到为 `#N/A` |
 
 ```
@@ -21,6 +22,7 @@ Gridlake 的公式引擎是 Univer（浏览器里计算，函数集与 Excel 基
 =DCOUNTIFS("订单", "状态", "已退款")
 =DAVERAGEIFS("订单", "金额", "渠道", "直播")
 =DMAXIFS("订单", "金额", "店铺", B2)
+=DCOUNTDISTINCTIFS("订单", "客户", "店铺", B2)
 =DLOOKUP("商品成本", "成本价", "商品ID", A2)
 ```
 

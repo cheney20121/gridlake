@@ -63,7 +63,7 @@ describe('带访问密码的分享链接（界面）', { skip }, () => {
       await page.press('q', { alt: true, code: 'KeyQ' })
       await page.waitFor(`!!document.querySelector('input[placeholder*="搜索功能"]')`, { what: '命令面板' })
       await page.fill('input[placeholder*="搜索功能"]', '分享链接')
-      await page.waitFor(`[...document.querySelectorAll('[data-active]')].some(e => e.innerText.includes('分享链接'))`, { what: '搜索到分享链接' })
+      await page.waitFor(`document.querySelector('[data-active="true"]')?.innerText.includes('分享链接')`, { what: '搜索到分享链接' })
       await page.press('Enter')
       await page.waitFor(`!!document.querySelector('[data-testid="share-new-password"]')`, { what: '分享对话框' })
 

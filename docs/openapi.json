@@ -8526,7 +8526,7 @@
         "properties": {
           "func": {
             "type": "string",
-            "description": "sum / count / average / min / max / lookup / nth"
+            "description": "sum / count / average / min / max / lookup / nth / distinct"
           },
           "column": {
             "type": "string",

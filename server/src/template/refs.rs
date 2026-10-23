@@ -4,7 +4,7 @@
 //! - 透视表页签：工作表 `custom.pivot`（datasetId / datasetName + 请求里的列）
 //! - 填报区：工作表 `custom.inputs[]`（datasetId / datasetName + fields / keys 列名）
 //! - 浮动部件：资源 `SHEET_DRAWING_PLUGIN` 中 componentKey 为 webexcel-*（历史键名，保存在工作簿里，不能改）的部件定义（图表的 source、切片器 / 指标卡 / 明细卡）
-//! - 公式：DSUMIFS / DCOUNTIFS / DAVERAGEIFS / DMAXIFS / DMINIFS / DLOOKUP 的数据集名、列名（字符串字面量）
+//! - 公式：DSUMIFS / DCOUNTIFS / DAVERAGEIFS / DMAXIFS / DMINIFS / DCOUNTDISTINCTIFS / DLOOKUP 的数据集名、列名（字符串字面量）
 //!
 //! 部件定义里，含 datasetId 的对象及其子对象中，键为 column / splitBy / dateColumn / baseField / field（透视计算项所在的字段）的字符串是该数据集的列名，
 //! 键为 fields 的字符串数组（数据表显示的列）里每一项也是列名
@@ -15,7 +15,7 @@ use serde_json::Value as Json;
 
 const DRAWING_RESOURCE: &str = "SHEET_DRAWING_PLUGIN";
 const COLUMN_KEYS: [&str; 5] = ["column", "splitBy", "dateColumn", "baseField", "field"];
-const D_FUNCS: [&str; 6] = ["DSUMIFS", "DCOUNTIFS", "DAVERAGEIFS", "DMAXIFS", "DMINIFS", "DLOOKUP"];
+const D_FUNCS: [&str; 7] = ["DSUMIFS", "DCOUNTIFS", "DAVERAGEIFS", "DMAXIFS", "DMINIFS", "DCOUNTDISTINCTIFS", "DLOOKUP"];
 
 /// 一个数据集被引用的情况
 #[derive(Default, Debug, Clone)]
@@ -486,6 +486,10 @@ mod tests {
         let (out, changed, _) = rewrite_formula(r#"=DMAXIFS("订单","订单金额","店铺",B2)-DMINIFS("订单","订单金额")"#, &rb);
         assert!(changed);
         assert_eq!(out, r#"=DMAXIFS("我的订单","实付金额","店铺",B2)-DMINIFS("我的订单","实付金额")"#);
+        // 去重计数的数据集名、去重列、条件列也一样
+        let (out, changed, _) = rewrite_formula(r#"=DCOUNTDISTINCTIFS("订单","订单金额","下单时间",">="&B6)"#, &rb);
+        assert!(changed);
+        assert_eq!(out, r#"=DCOUNTDISTINCTIFS("我的订单","实付金额","支付时间",">="&B6)"#);
     }
 
     #[test]
