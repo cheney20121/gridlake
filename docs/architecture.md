@@ -58,6 +58,8 @@ gridlake（单进程：Rust + axum）
 
 类型从哪里来：CSV / XLSX 按前 2000 行样本推断（全是整数 → `integer`，全是 `true` / `false` → `boolean`）；新建时再用全量数据核对一次，样本之后出现小数的整数列改成数值列、出现其他写法的是否列改成文本列，不让样本之外的值按空值入库。Parquet / JSON 用文件自带的类型（转 CSV 时记在暂存文件旁的 `.kinds.json` 里，预览时优先）；SQL 结果另存为数据集时按结果的 SQL 类型。超过 2^53 的整数在接口里以文本下发（浏览器的 JSON 数字会丢掉末几位）。
 
+已有数据集改类型（`server/src/dataset_alter.rs`，只限普通数据表）：`ALTER TABLE … ALTER COLUMN … SET DATA TYPE … USING (…)` 就地转换，行号不变，按行号引用数据的地方（取行、行详情）都还对得上。文本 → 其他类型用与导入**同一个**转换表达式（`dataset_import::convert_sql`，认千分位、`是 / 否` 等写法）；数值 → 整数只收整数值（`1.5` 算转不过来，不四舍五入）；数值 → 文本去掉 `.0`。先预览：数一数有多少个非空值会变成空值、举例，以及几行转换前后的样子；有值转不过来时必须带 `acceptLoss` 才执行。执行包在 `guarded_change` 里：改完后重新检查依赖这张表的计算列、关联视图，有失效的整体回滚。数值列改成非数值列时提示「透视求和、公式条件按数值比较的地方会变」。
+
 ## 外部数据集（直接查询 Parquet）
 
 `server/src/external.rs`：管理员把收件目录（`LEDGER_INBOX_ROOTS`）里的一组 Parquet 文件登记成只读数据集（登记表里 `kind = 'external'`），数据库里是一个视图：

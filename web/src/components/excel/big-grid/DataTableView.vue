@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { DatasetDrill } from './drill'
 import type { GridColumn, GridSelection } from './types'
-import type { CellValue, DatasetCursor, DatasetFilter, DatasetInfo, DatasetQuery, SelectionStats } from '@/api/dataset'
+import type { CellValue, DatasetColumnKind, DatasetCursor, DatasetFilter, DatasetInfo, DatasetQuery, SelectionStats } from '@/api/dataset'
 import { useDebounceFn, useLocalStorage } from '@vueuse/core'
 import { isCancel } from 'axios'
 import { computed, nextTick, ref, shallowRef, watch } from 'vue'
@@ -13,6 +13,7 @@ import { useLedgerUserStore } from '@/stores/ledger-user'
 import { errorText } from '@/utils/busy-hint'
 import { formatMoney } from '@/utils/format-money'
 import BigGrid from './BigGrid.vue'
+import ColumnKindDialog from './ColumnKindDialog.vue'
 import FilterMenu from './FilterMenu.vue'
 
 /** 大数据表视图：工具栏（搜索 / 筛选标签 / 下钻核对）+ canvas 表格 + 状态栏（选区统计） */
@@ -42,6 +43,15 @@ const emit = defineEmits<{
 
 const ledgerUser = useLedgerUserStore()
 const refreshing = ref(false)
+
+/** 列头菜单里的「更改列类型」：导入 / 填报的数据表，所有者与管理员；计算列、贡献列不行 */
+const kindColumn = ref<{ title: string, kind: DatasetColumnKind } | null>(null)
+function canChangeKind(col: GridColumn) {
+  const d = props.dataset
+  const owner = !ledgerUser.authRequired || ledgerUser.isAdmin || (!!d.ownerId && d.ownerId === ledgerUser.user?.id)
+  const real = d.columns.find(c => c.key === col.key)
+  return d.kind === 'table' && owner && !!real && !real.computed
+}
 
 /** 外部数据集：重新读取文件列表与结构（只有管理员） */
 async function refreshExternal() {
@@ -574,10 +584,13 @@ function exportData(format: 'csv' | 'xlsx') {
       :current="userFilters.find(f => f.column === menu!.column.key) ?? null"
       :sort-desc="sort?.column === menu.column.key ? sort.desc : null"
       :anchor="menu.rect"
+      :can-change-kind="canChangeKind(menu.column)"
       @apply="onApplyFilter"
       @sort="onSort"
       @close="menu = null"
+      @change-kind="kindColumn = { title: menu!.column.title, kind: menu!.column.kind }; menu = null"
     />
+    <ColumnKindDialog :dataset-id="dataset.id" :column="kindColumn" @close="kindColumn = null" @changed="emit('changed', dataset.id)" />
 
     <el-drawer :model-value="!!openedRow" :title="$t('第 {0} 行', [(openedRow?.row ?? 0) + 1])" size="420px" append-to-body @update:model-value="openedRow = null">
       <div class="flex flex-col text-[13px]">

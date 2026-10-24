@@ -873,5 +873,10 @@
   "文件里没有列": "The files have no columns",
   "外部数据集不存在": "External dataset not found",
   "外部数据集的定义损坏": "The external dataset definition is corrupted",
-  "「{0}」是外部数据集（直接读取 Parquet 文件），只读，不能写入": "“{0}” is an external dataset (reads Parquet files directly) and is read-only; it cannot be written to"
+  "「{0}」是外部数据集（直接读取 Parquet 文件），只读，不能写入": "“{0}” is an external dataset (reads Parquet files directly) and is read-only; it cannot be written to",
+  "「{0}」列不能直接改成「{1}」": "A “{0}” column cannot be changed to “{1}” directly",
+  "「{0}」不是导入 / 填报的数据表（关联视图、汇总、外部文件等的列类型由来源决定），不能改列类型": "“{0}” is not an imported or data-entry table (the column types of joined views, summaries and external files come from their sources), so its column types cannot be changed",
+  "「{0}」没有列「{1}」": "“{0}” has no column “{1}”",
+  "「{0}」已经是{1}列": "“{0}” is already a {1} column",
+  "有 {0} 个值转不成{1}（如「{2}」），会变成空值；确认后再执行": "{0} values cannot be converted to {1} (such as “{2}”) and would become blank; confirm to proceed"
 }

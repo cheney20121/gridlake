@@ -26,3 +26,7 @@ coverage
 *.tsbuildinfo
 
 .eslintcache
+
+# vue-tsc -b 编译 tsconfig.node.json 时的产物
+vite.config.js
+vite.config.d.ts

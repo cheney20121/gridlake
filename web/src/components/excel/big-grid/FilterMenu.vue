@@ -4,7 +4,7 @@ import type { DatasetFilter, DatasetQuery, DistinctResult } from '@/api/dataset'
 import { useDebounceFn } from '@vueuse/core'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { getDistinctApi } from '@/api/dataset'
-import { formatBool, isNumericKind } from '@/features/excel/dataset/column-kinds'
+import { formatBool, isNumericKind, kindLabel } from '@/features/excel/dataset/column-kinds'
 import { t } from '@/i18n'
 
 /** 列头筛选菜单（Excel 自动筛选）：排序、按值勾选、包含文字、数值 / 日期区间 */
@@ -19,12 +19,15 @@ const props = defineProps<{
   anchor: DOMRect
   /** 不显示排序（透视表筛选只需要按值筛选） */
   hideSort?: boolean
+  /** 显示「更改列类型」（数据表的所有者与管理员） */
+  canChangeKind?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'apply', filter: DatasetFilter | null): void
   (e: 'sort', desc: boolean | null): void
   (e: 'close'): void
+  (e: 'changeKind'): void
 }>()
 
 const numeric = computed(() => isNumericKind(props.column.kind))
@@ -158,6 +161,9 @@ onBeforeUnmount(() => {
       </button>
       <button v-if="sortDesc != null" class="item text-gray-500" @click="emit('sort', null)">
         {{ $t('清除排序') }}
+      </button>
+      <button v-if="canChangeKind" class="item" data-testid="change-column-kind" @click="emit('changeKind')">
+        {{ $t('更改列类型（现在是{0}）…', [kindLabel(column.kind)]) }}
       </button>
     </div>
 

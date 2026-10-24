@@ -32,6 +32,7 @@ mod collab;
 mod dataset;
 mod dataset_trash;
 mod dataset_import;
+mod dataset_alter;
 mod db;
 mod ecommerce;
 mod error;
@@ -233,6 +234,8 @@ async fn serve(config: config::Config, ready: Option<Ready>) -> anyhow::Result<(
         .route("/ledger/datasets/{id}/untrash", post(routes::untrash_dataset))
         .route("/ledger/datasets/{id}/purge", delete(routes::purge_dataset))
         .route("/ledger/datasets/{id}", axum::routing::put(routes::rename_dataset).delete(routes::delete_dataset))
+        .route("/ledger/datasets/{id}/columns/kind/preview", post(routes::column_kind_preview))
+        .route("/ledger/datasets/{id}/columns/kind", put(routes::column_kind_apply))
         .route("/ledger/datasets/{id}/cursor", post(routes::open_cursor))
         .route("/ledger/datasets/{id}/rows", get(routes::dataset_rows))
         .route("/ledger/datasets/{id}/stats", post(routes::dataset_stats))

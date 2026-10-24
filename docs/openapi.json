@@ -4102,6 +4102,99 @@
         ]
       }
     },
+    "/ledger/datasets/{id}/columns/kind": {
+      "put": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "修改列类型（就地转换",
+        "description": "{ column, kind, acceptLoss? }  修改列类型（就地转换；有值转不过来时要 acceptLoss）",
+        "operationId": "put_ledger_datasets_by_id_columns_kind",
+        "x-permission": "数据集所有者或管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-audit": "修改列类型",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KindChange"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ledger/datasets/{id}/columns/kind/preview": {
+      "post": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "预览修改列类型：多少个值转不过来、举例、转换前后的样子",
+        "description": "{ column, kind }  预览修改列类型：多少个值转不过来、举例、转换前后的样子",
+        "operationId": "post_ledger_datasets_by_id_columns_kind_preview",
+        "x-permission": "数据集所有者或管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KindChange"
+              }
+            }
+          }
+        }
+      }
+    },
     "/ledger/datasets/{id}/cursor": {
       "post": {
         "tags": [
@@ -9618,6 +9711,25 @@
         "required": [
           "left",
           "ight"
+        ]
+      },
+      "KindChange": {
+        "type": "object",
+        "properties": {
+          "column": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "acceptLoss": {
+            "type": "boolean",
+            "description": "有值转不过来（会变成空值）时，确认仍然执行"
+          }
+        },
+        "required": [
+          "column",
+          "kind"
         ]
       },
       "LoginBody": {

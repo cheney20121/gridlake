@@ -17,7 +17,7 @@
 - **数据范围受限的用户**（管理员给用户设置了「只能看某些店铺」）：只能调用下表「受限用户」列为 ✓ 的接口，其余一律返回 403；✓ 的接口读取的数据也已按范围过滤。
 - **审计**：「审计」列非空的接口会记入操作审计，列里是审计里显示的操作名。
 
-共 216 个接口。
+共 218 个接口。
 
 ## 存活检查与运维
 
@@ -110,6 +110,8 @@
 | POST | `/api/ledger/datasets/{id}/calc/preview` | { formula }  计算列预览（类型、样例、空值行数） | 登录用户 | ✓ |  |
 | PUT | `/api/ledger/datasets/{id}/calc/{name}` | { formula, kind? }  修改计算列 | 数据集所有者或管理员 | ✗ | 修改计算列 |
 | DELETE | `/api/ledger/datasets/{id}/calc/{name}` |  | 数据集所有者或管理员 | ✗ | 删除计算列 |
+| PUT | `/api/ledger/datasets/{id}/columns/kind` | { column, kind, acceptLoss? }  修改列类型（就地转换；有值转不过来时要 acceptLoss） | 数据集所有者或管理员 | ✗ | 修改列类型 |
+| POST | `/api/ledger/datasets/{id}/columns/kind/preview` | { column, kind }  预览修改列类型：多少个值转不过来、举例、转换前后的样子 | 数据集所有者或管理员 | ✗ |  |
 | POST | `/api/ledger/datasets/{id}/cursor` | QuerySpec → 游标（筛选 + 排序物化，按条件缓存） | 登录用户 | ✓ |  |
 | POST | `/api/ledger/datasets/{id}/distinct` | 列值分面（筛选下拉） | 登录用户 | ✓ |  |
 | GET | `/api/ledger/datasets/{id}/export` | 按当前筛选 / 排序导出（流式下载） 查询参数：`cursor=&columns=&name=&format=csv\|xlsx&desc=` | 登录用户 | ✓ | 导出数据集 |

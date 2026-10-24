@@ -255,6 +255,22 @@ pub async fn rename_dataset(State(db): State<AppState>, Path(id): Path<String>, 
     Ok(ok(true))
 }
 
+/// POST /api/ledger/datasets/{id}/columns/kind/preview  { column, kind }  预览修改列类型：多少个值转不过来、举例、转换前后的样子
+pub async fn column_kind_preview(State(db): State<AppState>, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Envelope<crate::dataset_alter::KindPreview>>> {
+    let req: crate::dataset_alter::KindChange = parse_json(&body)?;
+    Ok(ok(blocking(&db, move |conn| crate::dataset_alter::preview(conn, &id, &req)).await?))
+}
+
+/// PUT /api/ledger/datasets/{id}/columns/kind  { column, kind, acceptLoss? }  修改列类型（就地转换；有值转不过来时要 acceptLoss）
+pub async fn column_kind_apply(State(db): State<AppState>, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Envelope<crate::dataset_alter::KindPreview>>> {
+    let req: crate::dataset_alter::KindChange = parse_json(&body)?;
+    let _guard = db.import_lock.lock().await;
+    let r = blocking(&db, move |conn| crate::dataset_alter::apply(conn, &id, &req)).await?;
+    db.cursors.invalidate();
+    db.checkpoint();
+    Ok(ok(r))
+}
+
 /// DELETE /api/ledger/datasets/{id}?operator=  删除数据集：移到回收站（数据保留，可恢复）
 pub async fn delete_dataset(State(db): State<AppState>, Path(id): Path<String>, Query(q): Query<OperatorQuery>) -> AppResult<Json<Envelope<i64>>> {
     let _guard = db.import_lock.lock().await;

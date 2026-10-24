@@ -353,6 +353,8 @@ const ROUTES: &[(&str, &str, Rule, &str)] = &[
     ("POST", "/ledger/datasets/{id}/untrash", Dataset, "恢复数据集"),
     ("DELETE", "/ledger/datasets/{id}/purge", Dataset, "彻底删除数据集"),
     ("PUT", "/ledger/datasets/{id}", Dataset, "重命名数据集"),
+    ("POST", "/ledger/datasets/{id}/columns/kind/preview", Dataset, ""),
+    ("PUT", "/ledger/datasets/{id}/columns/kind", Dataset, "修改列类型"),
     ("DELETE", "/ledger/datasets/{id}", Dataset, "删除数据集"),
     ("POST", "/ledger/datasets/{id}/cursor", Open, ""),
     ("POST", "/ledger/datasets/{id}/stats", Open, ""),
@@ -953,7 +955,7 @@ const FULL_ONLY: &[(&str, &str)] = &[
     ("POST", "/ledger/datasets/external/preview"), ("POST", "/ledger/datasets/external"), ("POST", "/ledger/datasets/{id}/external/refresh"),
     ("POST", "/ledger/datasets/input"), ("GET", "/ledger/writebacks"), ("POST", "/ledger/writebacks/{id}/undo"),
     ("GET", "/ledger/datasets/trash"), ("DELETE", "/ledger/datasets/trash"), ("POST", "/ledger/datasets/{id}/untrash"), ("DELETE", "/ledger/datasets/{id}/purge"),
-    ("PUT", "/ledger/datasets/{id}"), ("DELETE", "/ledger/datasets/{id}"),
+    ("PUT", "/ledger/datasets/{id}"), ("DELETE", "/ledger/datasets/{id}"), ("POST", "/ledger/datasets/{id}/columns/kind/preview"), ("PUT", "/ledger/datasets/{id}/columns/kind"),
     ("POST", "/ledger/datasets/{id}/calc"), ("PUT", "/ledger/datasets/{id}/calc/{name}"), ("DELETE", "/ledger/datasets/{id}/calc/{name}"),
     ("GET", "/ledger/datasets/{id}/usage"),
     // 保存的 SQL、定时推送、模板发布、数据连接、数据范围设置：按服务账号运行或会列出别人的配置

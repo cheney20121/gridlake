@@ -209,6 +209,34 @@ export function commitDatasetImportApi(data: {
   return request<ImportOutcome>({ url: url('/import/commit'), method: 'post', data, timeout: 30 * 60 * 1000 })
 }
 
+/** 修改列类型的预览 / 结果 */
+export interface ColumnKindPreview {
+  column: string
+  from: DatasetColumnKind
+  to: DatasetColumnKind
+  /** 非空值个数 */
+  values: number
+  /** 转不过来、会变成空值的个数与例子 */
+  lost: number
+  lostSamples: string[]
+  /** 认不出、按原文保留的个数（改成日期时间时） */
+  kept: number
+  /** [转换前, 转换后] */
+  samples: [string, CellValue][]
+  warnings: string[]
+  applied: boolean
+}
+
+/** 预览把某一列改成另一种类型（不改数据） */
+export function previewColumnKindApi(id: string, column: string, kind: DatasetColumnKind) {
+  return request<ColumnKindPreview>({ url: url(`/${id}/columns/kind/preview`), method: 'post', data: { column, kind }, timeout: 5 * 60 * 1000 })
+}
+
+/** 修改列类型（就地转换）；有值转不过来时要 acceptLoss；会让计算列、关联视图失效时服务端整体取消并说明原因 */
+export function changeColumnKindApi(id: string, column: string, kind: DatasetColumnKind, acceptLoss: boolean) {
+  return request<ColumnKindPreview>({ url: url(`/${id}/columns/kind`), method: 'put', data: { column, kind, acceptLoss }, timeout: 30 * 60 * 1000 })
+}
+
 export function renameDatasetApi(id: string, name: string) {
   return request<boolean>({ url: url(`/${id}`), method: 'put', data: { name } })
 }

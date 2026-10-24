@@ -2979,5 +2979,17 @@
   "执行只读 SQL，取第一行第一列：SQLVALUE(\"SELECT sum(金额) FROM 订单\")；参数的写法与 SQL 函数相同": "Runs read-only SQL and returns the first column of the first row: SQLVALUE(\"SELECT sum(amount) FROM orders\"); parameters work as in the SQL function",
   "<span style=\"color:#B91C1C\">{0} 个公式使用了当前不支持的函数（显示 #NAME?）：{1}</span>": "<span style=\"color:#B91C1C\">{0} formula(s) use functions that are not supported yet (shown as #NAME?): {1}</span>",
   "不支持的函数 {0}：{1}": "Unsupported function {0}: {1}",
-  "不认识的函数 {0}（拼错了？）": "Unknown function {0} (typo?)"
+  "不认识的函数 {0}（拼错了？）": "Unknown function {0} (typo?)",
+  "「{0}」已改为{1}列": "\"{0}\" is now a {1} column",
+  "更改列类型": "Change column type",
+  "当前：{0}": "Now: {0}",
+  "选择新类型": "New type",
+  "正在检查每个值能否转换…": "Checking whether every value converts…",
+  "{0} 个值里有 {1} 个转不成{2}，会变成空值：{3}": "{1} of {0} values cannot become {2} and will be blank: {3}",
+  "{0} 个值都能转换": "All {0} values convert",
+  "{0} 个值认不出是日期，按原文保留": "{0} values are not recognizable dates and are kept as text",
+  "现在": "Now",
+  "改成{0}后": "As {0}",
+  "仍然修改（{0} 个值变成空）": "Change anyway ({0} values become blank)",
+  "更改列类型（现在是{0}）…": "Change column type (now {0})…"
 }
