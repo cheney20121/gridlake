@@ -893,5 +893,11 @@
   "Webhook 已停用，请先启用": "The webhook is disabled; enable it first",
   "发送记录丢失": "The delivery record is missing",
   "自动检查的间隔应在 1 ~ {0} 分钟之间": "The auto-check interval must be between 1 and {0} minutes",
-  "请选择数据集（可能已被删除）": "Please choose a dataset (it may have been deleted)"
+  "请选择数据集（可能已被删除）": "Please choose a dataset (it may have been deleted)",
+  "{0} 后面要跟{1}\n{2}": "{0} must be followed by {1}\n{2}",
+  "行数不对：{0}": "Invalid row count: {0}",
+  "行数应在 1000 ~ {0} 之间": "The row count must be between 1000 and {0}",
+  "端口号不对：{0}": "Invalid port: {0}",
+  "不认识的参数：{0}\n{1}": "Unknown argument: {0}\n{1}",
+  "删除 {0} 失败：{1}": "Failed to delete {0}: {1}"
 }

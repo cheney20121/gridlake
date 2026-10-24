@@ -52,6 +52,16 @@ Gridlake 的做法是：**界面是 Excel 式的表格，大数据集在服务�
 
 ## 快速开始
 
+### 先看看效果：`gridlake demo`
+
+下载发布包（[Releases](https://github.com/cheney20121/gridlake/releases)）解压后：
+
+```bash
+bin/gridlake demo        # 生成示例数据，几秒后自动弹出浏览器
+```
+
+生成 100 万行订单（时间截止到今天）、库存流水、往来明细，并用内置模板做好三个工作簿——月度经营分析、库存进销存、应收应付对账，打开就能点切片器、看透视和图表、写公式。数据放在单独的演示库 `~/.gridlake/demo.duckdb`，不碰别的数据；再运行一次直接打开，`--reset` 重新生成，`--rows 10000000` 试试更大的。只监听本机、不需要登录。
+
 ### 在自己电脑上打开一个文件
 
 下载发布包（[Releases](https://github.com/cheney20121/gridlake/releases)）解压后，一条命令就能用表格界面打开本机的数据文件：

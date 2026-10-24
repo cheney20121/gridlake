@@ -34,6 +34,7 @@ mod dataset_trash;
 mod dataset_import;
 mod dataset_alter;
 mod db;
+mod demo;
 mod ecommerce;
 mod error;
 mod external;
@@ -83,6 +84,7 @@ use tower_http::trace::TraceLayer;
 const USAGE: &str = "用法：
   gridlake                       启动服务
   gridlake open [文件或目录...]    在本机打开数据文件（Parquet 直接查询、CSV / XLSX 导入），自动打开浏览器；--port、--db、--no-browser
+  gridlake demo                  一条命令体验：生成示例数据（订单 100 万行等）和三个示例工作簿，打开浏览器；--rows、--reset、--port、--db、--no-browser
   gridlake check                 离线检查数据文件（服务需停止）
   gridlake backup [目录]          离线备份（服务运行中请用 curl -X POST http://127.0.0.1:8787/api/admin/backup）
   gridlake restore <文件> [--yes]  从备份恢复（服务需停止；原文件改名保留）
@@ -95,7 +97,7 @@ fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let cmd = args.first().map(String::as_str).unwrap_or("serve");
     // gridlake open 是给个人用的：默认只显示警告和错误，界面上只留打开了什么、去哪儿看（RUST_LOG 仍可改）
-    let default_filter = if cmd == "open" { "gridlake=warn,tower_http=warn" } else { "gridlake=info,tower_http=info" };
+    let default_filter = if matches!(cmd, "open" | "demo") { "gridlake=warn,tower_http=warn" } else { "gridlake=info,tower_http=info" };
     let filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| default_filter.into());
     // LEDGER_LOG_FORMAT=json：每行一个 JSON，便于日志系统采集
     if std::env::var("LEDGER_LOG_FORMAT").is_ok_and(|v| v.trim().eq_ignore_ascii_case("json")) {
@@ -149,6 +151,40 @@ fn main() -> anyhow::Result<()> {
                 };
                 if has_web {
                     println!("在浏览器里打开：{url}\n按 Ctrl+C 退出");
+                    if browser {
+                        open::open_browser(&url);
+                    }
+                } else {
+                    println!("接口地址：http://{addr}/api\n按 Ctrl+C 退出");
+                }
+                Ok(())
+            });
+            tokio::runtime::Builder::new_multi_thread().enable_all().build()?.block_on(serve(config, Some(ready)))
+        }
+        "demo" => {
+            if args.iter().any(|a| a == "--help" || a == "-h") {
+                println!("{}", demo::USAGE);
+                return Ok(());
+            }
+            let a = demo::parse_args(&args[1..])?;
+            demo::configure(&mut config, &a)?;
+            let (rows, browser, has_web) = (a.rows, a.browser, config.web_dir.is_some());
+            if !has_web {
+                println!("没有找到前端页面（发布包里与 bin/ 同级的 web/ 目录，或用 LEDGER_WEB_DIR 指定）：只启动接口服务");
+            }
+            println!("演示库：{}", a.db.display());
+            let ready: Ready = Box::new(move |state, addr| {
+                let conn = state.connection()?;
+                println!("正在准备示例数据…");
+                let (workbook, lines) = demo::seed(state, &conn, rows)?;
+                state.cursors.invalidate();
+                state.checkpoint();
+                for l in &lines {
+                    println!("  {l}");
+                }
+                let url = format!("http://{addr}/excel?wb={workbook}");
+                if has_web {
+                    println!("在浏览器里打开：{url}\n首页（全部示例）：http://{addr}/excel/home\n按 Ctrl+C 退出");
                     if browser {
                         open::open_browser(&url);
                     }

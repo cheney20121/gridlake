@@ -50,6 +50,14 @@ Measured on 100M rows × 8 columns of synthetic order data (MacBook, 8 cores, 16
 
 ## Quick start
 
+**See it first** — download a release package, unpack it, and run:
+
+```bash
+bin/gridlake demo        # generates sample data and opens your browser a few seconds later
+```
+
+It generates 1 million orders (dated up to today), stock movements and receivables / payables, and builds three workbooks from the built-in templates — monthly operations, inventory, and AR / AP reconciliation — so slicers, pivots, charts and formulas work right away. Everything lives in a separate demo database (`~/.gridlake/demo.duckdb`); running it again just reopens it, `--reset` regenerates, and `--rows 10000000` tries a bigger one. Localhost only, no login.
+
 **Open a file on your own machine** — download a release package, unpack it, and run:
 
 ```bash

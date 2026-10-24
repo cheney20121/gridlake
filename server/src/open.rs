@@ -47,13 +47,16 @@ pub fn parse_args(args: &[String]) -> anyhow::Result<OpenArgs> {
     Ok(out)
 }
 
-/// 个人库的默认位置：GRIDLAKE_HOME，其次 ~/.gridlake
-fn default_db() -> PathBuf {
-    let home = std::env::var_os("GRIDLAKE_HOME")
+/// 个人库所在的目录：GRIDLAKE_HOME，其次 ~/.gridlake
+pub fn home_dir() -> PathBuf {
+    std::env::var_os("GRIDLAKE_HOME")
         .map(PathBuf::from)
         .or_else(|| std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")).map(|h| PathBuf::from(h).join(".gridlake")))
-        .unwrap_or_else(|| PathBuf::from(".gridlake"));
-    home.join("open.duckdb")
+        .unwrap_or_else(|| PathBuf::from(".gridlake"))
+}
+
+fn default_db() -> PathBuf {
+    home_dir().join("open.duckdb")
 }
 
 /// 程序旁边的前端页面：发布包里是 bin/gridlake + web/
@@ -148,34 +151,41 @@ pub fn register(conn: &Connection, source: &Source, roots: &[PathBuf], tmp_dir: 
             let x = dataset::dataset(conn, &id).map_err(app)?.external.map(|x| (x.file_count, x.rows)).unwrap_or_default();
             Ok(Opened { id, summary: format!("{name}：直接查询 {} 个 Parquet 文件，{} 行（不复制）", x.0, x.1) })
         }
-        Source::Import { file, name } => {
-            let token = format!("open{}", chrono::Local::now().format("%Y%m%d%H%M%S%f"));
-            let file_name = file.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
-            // 导入管线处理完会删掉上传的文件：先复制一份
-            let upload = tmp_dir.join(format!("preview-{token}-src.upload"));
-            std::fs::copy(file, &upload)?;
-            let (staged_name, _) = crate::import_source::prepare(conn, tmp_dir, &token, vec![crate::import_source::Upload { name: file_name, path: upload }]).map_err(app)?;
-            let staged = crate::dataset_import::staged_path(tmp_dir, &token, &staged_name).map_err(app)?;
-            let result = (|| -> anyhow::Result<Opened> {
-                let p = crate::dataset_import::preview(conn, &staged, &token, &staged_name).map_err(app)?;
-                let target = existing(name, "table")?;
-                let req = crate::dataset_import::CommitRequest {
-                    token: token.clone(),
-                    mode: if target.is_some() { crate::dataset_import::Mode::Replace } else { crate::dataset_import::Mode::Create },
-                    dataset_id: target,
-                    name: Some(unique_name(conn, name)?),
-                    columns: p.columns.iter().map(|c| crate::dataset_import::CommitColumn { source: c.source.clone(), title: c.title.clone(), kind: c.kind.clone(), include: true }).collect(),
-                    primary_key: vec![],
-                    file_name: staged_name.clone(),
-                };
-                let o = crate::dataset_import::commit(conn, &staged, &req, tmp_dir).map_err(app)?;
-                Ok(Opened { id: o.dataset_id, summary: format!("{}：导入 {} 行", o.name, o.inserted) })
-            })();
-            let _ = std::fs::remove_file(&staged);
-            let _ = std::fs::remove_file(crate::import_source::hints_path(&staged));
-            result
-        }
+        Source::Import { file, name } => import_file(conn, file, name, tmp_dir, &std::collections::HashMap::new()),
     }
+}
+
+/// 导入一个表格文件成数据集（同名的导入数据集已存在时整体替换）；kinds 可以指定某些列的类型（列名 → 类型），其余按推断
+pub fn import_file(conn: &Connection, file: &Path, name: &str, tmp_dir: &Path, kinds: &std::collections::HashMap<&str, &str>) -> anyhow::Result<Opened> {
+    let existing = dataset::datasets(conn).map_err(app)?.into_iter().find(|d| d.name == name && d.kind == "table").map(|d| d.id);
+    let token = format!("open{}", chrono::Local::now().format("%Y%m%d%H%M%S%f"));
+    let file_name = file.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+    // 导入管线处理完会删掉上传的文件：先复制一份
+    let upload = tmp_dir.join(format!("preview-{token}-src.upload"));
+    std::fs::copy(file, &upload)?;
+    let (staged_name, _) = crate::import_source::prepare(conn, tmp_dir, &token, vec![crate::import_source::Upload { name: file_name, path: upload }]).map_err(app)?;
+    let staged = crate::dataset_import::staged_path(tmp_dir, &token, &staged_name).map_err(app)?;
+    let result = (|| -> anyhow::Result<Opened> {
+        let p = crate::dataset_import::preview(conn, &staged, &token, &staged_name).map_err(app)?;
+        let req = crate::dataset_import::CommitRequest {
+            token: token.clone(),
+            mode: if existing.is_some() { crate::dataset_import::Mode::Replace } else { crate::dataset_import::Mode::Create },
+            dataset_id: existing.clone(),
+            name: Some(if existing.is_some() { name.to_string() } else { unique_name(conn, name)? }),
+            columns: p
+                .columns
+                .iter()
+                .map(|c| crate::dataset_import::CommitColumn { source: c.source.clone(), title: c.title.clone(), kind: kinds.get(c.title.as_str()).map_or_else(|| c.kind.clone(), |k| k.to_string()), include: true })
+                .collect(),
+            primary_key: vec![],
+            file_name: staged_name.clone(),
+        };
+        let o = crate::dataset_import::commit(conn, &staged, &req, tmp_dir).map_err(app)?;
+        Ok(Opened { id: o.dataset_id, summary: format!("{}：导入 {} 行", o.name, o.inserted) })
+    })();
+    let _ = std::fs::remove_file(&staged);
+    let _ = std::fs::remove_file(crate::import_source::hints_path(&staged));
+    result
 }
 
 /// 调整配置：个人库、只听本机、不登录、不备份、不启用场景包，允许读这些文件所在的目录
