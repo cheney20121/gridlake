@@ -216,6 +216,51 @@ export function createWindowApi(datasetId: string, spec: WindowSpec & { name: st
   return request<{ id: string, datasetId: string | null, lastRows: number | null }>({ url: url(`/${datasetId}/window`), method: 'post', data: spec, timeout: 10 * 60 * 1000 })
 }
 
+/** 数据清洗：服务端整表执行，可撤销最近一次（只限数据表的所有者 / 管理员） */
+export type CleanOp
+  = | { op: 'dedupe', columns: string[] }
+    | { op: 'trim', columns: string[] }
+    | { op: 'replace', column: string, find: string, replace: string, whole: boolean }
+    | { op: 'fill', column: string, value?: string, down: boolean }
+    | { op: 'delete_rows', spec: DatasetQuery }
+
+export interface CleanPreview {
+  summary: string
+  affected: number
+  rows: number
+  /** 删除行（否则是修改格子） */
+  deletes: boolean
+  columns: string[]
+  samples: { before: CellValue[], after?: CellValue[] }[]
+  applied: boolean
+}
+
+export interface LastClean {
+  summary: string
+  affected: number
+  deletes: boolean
+  operator: string
+  createdAt: string
+  canUndo: boolean
+  reason?: string
+}
+
+export function previewCleanApi(datasetId: string, op: CleanOp, signal?: AbortSignal) {
+  return request<CleanPreview>({ url: url(`/${datasetId}/clean/preview`), method: 'post', data: op, signal, timeout: 5 * 60 * 1000 })
+}
+
+export function applyCleanApi(datasetId: string, op: CleanOp) {
+  return request<CleanPreview>({ url: url(`/${datasetId}/clean`), method: 'post', data: op, timeout: 10 * 60 * 1000 })
+}
+
+export function lastCleanApi(datasetId: string) {
+  return request<LastClean | null>({ url: url(`/${datasetId}/clean`), method: 'get' })
+}
+
+export function undoCleanApi(datasetId: string) {
+  return request<LastClean>({ url: url(`/${datasetId}/clean/undo`), method: 'post', timeout: 10 * 60 * 1000 })
+}
+
 export function getDistinctApi(datasetId: string, data: DatasetQuery & { column: string, search?: string }, signal?: AbortSignal) {
   return request<DistinctResult>({ url: url(`/${datasetId}/distinct`), method: 'post', data, signal })
 }

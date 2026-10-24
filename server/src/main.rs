@@ -25,6 +25,7 @@ mod approval;
 mod account;
 mod auth;
 mod calc;
+mod clean;
 mod config;
 mod connector;
 mod comment;
@@ -278,6 +279,9 @@ async fn serve(config: config::Config, ready: Option<Ready>) -> anyhow::Result<(
         .route("/ledger/datasets/{id}", axum::routing::put(routes::rename_dataset).delete(routes::delete_dataset))
         .route("/ledger/datasets/{id}/columns/kind/preview", post(routes::column_kind_preview))
         .route("/ledger/datasets/{id}/columns/kind", put(routes::column_kind_apply))
+        .route("/ledger/datasets/{id}/clean/preview", post(routes::clean_preview))
+        .route("/ledger/datasets/{id}/clean", get(routes::clean_last).post(routes::clean_apply))
+        .route("/ledger/datasets/{id}/clean/undo", post(routes::clean_undo))
         .route("/ledger/datasets/{id}/cursor", post(routes::open_cursor))
         .route("/ledger/datasets/{id}/rows", get(routes::dataset_rows))
         .route("/ledger/datasets/{id}/stats", post(routes::dataset_stats))

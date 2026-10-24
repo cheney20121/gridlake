@@ -356,6 +356,10 @@ const ROUTES: &[(&str, &str, Rule, &str)] = &[
     ("PUT", "/ledger/datasets/{id}", Dataset, "重命名数据集"),
     ("POST", "/ledger/datasets/{id}/columns/kind/preview", Dataset, ""),
     ("PUT", "/ledger/datasets/{id}/columns/kind", Dataset, "修改列类型"),
+    ("POST", "/ledger/datasets/{id}/clean/preview", Dataset, ""),
+    ("GET", "/ledger/datasets/{id}/clean", Dataset, ""),
+    ("POST", "/ledger/datasets/{id}/clean", Dataset, "数据清洗"),
+    ("POST", "/ledger/datasets/{id}/clean/undo", Dataset, "撤销数据清洗"),
     ("DELETE", "/ledger/datasets/{id}", Dataset, "删除数据集"),
     ("POST", "/ledger/datasets/{id}/cursor", Open, ""),
     ("POST", "/ledger/datasets/{id}/stats", Open, ""),
@@ -970,6 +974,8 @@ const FULL_ONLY: &[(&str, &str)] = &[
     ("POST", "/ledger/datasets/input"), ("GET", "/ledger/writebacks"), ("POST", "/ledger/writebacks/{id}/undo"),
     ("GET", "/ledger/datasets/trash"), ("DELETE", "/ledger/datasets/trash"), ("POST", "/ledger/datasets/{id}/untrash"), ("DELETE", "/ledger/datasets/{id}/purge"),
     ("PUT", "/ledger/datasets/{id}"), ("DELETE", "/ledger/datasets/{id}"), ("POST", "/ledger/datasets/{id}/columns/kind/preview"), ("PUT", "/ledger/datasets/{id}/columns/kind"),
+    // 数据清洗直接改整张表：数据范围受限的用户不能用（会改到范围外的行）
+    ("POST", "/ledger/datasets/{id}/clean/preview"), ("GET", "/ledger/datasets/{id}/clean"), ("POST", "/ledger/datasets/{id}/clean"), ("POST", "/ledger/datasets/{id}/clean/undo"),
     ("POST", "/ledger/datasets/{id}/calc"), ("PUT", "/ledger/datasets/{id}/calc/{name}"), ("DELETE", "/ledger/datasets/{id}/calc/{name}"),
     ("GET", "/ledger/datasets/{id}/usage"),
     // 保存的 SQL、定时推送、模板发布、数据连接、数据范围设置：按服务账号运行或会列出别人的配置

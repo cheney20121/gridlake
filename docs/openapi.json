@@ -4102,6 +4102,170 @@
         ]
       }
     },
+    "/ledger/datasets/{id}/clean": {
+      "get": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "最近一次清洗与能否撤销（没有时为 null）",
+        "description": "最近一次清洗与能否撤销（没有时为 null）",
+        "operationId": "get_ledger_datasets_by_id_clean",
+        "x-permission": "数据集所有者或管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "执行数据清洗（可撤销最近一次）",
+        "description": "{ op, … }  执行数据清洗（可撤销最近一次）",
+        "operationId": "post_ledger_datasets_by_id_clean",
+        "x-permission": "数据集所有者或管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-audit": "数据清洗",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CleanOp"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ledger/datasets/{id}/clean/preview": {
+      "post": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "数据清洗预览：多少行受影响、改之前 / 之后的样例",
+        "description": "{ op: dedupe|trim|replace|fill|delete_rows, … }  数据清洗预览：多少行受影响、改之前 / 之后的样例",
+        "operationId": "post_ledger_datasets_by_id_clean_preview",
+        "x-permission": "数据集所有者或管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CleanOp"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ledger/datasets/{id}/clean/undo": {
+      "post": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "撤销最近一次清洗（之后数据集没有别的改动时）",
+        "description": "撤销最近一次清洗（之后数据集没有别的改动时）",
+        "operationId": "post_ledger_datasets_by_id_clean_undo",
+        "x-permission": "数据集所有者或管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-audit": "撤销数据清洗",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
     "/ledger/datasets/{id}/columns/kind": {
       "put": {
         "tags": [
@@ -9552,6 +9716,7 @@
           }
         }
       },
+      "CleanOp": {},
       "CloseAction": {
         "type": "object",
         "properties": {

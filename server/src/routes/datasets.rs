@@ -298,6 +298,40 @@ pub async fn column_kind_apply(State(db): State<AppState>, Path(id): Path<String
     Ok(ok(r))
 }
 
+/// POST /api/ledger/datasets/{id}/clean/preview  { op: dedupe|trim|replace|fill|delete_rows, … }  数据清洗预览：多少行受影响、改之前 / 之后的样例
+pub async fn clean_preview(State(db): State<AppState>, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Envelope<crate::clean::CleanPreview>>> {
+    let op: crate::clean::CleanOp = parse_json(&body)?;
+    Ok(ok(blocking_heavy(&db, move |conn| crate::clean::preview(conn, &id, &op)).await?))
+}
+
+/// POST /api/ledger/datasets/{id}/clean  { op, … }  执行数据清洗（可撤销最近一次）
+pub async fn clean_apply(State(db): State<AppState>, Extension(user): Extension<CurrentUser>, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Envelope<crate::clean::CleanPreview>>> {
+    let op: crate::clean::CleanOp = parse_json(&body)?;
+    let (did, operator) = (id.clone(), user.name.clone());
+    let _guard = db.import_lock.lock().await;
+    let r = blocking(&db, move |conn| crate::clean::apply(conn, &did, &op, &operator)).await?;
+    db.cursors.invalidate();
+    db.checkpoint();
+    crate::sqlq::on_data_changed(&db, &id);
+    Ok(ok(r))
+}
+
+/// GET /api/ledger/datasets/{id}/clean  最近一次清洗与能否撤销（没有时为 null）
+pub async fn clean_last(State(db): State<AppState>, Path(id): Path<String>) -> AppResult<Json<Envelope<Option<crate::clean::LastClean>>>> {
+    Ok(ok(blocking(&db, move |conn| crate::clean::last(conn, &id)).await?))
+}
+
+/// POST /api/ledger/datasets/{id}/clean/undo  撤销最近一次清洗（之后数据集没有别的改动时）
+pub async fn clean_undo(State(db): State<AppState>, Extension(user): Extension<CurrentUser>, Path(id): Path<String>) -> AppResult<Json<Envelope<crate::clean::LastClean>>> {
+    let (did, operator) = (id.clone(), user.name.clone());
+    let _guard = db.import_lock.lock().await;
+    let r = blocking(&db, move |conn| crate::clean::undo(conn, &did, &operator)).await?;
+    db.cursors.invalidate();
+    db.checkpoint();
+    crate::sqlq::on_data_changed(&db, &id);
+    Ok(ok(r))
+}
+
 /// DELETE /api/ledger/datasets/{id}?operator=  删除数据集：移到回收站（数据保留，可恢复）
 pub async fn delete_dataset(State(db): State<AppState>, Extension(user): Extension<CurrentUser>, Path(id): Path<String>, Query(q): Query<OperatorQuery>) -> AppResult<Json<Envelope<i64>>> {
     let _guard = db.import_lock.lock().await;

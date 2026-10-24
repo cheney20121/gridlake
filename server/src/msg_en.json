@@ -911,5 +911,17 @@
   "「{0}」（{1}）的值列要是数值列，「{2}」是{3}列": "“{0}” ({1}) needs a numeric value column; “{2}” is a {3} column",
   "移动平均的行数应在 2 ~ {0} 之间": "The moving average window must be between 2 and {0} rows",
   "每组保留的行数至少是 1": "Keep at least 1 row per group",
-  "每组只保留前几行时要选择排序列": "Choose a column to order by when keeping only the first rows of each group"
+  "每组只保留前几行时要选择排序列": "Choose a column to order by when keeping only the first rows of each group",
+  "「{0}」不是导入 / 填报的数据表（关联视图、汇总、外部文件等的数据由来源决定），不能清洗": "“{0}” is not an imported or data-entry table (the data of joined views, summaries and external files comes from their sources), so it cannot be cleaned",
+  "列不存在：{0}（计算列不能清洗）": "Column not found: {0} (calculated columns cannot be cleaned)",
+  "请填写要填充的值": "Please enter the value to fill in",
+  "「{0}」不是{1}，不能填到「{2}」里": "“{0}” is not a {1} value and cannot be filled into “{2}”",
+  "请选择判断重复用的列": "Please choose the columns that define duplicates",
+  "「{0}」是{1}列，去空白只用于文本 / 编号列": "“{0}” is a {1} column; trimming applies to text and ID columns only",
+  "这个数据集没有文本列": "This dataset has no text columns",
+  "「{0}」是{1}列，查找替换只用于文本 / 编号列（数值列请改列类型或用填充）": "“{0}” is a {1} column; find and replace applies to text and ID columns only (change the column type or use fill for numeric columns)",
+  "请填写要查找的内容": "Please enter the text to find",
+  "请先筛选出要删除的行（没有筛选条件时不能整表删除；要清空请删除数据集）": "Filter the rows to delete first (without a filter the whole table cannot be deleted; delete the dataset to empty it)",
+  "没有需要处理的行": "No rows need this change",
+  "这个数据集没有清洗记录": "This dataset has not been cleaned"
 }

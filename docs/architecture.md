@@ -115,6 +115,12 @@ FROM read_parquet([<文件列表>], union_by_name = true, hive_partitioning = �
 
 `server/src/profile.rs`。概况把所有列要算的统计拼进**一条** `SELECT`（每列十来个聚合：`count`、`approx_count_distinct`、`min` / `max`、数值列的 `sum` / `avg` / `stddev_samp` / `approx_quantile`、`count(*) FILTER (WHERE …)` 数零、负数、空白、认不出的日期），DuckDB 一次扫描、多核并行算完；第二条 `SELECT` 只对估计不同值不超过 10 万的列做精确的 `count(DISTINCT …)`（HyperLogLog 在取值很少时误差反而大，而这些列的哈希表很小）。数据来源用 `dataset::dataset()`（数据范围受限时已换成带过滤的子查询），条件用 `dataset::rows_sql()`（与游标同一套筛选、关键字和汇总项规则），所以概况看到的行和数据表一致。单列分布是两三条按分档 / 日期前缀 / 取值的 `GROUP BY`。两个接口都走重计算并发闸门（`blocking_heavy`）。
 
+## 数据清洗
+
+`server/src/clean.rs`。每种清洗（删除重复行、去空白、查找替换、填充空值、删除筛选出的行）先由 `plan` 翻译成「哪些行」（条件）和「改成什么」（列 → 新值表达式），预览和执行共用同一份，所以预览的行数就是执行的行数。删除重复行按 `row_number() OVER (PARTITION BY 列 ORDER BY rowid) > 1` 找行，向下填充用 `last_value(… IGNORE NULLS) OVER (ORDER BY rowid …)`，删除筛选出的行复用数据表的筛选（`dataset::rows_sql`）。
+
+执行在导入锁里进行。撤销数据放在 `clean_undo.<数据集 id>`：删除是先把要删的整行 `SELECT *` 存下来；修改是存 `rowid` 和原值，新值先算进临时表再 `UPDATE … FROM`（避免在 UPDATE 里用窗口函数）。`ledger_clean` 每个数据集只记最近一次，并记下执行后数据集的 `updated_at` 和列结构；撤销前比对这两项，之后又有改动就拒绝撤销（不去猜怎么合并）。删除的行撤销后追加在表尾，行顺序会变。改到文本列时重算 `search_text`；最后调用 `sqlq::on_data_changed`。数据集彻底删除时一起清掉撤销数据。
+
 ## 窗口计算
 
 `server/src/window.rs`。计算列是在筛选、透视、公式下推的 SQL 里就地展开的表达式（`dataset::column_sql`），而窗口函数（`… OVER (…)`）不能出现在 WHERE 或别的聚合里，所以窗口计算不做成计算列，而是把结构化的设置（计算、分组、组内顺序、每组前 N 行）翻译成 `SELECT *, <窗口表达式> FROM 数据集 [QUALIFY …] ORDER BY 分组, 顺序`（标识符用 `schema::ident` 转义），交给 `sqlq::save` 保存为 SQL 查询并另存为数据集，计划默认是 `after_data`（源数据集更新后，见 `sqlq::on_data_changed`）。这样窗口结果是物化的普通列，所有基于数据集的功能都能用；代价是派生数据集占一份存储，更新有延迟（重算期间看到的是上一次的结果）。

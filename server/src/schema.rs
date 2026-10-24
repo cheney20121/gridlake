@@ -650,6 +650,21 @@ CREATE TABLE IF NOT EXISTS ledger_template_use (
   used_by VARCHAR,
   used_at TIMESTAMP
 );
+-- 数据清洗：每个数据集只留最近一次（撤销数据在 clean_undo schema 下与数据集同名的表里）；
+-- stamp 是执行后数据集的 updated_at（精确到微秒），shape 是当时的列与类型，之后有变化就不能撤销
+CREATE TABLE IF NOT EXISTS ledger_clean (
+  dataset_id VARCHAR PRIMARY KEY,
+  summary VARCHAR NOT NULL,
+  op VARCHAR NOT NULL,
+  deletes BOOLEAN NOT NULL,
+  affected BIGINT NOT NULL,
+  shape VARCHAR NOT NULL,
+  stamp VARCHAR NOT NULL,
+  operator VARCHAR,
+  created_at TIMESTAMP,
+  undone_at TIMESTAMP,
+  undone_by VARCHAR
+);
 -- 事件 Webhook：地址与签名密钥加密存放，events 为订阅的事件名（JSON 数组，["*"] 表示全部）
 CREATE TABLE IF NOT EXISTS ledger_webhook (
   id VARCHAR PRIMARY KEY,

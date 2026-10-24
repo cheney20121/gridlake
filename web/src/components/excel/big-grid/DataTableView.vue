@@ -14,6 +14,7 @@ import { useLedgerUserStore } from '@/stores/ledger-user'
 import { errorText } from '@/utils/busy-hint'
 import { formatMoney } from '@/utils/format-money'
 import BigGrid from './BigGrid.vue'
+import CleanDialog from './CleanDialog.vue'
 import ColumnKindDialog from './ColumnKindDialog.vue'
 import FilterMenu from './FilterMenu.vue'
 import ProfileDrawer from './ProfileDrawer.vue'
@@ -389,9 +390,24 @@ async function openGoto() {
 }
 
 const windowVisible = ref(false)
+/** 数据清洗：只有数据表（导入 / 填报的）的所有者或管理员，数据范围受限的不行 */
+const cleanVisible = ref(false)
+const canClean = computed(() => {
+  const d = props.dataset
+  const owner = !ledgerUser.authRequired || ledgerUser.isAdmin || (!!d.ownerId && d.ownerId === ledgerUser.user?.id)
+  return d.kind === 'table' && owner && !ledgerUser.restricted
+})
 
-function onMore(cmd: 'calc' | 'join' | 'window' | 'copy' | 'goto') {
-  if (cmd === 'window')
+/** 清洗改了数据（行数可能没变）：数据表重新取数，外层刷新数据集列表 */
+function onCleaned() {
+  openCursor(true)
+  emit('changed', props.dataset.id)
+}
+
+function onMore(cmd: 'calc' | 'join' | 'window' | 'clean' | 'copy' | 'goto') {
+  if (cmd === 'clean')
+    cleanVisible.value = true
+  else if (cmd === 'window')
     windowVisible.value = true
   else if (cmd === 'calc')
     emit('calc', props.dataset.id)
@@ -512,6 +528,9 @@ function exportData(format: 'csv' | 'xlsx') {
               </el-dropdown-item>
               <el-dropdown-item command="join">
                 {{ $t('关联…（按键带入另一个数据集的列）') }}
+              </el-dropdown-item>
+              <el-dropdown-item v-if="canClean" command="clean" data-testid="open-clean">
+                {{ $t('数据清洗…（去重、去空白、查找替换、填充空值）') }}
               </el-dropdown-item>
               <el-dropdown-item v-if="!ledgerUser.restricted" command="window" data-testid="open-window">
                 {{ $t('窗口计算…（累计、排名、占比，生成新数据集）') }}
@@ -643,6 +662,7 @@ function exportData(format: 'csv' | 'xlsx') {
       @close="menu = null"
       @change-kind="kindColumn = { title: menu!.column.title, kind: menu!.column.kind }; menu = null"
     />
+    <CleanDialog v-model:visible="cleanVisible" :dataset="dataset" :query="query" :filter-text="queryDesc" @changed="onCleaned" />
     <WindowCalcDialog v-model:visible="windowVisible" :dataset="dataset" @created="(id: string) => emit('openDataset', id)" />
     <ProfileDrawer v-model:visible="profileVisible" :dataset-id="dataset.id" :query="query" @filter="onProfileFilter" />
     <ColumnKindDialog :dataset-id="dataset.id" :column="kindColumn" @close="kindColumn = null" @changed="emit('changed', dataset.id)" />

@@ -36,6 +36,7 @@ Measured on 100M rows × 8 columns of synthetic order data (MacBook, 8 cores, 16
 ## Features
 
 - **Large datasets** — import CSV / Excel / Parquet / JSON; connect ClickHouse, MySQL / PostgreSQL, HTTP APIs; filter, sort, search, computed columns, joined views, trash.
+- **Data cleaning** — remove duplicate rows, trim whitespace, find and replace, fill empty values and delete filtered rows, with a before / after preview and undo for the last change.
 - **Window calculations** — running totals, ranks, previous-row comparisons, moving averages, group totals / shares and top N per group, computed over the whole table on the server into a new dataset that recomputes when the source updates.
 - **Column profiles** — for the current filters, one scan shows every column's empty values, distinct counts, ranges, mean / median and unrecognized dates; open a column for its histogram and most common values, and click a bar to filter by it (about 3 s on 10 million rows).
 - **Pivot tables** — computed on the server and written as normal sheets; calculated values and items, share / YoY / MoM, approximate quantiles, drill-down.
