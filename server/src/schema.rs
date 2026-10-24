@@ -91,8 +91,9 @@ pub fn search_text_sql() -> String {
 ///   （版本 2：数据范围规则从 ledger_data_scope 搬到 ledger_scope_rule——旧版读不到新规则会悄悄放开限制，所以必须拒绝打开）
 ///   （版本 3：账号可以启用两步验证——旧版不认识它，会让启用了两步验证的账号只凭密码登录，所以必须拒绝打开）
 ///   （版本 4：分享链接可以设访问密码——旧版不认识它，会让带密码的链接不输密码就能打开，所以必须拒绝打开）
+///   （版本 5：访问令牌可以限定数据集——旧版不认识它，会让限定了数据集的令牌访问全部数据集，所以必须拒绝打开）
 /// - 新版程序写过的数据文件，旧版程序拒绝打开（见 `check_version`），避免旧版悄悄读写出错。回退要用升级前的备份
-pub const SCHEMA_VERSION: i64 = 4;
+pub const SCHEMA_VERSION: i64 = 5;
 
 const META_SQL: &str = "CREATE TABLE IF NOT EXISTS ledger_meta (key VARCHAR PRIMARY KEY, value VARCHAR NOT NULL);";
 
@@ -140,6 +141,7 @@ pub fn migrate_sql() -> String {
          ALTER TABLE ledger_workbook ADD COLUMN IF NOT EXISTS folder_id VARCHAR;
          ALTER TABLE ledger_workbook ADD COLUMN IF NOT EXISTS starred BOOLEAN DEFAULT false;
          ALTER TABLE ledger_share ADD COLUMN IF NOT EXISTS password_hash VARCHAR;
+         ALTER TABLE ledger_pat ADD COLUMN IF NOT EXISTS datasets VARCHAR;
          ALTER TABLE ledger_workbook ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;
          ALTER TABLE ledger_workbook ADD COLUMN IF NOT EXISTS deleted_by VARCHAR;
          ALTER TABLE ledger_workbook ADD COLUMN IF NOT EXISTS owner_id VARCHAR;
@@ -425,7 +427,9 @@ CREATE TABLE IF NOT EXISTS ledger_pat (
   prefix VARCHAR NOT NULL,
   created_at TIMESTAMP,
   expires_at TIMESTAMP,
-  last_used_at TIMESTAMP
+  last_used_at TIMESTAMP,
+  -- 限定能访问的数据集 id（JSON 数组）；空表示不限
+  datasets VARCHAR
 );
 -- 工作簿的只读分享链接（只存摘要；见 share.rs）
 CREATE TABLE IF NOT EXISTS ledger_share (

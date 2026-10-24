@@ -3,8 +3,13 @@
 use super::*;
 
 /// GET /api/ledger/datasets  数据集与列定义
-pub async fn list_datasets(State(db): State<AppState>) -> AppResult<Json<Envelope<Vec<DatasetInfo>>>> {
-    Ok(ok(blocking(&db, dataset::list).await?))
+pub async fn list_datasets(State(db): State<AppState>, filter: Option<axum::extract::Extension<crate::auth::DatasetFilter>>) -> AppResult<Json<Envelope<Vec<DatasetInfo>>>> {
+    let mut all = blocking(&db, dataset::list).await?;
+    // 限定了数据集的访问令牌只看得到它限定的那几个
+    if let Some(axum::extract::Extension(crate::auth::DatasetFilter(allowed))) = filter {
+        all.retain(|d| allowed.contains(&d.def.id));
+    }
+    Ok(ok(all))
 }
 
 /// POST /api/ledger/datasets/{id}/cursor  QuerySpec → 游标（筛选 + 排序物化，按条件缓存）

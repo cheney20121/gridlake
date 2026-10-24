@@ -6994,7 +6994,7 @@
           "其他"
         ],
         "summary": "新建访问令牌",
-        "description": "{ name, days?, readOnly? }  新建访问令牌；响应里的 token 只显示这一次",
+        "description": "{ name, days?, readOnly?, datasets? }  新建访问令牌；响应里的 token 只显示这一次",
         "operationId": "post_ledger_tokens",
         "x-permission": "登录用户",
         "x-restricted-users": true,
@@ -9777,6 +9777,13 @@
           "eadOnly": {
             "type": "boolean",
             "description": "只读令牌：只能读取数据，写操作一律拒绝（适合报表、监控、给第三方看数据的脚本）"
+          },
+          "datasets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "限定能访问的数据集 id；不传或空表示不限"
           }
         },
         "required": [

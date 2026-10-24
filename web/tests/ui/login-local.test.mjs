@@ -24,7 +24,7 @@ function totp(secretB32, offset = 0) {
 const ARTIFACTS = path.join(path.dirname(fileURLToPath(import.meta.url)), '.artifacts')
 const skip = findChrome() ? false : '本机没有 Chrome / Chromium（可用 CHROME_BIN 指定）'
 // 未登录时 /ledger/me 之外的请求会 401（页面跳转登录前可能已发出）；故意输错密码时登录接口返回 400
-const ALLOWED = [/status of 400 .*\/ledger\/auth\/2fa\//, /status of 403 .*\/ledger\/folders/, /401|Unauthorized/i, /status of 400 .*\/ledger\/auth\/login/, /command "formula\.mutation\.set-trigger-formula-calculation-start" is not registered/]
+const ALLOWED = [/status of 400 .*\/ledger\/auth\/2fa\//, /status of 403 .*\/ledger\/folders/, /status of 403 .*\/ledger\/datasets\/.*\/cursor/, /401|Unauthorized/i, /status of 400 .*\/ledger\/auth\/login/, /command "formula\.mutation\.set-trigger-formula-calculation-start" is not registered/]
 
 describe('内置账号登录（界面）', { skip }, () => {
   let services
@@ -173,6 +173,36 @@ describe('内置账号登录（界面）', { skip }, () => {
     }
     catch (e) {
       await shot('login-local-4')
+      throw e
+    }
+  })
+
+  it('限定数据集的访问令牌：下拉里选数据集创建 → 只能访问选中的那一个', async () => {
+    try {
+      const post = (path, body) => page.eval(`fetch('/ledger-api/api/ledger/${path}', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-requested-with': 'XMLHttpRequest' }, body: ${JSON.stringify(JSON.stringify(body))} }).then(r => r.json())`)
+      const make = async name => (await post('datasets/input', { name, columns: [{ title: '单号', kind: 'text' }], primaryKey: ['单号'] })).data
+      const [open, secret] = [await make('令牌订单'), await make('令牌机密')]
+      const call = (token, id) => page.eval(`fetch('/ledger-api/api/ledger/datasets/${id}/cursor', { method: 'POST', headers: { Authorization: 'Bearer ${token}', 'Content-Type': 'application/json' }, body: '{"filters":[],"keyword":null,"sort":[],"rule":null}' }).then(r => r.status)`)
+      // 重新打开对话框，数据集下拉才会包含刚建的两个
+      await page.click('.ec-dialog__footer button', '关闭')
+      await page.waitFor(`![...document.querySelectorAll('input[data-testid="token-name"]')].some(e => e.offsetParent)`, { what: '对话框关闭' })
+      await page.click('[data-testid="user-menu"] .cursor-pointer')
+      await page.waitFor(`!!document.querySelector('[data-testid="user-menu-tokens"]')`, { what: '用户菜单' })
+      await page.click('[data-testid="user-menu-tokens"]')
+      await page.waitFor(`[...document.querySelectorAll('input[data-testid="token-name"]')].some(e => e.offsetParent)`, { what: '访问令牌对话框' })
+      await page.fill('input[data-testid="token-name"]', 'lim-test')
+      await page.click('[data-testid="token-datasets"] .ec-select__wrapper')
+      await page.waitFor(`[...document.querySelectorAll('.ec-select-dropdown__item')].some(e => e.offsetParent && e.innerText.includes('令牌订单'))`, { what: '下拉里有数据集' })
+      await page.click('.ec-select-dropdown__item', '令牌订单')
+      await page.click('[data-testid="token-create"]')
+      await page.waitFor(`!!document.querySelector('[data-testid="token-value"]')`, { what: '创建后显示完整令牌' })
+      const token = await page.eval(`document.querySelector('[data-testid="token-value"]').innerText.trim()`)
+      await page.waitFor(`[...document.querySelectorAll('.ec-dialog .ec-table__row')].some(r => r.innerText.includes('lim-test') && r.innerText.includes('限定 1 个数据集'))`, { what: '列表里标出限定' })
+      assert.equal(await call(token, open), 200, '选中的数据集可以访问')
+      assert.equal(await call(token, secret), 403, '没选的数据集被拒绝')
+    }
+    catch (e) {
+      await shot('login-local-5')
       throw e
     }
   })

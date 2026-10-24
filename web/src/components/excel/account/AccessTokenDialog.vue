@@ -2,6 +2,7 @@
 import type { AccessToken, CreatedAccessToken } from '@/api/auth'
 import { ref, watch } from 'vue'
 import { createAccessTokenApi, listAccessTokensApi, revokeAccessTokenApi } from '@/api/auth'
+import { getDatasetsApi } from '@/api/dataset'
 import { t } from '@/i18n'
 
 /**
@@ -14,6 +15,9 @@ const loading = ref(false)
 const name = ref('')
 const days = ref(90)
 const readOnly = ref(false)
+/** 限定的数据集（id）；空表示不限 */
+const limitedTo = ref<string[]>([])
+const datasetOptions = ref<{ id: string, name: string }[]>([])
 const creating = ref(false)
 const error = ref('')
 const created = ref<CreatedAccessToken | null>(null)
@@ -40,9 +44,13 @@ watch(visible, (v) => {
     name.value = ''
     days.value = 90
     readOnly.value = false
+    limitedTo.value = []
     error.value = ''
     created.value = null
     load()
+    getDatasetsApi().then((ds) => {
+      datasetOptions.value = ds.map(d => ({ id: d.id, name: d.name }))
+    }).catch(() => {})
   }
 })
 
@@ -52,8 +60,9 @@ async function create() {
     return (error.value = t('请填写令牌名称，如「CI」「数据同步脚本」'))
   creating.value = true
   try {
-    created.value = await createAccessTokenApi(name.value.trim(), days.value, readOnly.value)
+    created.value = await createAccessTokenApi(name.value.trim(), days.value, readOnly.value, limitedTo.value)
     name.value = ''
+    limitedTo.value = []
     await load()
   }
   catch (e) {
@@ -125,6 +134,22 @@ const origin = window.location.origin
         {{ $t('创建令牌') }}
       </el-button>
     </div>
+    <div class="mb-3 flex items-center gap-2">
+      <el-select
+        v-model="limitedTo"
+        multiple
+        collapse-tags
+        collapse-tags-tooltip
+        clearable
+        filterable
+        class="w-96"
+        data-testid="token-datasets"
+        :placeholder="$t('可访问的数据集（不选 = 不限）')"
+      >
+        <el-option v-for="d in datasetOptions" :key="d.id" :label="d.name" :value="d.id" />
+      </el-select>
+      <span class="text-xs text-gray-400">{{ $t('限定后只能读写这些数据集的数据，不能做其他操作') }}</span>
+    </div>
     <div v-if="error" class="mb-2 text-[13px] text-[#B91C1C]" data-testid="token-error">
       {{ error }}
     </div>
@@ -135,6 +160,9 @@ const origin = window.location.origin
           {{ row.name }}
           <el-tag v-if="row.readOnly" size="small" type="info" class="ml-1">
             {{ $t('只读令牌') }}
+          </el-tag>
+          <el-tag v-if="row.datasets.length" size="small" type="warning" class="ml-1" :title="row.datasets.map((d: { id: string, name: string | null }) => d.name ?? d.id).join('、')">
+            {{ $t('限定 {0} 个数据集', [row.datasets.length]) }}
           </el-tag>
         </template>
       </el-table-column>

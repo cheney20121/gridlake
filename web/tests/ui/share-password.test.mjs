@@ -64,6 +64,8 @@ describe('带访问密码的分享链接（界面）', { skip }, () => {
       await page.waitFor(`!!document.querySelector('input[placeholder*="搜索功能"]')`, { what: '命令面板' })
       await page.fill('input[placeholder*="搜索功能"]', '分享链接')
       await page.waitFor(`document.querySelector('[data-active="true"]')?.innerText.includes('分享链接')`, { what: '搜索到分享链接' })
+      // 工作表加载完成时会把焦点抢回画布：回车前确认焦点在搜索框里，否则回车会落到表格上（选中格下移）而不是执行命令
+      await page.eval(`document.querySelector('input[placeholder*="搜索功能"]')?.focus()`)
       await page.press('Enter')
       await page.waitFor(`!!document.querySelector('[data-testid="share-new-password"]')`, { what: '分享对话框' })
 

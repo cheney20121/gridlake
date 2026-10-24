@@ -80,6 +80,8 @@ pub fn level(user: &CurrentUser, owner_id: Option<&str>, visibility: &str) -> u8
 #[derive(Clone)]
 enum Cached {
     User(CurrentUser),
+    /// 限定了数据集的访问令牌：身份 + 能访问的数据集（id 和名称）
+    Limited(CurrentUser, Arc<std::collections::BTreeSet<String>>),
     Invalid(String),
 }
 
@@ -187,7 +189,7 @@ impl Auth {
             && at.elapsed() < Duration::from_secs(if matches!(c, Cached::User(_)) { self.cache_secs } else { 5 })
         {
             return match c {
-                Cached::User(u) => Ok(u),
+                Cached::User(u) | Cached::Limited(u, _) => Ok(u),
                 Cached::Invalid(m) => Err(AppError::Unauthorized(m)),
             };
         }
@@ -494,7 +496,7 @@ fn is_public(path: &str) -> bool {
 }
 
 /// 内置账号：按请求头 x-user-token 查会话（结果缓存 30 秒；账号变动时 clear_cache 立即作废）
-async fn local_user(db: &AppState, headers: &HeaderMap) -> AppResult<CurrentUser> {
+async fn local_user(db: &AppState, headers: &HeaderMap) -> AppResult<(CurrentUser, crate::pat::DatasetLimit)> {
     let token = crate::account::token_of(headers);
     if token.is_empty() {
         return Err(AppError::Unauthorized("请先登录".into()));
@@ -502,18 +504,19 @@ async fn local_user(db: &AppState, headers: &HeaderMap) -> AppResult<CurrentUser
     let auth = &db.auth;
     let key = crate::account::token_hash(&token);
     if let Some((at, c)) = auth.cache.lock().ok().and_then(|m| m.get(&key).cloned())
-        && at.elapsed() < Duration::from_secs(if matches!(c, Cached::User(_)) { 30 } else { 5 })
+        && at.elapsed() < Duration::from_secs(if matches!(c, Cached::User(_) | Cached::Limited(..)) { 30 } else { 5 })
     {
         return match c {
-            Cached::User(u) => Ok(u),
+            Cached::User(u) => Ok((u, None)),
+            Cached::Limited(u, limit) => Ok((u, Some(limit))),
             Cached::Invalid(m) => Err(AppError::Unauthorized(m)),
         };
     }
-    let found = run(db, move |c| if crate::pat::is_pat(&token) { crate::pat::user_for(c, &token) } else { crate::account::session_user(c, &token) }).await?;
+    let found = run(db, move |c| if crate::pat::is_pat(&token) { crate::pat::user_for(c, &token) } else { Ok(crate::account::session_user(c, &token)?.map(|u| (u, None))) }).await?;
     let result = match found {
-        Some(mut u) => {
+        Some((mut u, limit)) => {
             u.admin = u.admin || auth.is_admin_listed(&u.id, &u.name);
-            Ok(u)
+            Ok((u, limit))
         }
         None => Err("登录已失效，请重新登录".to_string()),
     };
@@ -522,7 +525,8 @@ async fn local_user(db: &AppState, headers: &HeaderMap) -> AppResult<CurrentUser
             m.retain(|_, (at, _)| at.elapsed() < Duration::from_secs(30));
         }
         m.insert(key, (Instant::now(), match &result {
-            Ok(u) => Cached::User(u.clone()),
+            Ok((u, None)) => Cached::User(u.clone()),
+            Ok((u, Some(limit))) => Cached::Limited(u.clone(), limit.clone()),
             Err(msg) => Cached::Invalid(msg.clone()),
         }));
     }
@@ -660,7 +664,14 @@ pub async fn guard(State(db): State<AppState>, ConnectInfo(peer): ConnectInfo<So
     let method = req.method().clone();
     let path = normalize(req.uri().path()).to_string();
 
-    let user = if auth.mode == AuthMode::Local { local_user(&db, req.headers()).await } else { auth.authenticate(req.headers(), peer.ip()).await };
+    let (user, token_datasets) = if auth.mode == AuthMode::Local {
+        match local_user(&db, req.headers()).await {
+            Ok((u, limit)) => (Ok(u), limit),
+            Err(e) => (Err(e), None),
+        }
+    } else {
+        (auth.authenticate(req.headers(), peer.ip()).await, None)
+    };
     if is_public(&path) {
         // 身份服务连不上时，/me 如实报错（否则前端会误以为没登录而反复跳转登录页）
         if let Err(e @ AppError::Unavailable(_)) = &user
@@ -696,6 +707,14 @@ pub async fn guard(State(db): State<AppState>, ConnectInfo(peer): ConnectInfo<So
     }
     if auth.mode == AuthMode::Local && crate::pat::is_read_only(&crate::account::token_of(req.headers())) && !read_only_allows(&method, &path) {
         return AppError::Forbidden("这是只读访问令牌，只能读取数据，不能执行修改类操作；需要写入请使用完全权限的令牌".into()).into_response();
+    }
+    // 限定了数据集的访问令牌：只能调用登记过的、按数据集 id 区分的接口，且只能是它限定的数据集
+    if let Some(limit) = token_datasets {
+        if method == Method::GET && path == "/ledger/datasets" {
+            req.extensions_mut().insert(DatasetFilter(limit));
+        } else if !dataset_limited_allows(&method, &path, &limit) {
+            return AppError::Forbidden("这个访问令牌限定了可访问的数据集：只能读写这些数据集的数据（取行、统计、聚合、透视、导出、写入），不能访问其他数据集或做其他操作；需要更多权限请创建不限定数据集的令牌".into()).into_response();
+        }
     }
     let ip = client_ip(req.headers(), peer.ip());
     remember_user(&db, &user);
@@ -950,6 +969,29 @@ pub(crate) const READ_ONLY_POST: &[&str] = &[
     "/ledger/sql/run",
     "/ledger/workbooks/ranges",
 ];
+
+/// 限定了数据集的访问令牌能调用的接口（方法，路径模板）：都是「路径里带数据集」的读写接口。默认拒绝：
+/// 没登记的接口（改定义、删除、SQL、工作簿……）一律不行，因为它们可能牵涉令牌限定范围之外的数据
+pub(crate) const DATASET_TOKEN_ROUTES: &[(&str, &str)] = &[
+    ("GET", "/ledger/datasets/{id}/rows"),
+    ("POST", "/ledger/datasets/{id}/cursor"),
+    ("POST", "/ledger/datasets/{id}/stats"),
+    ("POST", "/ledger/datasets/{id}/distinct"),
+    ("POST", "/ledger/datasets/{id}/aggregate"),
+    ("POST", "/ledger/datasets/{id}/pivot"),
+    ("GET", "/ledger/datasets/{id}/export"),
+    ("POST", "/ledger/datasets/{id}/writeback"),
+];
+
+/// 限定了数据集的令牌能不能发这个请求：接口在登记表里，且路径里的数据集（id 或名称）在限定范围内
+fn dataset_limited_allows(method: &Method, path: &str, limit: &std::collections::BTreeSet<String>) -> bool {
+    let m = if *method == Method::HEAD { "GET" } else { method.as_str() };
+    DATASET_TOKEN_ROUTES.iter().filter(|(rm, _)| *rm == m).any(|(_, t)| match_template(t, path).is_some_and(|p| p.iter().any(|(k, v)| k == "id" && limit.contains(v))))
+}
+
+/// 限定了数据集的访问令牌请求数据集列表时，只给它限定的那几个（见 [`dataset_limited_allows`]）
+#[derive(Clone)]
+pub struct DatasetFilter(pub Arc<std::collections::BTreeSet<String>>);
 
 /// 只读令牌能不能发这个请求
 fn read_only_allows(method: &Method, path: &str) -> bool {
@@ -1410,6 +1452,54 @@ mod tests {
     /// 新增接口必须明确它对「数据范围受限的用户」开放还是关闭：
     /// 在 RESTRICTED_OK（开放）、FULL_ONLY（关闭）或 ROUTES 里标为 Admin 三者之一登记，否则这个测试失败。
     /// 运行时未登记的接口本来就默认拒绝，这个测试是提醒开发者别漏掉
+    #[test]
+    fn dataset_limited_tokens_only_reach_their_own_datasets_through_listed_routes() {
+        let limit: std::collections::BTreeSet<String> = ["ds_1", "订单"].iter().map(|s| s.to_string()).collect();
+        let allow = |m: Method, p: &str| dataset_limited_allows(&m, p, &limit);
+        for (m, p) in [
+            (Method::GET, "/ledger/datasets/ds_1/rows"),
+            (Method::HEAD, "/ledger/datasets/ds_1/rows"),
+            (Method::POST, "/ledger/datasets/ds_1/cursor"),
+            (Method::POST, "/ledger/datasets/ds_1/writeback"),
+            (Method::GET, "/ledger/datasets/ds_1/export"),
+            (Method::POST, "/ledger/datasets/%E8%AE%A2%E5%8D%95/aggregate"),
+            (Method::POST, "/ledger/datasets/订单/aggregate"),
+        ] {
+            assert!(allow(m.clone(), p), "{m} {p}");
+        }
+        for (m, p) in [
+            (Method::GET, "/ledger/datasets/ds_2/rows"),
+            (Method::POST, "/ledger/datasets/ds_2/writeback"),
+            (Method::POST, "/ledger/datasets/成本/aggregate"),
+            // 登记表之外的接口：改定义、删除、计算列、关联、SQL、工作簿、令牌、账号……
+            (Method::PUT, "/ledger/datasets/ds_1"),
+            (Method::DELETE, "/ledger/datasets/ds_1"),
+            (Method::POST, "/ledger/datasets/ds_1/calc"),
+            (Method::POST, "/ledger/datasets/ds_1/purge"),
+            (Method::GET, "/ledger/datasets/ds_1/usage"),
+            (Method::POST, "/ledger/sql/run"),
+            (Method::POST, "/ledger/datasets/import/commit"),
+            (Method::GET, "/ledger/workbooks"),
+            (Method::POST, "/ledger/tokens"),
+            (Method::GET, "/ledger/accounts"),
+            (Method::GET, "/ledger/datasets"),
+            (Method::GET, "/ledger/datasets/ds_1/rows/extra"),
+        ] {
+            assert!(!allow(m.clone(), p), "{m} {p} 不应放行");
+        }
+        // 方法也要对得上：rows 只登记了 GET
+        assert!(!allow(Method::POST, "/ledger/datasets/ds_1/rows"));
+        assert!(!allow(Method::DELETE, "/ledger/datasets/ds_1/rows"));
+    }
+
+    #[test]
+    fn dataset_token_routes_are_real_routes() {
+        let registered = registered_routes();
+        for (m, t) in DATASET_TOKEN_ROUTES {
+            assert!(registered.iter().any(|(rm, rt)| rm == m && rt == t), "{m} {t} 没有在 main.rs 注册");
+        }
+    }
+
     #[test]
     fn routes_are_all_classified() {
         let listed = |tbl: &[(&str, &str)], m: &str, t: &str| tbl.iter().any(|(a, b)| *a == m && *b == t);

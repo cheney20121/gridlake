@@ -234,6 +234,8 @@ export interface AccessToken {
   expired: boolean
   /** 只读令牌（glr_ 开头）：只能读取数据，写操作一律被拒绝 */
   readOnly: boolean
+  /** 限定能访问的数据集（空表示不限）；name 为 null 表示数据集已被删除 */
+  datasets: { id: string, name: string | null }[]
 }
 
 export interface CreatedAccessToken extends AccessToken {
@@ -245,9 +247,9 @@ export function listAccessTokensApi() {
   return request<AccessToken[]>({ url: url('/tokens'), method: 'get' })
 }
 
-/** days 为 0 表示永不过期；readOnly 生成只读令牌 */
-export function createAccessTokenApi(name: string, days: number, readOnly = false) {
-  return request<CreatedAccessToken>({ url: url('/tokens'), method: 'post', data: { name, days, readOnly }, silent: true })
+/** days 为 0 表示永不过期；readOnly 生成只读令牌；datasets 非空时令牌只能访问这些数据集（id） */
+export function createAccessTokenApi(name: string, days: number, readOnly = false, datasets: string[] = []) {
+  return request<CreatedAccessToken>({ url: url('/tokens'), method: 'post', data: { name, days, readOnly, datasets }, silent: true })
 }
 
 export function revokeAccessTokenApi(id: string) {

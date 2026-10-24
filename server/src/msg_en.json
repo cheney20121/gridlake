@@ -860,5 +860,8 @@
   "访问密码最多 {0} 位": "The access password must be at most {0} characters",
   "这个分享链接没有设置访问密码": "This share link has no access password",
   "密码错误次数过多，请 10 分钟后再试": "Too many wrong passwords. Try again in 10 minutes",
-  "访问密码不正确": "The access password is incorrect"
+  "访问密码不正确": "The access password is incorrect",
+  "这个访问令牌限定了可访问的数据集：只能读写这些数据集的数据（取行、统计、聚合、透视、导出、写入），不能访问其他数据集或做其他操作；需要更多权限请创建不限定数据集的令牌": "This access token is limited to specific datasets: it can only read and write the data of those datasets (rows, statistics, aggregation, pivot, export, write) and cannot access other datasets or do anything else. Create a token without a dataset limit if you need more access",
+  "一个令牌最多限定 {0} 个数据集": "A token can be limited to at most {0} datasets",
+  "数据集不存在或无权访问：{0}": "The dataset does not exist or you have no access to it: {0}"
 }

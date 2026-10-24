@@ -174,6 +174,8 @@ describe('在线表格编辑器（界面）', { skip }, () => {
       await page.waitFor(`!!document.querySelector('input[placeholder*="搜索功能"]')`, { what: '命令面板打开' })
       await page.fill('input[placeholder*="搜索功能"]', '透视')
       await page.waitFor(`document.querySelector('[data-active="true"]')?.innerText.includes('数据透视表')`, { what: '搜索结果含「数据透视表」' })
+      // 工作表加载完成时会把焦点抢回画布：回车前确认焦点在搜索框里，否则回车会落到表格上（选中格下移）而不是执行命令
+      await page.eval(`document.querySelector('input[placeholder*="搜索功能"]')?.focus()`)
       await page.press('Enter')
       await page.waitFor(`document.querySelector('.side-panel .panel-title')?.innerText.includes('数据透视表字段')`, { what: '透视表字段面板' })
     })
@@ -206,6 +208,8 @@ describe('在线表格编辑器（界面）', { skip }, () => {
       await page.waitFor(`!!document.querySelector('input[placeholder*="搜索功能"]')`, { what: '命令面板' })
       await page.fill('input[placeholder*="搜索功能"]', '公式诊断')
       await page.waitFor(`document.querySelector('[data-active="true"]')?.innerText.includes('公式诊断')`, { what: '搜到公式诊断' })
+      // 工作表加载完成时会把焦点抢回画布：回车前确认焦点在搜索框里，否则回车会落到表格上（选中格下移）而不是执行命令
+      await page.eval(`document.querySelector('input[placeholder*="搜索功能"]')?.focus()`)
       await page.press('Enter')
       await page.waitFor(`!!document.querySelector('.ec-dialog')`, { what: '诊断对话框' })
       // 有循环引用时直接停在「循环引用」页签
@@ -334,6 +338,8 @@ describe('在线表格编辑器（界面）', { skip }, () => {
       await page.waitFor(`!!document.querySelector('input[placeholder*="搜索功能"]')`, { what: '命令面板' })
       await page.fill('input[placeholder*="搜索功能"]', '仪表盘')
       await page.waitFor(`document.querySelector('[data-active="true"]')?.innerText.includes('仪表盘')`, { what: '搜到仪表盘' })
+      // 工作表加载完成时会把焦点抢回画布：回车前确认焦点在搜索框里，否则回车会落到表格上（选中格下移）而不是执行命令
+      await page.eval(`document.querySelector('input[placeholder*="搜索功能"]')?.focus()`)
       await page.press('Enter')
       await page.waitFor(`[...document.querySelectorAll('.side-panel .part')].some(e => e.innerText.includes('明细表keep'))`, { what: '仪表盘面板列出这张表' })
       await page.click('.side-panel .part button', '编辑')
@@ -534,6 +540,8 @@ describe('在线表格编辑器（界面）', { skip }, () => {
       await page.waitFor(`!!document.querySelector('input[placeholder*="搜索功能"]')`, { what: '命令面板' })
       await page.fill('input[placeholder*="搜索功能"]', '评论')
       await page.waitFor(`document.querySelector('[data-active="true"]')?.innerText.includes('评论')`, { what: '搜到评论' })
+      // 工作表加载完成时会把焦点抢回画布：回车前确认焦点在搜索框里，否则回车会落到表格上（选中格下移）而不是执行命令
+      await page.eval(`document.querySelector('input[placeholder*="搜索功能"]')?.focus()`)
       await page.press('Enter')
       await page.waitFor(`document.querySelector('.side-panel .panel-title')?.innerText.includes('评论')`, { what: '评论面板' })
     }
@@ -1585,6 +1593,8 @@ describe('在线表格编辑器（界面）', { skip }, () => {
       await page.waitFor(`!!document.querySelector('input[placeholder*="搜索功能"]')`, { what: '命令面板' })
       await page.fill('input[placeholder*="搜索功能"]', 'SQL')
       await page.waitFor(`document.querySelector('[data-active="true"]')?.innerText.includes('SQL 查询')`, { what: '搜索到 SQL 查询' })
+      // 工作表加载完成时会把焦点抢回画布：回车前确认焦点在搜索框里，否则回车会落到表格上（选中格下移）而不是执行命令
+      await page.eval(`document.querySelector('input[placeholder*="搜索功能"]')?.focus()`)
       await page.press('Enter')
       await page.waitFor(`[...document.querySelectorAll('.ec-dialog, .ec-overlay-dialog')].some(d => d.offsetParent && d.innerText.includes('订单'))`, { what: 'SQL 工作台列出数据集「订单」' })
     })
@@ -1597,6 +1607,8 @@ describe('在线表格编辑器（界面）', { skip }, () => {
       await page.waitFor(`!!document.querySelector('input[placeholder*="搜索功能"]')`, { what: '命令面板' })
       await page.fill('input[placeholder*="搜索功能"]', '演示')
       await page.waitFor(`document.querySelector('[data-active="true"]')?.innerText.includes('演示')`, { what: '搜索到演示' })
+      // 工作表加载完成时会把焦点抢回画布：回车前确认焦点在搜索框里，否则回车会落到表格上（选中格下移）而不是执行命令
+      await page.eval(`document.querySelector('input[placeholder*="搜索功能"]')?.focus()`)
       await page.press('Enter')
       await page.waitFor(`!!document.querySelector('.excel-workspace.presenting')`, { what: '进入演示模式' })
       assert.equal(await page.eval(`getComputedStyle(document.querySelector('.excel-topbar')).display`), 'none', '演示时隐藏顶栏')
@@ -2071,6 +2083,8 @@ describe('在线表格编辑器（界面）', { skip }, () => {
       await page.press('q', { alt: true, code: 'KeyQ' })
       await page.fill('input[placeholder*="搜索功能"]', '填报')
       await page.waitFor(`document.querySelector('[data-active="true"]')?.innerText.includes('填报')`, { what: '搜索结果含「填报」' })
+      // 工作表加载完成时会把焦点抢回画布：回车前确认焦点在搜索框里，否则回车会落到表格上（选中格下移）而不是执行命令
+      await page.eval(`document.querySelector('input[placeholder*="搜索功能"]')?.focus()`)
       await page.press('Enter')
       await page.waitFor(`!!document.querySelector('.wb-panel')`, { what: '填报面板' })
       await page.click('.wb-panel button', '新建填报区')
