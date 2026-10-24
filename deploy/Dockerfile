@@ -5,7 +5,7 @@
 #
 # 换依赖源（如国内镜像）：--build-arg NPM_REGISTRY=https://registry.npmmirror.com --build-arg CARGO_REGISTRY=sparse+https://mirrors.ustc.edu.cn/crates.io-index/
 
-FROM node:22-bookworm-slim AS web
+FROM node:25-bookworm-slim AS web
 ARG NPM_REGISTRY=https://registry.npmjs.org
 WORKDIR /src
 RUN corepack enable
