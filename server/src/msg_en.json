@@ -900,5 +900,16 @@
   "端口号不对：{0}": "Invalid port: {0}",
   "不认识的参数：{0}\n{1}": "Unknown argument: {0}\n{1}",
   "删除 {0} 失败：{1}": "Failed to delete {0}: {1}",
-  "一次最多统计 {0} 列，请分批（columns）": "At most {0} columns can be profiled at once; request them in batches (columns)"
+  "一次最多统计 {0} 列，请分批（columns）": "At most {0} columns can be profiled at once; request them in batches (columns)",
+  "请至少添加一个计算": "Please add at least one calculation",
+  "一次最多 {0} 个计算": "At most {0} calculations at once",
+  "不认识的计算：{0}": "Unknown calculation: {0}",
+  "新列名不能为空，且不超过 40 个字": "The new column name cannot be empty or longer than 40 characters",
+  "列名「{0}」重复了，请换一个": "The column name “{0}” is already used; choose another",
+  "「{0}」（{1}）要按某一列排序，请选择排序列": "“{0}” ({1}) needs an order; please choose a column to order by",
+  "「{0}」（{1}）请选择值列": "“{0}” ({1}): please choose a value column",
+  "「{0}」（{1}）的值列要是数值列，「{2}」是{3}列": "“{0}” ({1}) needs a numeric value column; “{2}” is a {3} column",
+  "移动平均的行数应在 2 ~ {0} 之间": "The moving average window must be between 2 and {0} rows",
+  "每组保留的行数至少是 1": "Keep at least 1 row per group",
+  "每组只保留前几行时要选择排序列": "Choose a column to order by when keeping only the first rows of each group"
 }

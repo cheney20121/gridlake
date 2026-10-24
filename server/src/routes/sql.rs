@@ -22,6 +22,34 @@ pub async fn sql_run(State(db): State<AppState>, share: Option<Extension<crate::
     Ok(ok(blocking_heavy(&db, move |conn| crate::sqlq::run_with_params(conn, &b.sql, b.limit.unwrap_or(1000), &b.params, &b.values, scope.as_ref())).await?))
 }
 
+/// POST /api/ledger/datasets/{id}/window/preview  { calcs, partitionBy?, orderBy?, topN? }  窗口计算预览：生成的 SQL 与前 100 行
+pub async fn window_preview(State(db): State<AppState>, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Envelope<crate::window::Preview>>> {
+    let spec: crate::window::WindowSpec = parse_json(&body)?;
+    Ok(ok(blocking_heavy(&db, move |conn| crate::window::preview(conn, &id, &spec)).await?))
+}
+
+/// POST /api/ledger/datasets/{id}/window  { calcs, partitionBy?, orderBy?, topN?, name, autoRefresh? }
+/// 窗口计算：保存为 SQL 查询并另存为新数据集（默认源数据集更新后自动重算），返回保存的查询
+pub async fn window_create(State(db): State<AppState>, Extension(user): Extension<CurrentUser>, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Envelope<crate::sqlq::SavedQuery>>> {
+    let mut input: crate::window::CreateInput = parse_json(&body)?;
+    if input.operator.is_none() && !user.name.is_empty() {
+        input.operator = Some(user.name.clone());
+    }
+    let _guard = db.import_lock.lock().await;
+    let st = db.clone();
+    let q = blocking(&db, move |conn| {
+        let q = crate::window::create(&st, conn, &id, &input)?;
+        if let Some(d) = &q.dataset_id {
+            dataset::set_owner(conn, d, &user)?;
+        }
+        Ok(q)
+    })
+    .await?;
+    db.cursors.invalidate();
+    db.checkpoint();
+    Ok(ok(q))
+}
+
 /// GET /api/ledger/sql/queries  已保存的查询（关联数据集、最近一次重算、下次重算时间）
 pub async fn sql_queries(State(db): State<AppState>) -> AppResult<Json<Envelope<Vec<crate::sqlq::SavedQuery>>>> {
     Ok(ok(blocking(&db, crate::sqlq::list).await?))

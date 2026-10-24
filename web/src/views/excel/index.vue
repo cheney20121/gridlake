@@ -745,6 +745,7 @@ let dataLoaded = false
           @join="(id: string) => { joinLeftId = id; joinViewId = ''; joinVisible = true }"
           @edit-join="(id: string) => { joinViewId = id; joinVisible = true }"
           @changed="(id: string) => onDatasetsChanged(id)"
+          @open-dataset="async (id: string) => { await onDatasetsChanged(); openDataset(id) }"
           @back-to-recon="reconDetail = false"
         />
         <!-- Univer Container -->

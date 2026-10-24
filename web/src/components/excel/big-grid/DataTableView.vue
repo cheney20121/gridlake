@@ -17,6 +17,7 @@ import BigGrid from './BigGrid.vue'
 import ColumnKindDialog from './ColumnKindDialog.vue'
 import FilterMenu from './FilterMenu.vue'
 import ProfileDrawer from './ProfileDrawer.vue'
+import WindowCalcDialog from './WindowCalcDialog.vue'
 
 /** 大数据表视图：工具栏（搜索 / 筛选标签 / 下钻核对）+ canvas 表格 + 状态栏（选区统计） */
 const props = defineProps<{
@@ -37,6 +38,8 @@ const emit = defineEmits<{
   (e: 'editJoin', datasetId: string): void
   /** 外部数据集刷新了文件列表：数据集定义（列、行数）变了 */
   (e: 'changed', datasetId: string): void
+  /** 生成了新数据集（窗口计算）：刷新列表后打开它 */
+  (e: 'openDataset', datasetId: string): void
   /** 对账结果：回到对账工作台 */
   (e: 'backToRecon'): void
   /** 以当前筛选 / 排序 / 搜索放入工作表（数据表） */
@@ -385,8 +388,12 @@ async function openGoto() {
   gotoInput.value?.focus()
 }
 
-function onMore(cmd: 'calc' | 'join' | 'copy' | 'goto') {
-  if (cmd === 'calc')
+const windowVisible = ref(false)
+
+function onMore(cmd: 'calc' | 'join' | 'window' | 'copy' | 'goto') {
+  if (cmd === 'window')
+    windowVisible.value = true
+  else if (cmd === 'calc')
     emit('calc', props.dataset.id)
   else if (cmd === 'join')
     emit('join', props.dataset.id)
@@ -505,6 +512,9 @@ function exportData(format: 'csv' | 'xlsx') {
               </el-dropdown-item>
               <el-dropdown-item command="join">
                 {{ $t('关联…（按键带入另一个数据集的列）') }}
+              </el-dropdown-item>
+              <el-dropdown-item v-if="!ledgerUser.restricted" command="window" data-testid="open-window">
+                {{ $t('窗口计算…（累计、排名、占比，生成新数据集）') }}
               </el-dropdown-item>
               <el-dropdown-item command="copy" divided>
                 {{ $t('复制选区（Ctrl + C）') }}
@@ -633,6 +643,7 @@ function exportData(format: 'csv' | 'xlsx') {
       @close="menu = null"
       @change-kind="kindColumn = { title: menu!.column.title, kind: menu!.column.kind }; menu = null"
     />
+    <WindowCalcDialog v-model:visible="windowVisible" :dataset="dataset" @created="(id: string) => emit('openDataset', id)" />
     <ProfileDrawer v-model:visible="profileVisible" :dataset-id="dataset.id" :query="query" @filter="onProfileFilter" />
     <ColumnKindDialog :dataset-id="dataset.id" :column="kindColumn" @close="kindColumn = null" @changed="emit('changed', dataset.id)" />
     <ExternalDatasetDialog v-if="dataset.kind === 'external'" v-model:visible="externalSettings" :dataset="dataset" @saved="onExternalSaved" />

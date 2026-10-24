@@ -189,6 +189,33 @@ export function profileColumnApi(datasetId: string, query: DatasetQuery, column:
   return request<ColumnDetail>({ url: url(`/${datasetId}/profile/column`), method: 'post', data: { ...query, sort: [], column }, signal, timeout: 5 * 60 * 1000 })
 }
 
+/** 窗口计算：累计、排名、上一行、移动平均、组内合计 / 占比……（服务端生成 SQL，另存为派生数据集） */
+export type WindowFunc = 'running_sum' | 'row_number' | 'rank' | 'rank_asc' | 'prev' | 'diff' | 'pct_change' | 'moving_avg' | 'group_sum' | 'group_avg' | 'group_count' | 'share'
+
+export interface WindowCalc {
+  func: WindowFunc
+  column?: string
+  name: string
+  /** 移动平均的行数 */
+  rows?: number
+}
+
+export interface WindowSpec {
+  calcs: WindowCalc[]
+  partitionBy: string[]
+  orderBy: { column: string, desc: boolean }[]
+  topN?: number | null
+}
+
+export function previewWindowApi(datasetId: string, spec: WindowSpec) {
+  return request<{ sql: string, result: { columns: { name: string, kind: string }[], rows: CellValue[][], elapsedMs: number } }>({ url: url(`/${datasetId}/window/preview`), method: 'post', data: spec, timeout: 5 * 60 * 1000 })
+}
+
+/** 返回保存的 SQL 查询（datasetId 是新数据集） */
+export function createWindowApi(datasetId: string, spec: WindowSpec & { name: string, autoRefresh: boolean }) {
+  return request<{ id: string, datasetId: string | null, lastRows: number | null }>({ url: url(`/${datasetId}/window`), method: 'post', data: spec, timeout: 10 * 60 * 1000 })
+}
+
 export function getDistinctApi(datasetId: string, data: DatasetQuery & { column: string, search?: string }, signal?: AbortSignal) {
   return request<DistinctResult>({ url: url(`/${datasetId}/distinct`), method: 'post', data, signal })
 }

@@ -4812,6 +4812,99 @@
         ]
       }
     },
+    "/ledger/datasets/{id}/window": {
+      "post": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "窗口计算：保存为 SQL 查询并另存为新数据集（默认源数据集更新后自动重算），返回保存的查询",
+        "description": "{ calcs, partitionBy?, orderBy?, topN?, name, autoRefresh? } 窗口计算：保存为 SQL 查询并另存为新数据集（默认源数据集更新后自动重算），返回保存的查询",
+        "operationId": "post_ledger_datasets_by_id_window",
+        "x-permission": "登录用户",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-audit": "窗口计算生成数据集",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ledger/datasets/{id}/window/preview": {
+      "post": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "窗口计算预览：生成的 SQL 与前 100 行",
+        "description": "{ calcs, partitionBy?, orderBy?, topN? }  窗口计算预览：生成的 SQL 与前 100 行",
+        "operationId": "post_ledger_datasets_by_id_window_preview",
+        "x-permission": "登录用户",
+        "x-restricted-users": true,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WindowSpec"
+              }
+            }
+          }
+        }
+      }
+    },
     "/ledger/datasets/{id}/writeback": {
       "post": {
         "tags": [
@@ -9734,6 +9827,32 @@
           }
         ]
       },
+      "CreateInput": {
+        "allOf": [
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "新数据集（也是 SQL 查询）的名称"
+              },
+              "autoRefresh": {
+                "type": "boolean",
+                "description": "源数据集更新后自动重算（默认是）"
+              },
+              "operator": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name"
+            ]
+          },
+          {
+            "$ref": "#/components/schemas/WindowSpec"
+          }
+        ]
+      },
       "CreateViewBody": {
         "allOf": [
           {
@@ -10578,6 +10697,20 @@
         "required": [
           "unit",
           "period"
+        ]
+      },
+      "OrderSpec": {
+        "type": "object",
+        "properties": {
+          "column": {
+            "type": "string"
+          },
+          "desc": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "column"
         ]
       },
       "Pagination": {
@@ -11854,6 +11987,63 @@
         },
         "required": [
           "preset"
+        ]
+      },
+      "WindowCalc": {
+        "type": "object",
+        "properties": {
+          "func": {
+            "type": "string",
+            "description": "running_sum 累计 / row_number 序号 / rank 排名（大的在前）/ rank_asc 排名（小的在前）/ prev 上一行的值 / diff 与上一行的差 / pct_change 较上一行的变化率 / moving_avg 移动平均 / group_sum 组内合计 / group_avg 组内平均 / group_count 组内行数 / share 占组内合计的比例"
+          },
+          "column": {
+            "type": "string",
+            "description": "值列（序号、组内行数不需要）"
+          },
+          "name": {
+            "type": "string",
+            "description": "新列名"
+          },
+          "ows": {
+            "type": "integer",
+            "description": "移动平均的行数（含当前行，默认 7）"
+          }
+        },
+        "required": [
+          "func",
+          "name"
+        ]
+      },
+      "WindowSpec": {
+        "type": "object",
+        "properties": {
+          "calcs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WindowCalc"
+            }
+          },
+          "partitionBy": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "分组（为空表示整个数据集一组）"
+          },
+          "orderBy": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderSpec"
+            },
+            "description": "组内的先后顺序（累计、序号、上一行、移动平均、每组前 N 行要用）"
+          },
+          "topN": {
+            "type": "integer",
+            "description": "每组只保留按 order_by 排在前面的 N 行"
+          }
+        },
+        "required": [
+          "calcs"
         ]
       },
       "WorkbookNameBody": {

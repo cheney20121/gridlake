@@ -491,6 +491,8 @@ const ROUTES: &[(&str, &str, Rule, &str)] = &[
     ("POST", "/ledger/templates/{id}/use", Open, "使用模板创建工作簿"),
     ("POST", "/ledger/sql/run", Open, "执行 SQL 查询"),
     ("POST", "/ledger/sql/queries", Open, "保存 SQL 查询"),
+    ("POST", "/ledger/datasets/{id}/window/preview", Open, ""),
+    ("POST", "/ledger/datasets/{id}/window", Open, "窗口计算生成数据集"),
     ("PUT", "/ledger/sql/queries/{id}", Open, "修改 SQL 查询"),
     ("DELETE", "/ledger/sql/queries/{id}", Open, "删除 SQL 查询"),
     ("POST", "/ledger/sql/queries/{id}/refresh", Open, "重算 SQL 查询"),
@@ -931,6 +933,7 @@ const RESTRICTED_OK: &[(&str, &str)] = &[
     ("GET", "/ledger/folders"), ("POST", "/ledger/folders"), ("PUT", "/ledger/folders/{id}"), ("DELETE", "/ledger/folders/{id}"),
     ("GET", "/ledger/reports/sheets"),
     ("POST", "/ledger/sql/run"),
+    ("POST", "/ledger/datasets/{id}/window/preview"),
     ("GET", "/ledger/ai/status"), ("GET", "/ledger/ai/threads"), ("POST", "/ledger/ai/threads"), ("GET", "/ledger/ai/threads/{id}"), ("DELETE", "/ledger/ai/threads/{id}"), ("PUT", "/ledger/ai/threads/{id}/summary"), ("POST", "/ledger/ai/threads/{id}/chat"), ("GET", "/ledger/ai/threads/{id}/events"), ("POST", "/ledger/ai/threads/{id}/stop"), ("POST", "/ledger/ai/actions/{id}"),
     ("GET", "/ledger/templates"), ("POST", "/ledger/templates/{id}/use"), ("GET", "/ledger/templates/{id}/uses"),
     ("POST", "/ledger/auth/logout"), ("POST", "/ledger/auth/password"),
@@ -970,7 +973,7 @@ const FULL_ONLY: &[(&str, &str)] = &[
     ("POST", "/ledger/datasets/{id}/calc"), ("PUT", "/ledger/datasets/{id}/calc/{name}"), ("DELETE", "/ledger/datasets/{id}/calc/{name}"),
     ("GET", "/ledger/datasets/{id}/usage"),
     // 保存的 SQL、定时推送、模板发布、数据连接、数据范围设置：按服务账号运行或会列出别人的配置
-    ("GET", "/ledger/sql/queries"), ("POST", "/ledger/sql/queries"), ("PUT", "/ledger/sql/queries/{id}"), ("DELETE", "/ledger/sql/queries/{id}"), ("POST", "/ledger/sql/queries/{id}/refresh"), ("POST", "/ledger/sql/queries/{id}/instances"),
+    ("GET", "/ledger/sql/queries"), ("POST", "/ledger/sql/queries"), ("PUT", "/ledger/sql/queries/{id}"), ("DELETE", "/ledger/sql/queries/{id}"), ("POST", "/ledger/sql/queries/{id}/refresh"), ("POST", "/ledger/sql/queries/{id}/instances"), ("POST", "/ledger/datasets/{id}/window"),
     ("GET", "/ledger/reports"), ("POST", "/ledger/reports"), ("POST", "/ledger/reports/preview"), ("PUT", "/ledger/reports/{id}"), ("DELETE", "/ledger/reports/{id}"),
     ("POST", "/ledger/reports/{id}/send"), ("GET", "/ledger/reports/{id}/runs"),
     // 告警按服务账号读数据、把结果推到群里：受限用户建告警等于绕过自己的数据范围
@@ -995,6 +998,7 @@ pub(crate) const READ_ONLY_POST: &[&str] = &[
     "/ledger/datasets/{id}/pivot",
     "/ledger/datasets/{id}/calc/preview",
     "/ledger/sql/run",
+    "/ledger/datasets/{id}/window/preview",
     "/ledger/workbooks/ranges",
 ];
 

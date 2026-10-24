@@ -65,6 +65,7 @@ mod totp;
 mod views;
 mod web;
 mod webhook;
+mod window;
 mod workbook;
 mod writeback;
 mod xref;
@@ -283,6 +284,8 @@ async fn serve(config: config::Config, ready: Option<Ready>) -> anyhow::Result<(
         .route("/ledger/datasets/{id}/distinct", post(routes::dataset_distinct))
         .route("/ledger/datasets/{id}/profile", post(routes::dataset_profile))
         .route("/ledger/datasets/{id}/profile/column", post(routes::dataset_profile_column))
+        .route("/ledger/datasets/{id}/window/preview", post(routes::window_preview))
+        .route("/ledger/datasets/{id}/window", post(routes::window_create))
         .route("/ledger/datasets/{id}/export", get(routes::dataset_export))
         .route("/ledger/datasets/{id}/aggregate", post(routes::dataset_aggregate))
         .route("/ledger/datasets/{id}/pivot", post(routes::dataset_pivot))
