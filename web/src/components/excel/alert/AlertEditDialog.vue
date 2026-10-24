@@ -63,6 +63,8 @@ const form = reactive({
   weekday: 1,
   day: 1,
   connectorId: '',
+  /** 「数据集更新后」检查：哪个数据集（不选就是告警自己的数据集） */
+  triggerDatasetId: '',
   channelIds: [] as string[],
   repeatKind: 'until_recovered' as 'until_recovered' | 'every_run' | 'every_hours',
   repeatHours: 24,
@@ -112,6 +114,7 @@ function fillFrom(a: Alert | null) {
     weekday: a?.schedule.kind === 'weekly' ? a.schedule.weekday : 1,
     day: a?.schedule.kind === 'monthly' ? a.schedule.day : 1,
     connectorId: a?.schedule.kind === 'after_sync' ? a.schedule.connectorId : '',
+    triggerDatasetId: a?.schedule.kind === 'after_data' ? a.schedule.datasetId : '',
     channelIds: a ? [...a.channelIds] : props.channels.length === 1 ? [props.channels[0]!.id] : [],
     repeatKind: a?.repeat.kind ?? 'until_recovered',
     repeatHours: a?.repeat.kind === 'every_hours' ? a.repeat.hours : 24,
@@ -183,6 +186,7 @@ function schedule(): ReportSchedule {
     case 'weekly': return { kind: 'weekly', weekday: form.weekday, at: form.at }
     case 'monthly': return { kind: 'monthly', day: form.day, at: form.at }
     case 'after_sync': return { kind: 'after_sync', connectorId: form.connectorId }
+    case 'after_data': return { kind: 'after_data', datasetId: form.triggerDatasetId || form.datasetId }
     default: return { kind: 'manual' }
   }
 }
@@ -436,6 +440,7 @@ const VERDICT: Record<string, { text: string, cls: string }> = {
               <el-option :label="$t('每周')" value="weekly" />
               <el-option :label="$t('每月')" value="monthly" />
               <el-option :label="$t('数据同步后')" value="after_sync" />
+              <el-option :label="$t('数据集更新后')" value="after_data" />
               <el-option :label="$t('仅手动检查')" value="manual" />
             </el-select>
             <el-select v-if="form.scheduleKind === 'weekly'" v-model="form.weekday" class="!w-24">
@@ -448,9 +453,15 @@ const VERDICT: Record<string, { text: string, cls: string }> = {
             <el-select v-if="form.scheduleKind === 'after_sync'" v-model="form.connectorId" class="min-w-0 flex-1" :placeholder="$t('选择数据连接')" :no-data-text="$t('还没有数据连接')">
               <el-option v-for="c in connectors" :key="c.id" :label="c.name" :value="c.id" />
             </el-select>
+            <el-select v-if="form.scheduleKind === 'after_data'" v-model="form.triggerDatasetId" filterable clearable class="min-w-0 flex-1" :placeholder="$t('告警用的数据集（{0}）', [dataset?.name ?? ''])">
+              <el-option v-for="d in datasets" :key="d.id" :label="d.name" :value="d.id" />
+            </el-select>
           </div>
           <div v-if="form.scheduleKind === 'after_sync'" class="hint">
             {{ $t('该连接每次同步到新数据后检查（没有新数据不检查）') }}
+          </div>
+          <div v-if="form.scheduleKind === 'after_data'" class="hint">
+            {{ $t('这个数据集导入了新数据、数据连接同步完成、外部文件有变化，或 SQL 查询重算写入后检查（填报提交不触发）') }}
           </div>
         </el-form-item>
 

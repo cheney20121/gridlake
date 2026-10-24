@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import type { Connector } from '@/api/connector'
+import type { DatasetInfo } from '@/api/dataset'
 import type { Report, ReportChannel, ReportInput, ReportPreview, ReportSchedule, ReportSheet } from '@/api/report'
 import type { WorkbookMeta } from '@/api/workbook'
 import { computed, reactive, ref, watch } from 'vue'
 import { listConnectorsApi } from '@/api/connector'
+import { getDatasetsApi } from '@/api/dataset'
 import { CHANNEL_LABEL, createReportApi, previewReportApi, reportSheetsApi, updateReportApi } from '@/api/report'
 import { listWorkbooksApi } from '@/api/workbook'
 import { t } from '@/i18n'
@@ -32,6 +34,7 @@ const WEEKDAYS = [t('周一'), t('周二'), t('周三'), t('周四'), t('周五'
 const workbooks = ref<WorkbookMeta[]>([])
 const sheets = ref<ReportSheet[]>([])
 const connectors = ref<Connector[]>([])
+const datasets = ref<DatasetInfo[]>([])
 const preview = ref<ReportPreview | null>(null)
 const previewError = ref('')
 const previewing = ref(false)
@@ -48,6 +51,7 @@ const form = reactive({
   weekday: 1,
   day: 1,
   connectorId: '',
+  triggerDatasetId: '',
   channelIds: [] as string[],
   attachExcel: false,
   enabled: true,
@@ -78,13 +82,15 @@ watch(() => props.visible, async (v) => {
     weekday: r?.schedule.kind === 'weekly' ? r.schedule.weekday : 1,
     day: r?.schedule.kind === 'monthly' ? r.schedule.day : 1,
     connectorId: r?.schedule.kind === 'after_sync' ? r.schedule.connectorId : '',
+    triggerDatasetId: r?.schedule.kind === 'after_data' ? r.schedule.datasetId : '',
     channelIds: r ? [...r.channelIds] : props.channels.length === 1 ? [props.channels[0]!.id] : [],
     attachExcel: r?.attachExcel ?? false,
     enabled: r?.enabled ?? true,
   })
-  const [wbs, cs] = await Promise.all([listWorkbooksApi().catch(() => []), listConnectorsApi().catch(() => ({ items: [] as Connector[] }))])
+  const [wbs, cs, ds] = await Promise.all([listWorkbooksApi().catch(() => []), listConnectorsApi().catch(() => ({ items: [] as Connector[] })), getDatasetsApi().catch(() => [] as DatasetInfo[])])
   workbooks.value = wbs
   connectors.value = cs.items
+  datasets.value = ds
   if (!wbs.some(w => w.id === form.workbookId))
     form.workbookId = wbs[0]?.id ?? ''
   await loadSheets()
@@ -131,6 +137,7 @@ function schedule(): ReportSchedule {
     case 'weekly': return { kind: 'weekly', weekday: form.weekday, at: form.at }
     case 'monthly': return { kind: 'monthly', day: form.day, at: form.at }
     case 'after_sync': return { kind: 'after_sync', connectorId: form.connectorId }
+    case 'after_data': return { kind: 'after_data', datasetId: form.triggerDatasetId }
     default: return { kind: 'manual' }
   }
 }
@@ -147,6 +154,8 @@ async function save(sendNow: boolean) {
     return ElMessage.warning(t('请至少选择一个推送渠道'))
   if (form.scheduleKind === 'after_sync' && !form.connectorId)
     return ElMessage.warning(t('请选择数据连接'))
+  if (form.scheduleKind === 'after_data' && !form.triggerDatasetId)
+    return ElMessage.warning(t('请选择数据集'))
   const input: ReportInput = {
     name: form.name.trim(),
     workbookId: form.workbookId,
@@ -212,6 +221,7 @@ async function save(sendNow: boolean) {
               <el-option :label="$t('每周')" value="weekly" />
               <el-option :label="$t('每月')" value="monthly" />
               <el-option :label="$t('数据同步后')" value="after_sync" />
+              <el-option :label="$t('数据集更新后')" value="after_data" />
               <el-option :label="$t('仅手动发送')" value="manual" />
             </el-select>
             <el-select v-if="form.scheduleKind === 'weekly'" v-model="form.weekday" class="w-24">
@@ -224,12 +234,18 @@ async function save(sendNow: boolean) {
             <el-select v-if="form.scheduleKind === 'after_sync'" v-model="form.connectorId" class="flex-1" :placeholder="$t('选择数据连接')" :no-data-text="$t('还没有数据连接')">
               <el-option v-for="c in connectors" :key="c.id" :label="c.name" :value="c.id" />
             </el-select>
+            <el-select v-if="form.scheduleKind === 'after_data'" v-model="form.triggerDatasetId" filterable class="flex-1" :placeholder="$t('选择数据集')">
+              <el-option v-for="d in datasets" :key="d.id" :label="d.name" :value="d.id" />
+            </el-select>
           </div>
           <div v-if="form.scheduleKind === 'monthly' && form.day > 28" class="hint">
             {{ $t('没有 {0} 号的月份在月末发送', [form.day]) }}
           </div>
           <div v-if="form.scheduleKind === 'after_sync'" class="hint">
             {{ $t('该连接每次同步到新数据后推送（没有新数据不推送）') }}
+          </div>
+          <div v-if="form.scheduleKind === 'after_data'" class="hint">
+            {{ $t('这个数据集导入了新数据、数据连接同步完成、外部文件有变化，或 SQL 查询重算写入后推送（填报提交不触发）') }}
           </div>
         </el-form-item>
         <el-form-item :label="$t('推送到')" required>

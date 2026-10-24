@@ -31,6 +31,11 @@ const expanded = ref<string | null>(null)
 
 function scheduleText(sq: SavedQuery) {
   const s: SqlSchedule = sq.schedule
+  if (s.kind === 'after_data') {
+    // 侧栏的数据集列表会按关键字过滤：找不到名字时不说具体是哪个
+    const name = props.datasets.find(d => d.id === s.datasetId)?.name
+    return name ? t('「{0}」更新后重算', [name]) : t('数据集更新后重算')
+  }
   return s.kind === 'daily' ? t('每天 {0} 重算', [s.at]) : s.kind === 'after_sync' ? t('同步后重算') : t('手动重算')
 }
 </script>

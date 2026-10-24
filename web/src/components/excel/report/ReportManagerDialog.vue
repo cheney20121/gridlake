@@ -170,6 +170,7 @@ function scheduleText(r: Report) {
     case 'weekly': return t('每{0} {1}', [WEEKDAYS[s.weekday - 1], s.at])
     case 'monthly': return t('每月 {0} 号 {1}', [s.day, s.at])
     case 'after_sync': return t('数据同步后')
+    case 'after_data': return t('数据集更新后')
     default: return t('仅手动')
   }
 }
@@ -184,7 +185,7 @@ const STATUS: Record<ReportRun['status'], { text: string, cls: string }> = {
   partial: { text: t('部分失败'), cls: 'text-[#92400E]' },
   failed: { text: t('失败'), cls: 'text-[#B91C1C]' },
 }
-const TRIGGER: Record<ReportRun['trigger'], string> = { manual: t('手动'), schedule: t('定时'), after_sync: t('同步后') }
+const TRIGGER: Record<ReportRun['trigger'], string> = { manual: t('手动'), schedule: t('定时'), after_sync: t('同步后'), after_data: t('数据集更新后') }
 
 // ── 渠道 ──
 

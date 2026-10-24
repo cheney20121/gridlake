@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Connector } from '@/api/connector'
+import type { DatasetInfo } from '@/api/dataset'
 import type { SavedQuery, SqlColumnKind, SqlSchedule } from '@/api/sql'
 import { KIND_LABEL } from './format'
 
@@ -13,12 +14,16 @@ export interface SaveForm {
   scheduleKind: SqlSchedule['kind']
   at: string
   connectorId: string
+  /** 「数据集更新后」重算：哪个数据集 */
+  triggerDatasetId: string
 }
 
 defineProps<{
   /** 正在编辑的已保存查询；为空时新建 */
   current: SavedQuery | null
   connectors: Connector[]
+  /** 「数据集更新后」可选的数据集 */
+  datasets: DatasetInfo[]
   saving: boolean
 }>()
 
@@ -66,15 +71,22 @@ const form = defineModel<SaveForm>('form', { required: true })
         </el-form-item>
         <el-form-item :label="$t('重算')">
           <div class="w-full flex flex-wrap items-center gap-2">
-            <el-select v-model="form.scheduleKind" class="!w-36">
+            <el-select v-model="form.scheduleKind" class="!w-36" data-testid="sql-schedule-kind">
               <el-option :label="$t('手动')" value="manual" />
               <el-option :label="$t('每天')" value="daily" />
               <el-option :label="$t('数据同步后')" value="after_sync" />
+              <el-option :label="$t('数据集更新后')" value="after_data" />
             </el-select>
             <el-time-select v-if="form.scheduleKind === 'daily'" v-model="form.at" class="!w-28" start="00:00" step="00:30" end="23:30" :clearable="false" />
             <el-select v-if="form.scheduleKind === 'after_sync'" v-model="form.connectorId" class="flex-1" :placeholder="$t('选择数据连接')" :no-data-text="$t('还没有数据连接')">
               <el-option v-for="c in connectors" :key="c.id" :label="c.name" :value="c.id" />
             </el-select>
+            <el-select v-if="form.scheduleKind === 'after_data'" v-model="form.triggerDatasetId" filterable class="flex-1" :placeholder="$t('选择数据集')" data-testid="trigger-dataset">
+              <el-option v-for="d in datasets.filter(d => d.id !== current?.datasetId)" :key="d.id" :label="d.name" :value="d.id" />
+            </el-select>
+            <div v-if="form.scheduleKind === 'after_data'" class="w-full text-xs text-gray-500 leading-5">
+              {{ $t('这个数据集导入了新数据、数据连接同步完成、外部文件有变化后重算。填报提交不触发；SQL 查询写入的数据集不会再触发别的查询重算。') }}
+            </div>
           </div>
         </el-form-item>
       </template>

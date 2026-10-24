@@ -590,6 +590,7 @@ pub async fn schedule(state: crate::routes::AppState) {
                     state.cursors.invalidate();
                     state.checkpoint();
                     crate::webhook::emit(&state, "dataset.refreshed", None, refreshed_event(&id, &name, "auto", &o));
+                    crate::sqlq::on_data_changed(&state, &id);
                 }
                 Ok(Ok((_, None))) => {}
                 Ok(Err(e)) => tracing::warn!("外部数据集 {id} 自动检查失败：{}", e.message()),

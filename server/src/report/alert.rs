@@ -1442,6 +1442,20 @@ pub fn on_connector_synced(state: &AppState, connector_id: &str) {
     }
 }
 
+/// 数据集有新数据后：评估设为「数据集更新后」的告警
+pub fn on_data_changed(state: &AppState, dataset_id: &str) {
+    let due = state.connection().map_err(AppError::from).and_then(|conn| load_alerts(&conn)).map(|list| {
+        list.into_iter()
+            .filter(|a| a.input.enabled && matches!(&a.input.schedule, Schedule::AfterData { dataset_id: d } if d == dataset_id))
+            .map(|a| (a.id, a.input.name))
+            .collect::<Vec<_>>()
+    });
+    match due {
+        Ok(due) => due.into_iter().for_each(|(id, name)| spawn_run(state, id, name, "after_data")),
+        Err(e) => tracing::warn!("检查数据集更新后告警失败：{}", e.message()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

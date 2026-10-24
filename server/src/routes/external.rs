@@ -78,4 +78,5 @@ fn after_refresh(db: &AppState, user: &CurrentUser, id: &str, name: &str, trigge
     db.cursors.invalidate();
     db.checkpoint();
     crate::webhook::emit(db, "dataset.refreshed", Some(user), crate::external::refreshed_event(id, name, trigger, o));
+    crate::sqlq::on_data_changed(db, id);
 }

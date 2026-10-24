@@ -3065,5 +3065,12 @@
   "比对文件列表、大小和修改时间，有变化才重新读取": "Compares the file list, sizes and modification times, and reads the files again only when something changed",
   "自动检查": "Auto check",
   "设置…": "Settings…",
-  "：失败，{0}": ": failed, {0}"
+  "：失败，{0}": ": failed, {0}",
+  "「{0}」更新后重算": "Recomputed after “{0}” updates",
+  "告警用的数据集（{0}）": "The alert's dataset ({0})",
+  "数据集更新后": "After a dataset updates",
+  "数据集更新后重算": "Recomputed after a dataset updates",
+  "这个数据集导入了新数据、数据连接同步完成、外部文件有变化后重算。填报提交不触发；SQL 查询写入的数据集不会再触发别的查询重算。": "Recomputed after new data is imported into this dataset, a data connector finishes syncing it, or its external files change. Form submissions do not trigger it, and datasets written by SQL queries never trigger other queries.",
+  "这个数据集导入了新数据、数据连接同步完成、外部文件有变化，或 SQL 查询重算写入后推送（填报提交不触发）": "Sent after new data is imported into this dataset, a data connector finishes syncing it, its external files change, or a SQL query writes to it (form submissions do not trigger it)",
+  "这个数据集导入了新数据、数据连接同步完成、外部文件有变化，或 SQL 查询重算写入后检查（填报提交不触发）": "Checked after new data is imported into this dataset, a data connector finishes syncing it, its external files change, or a SQL query writes to it (form submissions do not trigger it)"
 }

@@ -892,5 +892,6 @@
   "发送记录不存在（可能已过期清理）": "Delivery not found (it may have been cleaned up)",
   "Webhook 已停用，请先启用": "The webhook is disabled; enable it first",
   "发送记录丢失": "The delivery record is missing",
-  "自动检查的间隔应在 1 ~ {0} 分钟之间": "The auto-check interval must be between 1 and {0} minutes"
+  "自动检查的间隔应在 1 ~ {0} 分钟之间": "The auto-check interval must be between 1 and {0} minutes",
+  "请选择数据集（可能已被删除）": "Please choose a dataset (it may have been deleted)"
 }

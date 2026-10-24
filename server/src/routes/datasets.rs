@@ -249,6 +249,9 @@ pub async fn dataset_import_commit(State(db): State<AppState>, Extension(user): 
             "rowsRead": result.rows_read, "inserted": result.inserted, "updated": result.updated, "replaced": result.replaced, "skipped": result.skipped,
         }),
     );
+    if !created {
+        crate::sqlq::on_data_changed(&db, &result.dataset_id);
+    }
     Ok(ok(result))
 }
 

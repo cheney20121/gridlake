@@ -24,6 +24,8 @@ export type SqlSchedule
   = | { kind: 'manual' }
     | { kind: 'daily', at: string }
     | { kind: 'after_sync', connectorId: string }
+    /** 某个数据集有新数据后（导入、数据连接同步、外部文件有变化）；SQL 查询写入的数据集不会再触发别的查询 */
+    | { kind: 'after_data', datasetId: string }
 
 export type ParamKind = 'text' | 'number' | 'date'
 

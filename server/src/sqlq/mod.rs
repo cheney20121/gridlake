@@ -454,6 +454,9 @@ pub enum Schedule {
     Daily { at: String },
     #[serde(rename_all = "camelCase")]
     AfterSync { connector_id: String },
+    /// 某个数据集有新数据后（导入、数据连接同步、外部文件有变化）；SQL 查询自己写入的数据集不会再触发别的查询重算，免得互相触发
+    #[serde(rename_all = "camelCase")]
+    AfterData { dataset_id: String },
 }
 
 impl Schedule {
@@ -596,6 +599,9 @@ fn validate(conn: &Connection, input: &QueryInput) -> AppResult<()> {
     {
         return Err(AppError::bad("请选择数据连接"));
     }
+    if let Schedule::AfterData { dataset_id } = &input.schedule {
+        check_trigger_dataset(conn, dataset_id)?;
+    }
     // 只检查语法与引用（不执行）
     let catalog = dataset::datasets(conn)?;
     let names: HashSet<String> = catalog.iter().map(|d| d.name.clone()).collect();
@@ -711,6 +717,15 @@ pub fn delete(conn: &Connection, id: &str) -> AppResult<()> {
     Ok(())
 }
 
+/// 「数据集更新后」触发用的数据集要存在（不在回收站里）
+pub fn check_trigger_dataset(conn: &Connection, dataset_id: &str) -> AppResult<()> {
+    if dataset::datasets(conn)?.iter().any(|d| d.id == dataset_id) {
+        Ok(())
+    } else {
+        Err(AppError::bad("请选择数据集（可能已被删除）"))
+    }
+}
+
 /// 立即重算（写入关联数据集；没有关联时需给出新数据集名称）
 pub fn refresh_now(state: &AppState, conn: &Connection, id: &str, new_dataset: Option<&str>) -> AppResult<Materialized> {
     {
@@ -752,9 +767,14 @@ pub fn refresh_now(state: &AppState, conn: &Connection, id: &str, new_dataset: O
     if let Ok(mut r) = running().lock() {
         r.remove(id);
     }
-    if result.is_ok() {
+    if let Ok(m) = &result {
         state.cursors.invalidate();
         state.checkpoint();
+        // 结果数据集更新了：触发「数据集更新后」的推送和告警（不触发别的 SQL 查询，免得互相触发停不下来）
+        if tokio::runtime::Handle::try_current().is_ok() {
+            crate::report::on_data_changed(state, &m.dataset_id);
+            crate::report::alert::on_data_changed(state, &m.dataset_id);
+        }
     }
     result
 }
@@ -821,6 +841,31 @@ pub fn on_connector_synced(state: &AppState, connector_id: &str) {
         }
         crate::report::on_connector_synced(&st, &cid);
         crate::report::alert::on_connector_synced(&st, &cid);
+    });
+}
+
+/// 数据集有新数据后（导入、数据连接同步、外部文件有变化）：先重算设为「这个数据集更新后」的 SQL 查询（它们写入的结果数据集
+/// 会再触发推送和告警，见 [`refresh_now`]），再触发这个数据集本身的推送和告警
+pub fn on_data_changed(state: &AppState, dataset_id: &str) {
+    let due = state.connection().map_err(AppError::from).and_then(|conn| list(&conn)).map(|l| {
+        l.into_iter()
+            .filter(|q| q.dataset_id.is_some() && q.dataset_id.as_deref() != Some(dataset_id) && matches!(&q.schedule, Schedule::AfterData { dataset_id: d } if d == dataset_id))
+            .map(|q| (q.id, q.name))
+            .collect::<Vec<_>>()
+    });
+    let st = state.clone();
+    let did = dataset_id.to_string();
+    tokio::spawn(async move {
+        match due {
+            Ok(due) => {
+                for (id, name) in due {
+                    refresh_bg(&st, id, name, "数据集更新后").await;
+                }
+            }
+            Err(e) => tracing::warn!("检查数据集更新后的 SQL 重算失败：{}", e.message()),
+        }
+        crate::report::on_data_changed(&st, &did);
+        crate::report::alert::on_data_changed(&st, &did);
     });
 }
 

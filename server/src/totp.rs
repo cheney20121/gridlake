@@ -455,7 +455,11 @@ mod tests {
         // 密钥在库里是密文
         let stored: String = conn.query_row("SELECT totp_secret_enc FROM ledger_account WHERE id = 'alice'", [], |r| r.get(0)).unwrap();
         assert!(!stored.contains(&setup.secret));
-        let codes = enable(&conn, &secret, "alice", &live_code(&setup.secret, 0)).unwrap();
+        // 码按启用时的那一步算：中间几次登录（密码哈希很慢）可能跨过 30 秒的边界，按「现在」重新算就不是同一个码了
+        let base = step_of(now_secs());
+        let key = base32_decode(&setup.secret).unwrap();
+        let code = |offset: i64| format!("{:06}", code_at(&key, base + offset));
+        let codes = enable(&conn, &secret, "alice", &code(0)).unwrap();
         assert_eq!(codes.len(), RECOVERY_CODES);
         assert_eq!(status(&conn, "alice").unwrap(), Status { enabled: true, recovery_left: RECOVERY_CODES as i64 });
         assert!(start_setup(&conn, &secret, "alice", "alice").is_err(), "启用后不能直接重新生成密钥");
@@ -463,11 +467,11 @@ mod tests {
         let r = login(&conn, &secret, "alice", "alice-pass-1", None, 7).unwrap();
         assert!(r.need_code && r.token.is_empty());
         // 启用时用掉的那一步不能再用；错码被拒绝；下一步的码可以
-        assert!(login(&conn, &secret, "alice", "alice-pass-1", Some(&live_code(&setup.secret, 0)), 7).is_err(), "启用时用过的码不能重放");
+        assert!(login(&conn, &secret, "alice", "alice-pass-1", Some(&code(0)), 7).is_err(), "启用时用过的码不能重放");
         assert!(login(&conn, &secret, "alice", "alice-pass-1", Some("abcdef"), 7).is_err());
-        let ok = login(&conn, &secret, "alice", "alice-pass-1", Some(&live_code(&setup.secret, 1)), 7).unwrap();
+        let ok = login(&conn, &secret, "alice", "alice-pass-1", Some(&code(1)), 7).unwrap();
         assert!(!ok.need_code && ok.token.len() >= 40);
-        assert!(login(&conn, &secret, "alice", "alice-pass-1", Some(&live_code(&setup.secret, 1)), 7).is_err(), "同一个码只能用一次");
+        assert!(login(&conn, &secret, "alice", "alice-pass-1", Some(&code(1)), 7).is_err(), "同一个码只能用一次");
         // 密码错了不会泄露「有没有启用两步验证」：照旧只说用户名或密码不对
         assert_eq!(login(&conn, &secret, "alice", "wrong-pass-1", None, 7).unwrap_err().message(), "用户名或密码不正确");
         // 恢复码：能登录一次，用过作废，格式宽松（大小写、连字符）
