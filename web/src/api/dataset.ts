@@ -414,6 +414,8 @@ export interface ExternalInput {
   recursive: boolean
   /** 把 key=value 形式的目录名读成列（Hive 分区） */
   hive: boolean
+  /** 每隔多少分钟自动检查文件变化（有变化才重新读取）；null 表示只手动刷新 */
+  refreshMinutes?: number | null
 }
 
 export interface ExternalInfo extends ExternalInput {
@@ -421,6 +423,9 @@ export interface ExternalInfo extends ExternalInput {
   rows: number
   size: number
   refreshedAt: string
+  /** 最近一次检查（自动检查或手动刷新）的时间与失败原因 */
+  checkedAt: string | null
+  checkError: string | null
 }
 
 export interface ExternalPreview {
@@ -440,6 +445,8 @@ export interface ExternalRefreshOutcome {
   removedFiles: number
   addedColumns: string[]
   removedColumns: string[]
+  /** 文件、列或读取方式有没有变化（没有变化时什么都没动） */
+  changed: boolean
 }
 
 export function previewExternalApi(input: ExternalInput) {
@@ -448,6 +455,11 @@ export function previewExternalApi(input: ExternalInput) {
 
 export function createExternalApi(name: string, input: ExternalInput) {
   return request<string>({ url: url('/external'), method: 'post', data: { name, ...input }, timeout: 5 * 60 * 1000 })
+}
+
+/** 修改读取方式（变了就按新规则重新读取）或自动检查的间隔 */
+export function updateExternalApi(id: string, input: ExternalInput) {
+  return request<ExternalRefreshOutcome>({ url: url(`/${id}/external`), method: 'put', data: input, timeout: 5 * 60 * 1000 })
 }
 
 /** 文件有增减或结构变化后重新读取；会让计算列、关联视图失效时服务端整体取消并说明原因 */

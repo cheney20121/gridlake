@@ -73,6 +73,19 @@ describe('外部数据集（界面）', { skip }, () => {
       await page.click('button', '刷新文件列表')
       await page.waitFor(`document.body.innerText.includes('新增列：备注')`, { what: '刷新结果提示', timeout: 60_000 })
       await page.waitFor(`document.body.innerText.includes('1,510 行')`, { what: '刷新后 1510 行', timeout: 60_000 })
+
+      // 再刷新一次：文件没变
+      await page.click('button', '刷新文件列表')
+      await page.waitFor(`document.body.innerText.includes('文件没有变化')`, { what: '没有变化的提示', timeout: 60_000 })
+      // 设置：改成每 5 分钟自动检查
+      await page.click('[data-testid="external-settings"]')
+      await page.waitFor(`document.body.innerText.includes('外部数据集设置') && !!document.querySelector('[data-testid="external-refresh-minutes"]')`, { what: '外部数据集设置对话框' })
+      const sel = await page.eval(`(() => { const r = document.querySelector('[data-testid="external-refresh-minutes"]').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2] })()`)
+      await page.mouseClick(sel[0], sel[1])
+      await page.waitFor(`[...document.querySelectorAll('.ec-select-dropdown__item')].some(e => e.getBoundingClientRect().width > 0 && e.innerText.trim() === '每 5 分钟')`, { what: '间隔选项' })
+      await page.eval(`[...document.querySelectorAll('.ec-select-dropdown__item')].find(e => e.getBoundingClientRect().width > 0 && e.innerText.trim() === '每 5 分钟').click()`)
+      await page.click('[data-testid="external-save"]')
+      await page.waitFor(`(document.querySelector('[data-testid="external-tag"]')?.innerText ?? '').includes('自动')`, { what: '标签显示「外部文件 · 自动」', timeout: 60_000 })
       await page.screenshot(path.join(ARTIFACTS, 'external-parquet.png')).catch(() => {})
       assert.deepEqual(page.errors.filter(e => !ALLOWED.some(re => re.test(e))), [], '没有控制台报错')
     }

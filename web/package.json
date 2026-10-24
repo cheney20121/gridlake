@@ -13,7 +13,7 @@
     "test:ui": "node --test --test-concurrency=1 tests/ui/*.test.mjs",
     "build": "run-p build-only",
     "preview": "vite preview",
-    "build-only": "vite build",
+    "build-only": "node --max-old-space-size=8192 node_modules/vite/bin/vite.js build",
     "type-check": "vue-tsc --build",
     "i18n:check": "node scripts/i18n-check.mjs",
     "formula:catalog": "node scripts/formula-catalog.mjs",

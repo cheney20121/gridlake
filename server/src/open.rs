@@ -137,7 +137,7 @@ pub fn register(conn: &Connection, source: &Source, roots: &[PathBuf], tmp_dir: 
     };
     match source {
         Source::Parquet { dir, pattern, recursive, hive, name } => {
-            let input = ExternalInput { path: dir.display().to_string(), pattern: pattern.clone(), recursive: *recursive, hive: *hive };
+            let input = ExternalInput { path: dir.display().to_string(), pattern: pattern.clone(), recursive: *recursive, hive: *hive, refresh_minutes: None };
             let id = match existing(name, "external")? {
                 Some(id) => {
                     crate::external::refresh(conn, roots, &id).map_err(app)?;

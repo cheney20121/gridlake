@@ -1,23 +1,36 @@
 <script setup lang="ts">
-import type { ExternalInput, ExternalPreview } from '@/api/dataset'
+import type { DatasetInfo, ExternalInput, ExternalPreview, ExternalRefreshOutcome } from '@/api/dataset'
 import { computed, reactive, ref, watch } from 'vue'
 import { listConnectorsApi } from '@/api/connector'
-import { createExternalApi, previewExternalApi } from '@/api/dataset'
+import { createExternalApi, previewExternalApi, updateExternalApi } from '@/api/dataset'
 import BusyInline from '@/components/excel/common/BusyInline.vue'
 import { formatBool, kindLabel } from '@/features/excel/dataset/column-kinds'
+import { t } from '@/i18n'
 import { errorText } from '@/utils/busy-hint'
 
 /**
- * 外部数据集：直接查询服务器收件目录里的 Parquet 文件，不导入（只读，文件有增减后在数据表上「刷新文件列表」）
- * 只有管理员能用；目录必须在 LEDGER_INBOX_ROOTS 之内
+ * 外部数据集：直接查询服务器收件目录里的 Parquet 文件，不导入（只读，文件有增减后「刷新文件列表」，或设成自动检查）
+ * 只有管理员能用；目录必须在 LEDGER_INBOX_ROOTS 之内。传了 dataset 时是修改已有外部数据集的读取方式 / 自动检查
  */
-const props = defineProps<{ visible: boolean }>()
+const props = defineProps<{ visible: boolean, dataset?: DatasetInfo | null }>()
 const emit = defineEmits<{
   (e: 'update:visible', val: boolean): void
   (e: 'created', datasetId: string): void
+  (e: 'saved', outcome: ExternalRefreshOutcome): void
 }>()
 
-const form = reactive<ExternalInput & { name: string }>({ name: '', path: '', pattern: '*.parquet', recursive: false, hive: false })
+/** 自动检查的间隔（分钟）；0 表示只手动刷新 */
+const REFRESH_OPTIONS = [
+  { value: 0, label: t('不自动检查（手动刷新）') },
+  { value: 5, label: t('每 5 分钟') },
+  { value: 15, label: t('每 15 分钟') },
+  { value: 60, label: t('每小时') },
+  { value: 360, label: t('每 6 小时') },
+  { value: 1440, label: t('每天') },
+]
+
+const form = reactive<Omit<ExternalInput, 'refreshMinutes'> & { name: string, refreshMinutes: number }>({ name: '', path: '', pattern: '*.parquet', recursive: false, hive: false, refreshMinutes: 0 })
+const editing = computed(() => props.dataset?.kind === 'external' ? props.dataset : null)
 const roots = ref<string[]>([])
 const preview = ref<ExternalPreview | null>(null)
 const loading = ref(false)
@@ -27,7 +40,10 @@ const error = ref('')
 watch(() => props.visible, (v) => {
   if (!v)
     return
-  Object.assign(form, { name: '', path: '', pattern: '*.parquet', recursive: false, hive: false })
+  const e = editing.value?.external
+  Object.assign(form, e
+    ? { name: editing.value!.name, path: e.path, pattern: e.pattern, recursive: e.recursive, hive: e.hive, refreshMinutes: e.refreshMinutes ?? 0 }
+    : { name: '', path: '', pattern: '*.parquet', recursive: false, hive: false, refreshMinutes: 0 })
   preview.value = null
   error.value = ''
   // 允许的目录（与文件夹数据连接同一组）：只用来提示，拿不到不影响使用
@@ -53,14 +69,32 @@ function sizeText(n: number) {
   return `${Math.max(1, Math.round(n / 1024))} KB`
 }
 
-const input = computed<ExternalInput>(() => ({ path: form.path.trim(), pattern: form.pattern.trim() || '*.parquet', recursive: form.recursive, hive: form.hive }))
+const input = computed<ExternalInput>(() => ({ path: form.path.trim(), pattern: form.pattern.trim() || '*.parquet', recursive: form.recursive, hive: form.hive, refreshMinutes: form.refreshMinutes || null }))
+/** 列表里没有的间隔（如通过接口设成 1 分钟）也要能显示 */
+const refreshOptions = computed(() => REFRESH_OPTIONS.some(o => o.value === form.refreshMinutes) ? REFRESH_OPTIONS : [...REFRESH_OPTIONS, { value: form.refreshMinutes, label: t('每 {0} 分钟', [form.refreshMinutes]) }])
+
+const saving = ref(false)
+async function save() {
+  saving.value = true
+  error.value = ''
+  try {
+    emit('saved', await updateExternalApi(editing.value!.id, input.value))
+    emit('update:visible', false)
+  }
+  catch (e) {
+    error.value = errorText(e)
+  }
+  finally {
+    saving.value = false
+  }
+}
 
 async function runPreview() {
   loading.value = true
   error.value = ''
   try {
     preview.value = await previewExternalApi(input.value)
-    if (!form.name.trim())
+    if (!form.name.trim() && !editing.value)
       form.name = (form.path.trim().split(/[\\/]/).filter(Boolean).pop() ?? '').slice(0, 40)
   }
   catch (e) {
@@ -97,7 +131,7 @@ function cell(v: unknown) {
 <template>
   <el-dialog
     :model-value="visible"
-    :title="$t('查询服务器上的 Parquet 文件')"
+    :title="editing ? $t('外部数据集设置 · {0}', [editing.name]) : $t('查询服务器上的 Parquet 文件')"
     width="860px"
     :close-on-click-modal="false"
     append-to-body
@@ -126,7 +160,21 @@ function cell(v: unknown) {
             {{ $t('把「年=2026/月=09」这样的目录名读成列') }}
           </el-checkbox>
         </el-form-item>
+        <el-form-item :label="$t('自动检查')">
+          <el-select v-model="form.refreshMinutes" class="!w-56" data-testid="external-refresh-minutes">
+            <el-option v-for="o in refreshOptions" :key="o.value" :label="o.label" :value="o.value" />
+          </el-select>
+          <span class="ml-2 text-xs text-gray-500">{{ $t('比对文件列表、大小和修改时间，有变化才重新读取') }}</span>
+        </el-form-item>
+        <el-form-item v-if="editing?.external?.checkedAt" :label="$t('上次检查')">
+          <span class="text-xs" :class="editing.external.checkError ? 'text-[#B91C1C]' : 'text-gray-500'">
+            {{ editing.external.checkedAt }}<template v-if="editing.external.checkError">{{ $t('：失败，{0}', [editing.external.checkError]) }}</template>
+          </span>
+        </el-form-item>
       </el-form>
+      <div v-if="editing" class="text-xs text-gray-500 leading-5">
+        {{ $t('改了目录、文件名规则或子目录选项后，保存时按新规则重新读取；会让计算列、关联视图失效时不会保存。') }}
+      </div>
 
       <div v-if="error" class="rounded bg-[#FEF2F2] px-3 py-2 text-[#B91C1C] leading-5" role="alert">
         {{ error }}
@@ -157,7 +205,7 @@ function cell(v: unknown) {
             </template>
           </el-table-column>
         </el-table>
-        <el-form label-width="96px" size="small" @submit.prevent>
+        <el-form v-if="!editing" label-width="96px" size="small" @submit.prevent>
           <el-form-item :label="$t('数据集名称')" required>
             <el-input v-model="form.name" maxlength="40" class="!w-72" />
           </el-form-item>
@@ -172,7 +220,15 @@ function cell(v: unknown) {
       <el-button @click="emit('update:visible', false)">
         {{ $t('取消') }}
       </el-button>
-      <el-button v-if="!preview" type="primary" :loading="loading" :disabled="!form.path.trim()" @click="runPreview">
+      <template v-if="editing">
+        <el-button :loading="loading" :disabled="!form.path.trim()" @click="runPreview">
+          {{ $t('预览') }}
+        </el-button>
+        <el-button type="primary" :loading="saving" :disabled="!form.path.trim()" data-testid="external-save" @click="save">
+          {{ $t('保存') }}
+        </el-button>
+      </template>
+      <el-button v-else-if="!preview" type="primary" :loading="loading" :disabled="!form.path.trim()" @click="runPreview">
         {{ $t('预览') }}
       </el-button>
       <el-button v-else type="primary" :loading="creating" :disabled="!form.name.trim()" @click="create">

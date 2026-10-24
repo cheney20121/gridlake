@@ -346,6 +346,7 @@ const ROUTES: &[(&str, &str, Rule, &str)] = &[
     ("POST", "/ledger/datasets/external/preview", Admin, ""),
     ("POST", "/ledger/datasets/external", Admin, "新建外部数据集"),
     ("POST", "/ledger/datasets/{id}/external/refresh", Admin, "刷新外部数据集"),
+    ("PUT", "/ledger/datasets/{id}/external", Admin, "修改外部数据集"),
     ("DELETE", "/ledger/datasets/trash", Admin, "清空数据集回收站"),
     ("POST", "/ledger/datasets/input", Open, "新建填报数据集"),
     ("POST", "/ledger/datasets/{id}/writeback", Open, "填报提交"),

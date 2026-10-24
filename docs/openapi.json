@@ -4364,13 +4364,60 @@
         ]
       }
     },
+    "/ledger/datasets/{id}/external": {
+      "put": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "修改读取方式（变了就按新规则重新读取，会让计算列 / 关联视图失效时整体取消）或自动检查的间隔（分钟，不填表示只手动刷新）",
+        "description": "{ path, pattern, recursive, hive, refreshMinutes? } 修改读取方式（变了就按新规则重新读取，会让计算列 / 关联视图失效时整体取消）或自动检查的间隔（分钟，不填表示只手动刷新）",
+        "operationId": "put_ledger_datasets_by_id_external",
+        "x-permission": "仅管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-audit": "修改外部数据集",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExternalInput"
+              }
+            }
+          }
+        }
+      }
+    },
     "/ledger/datasets/{id}/external/refresh": {
       "post": {
         "tags": [
           "数据集（导入、取数、透视、公式下推）"
         ],
         "summary": "重新查找文件、读取结构（文件有增减或结构变化后）",
-        "description": "重新查找文件、读取结构（文件有增减或结构变化后）",
+        "description": "重新查找文件、读取结构（文件有增减或结构变化后）；没有变化时视图不动（changed = false）",
         "operationId": "post_ledger_datasets_by_id_external_refresh",
         "x-permission": "仅管理员",
         "x-restricted-users": false,
@@ -9873,6 +9920,10 @@
           "hive": {
             "type": "boolean",
             "description": "把 key=value 形式的目录名读成列（Hive 分区）"
+          },
+          "efreshMinutes": {
+            "type": "integer",
+            "description": "自动检查文件变化的间隔（分钟，1 ~ 1440）；不设表示只手动刷新"
           }
         },
         "required": [

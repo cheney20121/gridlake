@@ -209,6 +209,7 @@ async fn serve(config: config::Config, ready: Option<Ready>) -> anyhow::Result<(
     tokio::spawn(flush_usage(state.clone()));
     tokio::spawn(auth::run_audit_writer(state.clone()));
     tokio::spawn(webhook::run(state.clone()));
+    tokio::spawn(external::schedule(state.clone()));
 
     // 场景包的路由：没启用时不注册，访问得到 404（见 ecommerce/mod.rs）
     let api = Router::new()
@@ -226,6 +227,7 @@ async fn serve(config: config::Config, ready: Option<Ready>) -> anyhow::Result<(
         .route("/ledger/datasets/external/preview", post(routes::external_preview))
         .route("/ledger/datasets/external", post(routes::create_external))
         .route("/ledger/datasets/{id}/external/refresh", post(routes::refresh_external))
+        .route("/ledger/datasets/{id}/external", put(routes::update_external))
         .route("/ledger/datasets/trash", get(routes::dataset_trash).delete(routes::empty_dataset_trash))
         .route("/ledger/datasets/input", post(routes::create_input_dataset))
         .route("/ledger/datasets/{id}/writeback", post(routes::dataset_writeback))

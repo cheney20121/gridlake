@@ -54,6 +54,7 @@ export const EVENT_LABEL: Record<string, string> = {
   'dataset.created': t('新建数据集'),
   'dataset.imported': t('向已有数据集导入'),
   'dataset.deleted': t('删除数据集'),
+  'dataset.refreshed': t('外部数据集文件有变化'),
   'sql.refreshed': t('SQL 查询重算'),
   'connector.synced': t('数据连接同步结束'),
   'writeback.submitted': t('填报提交'),

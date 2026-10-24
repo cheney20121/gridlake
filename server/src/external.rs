@@ -8,7 +8,8 @@
 //!   （1000 万行上取一屏约 5 ~ 15 毫秒；按计算出来的全局行号取要扫全表，约 150 毫秒，随数据量线性增长）
 //! - 列类型按 Parquet 自带的类型；文本列再按样本推断（像 CSV 转出来的 Parquet，日期、编号常是文本）。
 //!   日期 / 时间戳在视图里换成「2026-09-15 10:00:00」形式的文本，与导入的数据集约定一致（透视按月分组、切片器照常用）
-//! - 只读：不能导入、填报；可以加计算列、建关联视图、写 SQL、做透视。文件有增减或结构变化后，管理员点「刷新文件列表」
+//! - 只读：不能导入、填报；可以加计算列、建关联视图、写 SQL、做透视。文件有增减或结构变化后，管理员点「刷新文件列表」，
+//!   或设置「自动检查」：每隔 N 分钟比对一次文件列表、大小和修改时间（只看文件系统，不读 Parquet），有变化才重新读取（[`schedule`]）
 
 use std::path::{Path, PathBuf};
 
@@ -45,7 +46,20 @@ pub struct ExternalInput {
     /// 把 key=value 形式的目录名读成列（Hive 分区）
     #[serde(default)]
     pub hive: bool,
+    /// 自动检查文件变化的间隔（分钟，1 ~ 1440）；不设表示只手动刷新
+    #[serde(default)]
+    pub refresh_minutes: Option<u32>,
 }
+
+impl ExternalInput {
+    /// 读哪些文件、怎么读（不含自动检查的设置）是否相同
+    fn same_source(&self, other: &ExternalInput) -> bool {
+        (self.path.trim(), self.pattern.trim(), self.recursive, self.hive) == (other.path.trim(), other.pattern.trim(), other.recursive, other.hive)
+    }
+}
+
+/// 自动检查间隔的上限（分钟）
+const MAX_REFRESH_MINUTES: u32 = 1440;
 
 fn default_pattern() -> String {
     "*.parquet".into()
@@ -57,6 +71,9 @@ pub struct ExternalFile {
     pub path: String,
     pub rows: i64,
     pub size: u64,
+    /// 修改时间（Unix 秒；旧版定义里没有，为 0）
+    #[serde(default)]
+    pub modified: i64,
 }
 
 /// 保存在登记表 definition 里的定义
@@ -67,6 +84,11 @@ pub struct ExternalDef {
     pub input: ExternalInput,
     pub files: Vec<ExternalFile>,
     pub refreshed_at: String,
+    /// 最近一次自动检查的时间与失败原因（目录不见了、刷新会让计算列失效……）
+    #[serde(default)]
+    pub checked_at: Option<String>,
+    #[serde(default)]
+    pub check_error: Option<String>,
 }
 
 /// 给前端看的摘要（数据集定义里的 external 字段）；offsets 是每个文件第一行的全局位置，浏览时换算用
@@ -81,6 +103,9 @@ pub struct ExternalInfo {
     pub rows: i64,
     pub size: u64,
     pub refreshed_at: String,
+    pub refresh_minutes: Option<u32>,
+    pub checked_at: Option<String>,
+    pub check_error: Option<String>,
     #[serde(skip)]
     pub offsets: Vec<i64>,
 }
@@ -102,6 +127,9 @@ impl ExternalDef {
             rows: total,
             size: self.files.iter().map(|f| f.size).sum(),
             refreshed_at: self.refreshed_at.clone(),
+            refresh_minutes: self.input.refresh_minutes,
+            checked_at: self.checked_at.clone(),
+            check_error: self.check_error.clone(),
             offsets,
         }
     }
@@ -184,6 +212,31 @@ fn source_sql(files: &[String], hive: bool) -> String {
     format!("read_parquet({}, union_by_name = true, hive_partitioning = {hive})", file_list(files))
 }
 
+/// 文件的大小与修改时间（Unix 秒）；读不到时为 0
+fn fs_stamp(p: &Path) -> (u64, i64) {
+    std::fs::metadata(p).map_or((0, 0), |m| {
+        let modified = m.modified().ok().and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map_or(0, |d| d.as_secs() as i64);
+        (m.len(), modified)
+    })
+}
+
+/// 文件系统上的文件和定义里记的是否一样（文件列表、大小、修改时间）。只看文件系统，不读 Parquet，所以可以频繁调用
+pub fn files_changed(roots: &[PathBuf], def: &ExternalDef) -> AppResult<bool> {
+    let files = find_files(roots, &def.input)?;
+    if files.len() != def.files.len() {
+        return Ok(true);
+    }
+    Ok(files.iter().zip(&def.files).any(|(p, f)| {
+        let (size, modified) = fs_stamp(p);
+        p.display().to_string() != f.path || size != f.size || (f.modified != 0 && modified != f.modified)
+    }))
+}
+
+/// 两份文件清单是否相同；旧版定义没记修改时间（0）的不比较修改时间，免得升级后第一次检查就当成「有变化」
+fn same_files(old: &[ExternalFile], new: &[ExternalFile]) -> bool {
+    old.len() == new.len() && old.iter().zip(new).all(|(a, b)| a.path == b.path && a.rows == b.rows && a.size == b.size && (a.modified == 0 || a.modified == b.modified))
+}
+
 /// 每个文件的行数与大小（只读 Parquet 文件尾的元数据）
 fn file_stats(conn: &Connection, files: &[PathBuf]) -> AppResult<Vec<ExternalFile>> {
     let names: Vec<String> = files.iter().map(|p| p.display().to_string()).collect();
@@ -194,7 +247,8 @@ fn file_stats(conn: &Connection, files: &[PathBuf]) -> AppResult<Vec<ExternalFil
         .zip(files)
         .map(|(n, p)| {
             let rows = rows.get(n).copied().ok_or_else(|| AppError::bad(format!("读不出文件的行数：{n}")))?;
-            Ok(ExternalFile { path: n.clone(), rows, size: std::fs::metadata(p).map(|m| m.len()).unwrap_or(0) })
+            let (size, modified) = fs_stamp(p);
+            Ok(ExternalFile { path: n.clone(), rows, size, modified })
         })
         .collect()
 }
@@ -293,11 +347,17 @@ fn view_sql(def: &ExternalDef, cols: &[PlannedColumn]) -> String {
 
 /// 文件 + 列：预览、创建、刷新共用
 fn inspect(conn: &Connection, roots: &[PathBuf], input: &ExternalInput) -> AppResult<(ExternalDef, Vec<PlannedColumn>)> {
+    if let Some(m) = input.refresh_minutes
+        && !(1..=MAX_REFRESH_MINUTES).contains(&m)
+    {
+        return Err(AppError::bad(format!("自动检查的间隔应在 1 ~ {MAX_REFRESH_MINUTES} 分钟之间")));
+    }
     let files = find_files(roots, input)?;
     let stats = file_stats(conn, &files)?;
     let names: Vec<String> = stats.iter().map(|f| f.path.clone()).collect();
     let cols = plan_columns(conn, &source_sql(&names, input.hive))?;
-    Ok((ExternalDef { input: input.clone(), files: stats, refreshed_at: crate::db::now_local() }, cols))
+    let now = crate::db::now_local();
+    Ok((ExternalDef { input: input.clone(), files: stats, refreshed_at: now.clone(), checked_at: Some(now), check_error: None }, cols))
 }
 
 // ── 接口 ──────────────────────────────────────────────
@@ -377,7 +437,7 @@ pub fn create(conn: &Connection, roots: &[PathBuf], name: &str, input: &External
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct RefreshOutcome {
     pub file_count: usize,
@@ -387,19 +447,32 @@ pub struct RefreshOutcome {
     pub removed_files: usize,
     pub added_columns: Vec<String>,
     pub removed_columns: Vec<String>,
+    /// 文件、列或读取方式有没有变化（没有变化时视图不动）
+    pub changed: bool,
 }
 
-/// 重新找文件、读结构并重建视图；会让计算列、关联视图失效时整体取消
-pub fn refresh(conn: &Connection, roots: &[PathBuf], id: &str) -> AppResult<RefreshOutcome> {
-    let (old, old_cols): (ExternalDef, Vec<StoredColumn>) = {
-        let (d, c): (Option<String>, String) = conn
-            .query_row("SELECT definition, columns FROM ledger_dataset WHERE id = ? AND kind = 'external' AND deleted_at IS NULL", [id], |r| Ok((r.get(0)?, r.get(1)?)))
-            .map_err(|_| AppError::bad("外部数据集不存在"))?;
-        (d.and_then(|d| serde_json::from_str(&d).ok()).ok_or_else(|| AppError::bad("外部数据集的定义损坏"))?, serde_json::from_str(&c).unwrap_or_default())
-    };
-    let (def, cols) = inspect(conn, roots, &old.input)?;
+fn load(conn: &Connection, id: &str) -> AppResult<(String, ExternalDef, Vec<StoredColumn>)> {
+    let (name, d, c): (String, Option<String>, String) = conn
+        .query_row("SELECT name, definition, columns FROM ledger_dataset WHERE id = ? AND kind = 'external' AND deleted_at IS NULL", [id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+        .map_err(|_| AppError::bad("外部数据集不存在"))?;
+    let def = d.and_then(|d| serde_json::from_str(&d).ok()).ok_or_else(|| AppError::bad("外部数据集的定义损坏"))?;
+    Ok((name, def, serde_json::from_str(&c).unwrap_or_default()))
+}
+
+/// 只改定义（自动检查的时间 / 结果、检查间隔），不动视图和列
+fn save_def(conn: &Connection, id: &str, def: &ExternalDef) -> AppResult<()> {
+    conn.execute("UPDATE ledger_dataset SET definition = ? WHERE id = ?", params![serde_json::to_string(def)?, id])?;
+    Ok(())
+}
+
+/// 按 input 重新找文件、读结构；有变化时重建视图（会让计算列、关联视图失效时整体取消），没变化时只记下检查时间
+fn rebuild(conn: &Connection, roots: &[PathBuf], id: &str, input: &ExternalInput) -> AppResult<RefreshOutcome> {
+    let (_, old, old_cols) = load(conn, id)?;
+    let (def, cols) = inspect(conn, roots, input)?;
     let stored: Vec<StoredColumn> = cols.iter().map(|c| c.stored.clone()).collect();
     let has = |list: &[ExternalFile], p: &str| list.iter().any(|f| f.path == p);
+    let shape = |c: &[StoredColumn]| c.iter().map(|c| (c.title.clone(), c.kind.clone())).collect::<Vec<_>>();
+    let changed = !old.input.same_source(input) || !same_files(&old.files, &def.files) || shape(&old_cols) != shape(&stored);
     let outcome = RefreshOutcome {
         file_count: def.files.len(),
         rows: def.info().rows,
@@ -407,7 +480,13 @@ pub fn refresh(conn: &Connection, roots: &[PathBuf], id: &str) -> AppResult<Refr
         removed_files: old.files.iter().filter(|f| !has(&def.files, &f.path)).count(),
         added_columns: stored.iter().filter(|c| !old_cols.iter().any(|o| o.title == c.title)).map(|c| c.title.clone()).collect(),
         removed_columns: old_cols.iter().filter(|o| !stored.iter().any(|c| c.title == o.title)).map(|c| c.title.clone()).collect(),
+        changed,
     };
+    if !changed {
+        // 记下新的文件信息（补上旧版定义没有的修改时间）和检查时间，视图不动
+        save_def(conn, id, &ExternalDef { input: input.clone(), files: def.files, checked_at: def.checked_at, check_error: None, ..old })?;
+        return Ok(outcome);
+    }
     let sql = view_sql(&def, &cols);
     let (stored_json, def_json) = (serde_json::to_string(&stored)?, serde_json::to_string(&def)?);
     dataset::guarded_change(conn, |conn| {
@@ -419,6 +498,113 @@ pub fn refresh(conn: &Connection, roots: &[PathBuf], id: &str) -> AppResult<Refr
         Ok(())
     })?;
     Ok(outcome)
+}
+
+/// 手动刷新：重新找文件、读结构并重建视图；会让计算列、关联视图失效时整体取消
+pub fn refresh(conn: &Connection, roots: &[PathBuf], id: &str) -> AppResult<RefreshOutcome> {
+    let (_, old, _) = load(conn, id)?;
+    rebuild(conn, roots, id, &old.input)
+}
+
+/// 修改目录、文件名规则、子目录 / 分区选项或自动检查间隔。读取方式变了就按新规则重新读取（同样受计算列 / 关联视图保护）
+pub fn update(conn: &Connection, roots: &[PathBuf], id: &str, input: &ExternalInput) -> AppResult<RefreshOutcome> {
+    let (_, old, _) = load(conn, id)?;
+    if old.input.same_source(input) {
+        if let Some(m) = input.refresh_minutes
+            && !(1..=MAX_REFRESH_MINUTES).contains(&m)
+        {
+            return Err(AppError::bad(format!("自动检查的间隔应在 1 ~ {MAX_REFRESH_MINUTES} 分钟之间")));
+        }
+        let info = old.info();
+        let outcome = RefreshOutcome { file_count: info.file_count, rows: info.rows, added_files: 0, removed_files: 0, added_columns: vec![], removed_columns: vec![], changed: false };
+        // 从手动改成自动时从现在起算，不要一保存就立即检查
+        let checked_at = if old.input.refresh_minutes.is_none() { Some(crate::db::now_local()) } else { old.checked_at.clone() };
+        save_def(conn, id, &ExternalDef { input: input.clone(), checked_at, ..old })?;
+        return Ok(outcome);
+    }
+    rebuild(conn, roots, id, input)
+}
+
+/// 自动检查一个外部数据集：文件没变只记下检查时间；变了就重新读取。返回（名称，有变化时的结果）；
+/// 失败（目录不见了、刷新会让计算列失效……）记在定义里，界面上能看到，下次到点再试
+pub fn auto_check(conn: &Connection, roots: &[PathBuf], id: &str) -> AppResult<(String, Option<RefreshOutcome>)> {
+    let (name, mut def, _) = load(conn, id)?;
+    let result = files_changed(roots, &def).and_then(|changed| if changed { rebuild(conn, roots, id, &def.input.clone()).map(Some) } else { Ok(None) });
+    match result {
+        Ok(Some(o)) if o.changed => Ok((name, Some(o))),
+        Ok(_) => {
+            let (_, mut latest, _) = load(conn, id)?;
+            latest.checked_at = Some(crate::db::now_local());
+            latest.check_error = None;
+            save_def(conn, id, &latest)?;
+            Ok((name, None))
+        }
+        Err(e) => {
+            def.checked_at = Some(crate::db::now_local());
+            def.check_error = Some(e.message());
+            save_def(conn, id, &def)?;
+            Err(e)
+        }
+    }
+}
+
+/// 到点该自动检查的外部数据集（id）
+fn due(conn: &Connection, now: chrono::NaiveDateTime) -> AppResult<Vec<String>> {
+    let mut stmt = conn.prepare("SELECT id, definition FROM ledger_dataset WHERE kind = 'external' AND deleted_at IS NULL")?;
+    let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
+    Ok(rows
+        .into_iter()
+        .filter_map(|(id, d)| {
+            let def: ExternalDef = serde_json::from_str(&d?).ok()?;
+            let every = chrono::Duration::minutes(i64::from(def.input.refresh_minutes?));
+            let last = def.checked_at.as_deref().and_then(|t| chrono::NaiveDateTime::parse_from_str(t, "%Y-%m-%d %H:%M:%S").ok());
+            last.is_none_or(|t| t + every <= now).then_some(id)
+        })
+        .collect())
+}
+
+/// 后台任务：每 20 秒看一次哪些外部数据集到了自动检查的时间。检查与刷新和导入串行（import_lock）
+pub async fn schedule(state: crate::routes::AppState) {
+    let mut tick = tokio::time::interval(std::time::Duration::from_secs(20));
+    loop {
+        tick.tick().await;
+        let st = state.clone();
+        let ids = match tokio::task::spawn_blocking(move || -> AppResult<Vec<String>> { due(&st.connection()?, chrono::Local::now().naive_local()) }).await {
+            Ok(Ok(ids)) => ids,
+            Ok(Err(e)) => {
+                tracing::warn!("检查外部数据集的自动刷新计划失败：{}", e.message());
+                continue;
+            }
+            Err(e) => {
+                tracing::warn!("检查外部数据集的自动刷新计划失败：{e}");
+                continue;
+            }
+        };
+        for id in ids {
+            let _guard = state.import_lock.lock().await;
+            let (st, roots, did) = (state.clone(), state.config.inbox_roots.clone(), id.clone());
+            let r = tokio::task::spawn_blocking(move || -> AppResult<_> { auto_check(&st.connection()?, &roots, &did) }).await;
+            match r {
+                Ok(Ok((name, Some(o)))) => {
+                    tracing::info!("外部数据集「{name}」文件有变化，已自动刷新：{} 个文件、{} 行", o.file_count, o.rows);
+                    state.cursors.invalidate();
+                    state.checkpoint();
+                    crate::webhook::emit(&state, "dataset.refreshed", None, refreshed_event(&id, &name, "auto", &o));
+                }
+                Ok(Ok((_, None))) => {}
+                Ok(Err(e)) => tracing::warn!("外部数据集 {id} 自动检查失败：{}", e.message()),
+                Err(e) => tracing::warn!("外部数据集 {id} 自动检查任务异常：{e}"),
+            }
+        }
+    }
+}
+
+/// `dataset.refreshed` 事件的内容；trigger：manual 手动刷新 / auto 自动检查 / edit 修改了读取方式
+pub fn refreshed_event(id: &str, name: &str, trigger: &str, o: &RefreshOutcome) -> Json {
+    serde_json::json!({
+        "datasetId": id, "name": name, "trigger": trigger, "fileCount": o.file_count, "rows": o.rows,
+        "addedFiles": o.added_files, "removedFiles": o.removed_files, "addedColumns": o.added_columns, "removedColumns": o.removed_columns,
+    })
 }
 
 /// 登记表里的一行 → 数据集定义（不读文件）
@@ -464,15 +650,17 @@ mod tests {
     }
 
     fn input(path: &str) -> ExternalInput {
-        ExternalInput { path: path.into(), pattern: "*.parquet".into(), recursive: false, hive: false }
+        ExternalInput { path: path.into(), pattern: "*.parquet".into(), recursive: false, hive: false, refresh_minutes: None }
     }
 
     #[test]
     fn range_maps_positions_to_files() {
         let def = ExternalDef {
             input: input("x"),
-            files: vec![ExternalFile { path: "a".into(), rows: 10, size: 0 }, ExternalFile { path: "b".into(), rows: 5, size: 0 }],
+            files: vec![ExternalFile { path: "a".into(), rows: 10, size: 0, modified: 0 }, ExternalFile { path: "b".into(), rows: 5, size: 0, modified: 0 }],
             refreshed_at: String::new(),
+            checked_at: None,
+            check_error: None,
         };
         let info = def.info();
         assert_eq!(info.offsets, vec![0, 10]);
@@ -499,6 +687,56 @@ mod tests {
         assert!(find_files(&roots, &input(&outside.path().display().to_string())).is_err());
         assert!(find_files(&roots, &input("../")).is_err());
         assert!(find_files(&roots, &ExternalInput { pattern: "z*.parquet".into(), ..input("订单") }).is_err());
+    }
+
+    #[test]
+    fn auto_check_only_rebuilds_on_change() {
+        let root = tempfile::tempdir().unwrap();
+        let conn = setup();
+        let dir = root.path().join("日志");
+        write(&conn, &dir.join("d1.parquet"), "SELECT i AS n FROM range(10) t(i)");
+        let roots = vec![root.path().to_path_buf()];
+        let id = create(&conn, &roots, "日志", &input("日志")).unwrap();
+        let def = || load(&conn, &id).unwrap().1;
+
+        // 文件没变：检查不重建
+        assert!(!files_changed(&roots, &def()).unwrap());
+        let (name, o) = auto_check(&conn, &roots, &id).unwrap();
+        assert_eq!((name.as_str(), o.is_none()), ("日志", true));
+        let o = refresh(&conn, &roots, &id).unwrap();
+        assert!(!o.changed, "手动刷新、没有变化");
+
+        // 计划：不设间隔就不在计划里；设了以后从现在起算
+        let now = chrono::Local::now().naive_local();
+        assert!(due(&conn, now).unwrap().is_empty());
+        let o = update(&conn, &roots, &id, &ExternalInput { refresh_minutes: Some(10), ..input("日志") }).unwrap();
+        assert!(!o.changed);
+        assert!(due(&conn, now).unwrap().is_empty(), "刚设置，还没到点");
+        assert_eq!(due(&conn, now + chrono::Duration::minutes(11)).unwrap(), vec![id.clone()]);
+        assert!(update(&conn, &roots, &id, &ExternalInput { refresh_minutes: Some(0), ..input("日志") }).is_err());
+
+        // 新文件：检查发现变化并重建
+        write(&conn, &dir.join("d2.parquet"), "SELECT 100 + i AS n FROM range(5) t(i)");
+        assert!(files_changed(&roots, &def()).unwrap());
+        let (_, o) = auto_check(&conn, &roots, &id).unwrap();
+        let o = o.expect("有变化");
+        assert_eq!((o.file_count, o.rows, o.added_files, o.changed), (2, 15, 1, true));
+        assert_eq!(def().input.refresh_minutes, Some(10), "自动检查的设置保留");
+        let n: i64 = conn.query_row(&format!("SELECT count(*) FROM {id}"), [], |r| r.get(0)).unwrap();
+        assert_eq!(n, 15);
+
+        // 目录不见了：检查失败，原因记在定义里，数据集不动
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert!(auto_check(&conn, &roots, &id).is_err());
+        let d = def();
+        assert!(d.check_error.is_some() && d.files.len() == 2, "{:?}", d.check_error);
+
+        // 修改读取方式：换目录后按新规则重新读取
+        write(&conn, &root.path().join("新日志/x.parquet"), "SELECT 1 AS n, 'a' AS tag");
+        let o = update(&conn, &roots, &id, &ExternalInput { refresh_minutes: Some(10), ..input("新日志") }).unwrap();
+        assert!(o.changed && o.rows == 1 && o.added_columns == vec!["tag".to_string()]);
+        let d = def();
+        assert!(d.check_error.is_none() && d.input.path == "新日志");
     }
 
     #[test]

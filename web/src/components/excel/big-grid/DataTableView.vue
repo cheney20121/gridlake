@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import type { DatasetDrill } from './drill'
 import type { GridColumn, GridSelection } from './types'
-import type { CellValue, DatasetColumnKind, DatasetCursor, DatasetFilter, DatasetInfo, DatasetQuery, SelectionStats } from '@/api/dataset'
+import type { CellValue, DatasetColumnKind, DatasetCursor, DatasetFilter, DatasetInfo, DatasetQuery, ExternalRefreshOutcome, SelectionStats } from '@/api/dataset'
 import { useDebounceFn, useLocalStorage } from '@vueuse/core'
 import { isCancel } from 'axios'
 import { computed, nextTick, ref, shallowRef, watch } from 'vue'
 import { CONTRIBUTION_KEY, exportUrl, getStatsApi, MAX_EXPORT_ROWS, MAX_XLSX_ROWS, openCursorApi, refreshExternalApi } from '@/api/dataset'
 import BusyOverlay from '@/components/excel/common/BusyOverlay.vue'
+import ExternalDatasetDialog from '@/components/excel/dataset-import/ExternalDatasetDialog.vue'
 import { formatBool } from '@/features/excel/dataset/column-kinds'
 import { t } from '@/i18n'
 import { useLedgerUserStore } from '@/stores/ledger-user'
@@ -43,6 +44,8 @@ const emit = defineEmits<{
 
 const ledgerUser = useLedgerUserStore()
 const refreshing = ref(false)
+/** 外部数据集设置（读取方式、自动检查） */
+const externalSettings = ref(false)
 
 /** 列头菜单里的「更改列类型」：导入 / 填报的数据表，所有者与管理员；计算列、贡献列不行 */
 const kindColumn = ref<{ title: string, kind: DatasetColumnKind } | null>(null)
@@ -53,20 +56,47 @@ function canChangeKind(col: GridColumn) {
   return d.kind === 'table' && owner && !!real && !real.computed
 }
 
+/** 刷新 / 修改外部数据集的结果提示；有变化时通知外层重新加载 */
+function reportRefresh(o: ExternalRefreshOutcome) {
+  const parts = [t('{0} 个文件、{1} 行', [o.fileCount, o.rows.toLocaleString()])]
+  if (!o.changed)
+    parts.push(t('文件没有变化'))
+  if (o.addedFiles || o.removedFiles)
+    parts.push(t('新增 {0} 个、移除 {1} 个文件', [o.addedFiles, o.removedFiles]))
+  if (o.addedColumns.length)
+    parts.push(t('新增列：{0}', [o.addedColumns.join('、')]))
+  if (o.removedColumns.length)
+    parts.push(t('移除列：{0}', [o.removedColumns.join('、')]))
+  ElMessage.success(parts.join('；'))
+  // 没变化时也刷新一下：检查时间、自动检查的设置要更新
+  emit('changed', props.dataset.id)
+}
+
+/** 外部数据集设置已保存：读取方式变了时和刷新一样提示结果，只改了自动检查时说「已保存」 */
+function onExternalSaved(o: ExternalRefreshOutcome) {
+  if (o.changed)
+    return reportRefresh(o)
+  ElMessage.success(t('已保存'))
+  emit('changed', props.dataset.id)
+}
+
+/** 外部数据集的说明（悬停在「外部文件」标签上） */
+const externalTip = computed(() => {
+  const e = props.dataset.external
+  if (!e)
+    return ''
+  const lines = [t('外部数据集：直接读取 {0} 下的 {1} 个 Parquet 文件（{2}），只读；文件列表更新于 {3}', [e.path, e.fileCount, e.pattern, e.refreshedAt])]
+  lines.push(e.refreshMinutes ? t('每 {0} 分钟自动检查文件变化', [e.refreshMinutes]) : t('不自动检查，文件有变化后请手动刷新'))
+  if (e.checkError)
+    lines.push(t('上次检查失败（{0}）：{1}', [e.checkedAt ?? '', e.checkError]))
+  return lines.join('\n')
+})
+
 /** 外部数据集：重新读取文件列表与结构（只有管理员） */
 async function refreshExternal() {
   refreshing.value = true
   try {
-    const o = await refreshExternalApi(props.dataset.id)
-    const parts = [t('{0} 个文件、{1} 行', [o.fileCount, o.rows.toLocaleString()])]
-    if (o.addedFiles || o.removedFiles)
-      parts.push(t('新增 {0} 个、移除 {1} 个文件', [o.addedFiles, o.removedFiles]))
-    if (o.addedColumns.length)
-      parts.push(t('新增列：{0}', [o.addedColumns.join('、')]))
-    if (o.removedColumns.length)
-      parts.push(t('移除列：{0}', [o.removedColumns.join('、')]))
-    ElMessage.success(parts.join('；'))
-    emit('changed', props.dataset.id)
+    reportRefresh(await refreshExternalApi(props.dataset.id))
   }
   catch (e) {
     ElMessage.error(errorText(e))
@@ -420,13 +450,16 @@ function exportData(format: 'csv' | 'xlsx') {
           {{ $t('关联 ✎') }}
         </el-tag>
       </el-tooltip>
-      <el-tooltip v-if="dataset.kind === 'external' && dataset.external" placement="bottom" :content="$t('外部数据集：直接读取 {0} 下的 {1} 个 Parquet 文件（{2}），只读；文件列表更新于 {3}', [dataset.external.path, dataset.external.fileCount, dataset.external.pattern, dataset.external.refreshedAt])">
-        <el-tag size="small" type="info">
-          {{ $t('外部文件') }}
+      <el-tooltip v-if="dataset.kind === 'external' && dataset.external" placement="bottom" :content="externalTip" popper-class="whitespace-pre-line">
+        <el-tag size="small" :type="dataset.external.checkError ? 'danger' : 'info'" data-testid="external-tag">
+          {{ dataset.external.refreshMinutes ? $t('外部文件 · 自动') : $t('外部文件') }}
         </el-tag>
       </el-tooltip>
       <el-button v-if="dataset.kind === 'external' && ledgerUser.isAdmin" link size="small" :loading="refreshing" :title="$t('文件有增减或结构变化后，重新读取文件列表')" @click="refreshExternal">
         {{ $t('刷新文件列表') }}
+      </el-button>
+      <el-button v-if="dataset.kind === 'external' && ledgerUser.isAdmin" link size="small" data-testid="external-settings" @click="externalSettings = true">
+        {{ $t('设置…') }}
       </el-button>
       <span class="shrink-0 whitespace-nowrap text-xs text-gray-500 tabular-nums">
         {{ $t('{0} 行', [cursor ? cursor.total.toLocaleString() : '…']) }}
@@ -591,6 +624,7 @@ function exportData(format: 'csv' | 'xlsx') {
       @change-kind="kindColumn = { title: menu!.column.title, kind: menu!.column.kind }; menu = null"
     />
     <ColumnKindDialog :dataset-id="dataset.id" :column="kindColumn" @close="kindColumn = null" @changed="emit('changed', dataset.id)" />
+    <ExternalDatasetDialog v-if="dataset.kind === 'external'" v-model:visible="externalSettings" :dataset="dataset" @saved="onExternalSaved" />
 
     <el-drawer :model-value="!!openedRow" :title="$t('第 {0} 行', [(openedRow?.row ?? 0) + 1])" size="420px" append-to-body @update:model-value="openedRow = null">
       <div class="flex flex-col text-[13px]">
