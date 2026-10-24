@@ -19,6 +19,7 @@ secret.key
 .npmrc
 
 # 本地工具缓存 / 系统文件
+__pycache__/
 .DS_Store
 .idea/
 .vscode/*
