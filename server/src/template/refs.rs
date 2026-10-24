@@ -214,6 +214,25 @@ pub fn quote(s: &str) -> String {
 
 /// 找出公式里所有 D 系列函数调用（含嵌套）
 pub fn d_calls(f: &str) -> Vec<DCall> {
+    calls_named(f, &D_FUNCS)
+}
+
+/// 单元格里写 SQL 的函数：第一个参数是查询
+pub const SQL_FUNCS: [&str; 2] = ["SQL", "SQLVALUE"];
+
+/// 工作簿公式里 SQL / SQLVALUE 的查询文本（只收第一个参数是字符串字面量的）
+pub fn sql_queries(wb: &Json) -> Vec<String> {
+    let mut wb = wb.clone();
+    let mut out = Vec::new();
+    with_formulas(&mut wb, &mut |f| {
+        out.extend(calls_named(f, &SQL_FUNCS).into_iter().filter_map(|c| c.args.first().and_then(|a| a.literal.clone())));
+        None
+    });
+    out
+}
+
+/// 找出公式里所有调用了 names 里的函数的地方（含嵌套）
+fn calls_named(f: &str, names: &[&str]) -> Vec<DCall> {
     let b = f.as_bytes();
     let mut calls = Vec::new();
     let mut i = 0;
@@ -242,7 +261,7 @@ pub fn d_calls(f: &str) -> Vec<DCall> {
                 i += 1;
             }
             let name = f[start..i].to_ascii_uppercase();
-            if i < b.len() && b[i] == b'(' && D_FUNCS.contains(&name.as_str())
+            if i < b.len() && b[i] == b'(' && names.contains(&name.as_str())
                 && let Some(args) = split_args(f, i + 1)
             {
                 calls.push(DCall { func: name, args });
@@ -372,6 +391,9 @@ pub fn collect(wb: &Json) -> Collected {
     });
     let mut warnings = BTreeSet::new();
     with_formulas(&mut wb, &mut |f| {
+        if !calls_named(f, &SQL_FUNCS).is_empty() {
+            warnings.insert("SQL / SQLVALUE 公式里写的数据集名，使用模板时不会自动替换（请在 SQL 里改成新的数据集名）".to_string());
+        }
         for call in d_calls(f) {
             let Some(name) = call.args.first().and_then(|a| a.literal.clone()) else {
                 warnings.insert(format!("公式 {} 的数据集名来自单元格或表达式，使用模板时无法自动替换", call.func));
@@ -450,6 +472,16 @@ pub fn summary(wb: &Json) -> BTreeMap<String, usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn finds_sql_formulas() {
+        let wb = serde_json::json!({"sheets": {"s1": {"cellData": {
+            "0": {"0": {"f": "=SQL(\"SELECT 店铺, sum(金额) FROM 订单 GROUP BY 1\")"}, "1": {"f": "=1+SQLVALUE(\"SELECT count(*) FROM \"\"成本\"\" WHERE x = {{x}}\", \"x\", A1)"}},
+            "1": {"0": {"f": "=SQL(A1)"}, "1": {"f": "=DSUMIFS(\"订单\",\"金额\")"}, "2": {"v": "SQL(\"x\")"}}
+        }}}});
+        assert_eq!(sql_queries(&wb), vec!["SELECT 店铺, sum(金额) FROM 订单 GROUP BY 1".to_string(), "SELECT count(*) FROM \"成本\" WHERE x = {{x}}".to_string()]);
+        assert!(collect(&wb).warnings.iter().any(|w| w.contains("SQL")));
+    }
 
     fn binding(id: &str, name: &str, cols: &[(&str, &str)]) -> Binding {
         Binding { dataset_id: id.into(), dataset_name: name.into(), columns: cols.iter().map(|(a, b)| (a.to_string(), b.to_string())).collect() }

@@ -80,7 +80,7 @@
 | 17 | 🟡 认证扩展：✅ 原生 OIDC 单点登录（`server/src/oidc.rs`）、✅ 个人访问令牌含只读令牌（`server/src/pat.rs`）；✅ 两步验证（TOTP + 恢复码，见 `server/src/totp.rs`）；**未做**：LDAP / SAML、PAT 按接口的更细范围（按数据集限定已完成：创建令牌时选「可访问的数据集」）；管理员强制所有人开启已完成（`LEDGER_REQUIRE_2FA`）；未做：二维码（需要自带 QR 编码器，而本环境没有扫码器可以验证它能被扫描） | LDAP / SAML 现在仍要靠反向代理 | M |
 | 18 | 🟡 权限通用化：✅ **行级权限已完成**——引入「维度」（店铺 / 地区 / 部门…），规则按（用户，维度）设置取值，数据集绑定（列，维度），同一个用户在不同数据集上受不同规则限制；老写法 `shops` 仍兼容；**未做**：列级权限、用户组 / 角色、一个数据集同时绑定多个维度 | 见 `server/src/scope.rs` | L |
 | 19 | 🟡 更多连接器：✅ S3 / 对象存储（含 https 内部 CA、备份上传共用，见 `server/src/connector/s3.rs`）；**未做**：Snowflake / BigQuery、MongoDB、Google Sheets，以及增量同步（CDC） | 现有 ClickHouse / MySQL / PG / HTTP / 文件夹 | L |
-| 20 | 🟡 更多下推函数：✅ `DAVERAGEIFS`、`DMAXIFS`、`DMINIFS` 已完成；✅ 去重计数 `DCOUNTDISTINCTIFS`（见 `docs/formulas.md`）；**未做**：数据表版 `TCOUNTDISTINCT`、`XLOOKUP`；公式诊断覆盖更多不支持的写法 | 与 #10 的兼容矩阵一起做 | M |
+| 20 | 🟡 更多下推函数：✅ 单元格里写 SQL（`SQL` 结果铺开、`SQLVALUE` 取值，支持参数、分享链接按工作簿用到的数据集限定）；✅ `DAVERAGEIFS`、`DMAXIFS`、`DMINIFS` 已完成；✅ 去重计数 `DCOUNTDISTINCTIFS`（见 `docs/formulas.md`）；**未做**：数据表版 `TCOUNTDISTINCT`、`XLOOKUP`；公式诊断覆盖更多不支持的写法 | 与 #10 的兼容矩阵一起做 | M |
 | 21 | AI：建评测集和回归基准、多模型 / 按用户配置、提示注入防护、成本与限流、本地模型适配文档 | README 承认“没有系统评测” | L |
 | 22 | 🟡 分享与嵌入：✅ **只读分享链接已完成**（令牌、有效期、吊销、按工作簿内容限定可读数据集、数据范围跟随创建人，见 `server/src/share.rs`、部署手册「分享链接」）；✅ iframe 嵌入（`LEDGER_EMBED_ORIGINS`，同时补上了全站防点击劫持的响应头）；**未做**：JS SDK 嵌入、导出 PDF / 打印、分享页的访问统计图表（带密码的链接已完成：见部署手册「分享链接」） | 访客在分享页不能编辑 | M |
 | 23 | 🟡 备份增强：✅ 备份后上传 S3 / 兼容对象存储（上传后核对大小、分片、对象存储上保留最近 N 份、失败进监控指标，见 `server/src/admin.rs` 的 `upload_remote`）；✅ 恢复演练（备份后自动验证、`/admin/backup/verify` 含从对象存储下载回来验证与全量扫描、`gridlake verify`）。**未做**：按计划定期演练并通知、直接从 S3 恢复（目前先下载再 `gridlake restore`）、备份加密 | 本地目录加保留份数 + 可选上传 | S |

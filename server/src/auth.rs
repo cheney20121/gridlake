@@ -874,6 +874,14 @@ async fn share_request(db: &AppState, peer: SocketAddr, mut req: Request, next: 
                 }))
             }
         }
+        // 单元格里的 SQL 公式：只能查这个工作簿用到的数据集，在创建人的数据范围内执行
+        "/ledger/sql/run" => {
+            req.extensions_mut().insert(principal.clone());
+            req.extensions_mut().insert(Identity(Some(principal)));
+            req.extensions_mut().insert(ScopeExt(scope.clone()));
+            req.extensions_mut().insert(share::ShareDatasets(info.datasets.iter().cloned().collect()));
+            crate::scope::CURRENT.scope(scope, next.run(req)).await
+        }
         // 数据集的只读查询
         _ => {
             if !id.as_deref().is_some_and(|d| info.may_read_dataset(d)) {

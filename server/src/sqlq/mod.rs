@@ -214,14 +214,36 @@ fn describe(conn: &Connection, sql: &str) -> AppResult<Vec<(String, String)>> {
 }
 
 /// 执行查询（预览）：最多返回 limit 行
-pub fn run(conn: &Connection, sql: &str, limit: usize) -> AppResult<RunResult> {
-    run_scoped(conn, sql, limit, None)
+/// 带参数的运行：先把参数值安全地代入；scope 限定能查的数据集（分享链接只能查被分享工作簿用到的）
+pub fn run_with_params(conn: &Connection, sql: &str, limit: usize, defs: &[params::ParamDef], values: &HashMap<String, String>, scope: Option<&HashSet<String>>) -> AppResult<RunResult> {
+    let bound = params::bind(sql, defs, values)?;
+    run_scoped(conn, &bound, limit, scope)
 }
 
-/// 带参数的运行：先把参数值安全地代入
-pub fn run_with_params(conn: &Connection, sql: &str, limit: usize, defs: &[params::ParamDef], values: &HashMap<String, String>) -> AppResult<RunResult> {
-    let bound = params::bind(sql, defs, values)?;
-    run(conn, &bound, limit)
+/// 一段 SQL 用到的数据集（ID）：参数占位符 {{…}} 当作 NULL 再解析；解析不了的返回空
+pub fn referenced(conn: &Connection, sql: &str) -> Vec<String> {
+    let mut text = String::with_capacity(sql.len());
+    let mut rest = sql;
+    while let Some(i) = rest.find("{{") {
+        text.push_str(&rest[..i]);
+        match rest[i..].find("}}") {
+            Some(j) => {
+                text.push_str("NULL");
+                rest = &rest[i + j + 2..];
+            }
+            None => {
+                rest = &rest[i..];
+                break;
+            }
+        }
+    }
+    text.push_str(rest);
+    let Ok(catalog) = dataset::datasets(conn) else { return vec![] };
+    let names: HashSet<String> = catalog.iter().map(|d| d.name.clone()).collect();
+    match guard::check(conn, &text, &|t| names.contains(t)) {
+        Ok(checked) => catalog.into_iter().filter(|d| checked.tables.contains(&d.name)).map(|d| d.id).collect(),
+        Err(_) => vec![],
+    }
 }
 
 /// 执行查询，只能读 scope 内的数据集（外部接入按令牌授权范围）
@@ -832,12 +854,33 @@ mod tests {
         let cols = r#"[{"key":"店铺","title":"店铺","kind":"text","width":100},{"key":"金额","title":"金额","kind":"money","width":100}]"#;
         conn.execute("INSERT INTO ledger_dataset (id, name, columns) VALUES ('ds_1', '订单', ?)", [cols]).unwrap();
         if dataset::datasets(&conn).map(|d| d.iter().any(|x| x.name == "订单")).unwrap_or(false) {
-            let r = run(&conn, "SELECT 店铺, sum(金额) AS 金额 FROM 订单 GROUP BY 店铺 ORDER BY 金额 DESC", 10).unwrap();
+            let r = run_scoped(&conn, "SELECT 店铺, sum(金额) AS 金额 FROM 订单 GROUP BY 店铺 ORDER BY 金额 DESC", 10, None).unwrap();
             assert_eq!(r.rows.len(), 2);
             assert_eq!(r.rows[0][0], json!("A"));
             assert_eq!(r.rows[0][1], json!(15.0));
             assert_eq!(r.columns[1].kind, "money");
-            assert!(run(&conn, "SELECT * FROM ds_1", 10).is_err());
+            assert!(run_scoped(&conn, "SELECT * FROM ds_1", 10, None).is_err());
         }
+    }
+
+    #[test]
+    fn referenced_datasets_and_scope() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(&crate::schema::create_tables_sql()).unwrap();
+        conn.execute_batch(&crate::schema::migrate_sql()).unwrap();
+        let a = crate::dataset_import::create_empty(&conn, "订单", &[("店铺".into(), "text".into()), ("金额".into(), "money".into())], &[]).unwrap();
+        let b = crate::dataset_import::create_empty(&conn, "成本", &[("店铺".into(), "text".into()), ("成本".into(), "money".into())], &[]).unwrap();
+        // 参数占位符当作 NULL 解析；关联两个数据集都算；解析不了的为空
+        let mut r = referenced(&conn, "SELECT o.店铺, sum(金额 - 成本) FROM 订单 o JOIN 成本 c USING (店铺) WHERE o.店铺 = {{店铺}} GROUP BY 1");
+        r.sort();
+        let mut want = vec![a.clone(), b.clone()];
+        want.sort();
+        assert_eq!(r, want);
+        assert!(referenced(&conn, "SELEC 乱写").is_empty());
+        assert!(referenced(&conn, "DELETE FROM 订单").is_empty());
+        // 限定范围：只能查范围内的数据集
+        let only_a: HashSet<String> = [a.clone()].into_iter().collect();
+        assert!(run_with_params(&conn, "SELECT count(*) FROM 订单", 10, &[], &HashMap::new(), Some(&only_a)).is_ok());
+        assert!(run_with_params(&conn, "SELECT count(*) FROM 成本", 10, &[], &HashMap::new(), Some(&only_a)).is_err());
     }
 }

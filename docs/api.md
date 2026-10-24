@@ -134,7 +134,7 @@
 | DELETE | `/api/ledger/sql/queries/{id}` | 删除查询（另存的数据集保留） | 登录用户 | ✗ | 删除 SQL 查询 |
 | POST | `/api/ledger/sql/queries/{id}/instances` | { values, name?, operator? }  用一组参数值生成实例（独立的查询 + 新数据集） | 登录用户 | ✗ | 生成参数化查询的实例 |
 | POST | `/api/ledger/sql/queries/{id}/refresh` | { datasetName? }  立即重算并写入数据集 | 登录用户 | ✗ | 重算 SQL 查询 |
-| POST | `/api/ledger/sql/run` | { sql, limit?, params?, values? }  执行只读查询（最多返回 1000 行） | 登录用户 | ✓ | 执行 SQL 查询 |
+| POST | `/api/ledger/sql/run` | { sql, limit?, params?, values? }  执行只读查询（最多返回 1000 行；分享链接只能查被分享工作簿用到的数据集） | 登录用户 | ✓ | 执行 SQL 查询 |
 
 ## 逐笔对账
 

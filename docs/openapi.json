@@ -6816,8 +6816,8 @@
         "tags": [
           "SQL 工作台"
         ],
-        "summary": "执行只读查询（最多返回 1000 行）",
-        "description": "{ sql, limit?, params?, values? }  执行只读查询（最多返回 1000 行）",
+        "summary": "执行只读查询（最多返回 1000 行",
+        "description": "{ sql, limit?, params?, values? }  执行只读查询（最多返回 1000 行；分享链接只能查被分享工作簿用到的数据集）",
         "operationId": "post_ledger_sql_run",
         "x-permission": "登录用户",
         "x-restricted-users": true,

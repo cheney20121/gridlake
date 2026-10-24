@@ -15,10 +15,11 @@ pub struct SqlRunBody {
     pub values: std::collections::HashMap<String, String>,
 }
 
-/// POST /api/ledger/sql/run  { sql, limit?, params?, values? }  执行只读查询（最多返回 1000 行）
-pub async fn sql_run(State(db): State<AppState>, body: axum::body::Bytes) -> AppResult<Json<Envelope<crate::sqlq::RunResult>>> {
+/// POST /api/ledger/sql/run  { sql, limit?, params?, values? }  执行只读查询（最多返回 1000 行；分享链接只能查被分享工作簿用到的数据集）
+pub async fn sql_run(State(db): State<AppState>, share: Option<Extension<crate::share::ShareDatasets>>, body: axum::body::Bytes) -> AppResult<Json<Envelope<crate::sqlq::RunResult>>> {
     let b: SqlRunBody = parse_json(&body)?;
-    Ok(ok(blocking_heavy(&db, move |conn| crate::sqlq::run_with_params(conn, &b.sql, b.limit.unwrap_or(1000), &b.params, &b.values)).await?))
+    let scope = share.map(|Extension(s)| s.0);
+    Ok(ok(blocking_heavy(&db, move |conn| crate::sqlq::run_with_params(conn, &b.sql, b.limit.unwrap_or(1000), &b.params, &b.values, scope.as_ref())).await?))
 }
 
 /// GET /api/ledger/sql/queries  已保存的查询（关联数据集、最近一次重算、下次重算时间）
