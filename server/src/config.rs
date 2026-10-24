@@ -40,6 +40,8 @@ pub struct Config {
     pub backup_s3_verify: bool,
     /// 分片上传的分片大小（字节）
     pub backup_s3_part_bytes: usize,
+    /// 允许用 iframe 嵌入分享页（/share/…）的网站来源；空表示只允许同源。`*` 表示任意网站。其他页面一律只允许同源嵌入
+    pub embed_origins: Vec<String>,
     /// 允许跨域访问的来源：None 不允许（前端与本服务同源部署时不需要）；Some(["*"]) 允许任意来源
     pub cors: Option<Vec<String>>,
     /// 运维接口（/api/admin/*）的令牌；未设置时只允许本机直接访问
@@ -287,6 +289,29 @@ fn memory_bytes(v: &str) -> Option<u64> {
     Some((n * mult) as u64)
 }
 
+/// 解析 LEDGER_EMBED_ORIGINS：逗号或空白分隔的来源，`https://a.com`、`https://*.a.com`、`http://localhost:3000`，或单独一个 `*`。
+/// 来源会原样写进响应头（Content-Security-Policy: frame-ancestors），所以只收严格的格式，不能带路径、引号、分号
+pub fn parse_embed_origins(value: &str) -> anyhow::Result<Vec<String>> {
+    let mut out = Vec::new();
+    for o in value.split([',', ' ', '\t', '\n']).map(str::trim).filter(|s| !s.is_empty()) {
+        let host_ok = |h: &str| {
+            let h = h.strip_prefix("*.").unwrap_or(h);
+            !h.is_empty() && h.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | ':' | '[' | ']'))
+        };
+        let valid = o == "*" || o.strip_prefix("https://").or_else(|| o.strip_prefix("http://")).is_some_and(host_ok);
+        if !valid {
+            bail!("LEDGER_EMBED_ORIGINS 里的「{o}」格式不对：应为 https://example.com、https://*.example.com、http://localhost:3000 这样的来源（不带路径），或单独一个 *");
+        }
+        if !out.iter().any(|x| x == o) {
+            out.push(o.to_string());
+        }
+    }
+    if out.len() > 1 && out.iter().any(|o| o == "*") {
+        bail!("LEDGER_EMBED_ORIGINS 里的 * 已经表示任意网站，不要再和别的来源一起写");
+    }
+    Ok(out)
+}
+
 /// 默认的重计算并发数：每 2GB 内存上限一个，1 ~ 4 个；不知道上限时 2 个
 fn default_heavy(limit_bytes: Option<u64>) -> usize {
     limit_bytes.map_or(2, |b| ((b / (2 << 30)) as usize).clamp(1, 4))
@@ -335,6 +360,7 @@ impl Config {
             backup_s3_keep: env("LEDGER_BACKUP_S3_KEEP").map(|v| v.parse().context("LEDGER_BACKUP_S3_KEEP 应为整数")).transpose()?.unwrap_or(30).max(1),
             backup_s3_part_bytes: env("LEDGER_BACKUP_S3_PART_MB").map(|v| v.parse::<usize>().context("LEDGER_BACKUP_S3_PART_MB 应为整数")).transpose()?.filter(|n| (1..=5000).contains(n)).unwrap_or(64) * 1024 * 1024,
             backup_keep: env("LEDGER_BACKUP_KEEP").map(|v| v.parse().context("LEDGER_BACKUP_KEEP 应为整数")).transpose()?.unwrap_or(7).max(1),
+            embed_origins: env("LEDGER_EMBED_ORIGINS").map(|v| parse_embed_origins(&v)).transpose()?.unwrap_or_default(),
             cors: env("LEDGER_CORS").map(|v| v.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()),
             admin_token: env("LEDGER_ADMIN_TOKEN"),
             inbox_roots: match env("LEDGER_INBOX_ROOTS") {
@@ -452,7 +478,7 @@ impl Config {
 
 #[cfg(test)]
 mod tests {
-    use super::{AuthMode, Config, auto_memory_limit, default_heavy, memory_bytes, parse_meminfo, parse_memory};
+    use super::{AuthMode, Config, auto_memory_limit, default_heavy, memory_bytes, parse_embed_origins, parse_meminfo, parse_memory};
 
     fn cfg(addr: &str, auth: AuthMode, cors: Option<&str>, allow: bool) -> Config {
         let mut c = Config::from_env().unwrap();
@@ -488,6 +514,16 @@ mod tests {
         let mut c = cfg("0.0.0.0:8787", AuthMode::Local, None, false);
         c.admin_token = None;
         assert!(c.exposure_check().unwrap().iter().any(|m| m.contains("LEDGER_ADMIN_TOKEN")));
+    }
+
+    #[test]
+    fn embed_origins_are_strictly_validated_because_they_go_into_a_header() {
+        assert!(parse_embed_origins("").unwrap().is_empty());
+        assert_eq!(parse_embed_origins("https://a.example.com, https://*.b.example.com  http://localhost:3000,https://a.example.com").unwrap(), ["https://a.example.com", "https://*.b.example.com", "http://localhost:3000"]);
+        assert_eq!(parse_embed_origins("*").unwrap(), ["*"]);
+        for bad in ["a.example.com", "ftp://a.com", "https://a.com/path", "https://a.com;", "https://a.com 'self'", "https://", "https://a.com\r\nX-Evil: 1", "https://*", "https://a.*.com", "'none'", "* https://a.com"] {
+            assert!(parse_embed_origins(bad).is_err(), "{bad:?} 不应通过");
+        }
     }
 
     #[test]

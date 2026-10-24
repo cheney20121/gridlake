@@ -85,6 +85,9 @@ describe('带访问密码的分享链接（界面）', { skip }, () => {
       // 完整链接只在创建时显示：从输入框读出来，给后面的访客测试用
       link = await page.eval(`document.querySelector('.created input')?.value ?? ''`)
       assert.match(link, /\/share\/gls_/)
+      const embed = await page.eval(`document.querySelector('input[data-testid="share-embed-code"]')?.value ?? ''`)
+      assert.match(embed, /^<iframe src=".*\/share\/gls_[\w-]+\?embed=1" /, '创建后给出嵌入代码')
+      assert.ok(embed.includes('referrerpolicy="no-referrer"'))
     }, { user: 'alice' })
   })
 
@@ -113,6 +116,11 @@ describe('带访问密码的分享链接（界面）', { skip }, () => {
       await page.goto(url)
       await page.waitFor(`document.querySelector('.share-bar')?.innerText.includes(${JSON.stringify(NAME)})`, { what: '刷新后仍可看', timeout: 60_000 })
       assert.equal(await page.eval(`!!document.querySelector('[data-testid="share-password"]')`), false)
+
+      // 嵌入模式（?embed=1）：同一个标签页里通行证还在，直接显示工作簿，且没有顶栏
+      await page.goto(`${url}?embed=1`)
+      await page.waitFor(`!document.querySelector('.share-state') && !!document.querySelector('#univer-container canvas')`, { what: '嵌入模式显示工作簿', timeout: 60_000 })
+      assert.equal(await page.eval(`!!document.querySelector('.share-bar')`), false, '嵌入模式不显示顶栏')
     })
   })
 

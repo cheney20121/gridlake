@@ -32,6 +32,8 @@ defineOptions({ name: 'ShareView' })
 useBodyClass('app-excel')
 const route = useRoute()
 const token = String(route.params.token ?? '')
+/** 嵌入别的网页（iframe）时用 ?embed=1：不显示顶栏，整块区域留给工作簿 */
+const embed = route.query.embed === '1'
 // 必须先于任何请求设置
 setShareToken(token)
 
@@ -141,7 +143,7 @@ onUnmounted(() => {
 
 <template>
   <div class="share-view">
-    <header class="share-bar">
+    <header v-if="!embed" class="share-bar">
       <strong class="truncate">{{ title || $t('分享的工作簿') }}</strong>
       <span class="badge">{{ $t('只读') }}</span>
       <span class="flex-1" />

@@ -44,6 +44,11 @@ export function revokeShareLinkApi(id: string) {
   return request<boolean>({ url: url(`/shares/${id}`), method: 'delete' })
 }
 
+/** 嵌入到别的网页里的 iframe 代码（?embed=1 隐藏分享页顶栏）；别的网站要显示它，服务端须设置 LEDGER_EMBED_ORIGINS */
+export function embedCode(token: string) {
+  return `<iframe src="${shareUrl(token)}?embed=1" style="width:100%;height:600px;border:0" referrerpolicy="no-referrer" loading="lazy" allowfullscreen></iframe>`
+}
+
 /** 分享页面的完整地址 */
 export function shareUrl(token: string) {
   return `${window.location.origin}${import.meta.env.BASE_URL}share/${token}`.replace(/([^:])\/{2,}/g, '$1/')

@@ -318,7 +318,7 @@ async fn serve(config: config::Config) -> anyhow::Result<()> {
     // 前端默认按 /ledger-api 访问（开发时由 Vite 代理去掉前缀）：同源部署时两种前缀都可用
     let mut app = Router::new().nest("/api", api.clone()).nest("/ledger-api/api", api);
     if let Some(dir) = &config.web_dir {
-        app = app.fallback_service(web::service(dir));
+        app = app.fallback_service(web::service(dir, config.embed_origins.clone()));
     }
     // 下载类响应（CSV / XLSX、已压缩的工作簿）不再压缩，保留 Content-Length 以显示下载进度
     let compress = DefaultPredicate::new()

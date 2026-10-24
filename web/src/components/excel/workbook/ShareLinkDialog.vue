@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { CreatedShareLink, ShareLink } from '@/api/share'
 import { ref, watch } from 'vue'
-import { createShareLinkApi, listShareLinksApi, revokeShareLinkApi, shareUrl } from '@/api/share'
+import { createShareLinkApi, embedCode, listShareLinksApi, revokeShareLinkApi, shareUrl } from '@/api/share'
 import { t } from '@/i18n'
 
 /** 分享链接：把当前工作簿只读开放给没有账号的人。链接创建时显示一次（服务端只存摘要），之后只能吊销、不能再看到 */
@@ -144,6 +144,18 @@ function expiryText(l: ShareLink) {
         <el-button type="primary" @click="copy(shareUrl(created.token))">
           {{ $t('复制') }}
         </el-button>
+      </div>
+      <div class="mb-1 mt-3 text-xs text-gray-600">
+        {{ $t('要嵌入到你自己的网页里，用下面的代码：') }}
+      </div>
+      <div class="flex items-center gap-2">
+        <el-input :model-value="embedCode(created.token)" readonly data-testid="share-embed-code" @focus="($event.target as HTMLInputElement).select()" />
+        <el-button @click="copy(embedCode(created.token))">
+          {{ $t('复制') }}
+        </el-button>
+      </div>
+      <div class="mt-1 text-xs text-gray-500 leading-5">
+        {{ $t('别的网站要能显示它，需要管理员在服务端设置 LEDGER_EMBED_ORIGINS（见部署手册「分享链接」）；默认只允许本站页面嵌入。') }}
       </div>
     </div>
 

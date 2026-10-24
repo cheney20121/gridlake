@@ -2944,5 +2944,7 @@
   "对数据集按多个条件统计不重复的取值个数：DCOUNTDISTINCTIFS(数据集, 去重列, 条件列1, 条件1, ...)，空值不算一个取值，区分大小写": "Count distinct values in a dataset by multiple conditions: DCOUNTDISTINCTIFS(dataset, distinct column, condition column 1, condition 1, ...). Blank values are not counted; values are case-sensitive",
   "可访问的数据集（不选 = 不限）": "Datasets it can access (none selected = all)",
   "限定后只能读写这些数据集的数据，不能做其他操作": "Once limited, it can only read and write these datasets and nothing else",
-  "限定 {0} 个数据集": "Limited to {0} datasets"
+  "限定 {0} 个数据集": "Limited to {0} datasets",
+  "要嵌入到你自己的网页里，用下面的代码：": "To embed it in your own web page, use this code:",
+  "别的网站要能显示它，需要管理员在服务端设置 LEDGER_EMBED_ORIGINS（见部署手册「分享链接」）；默认只允许本站页面嵌入。": "For other sites to display it, an administrator must set LEDGER_EMBED_ORIGINS on the server (see the deployment manual, \"Share links\"). By default only pages of this site may embed it."
 }
