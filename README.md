@@ -52,6 +52,17 @@ Gridlake 的做法是：**界面是 Excel 式的表格，大数据集在服务�
 
 ## 快速开始
 
+### 在自己电脑上打开一个文件
+
+下载发布包（[Releases](https://github.com/cheney20121/gridlake/releases)）解压后，一条命令就能用表格界面打开本机的数据文件：
+
+```bash
+bin/gridlake open 订单.parquet 客户.csv      # 打开后自动弹出浏览器
+bin/gridlake open /data/orders/              # 目录下所有 Parquet（含子目录，年=2026/月=09 这样的目录名读成列）
+```
+
+Parquet **直接查询、不复制**（不用先导入，打开就能浏览，翻页只读当前这一屏）；CSV / XLSX / JSON 导入（自动识别编码、表头和列类型）。数据放在个人库 `~/.gridlake/open.duckdb` 里，同一个文件再打开会刷新而不是重复建；只监听本机、不需要登录。可选 `--port`、`--db`、`--no-browser`。
+
 ### 一分钟体验（Docker）
 
 ```bash

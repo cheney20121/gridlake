@@ -28,6 +28,8 @@ export LEDGER_E2E_BASE="http://127.0.0.1:${PORT}/api" LEDGER_E2E_GATEWAY="http:/
 
 TMP="$(mktemp -d)"
 export LEDGER_E2E_TMP="$TMP"
+# 被测的服务程序（测试 gridlake open 这类子命令时自己启动）
+export LEDGER_E2E_BIN="$(cd "$(dirname "$BIN")" && pwd)/$(basename "$BIN")"
 # 一个最小的前端目录：测试里写 LEDGER_WEB_DIR=@WEB@ 就由服务直接提供这个页面（用来检查页面的响应头）
 mkdir -p "$TMP/web" && printf '<!doctype html><title>e2e</title>\n' > "$TMP/web/index.html"
 PIDS=()

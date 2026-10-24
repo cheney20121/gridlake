@@ -50,6 +50,17 @@ Measured on 100M rows × 8 columns of synthetic order data (MacBook, 8 cores, 16
 
 ## Quick start
 
+**Open a file on your own machine** — download a release package, unpack it, and run:
+
+```bash
+bin/gridlake open orders.parquet customers.csv   # opens your browser
+bin/gridlake open /data/orders/                  # every Parquet file below (Hive-style year=2026/ folders become columns)
+```
+
+Parquet files are **queried in place, not copied**; CSV / XLSX / JSON are imported (encoding, header row and column types detected). Data lives in a personal database at `~/.gridlake/open.duckdb`; opening the same file again refreshes it instead of creating a duplicate. It listens on localhost only and needs no login. Options: `--port`, `--db`, `--no-browser`.
+
+**Run the server (Docker):**
+
 ```bash
 git clone <this repository> && cd gridlake
 mkdir -p data && sudo chown -R 10001:10001 data

@@ -43,6 +43,7 @@ mod metrics;
 mod msg_i18n;
 mod netguard;
 mod oidc;
+mod open;
 mod pat;
 mod share;
 mod pivot;
@@ -79,6 +80,7 @@ use tower_http::trace::TraceLayer;
 
 const USAGE: &str = "用法：
   gridlake                       启动服务
+  gridlake open [文件或目录...]    在本机打开数据文件（Parquet 直接查询、CSV / XLSX 导入），自动打开浏览器；--port、--db、--no-browser
   gridlake check                 离线检查数据文件（服务需停止）
   gridlake backup [目录]          离线备份（服务运行中请用 curl -X POST http://127.0.0.1:8787/api/admin/backup）
   gridlake restore <文件> [--yes]  从备份恢复（服务需停止；原文件改名保留）
@@ -88,7 +90,11 @@ const USAGE: &str = "用法：
   gridlake version               显示版本";
 
 fn main() -> anyhow::Result<()> {
-    let filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "gridlake=info,tower_http=info".into());
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let cmd = args.first().map(String::as_str).unwrap_or("serve");
+    // gridlake open 是给个人用的：默认只显示警告和错误，界面上只留打开了什么、去哪儿看（RUST_LOG 仍可改）
+    let default_filter = if cmd == "open" { "gridlake=warn,tower_http=warn" } else { "gridlake=info,tower_http=info" };
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| default_filter.into());
     // LEDGER_LOG_FORMAT=json：每行一个 JSON，便于日志系统采集
     if std::env::var("LEDGER_LOG_FORMAT").is_ok_and(|v| v.trim().eq_ignore_ascii_case("json")) {
         tracing_subscriber::fmt().json().with_env_filter(filter).init();
@@ -96,8 +102,6 @@ fn main() -> anyhow::Result<()> {
         tracing_subscriber::fmt().with_env_filter(filter).init();
     }
 
-    let args: Vec<String> = std::env::args().skip(1).collect();
-    let cmd = args.first().map(String::as_str).unwrap_or("serve");
     if matches!(cmd, "version" | "--version" | "-V") {
         println!("gridlake {}", admin::VERSION);
         return Ok(());
@@ -110,9 +114,49 @@ fn main() -> anyhow::Result<()> {
     if cmd == "mcp-bridge" {
         return mcp::bridge::run(&args[1..]);
     }
-    let config = config::Config::from_env()?;
+    let mut config = config::Config::from_env()?;
     match cmd {
-        "serve" => tokio::runtime::Builder::new_multi_thread().enable_all().build()?.block_on(serve(config)),
+        "serve" => tokio::runtime::Builder::new_multi_thread().enable_all().build()?.block_on(serve(config, None)),
+        "open" => {
+            if args.iter().any(|a| a == "--help" || a == "-h") {
+                println!("{}", open::USAGE);
+                return Ok(());
+            }
+            let a = open::parse_args(&args[1..])?;
+            let sources = a.paths.iter().map(|p| open::classify(p)).collect::<anyhow::Result<Vec<_>>>()?;
+            open::configure(&mut config, &a, &sources)?;
+            let (roots, browser, has_web) = (config.inbox_roots.clone(), a.browser, config.web_dir.is_some());
+            if !has_web {
+                println!("没有找到前端页面（发布包里与 bin/ 同级的 web/ 目录，或用 LEDGER_WEB_DIR 指定）：只启动接口服务");
+            }
+            let ready: Ready = Box::new(move |state, addr| {
+                let conn = state.connection()?;
+                let mut opened = Vec::new();
+                for s in &sources {
+                    opened.push(open::register(&conn, s, &roots, &state.tmp_dir)?);
+                }
+                state.cursors.invalidate();
+                state.checkpoint();
+                for o in &opened {
+                    println!("  {}", o.summary);
+                }
+                // 打开最后一个文件对应的数据集；没给文件时打开首页
+                let url = match opened.last() {
+                    Some(o) => format!("http://{addr}/excel?ds={}", o.id),
+                    None => format!("http://{addr}/excel/home"),
+                };
+                if has_web {
+                    println!("在浏览器里打开：{url}\n按 Ctrl+C 退出");
+                    if browser {
+                        open::open_browser(&url);
+                    }
+                } else {
+                    println!("接口地址：http://{addr}/api\n按 Ctrl+C 退出");
+                }
+                Ok(())
+            });
+            tokio::runtime::Builder::new_multi_thread().enable_all().build()?.block_on(serve(config, Some(ready)))
+        }
         "check" => admin::cli_check(&config),
         "backup" => admin::cli_backup(&config, args.get(1).map(PathBuf::from)),
         "verify" => {
@@ -131,7 +175,10 @@ fn main() -> anyhow::Result<()> {
     }
 }
 
-async fn serve(config: config::Config) -> anyhow::Result<()> {
+/// 服务开始监听后要做的事（`gridlake open`：登记数据集、打开浏览器）；参数是状态和监听地址
+type Ready = Box<dyn FnOnce(&routes::AppState, &str) -> anyhow::Result<()> + Send>;
+
+async fn serve(config: config::Config, ready: Option<Ready>) -> anyhow::Result<()> {
     let addr = config.addr.clone();
     let max_upload_mb = config.max_upload_mb;
     tracing::info!("gridlake {} 配置：{}", admin::VERSION, config.summary());
@@ -341,6 +388,9 @@ async fn serve(config: config::Config) -> anyhow::Result<()> {
 
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     tracing::info!("gridlake listening on http://{addr}");
+    if let Some(ready) = ready {
+        ready(&shutdown_state, &addr)?;
+    }
     axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).with_graceful_shutdown(shutdown_signal()).await?;
     // 退出前写入访问计数、合并 WAL，避免下次启动回放
     if let Ok(c) = shutdown_state.connection() {
