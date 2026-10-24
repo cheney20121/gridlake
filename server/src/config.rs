@@ -289,7 +289,7 @@ fn memory_bytes(v: &str) -> Option<u64> {
     Some((n * mult) as u64)
 }
 
-/// 解析 LEDGER_EMBED_ORIGINS：逗号或空白分隔的来源，`https://a.com`、`https://*.a.com`、`http://localhost:3000`，或单独一个 `*`。
+/// 解析 LEDGER_EMBED_ORIGINS：逗号或空白分隔的来源，`https://a.example.com`、`https://*.a.example.com`、`http://localhost:3000`，或单独一个 `*`。
 /// 来源会原样写进响应头（Content-Security-Policy: frame-ancestors），所以只收严格的格式，不能带路径、引号、分号
 pub fn parse_embed_origins(value: &str) -> anyhow::Result<Vec<String>> {
     let mut out = Vec::new();
@@ -521,7 +521,7 @@ mod tests {
         assert!(parse_embed_origins("").unwrap().is_empty());
         assert_eq!(parse_embed_origins("https://a.example.com, https://*.b.example.com  http://localhost:3000,https://a.example.com").unwrap(), ["https://a.example.com", "https://*.b.example.com", "http://localhost:3000"]);
         assert_eq!(parse_embed_origins("*").unwrap(), ["*"]);
-        for bad in ["a.example.com", "ftp://a.com", "https://a.com/path", "https://a.com;", "https://a.com 'self'", "https://", "https://a.com\r\nX-Evil: 1", "https://*", "https://a.*.com", "'none'", "* https://a.com"] {
+        for bad in ["a.example.com", "ftp://a.example.com", "https://a.example.com/path", "https://a.example.com;", "https://a.example.com 'self'", "https://", "https://a.example.com\r\nX-Evil: 1", "https://*", "https://a.*.example.com", "'none'", "* https://a.example.com"] {
             assert!(parse_embed_origins(bad).is_err(), "{bad:?} 不应通过");
         }
     }

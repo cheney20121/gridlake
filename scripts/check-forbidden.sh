@@ -14,9 +14,17 @@ cd "$(git rev-parse --show-toplevel)"
 mode=all
 [ "${1:-}" = "--staged" ] && mode=staged
 
-# 通用规则（可以公开）：私钥、内网 IP 地址；npm 源在后面单独检查
+# 通用规则（可以公开）：私钥、内网 IP 地址、常见云服务 / 平台的密钥格式；npm 源在后面单独检查
 generic='-----BEGIN [A-Z ]*PRIVATE KEY-----
-https?://(10|192\.168|172\.(1[6-9]|2[0-9]|3[01]))\.[0-9]+\.[0-9]+\.[0-9]+'
+https?://(10|192\.168|172\.(1[6-9]|2[0-9]|3[01]))\.[0-9]+\.[0-9]+\.[0-9]+
+AKIA[0-9A-Z]{16}
+gh[pousr]_[A-Za-z0-9]{30,}
+github_pat_[A-Za-z0-9_]{20,}
+sk-[A-Za-z0-9_-]{32,}
+xox[abpr]-[A-Za-z0-9-]{10,}
+AIza[0-9A-Za-z_-]{35}'
+# 公开文档里的示例密钥（AWS 签名算法的官方测试向量），不算泄露
+allow='AKIAIOSFODNN7EXAMPLE'
 
 private="${FORBIDDEN_PATTERNS:-}"
 file="${FORBIDDEN_PATTERNS_FILE:-.forbidden-patterns}"
@@ -37,9 +45,9 @@ exclude=(':!scripts/check-forbidden.sh')
 
 found=0
 if [ "$mode" = staged ]; then
-  hits="$(git grep --cached -n -I -i -E -f "$pfile" -- . "${exclude[@]}" || true)"
+  hits="$(git grep --cached -n -I -i -E -f "$pfile" -- . "${exclude[@]}" | grep -v -F "$allow" || true)"
 else
-  hits="$(git grep -n -I -i -E -f "$pfile" -- . "${exclude[@]}" || true)"
+  hits="$(git grep -n -I -i -E -f "$pfile" -- . "${exclude[@]}" | grep -v -F "$allow" || true)"
 fi
 if [ -n "$hits" ]; then
   echo "发现敏感内容：" >&2

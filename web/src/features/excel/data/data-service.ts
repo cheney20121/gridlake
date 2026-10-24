@@ -1,7 +1,7 @@
 import { t } from '@/i18n'
 /**
  * Mock 数据生成器 — 迁移自早期的单文件演示页
- * 生成工业自动化订单数据，用于填充 Univer Worksheet
+ * 生成示例订单数据（客户、产品均为虚构），用于填充 Univer Worksheet
  */
 
 const CUSTOMERS = [
