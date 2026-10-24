@@ -90,6 +90,9 @@ pub struct DatasetDef {
     /// 汇总数据集（透视表转为数据表）的定义
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<crate::summary::SummaryDef>,
+    /// 外部数据集（直接查询 Parquet 文件）的文件摘要
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub external: Option<crate::external::ExternalInfo>,
 }
 
 /// 用户导入的数据集在登记表中保存的列定义
@@ -213,6 +216,7 @@ fn ledger_detail_def() -> DatasetDef {
         scope_sig: String::new(),
         view: None,
         summary: None,
+        external: None,
     }
 }
 
@@ -255,6 +259,13 @@ pub fn load(conn: &Connection) -> AppResult<(Vec<DatasetDef>, Vec<String>)> {
             out.push(crate::recon::dataset_def(id, name));
             continue;
         }
+        if kind.as_deref() == Some("external") {
+            match crate::external::dataset_def(id, name.clone(), &cols, definition.as_deref()) {
+                Some(d) => out.push(d),
+                None => problems.push(format!("外部数据集「{name}」的定义损坏")),
+            }
+            continue;
+        }
         if kind.as_deref() == Some("view") {
             match definition.as_deref().and_then(|d| serde_json::from_str(d).ok()) {
                 Some(v) => views.push((id, name, v)),
@@ -280,6 +291,7 @@ pub fn load(conn: &Connection) -> AppResult<(Vec<DatasetDef>, Vec<String>)> {
             scope_sig: String::new(),
             view: None,
             summary: None,
+            external: None,
         });
     }
     for def in out.iter_mut() {
@@ -333,6 +345,7 @@ pub fn load(conn: &Connection) -> AppResult<(Vec<DatasetDef>, Vec<String>)> {
                 scope_sig: String::new(),
                 view: Some(v),
                 summary: None,
+                external: None,
             };
             apply_calcs(&mut def, &calcs, &mut problems);
             out.push(def);
@@ -508,7 +521,11 @@ pub fn list(conn: &Connection) -> AppResult<Vec<DatasetInfo>> {
     datasets(conn)?
         .into_iter()
         .map(|def| {
-            let row_count = conn.query_row(&format!("SELECT count(*) FROM {}", def.table), [], |r| r.get(0))?;
+            // 外部数据集的行数记在定义里：列数据集时不去读文件（文件暂时不在也不影响列表）
+            let row_count = match &def.external {
+                Some(x) => x.rows,
+                None => conn.query_row(&format!("SELECT count(*) FROM {}", def.table), [], |r| r.get(0))?,
+            };
             let (owner_id, owner_name) = owners.get(&def.id).cloned().unwrap_or((None, None));
             Ok(DatasetInfo { def, row_count, owner_id, owner_name })
         })
@@ -723,8 +740,8 @@ fn order_clause(def: &DatasetDef, spec: &QuerySpec, contribution: Option<&str>) 
         };
         parts.push(format!("{expr} {}", if s.desc { "DESC NULLS LAST" } else { "ASC NULLS LAST" }));
     }
-    // 行号兜底：排序结果稳定（同值按入库顺序）
-    parts.push(def.rid.clone());
+    // 行号兜底：排序结果稳定（同值按入库顺序）；外部数据集用（文件序号, 行号），不用算出来的全局行号
+    parts.push(if def.external.is_some() { "__fi, __fr".into() } else { def.rid.clone() });
     Ok(parts.join(", "))
 }
 
@@ -849,13 +866,14 @@ pub fn open_cursor(conn: &Connection, cache: &CursorCache, dataset_id: &str, spe
     let order_by = if spec.sort.is_empty() && def.rid == "rowid" { String::new() } else { format!(" ORDER BY {}", order_clause(&def, spec, contribution.as_deref())?) };
     let table = format!("c_{}_{}", cache.seq.fetch_add(1, Ordering::SeqCst), cursor_id.get(0..8).unwrap_or("x"));
     let extra = contribution.as_deref().map(|e| format!(", ({e})::DOUBLE AS c")).unwrap_or_default();
+    // 外部数据集的位置表存（文件序号, 行号）：取数时按它关联，条件能下推到 Parquet 扫描
+    let row_key = if def.external.is_some() { "__fi AS fi, __fr AS fr".to_string() } else { format!("{} AS rid", def.rid) };
     conn.execute(
         &format!(
             "CREATE TABLE cursors.{table} AS
-             SELECT {rid} AS rid{extra}
+             SELECT {row_key}{extra}
              FROM {src} WHERE {where_sql}{order_by}",
             src = def.table,
-            rid = def.rid
         ),
         params_from_iter(args.iter()),
     )?;
@@ -901,8 +919,12 @@ fn drop_cursor_table(conn: &Connection, e: &CursorEntry) {
 /// （min / max / count 都是秒内的元数据级查询；删过行留下空洞时返回 None，由调用方物化）
 fn plain_total(conn: &Connection, def: &DatasetDef, spec: &QuerySpec, contribution: Option<&str>) -> AppResult<Option<i64>> {
     let no_keyword = spec.keyword.as_deref().is_none_or(|k| k.trim().is_empty());
-    if !(spec.filters.is_empty() && no_keyword && spec.sort.is_empty() && contribution.is_none() && def.scope_sig.is_empty() && def.rid == "rowid") {
+    if !(spec.filters.is_empty() && no_keyword && spec.sort.is_empty() && contribution.is_none() && def.scope_sig.is_empty() && (def.rid == "rowid" || def.external.is_some())) {
         return Ok(None);
+    }
+    // 外部数据集：位置按文件顺序连续，总行数记在定义里
+    if let Some(x) = &def.external {
+        return Ok(Some(x.rows));
     }
     contiguous_rows(conn, &def.table)
 }
@@ -924,6 +946,7 @@ impl CursorRef {
     /// FROM 子句：数据表别名 t；位置表时别名 c 带 rid / c（位置是 c.rowid）
     fn from_sql(&self, def: &DatasetDef) -> String {
         match &self.table {
+            Some(t) if def.external.is_some() => format!("cursors.{t} c JOIN {} t ON t.__fi = c.fi AND t.__fr = c.fr", def.table),
             Some(t) => format!("cursors.{t} c JOIN {src} t ON t.{rid} = c.rid", src = def.table, rid = def.rid),
             None => format!("{} t", def.table),
         }
@@ -934,6 +957,23 @@ impl CursorRef {
         match &self.table {
             Some(_) => "c.rowid".into(),
             None => format!("t.{}", def.rid),
+        }
+    }
+
+    /// 位置在 [from, to) 的行（整数由服务端算出，直接写进 SQL）
+    fn range(&self, def: &DatasetDef, from: i64, to: i64) -> String {
+        match (&self.table, &def.external) {
+            // 外部数据集直通：换算成（文件序号, 行号）范围，下推到 Parquet 扫描
+            (None, Some(x)) => x.range_sql(from, to),
+            _ => format!("{p} >= {from} AND {p} < {to}", p = self.pos(def)),
+        }
+    }
+
+    /// 按位置排序
+    fn order(&self, def: &DatasetDef) -> String {
+        match (&self.table, &def.external) {
+            (None, Some(_)) => "t.__fi, t.__fr".into(),
+            _ => self.pos(def),
         }
     }
 }
@@ -988,12 +1028,11 @@ pub fn rows(conn: &Connection, cache: &CursorCache, dataset_id: &str, cursor_id:
     if cur.has_c {
         cols.insert(0, "c.c".into());
     }
-    let pos = cur.pos(&def);
-    let sql = format!("SELECT {} FROM {} WHERE {pos} >= ? AND {pos} < ? ORDER BY {pos}", cols.join(", "), cur.from_sql(&def));
+    let sql = format!("SELECT {} FROM {} WHERE {} ORDER BY {}", cols.join(", "), cur.from_sql(&def), cur.range(&def, offset, offset + limit), cur.order(&def));
     let mut stmt = conn.prepare(&sql)?;
     let n = cols.len();
     let rows = stmt
-        .query_map([offset, offset + limit], |r| (0..n).map(|i| Ok(to_json(r.get_ref(i)?))).collect::<duckdb::Result<Vec<_>>>())?
+        .query_map([], |r| (0..n).map(|i| Ok(to_json(r.get_ref(i)?))).collect::<duckdb::Result<Vec<_>>>())?
         .collect::<Result<Vec<_>, _>>()?;
     Ok(RowsWindow { expired: false, offset, rows })
 }
@@ -1062,13 +1101,13 @@ pub fn stats(conn: &Connection, cache: &CursorCache, dataset_id: &str, req: &Sta
     };
     let sql = format!(
         "SELECT ({counts})::BIGINT, {numeric_sql}
-         FROM {from} WHERE {pos} BETWEEN ? AND ?",
+         FROM {from} WHERE {range}",
         counts = counts.iter().map(|c| format!("COALESCE({c}, 0)")).collect::<Vec<_>>().join(" + "),
         from = cur.from_sql(&def),
-        pos = cur.pos(&def)
+        range = cur.range(&def, req.from.max(0), req.to.saturating_add(1))
     );
     let (count, sum, numeric_count, min, max): (i64, Option<f64>, i64, Option<f64>, Option<f64>) =
-        conn.query_row(&sql, [req.from.max(0), req.to], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?;
+        conn.query_row(&sql, [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?;
     let round = |v: f64| (v * 100.0).round() / 100.0 + 0.0;
     Ok(SelectionStats {
         expired: false,
@@ -1189,7 +1228,7 @@ pub fn export_csv(conn: &Connection, cache: &CursorCache, dataset_id: &str, curs
         "COPY (SELECT {} FROM {} ORDER BY {}) TO '{path_sql}' (HEADER, DELIMITER ',')",
         selects.join(", "),
         cur.from_sql(&def),
-        cur.pos(&def)
+        cur.order(&def)
     ))?;
     Ok((path, total))
 }
@@ -1350,7 +1389,7 @@ pub fn export_xlsx(
         let mut stmt = conn.prepare(&format!(
             "SELECT {select} FROM {} ORDER BY {}",
             cur.from_sql(&def),
-            cur.pos(&def)
+            cur.order(&def)
         ))?;
         let mut rows = stmt.query([])?;
         let mut r: u32 = 1;

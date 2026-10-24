@@ -160,6 +160,7 @@ fn target(conn: &Connection, id: &str) -> AppResult<(String, Vec<StoredColumn>, 
         "recon" => return Err(AppError::bad(format!("「{}」是对账结果，不能写入；勾对请在对账页面操作", def.name))),
         "summary" => return Err(AppError::bad(format!("「{}」是透视表转成的汇总数据集，不能写入；请填报到它的源数据集", def.name))),
         "builtin" => return Err(AppError::bad(format!("「{}」是内置数据集，由专门的导入流程维护，不能填报写入", def.name))),
+        "external" => return Err(AppError::bad(format!("「{}」是外部数据集（直接读取 Parquet 文件），只读，不能写入", def.name))),
         _ => {}
     }
     let (_, name, cols) = dataset::stored(conn)?.into_iter().find(|(i, _, _)| i == id).ok_or_else(|| AppError::bad("数据集不存在"))?;

@@ -17,7 +17,7 @@
 - **数据范围受限的用户**（管理员给用户设置了「只能看某些店铺」）：只能调用下表「受限用户」列为 ✓ 的接口，其余一律返回 403；✓ 的接口读取的数据也已按范围过滤。
 - **审计**：「审计」列非空的接口会记入操作审计，列里是审计里显示的操作名。
 
-共 213 个接口。
+共 216 个接口。
 
 ## 存活检查与运维
 
@@ -90,6 +90,8 @@
 | 方法 | 路径 | 说明 | 权限 | 受限用户 | 审计 |
 |---|---|---|---|---|---|
 | GET | `/api/ledger/datasets` | 数据集与列定义 | 登录用户 | ✓ |  |
+| POST | `/api/ledger/datasets/external` | { name, path, pattern, recursive, hive }  新建外部数据集（只读，不导入） | 仅管理员 | — | 新建外部数据集 |
+| POST | `/api/ledger/datasets/external/preview` | { path, pattern, recursive, hive }  预览外部 Parquet 文件：匹配的文件、总行数、列与类型、前几行 | 仅管理员 | — |  |
 | POST | `/api/ledger/datasets/import/commit` | { token, mode: create \| append \| replace, datasetId?, name?, columns, primaryKey, fileName } | 登录用户 | ✗ | 导入数据集 |
 | POST | `/api/ledger/datasets/import/preview` | multipart: file（CSV / XLS / XLSX） | 登录用户 | ✗ |  |
 | POST | `/api/ledger/datasets/import/preview-url` | { url }  从网址下载文件并预览（http / https，不访问本机地址） | 登录用户 | ✗ |  |
@@ -111,6 +113,7 @@
 | POST | `/api/ledger/datasets/{id}/cursor` | QuerySpec → 游标（筛选 + 排序物化，按条件缓存） | 登录用户 | ✓ |  |
 | POST | `/api/ledger/datasets/{id}/distinct` | 列值分面（筛选下拉） | 登录用户 | ✓ |  |
 | GET | `/api/ledger/datasets/{id}/export` | 按当前筛选 / 排序导出（流式下载） 查询参数：`cursor=&columns=&name=&format=csv\|xlsx&desc=` | 登录用户 | ✓ | 导出数据集 |
+| POST | `/api/ledger/datasets/{id}/external/refresh` | 重新查找文件、读取结构（文件有增减或结构变化后） | 仅管理员 | — | 刷新外部数据集 |
 | POST | `/api/ledger/datasets/{id}/pivot` | 数据透视表（rows / columns / values / filters / sort / top / subtotals / grandTotals） | 登录用户 | ✓ |  |
 | DELETE | `/api/ledger/datasets/{id}/purge` | 彻底删除（连同回收站里基于它的关联视图），返回删除的名称 | 数据集所有者或管理员 | ✗ | 彻底删除数据集 |
 | GET | `/api/ledger/datasets/{id}/rows` | 按位置取一段 查询参数：`cursor=&offset=&limit=&columns=` | 登录用户 | ✓ |  |

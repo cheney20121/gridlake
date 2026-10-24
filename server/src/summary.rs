@@ -201,6 +201,7 @@ pub fn dataset_def(id: String, name: String, def: SummaryDef, source: &DatasetDe
         scope_sig: String::new(),
         view: None,
         summary: Some(def),
+        external: None,
     })
 }
 

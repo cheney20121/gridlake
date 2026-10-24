@@ -73,9 +73,9 @@ fn view_sources(r: &Row) -> Option<[String; 2]> {
     }
 }
 
-/// 视图类（关联视图、对账）：数据库里是 VIEW，没有自己的行数
+/// 视图类（关联视图、对账、外部数据集）：数据库里是 VIEW，没有自己的行数
 fn is_view_kind(kind: &str) -> bool {
-    matches!(kind, "view" | "recon" | "summary")
+    matches!(kind, "view" | "recon" | "summary" | "external")
 }
 
 /// 关联视图 / 对账现在能否恢复：引用的两个数据集都要在

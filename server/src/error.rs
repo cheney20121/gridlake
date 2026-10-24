@@ -64,6 +64,12 @@ impl<E: Into<anyhow::Error>> From<E> for AppError {
             tracing::warn!("内存不足：{err:#}");
             return Self::Unavailable("服务器内存不足，这次计算放不下。请缩小筛选范围、减少汇总维度或排序列，或稍后重试；管理员可调大 LEDGER_MEMORY_LIMIT 或给机器加内存".into());
         }
+        // 外部数据集的 Parquet 文件被移走 / 删除了：说清楚原因，而不是「服务内部错误」
+        let text = err.to_string();
+        if text.contains("IO Error") && (text.contains("No files found") || text.contains("Cannot open file") || text.contains("No such file")) {
+            tracing::warn!("读取外部文件失败：{err:#}");
+            return Self::BadRequest("外部数据集的文件找不到了（可能被移动、改名或删除）。请检查文件后，由管理员在数据集上「刷新文件列表」".into());
+        }
         Self::Internal(err)
     }
 }

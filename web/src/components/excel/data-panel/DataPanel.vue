@@ -41,7 +41,7 @@ const collapsed = ref(localStorage.getItem(STORAGE_KEY) === '1')
 watch(collapsed, v => localStorage.setItem(STORAGE_KEY, v ? '1' : '0'))
 
 const keyword = ref('')
-const KIND_ORDER: Record<DatasetInfo['kind'], number> = { builtin: 0, table: 1, view: 2, summary: 3, recon: 4 }
+const KIND_ORDER: Record<DatasetInfo['kind'], number> = { builtin: 0, table: 1, external: 2, view: 3, summary: 4, recon: 5 }
 const groups = computed(() => {
   const k = keyword.value.trim().toLowerCase()
   const list = k

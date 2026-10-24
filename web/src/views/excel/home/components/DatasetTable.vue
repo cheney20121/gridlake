@@ -14,8 +14,8 @@ const emit = defineEmits<{
   (e: 'usage', d: DatasetInfo): void
 }>()
 
-const KIND_LABEL: Record<DatasetInfo['kind'], string> = { builtin: '内置', table: '数据表', view: '关联视图', summary: t('汇总'), recon: '对账' }
-const KIND_TONE: Record<DatasetInfo['kind'], string> = { builtin: 'slate', table: 'green', view: 'blue', summary: 'blue', recon: 'green' }
+const KIND_LABEL: Record<DatasetInfo['kind'], string> = { builtin: '内置', table: '数据表', view: '关联视图', summary: t('汇总'), recon: '对账', external: t('外部文件') }
+const KIND_TONE: Record<DatasetInfo['kind'], string> = { builtin: 'slate', table: 'green', view: 'blue', summary: 'blue', recon: 'green', external: 'slate' }
 </script>
 
 <template>

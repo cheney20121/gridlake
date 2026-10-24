@@ -863,5 +863,15 @@
   "访问密码不正确": "The access password is incorrect",
   "这个访问令牌限定了可访问的数据集：只能读写这些数据集的数据（取行、统计、聚合、透视、导出、写入），不能访问其他数据集或做其他操作；需要更多权限请创建不限定数据集的令牌": "This access token is limited to specific datasets: it can only read and write the data of those datasets (rows, statistics, aggregation, pivot, export, write) and cannot access other datasets or do anything else. Create a token without a dataset limit if you need more access",
   "一个令牌最多限定 {0} 个数据集": "A token can be limited to at most {0} datasets",
-  "数据集不存在或无权访问：{0}": "The dataset does not exist or you have no access to it: {0}"
+  "数据集不存在或无权访问：{0}": "The dataset does not exist or you have no access to it: {0}",
+  "外部数据集的文件找不到了（可能被移动、改名或删除）。请检查文件后，由管理员在数据集上「刷新文件列表」": "The files of this external dataset can no longer be found (moved, renamed or deleted). Check the files, then have an administrator click “Refresh file list” on the dataset",
+  "请填写文件名规则，如 *.parquet": "Enter a file name pattern, such as *.parquet",
+  "匹配的文件超过 {0} 个，请缩小目录或文件名规则": "More than {0} files match; narrow the directory or the file name pattern",
+  "没有匹配的 Parquet 文件": "No matching Parquet files",
+  "读不出文件的行数：{0}": "Cannot read the row count of file: {0}",
+  "读取 Parquet 文件失败：{0}": "Failed to read Parquet files: {0}",
+  "文件里没有列": "The files have no columns",
+  "外部数据集不存在": "External dataset not found",
+  "外部数据集的定义损坏": "The external dataset definition is corrupted",
+  "「{0}」是外部数据集（直接读取 Parquet 文件），只读，不能写入": "“{0}” is an external dataset (reads Parquet files directly) and is read-only; it cannot be written to"
 }

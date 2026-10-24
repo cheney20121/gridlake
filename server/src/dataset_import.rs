@@ -148,7 +148,7 @@ pub(crate) fn detect_header(rows: &[Vec<String>]) -> usize {
         .unwrap_or(0)
 }
 
-fn infer_kind(title: &str, values: &[&str]) -> String {
+pub(crate) fn infer_kind(title: &str, values: &[&str]) -> String {
     let non_empty: Vec<&str> = values.iter().copied().filter(|v| !v.is_empty()).collect();
     if non_empty.is_empty() {
         return "text".into();
@@ -348,7 +348,7 @@ fn valid_kind(k: &str) -> AppResult<&'static str> {
 }
 
 /// 原始文本 → 列值的 SQL 转换（raw 为 VARCHAR 表达式）
-fn convert_sql(kind: &str, raw: &str) -> String {
+pub(crate) fn convert_sql(kind: &str, raw: &str) -> String {
     let cleaned = format!("NULLIF(trim(regexp_replace(regexp_replace(trim({raw}), '^(=\"|''|\\t)+', ''), '\"$', '')), '')");
     match kind {
         "number" | "money" => format!(

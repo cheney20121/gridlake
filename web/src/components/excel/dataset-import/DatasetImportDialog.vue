@@ -4,7 +4,9 @@ import { computed, reactive, ref, watch } from 'vue'
 import { commitDatasetImportApi, previewDatasetImportApi, previewDatasetImportUrlApi } from '@/api/dataset'
 import BusyInline from '@/components/excel/common/BusyInline.vue'
 import { t as tr } from '@/i18n'
+import { useLedgerUserStore } from '@/stores/ledger-user'
 import { errorText } from '@/utils/busy-hint'
+import ExternalDatasetDialog from './ExternalDatasetDialog.vue'
 
 /** 通用数据导入：任意 CSV / XLSX → 数据集（大数据表 + DSUMIFS 公式可用） */
 const props = defineProps<{
@@ -29,6 +31,14 @@ const KIND_OPTIONS: { value: DatasetColumnKind, label: string, hint: string }[] 
 ]
 
 const step = ref<'pick' | 'map' | 'done'>('pick')
+const ledgerUser = useLedgerUserStore()
+/** 不导入、直接查询服务器上的 Parquet 文件（只有管理员） */
+const externalVisible = ref(false)
+
+function onExternalCreated(id: string) {
+  emit('imported', id, true)
+  emit('update:visible', false)
+}
 const uploading = ref(false)
 const committing = ref(false)
 const preview = ref<ImportPreview | null>(null)
@@ -285,6 +295,12 @@ const sizeText = (n: number) => n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Mat
             {{ $t('读取') }}
           </el-button>
         </div>
+        <div v-if="ledgerUser.isAdmin" class="mt-1 text-xs text-gray-500">
+          {{ $t('文件很大、在服务器上？') }}
+          <el-button link type="primary" size="small" @click="externalVisible = true">
+            {{ $t('直接查询服务器上的 Parquet 文件（不导入）…') }}
+          </el-button>
+        </div>
       </template>
     </div>
 
@@ -458,6 +474,7 @@ const sizeText = (n: number) => n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Mat
         </el-button>
       </template>
     </template>
+    <ExternalDatasetDialog v-model:visible="externalVisible" @created="onExternalCreated" />
   </el-dialog>
 </template>
 

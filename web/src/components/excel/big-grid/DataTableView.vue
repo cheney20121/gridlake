@@ -5,10 +5,11 @@ import type { CellValue, DatasetCursor, DatasetFilter, DatasetInfo, DatasetQuery
 import { useDebounceFn, useLocalStorage } from '@vueuse/core'
 import { isCancel } from 'axios'
 import { computed, nextTick, ref, shallowRef, watch } from 'vue'
-import { CONTRIBUTION_KEY, exportUrl, getStatsApi, MAX_EXPORT_ROWS, MAX_XLSX_ROWS, openCursorApi } from '@/api/dataset'
+import { CONTRIBUTION_KEY, exportUrl, getStatsApi, MAX_EXPORT_ROWS, MAX_XLSX_ROWS, openCursorApi, refreshExternalApi } from '@/api/dataset'
 import BusyOverlay from '@/components/excel/common/BusyOverlay.vue'
 import { formatBool } from '@/features/excel/dataset/column-kinds'
 import { t } from '@/i18n'
+import { useLedgerUserStore } from '@/stores/ledger-user'
 import { errorText } from '@/utils/busy-hint'
 import { formatMoney } from '@/utils/format-money'
 import BigGrid from './BigGrid.vue'
@@ -31,11 +32,39 @@ const emit = defineEmits<{
   (e: 'join', datasetId: string): void
   /** 修改关联视图的定义 */
   (e: 'editJoin', datasetId: string): void
+  /** 外部数据集刷新了文件列表：数据集定义（列、行数）变了 */
+  (e: 'changed', datasetId: string): void
   /** 对账结果：回到对账工作台 */
   (e: 'backToRecon'): void
   /** 以当前筛选 / 排序 / 搜索放入工作表（数据表） */
   (e: 'embed', datasetId: string, query: DatasetQuery): void
 }>()
+
+const ledgerUser = useLedgerUserStore()
+const refreshing = ref(false)
+
+/** 外部数据集：重新读取文件列表与结构（只有管理员） */
+async function refreshExternal() {
+  refreshing.value = true
+  try {
+    const o = await refreshExternalApi(props.dataset.id)
+    const parts = [t('{0} 个文件、{1} 行', [o.fileCount, o.rows.toLocaleString()])]
+    if (o.addedFiles || o.removedFiles)
+      parts.push(t('新增 {0} 个、移除 {1} 个文件', [o.addedFiles, o.removedFiles]))
+    if (o.addedColumns.length)
+      parts.push(t('新增列：{0}', [o.addedColumns.join('、')]))
+    if (o.removedColumns.length)
+      parts.push(t('移除列：{0}', [o.removedColumns.join('、')]))
+    ElMessage.success(parts.join('；'))
+    emit('changed', props.dataset.id)
+  }
+  catch (e) {
+    ElMessage.error(errorText(e))
+  }
+  finally {
+    refreshing.value = false
+  }
+}
 
 const cursor = shallowRef<DatasetCursor | null>(null)
 
@@ -381,6 +410,14 @@ function exportData(format: 'csv' | 'xlsx') {
           {{ $t('关联 ✎') }}
         </el-tag>
       </el-tooltip>
+      <el-tooltip v-if="dataset.kind === 'external' && dataset.external" placement="bottom" :content="$t('外部数据集：直接读取 {0} 下的 {1} 个 Parquet 文件（{2}），只读；文件列表更新于 {3}', [dataset.external.path, dataset.external.fileCount, dataset.external.pattern, dataset.external.refreshedAt])">
+        <el-tag size="small" type="info">
+          {{ $t('外部文件') }}
+        </el-tag>
+      </el-tooltip>
+      <el-button v-if="dataset.kind === 'external' && ledgerUser.isAdmin" link size="small" :loading="refreshing" :title="$t('文件有增减或结构变化后，重新读取文件列表')" @click="refreshExternal">
+        {{ $t('刷新文件列表') }}
+      </el-button>
       <span class="shrink-0 whitespace-nowrap text-xs text-gray-500 tabular-nums">
         {{ $t('{0} 行', [cursor ? cursor.total.toLocaleString() : '…']) }}
         <template v-if="cursor && cursor.total !== dataset.rowCount"> {{ $t('/ 共 {0}', [dataset.rowCount.toLocaleString()]) }}</template>

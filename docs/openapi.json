@@ -3307,6 +3307,79 @@
         }
       }
     },
+    "/ledger/datasets/external": {
+      "post": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "新建外部数据集（只读，不导入）",
+        "description": "{ name, path, pattern, recursive, hive }  新建外部数据集（只读，不导入）",
+        "operationId": "post_ledger_datasets_external",
+        "x-permission": "仅管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-audit": "新建外部数据集",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateExternalBody"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ledger/datasets/external/preview": {
+      "post": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "预览外部 Parquet 文件：匹配的文件、总行数、列与类型、前几行",
+        "description": "{ path, pattern, recursive, hive }  预览外部 Parquet 文件：匹配的文件、总行数、列与类型、前几行",
+        "operationId": "post_ledger_datasets_external_preview",
+        "x-permission": "仅管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExternalInput"
+              }
+            }
+          }
+        }
+      }
+    },
     "/ledger/datasets/import/commit": {
       "post": {
         "tags": [
@@ -4191,6 +4264,43 @@
             "name": "desc",
             "in": "query",
             "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/ledger/datasets/{id}/external/refresh": {
+      "post": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "重新查找文件、读取结构（文件有增减或结构变化后）",
+        "description": "重新查找文件、读取结构（文件有增减或结构变化后）",
+        "operationId": "post_ledger_datasets_by_id_external_refresh",
+        "x-permission": "仅管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-audit": "刷新外部数据集",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
             "schema": {
               "type": "string"
             }
@@ -9056,6 +9166,24 @@
           "tables"
         ]
       },
+      "CreateExternalBody": {
+        "allOf": [
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name"
+            ]
+          },
+          {
+            "$ref": "#/components/schemas/ExternalInput"
+          }
+        ]
+      },
       "CreateViewBody": {
         "allOf": [
           {
@@ -9334,6 +9462,30 @@
         },
         "required": [
           "filter"
+        ]
+      },
+      "ExternalInput": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "目录（绝对路径，或相对于第一个允许目录）"
+          },
+          "pattern": {
+            "type": "string",
+            "description": "文件名通配符，多个用 ; 分隔；默认 *.parquet"
+          },
+          "ecursive": {
+            "type": "boolean",
+            "description": "包含子目录（按 年=2026/月=09/ 这样分区存放的数据）"
+          },
+          "hive": {
+            "type": "boolean",
+            "description": "把 key=value 形式的目录名读成列（Hive 分区）"
+          }
+        },
+        "required": [
+          "path"
         ]
       },
       "Filter": {},

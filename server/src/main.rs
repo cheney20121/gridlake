@@ -35,6 +35,7 @@ mod dataset_import;
 mod db;
 mod ecommerce;
 mod error;
+mod external;
 mod kinds;
 mod import_source;
 mod mcp;
@@ -172,6 +173,9 @@ async fn serve(config: config::Config) -> anyhow::Result<()> {
         .route("/ledger/datasets/views/preview", post(routes::view_preview))
         .route("/ledger/datasets/views", post(routes::create_view))
         .route("/ledger/datasets/views/{id}", put(routes::update_view))
+        .route("/ledger/datasets/external/preview", post(routes::external_preview))
+        .route("/ledger/datasets/external", post(routes::create_external))
+        .route("/ledger/datasets/{id}/external/refresh", post(routes::refresh_external))
         .route("/ledger/datasets/trash", get(routes::dataset_trash).delete(routes::empty_dataset_trash))
         .route("/ledger/datasets/input", post(routes::create_input_dataset))
         .route("/ledger/datasets/{id}/writeback", post(routes::dataset_writeback))

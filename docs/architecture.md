@@ -58,6 +58,18 @@ gridlake（单进程：Rust + axum）
 
 类型从哪里来：CSV / XLSX 按前 2000 行样本推断（全是整数 → `integer`，全是 `true` / `false` → `boolean`）；新建时再用全量数据核对一次，样本之后出现小数的整数列改成数值列、出现其他写法的是否列改成文本列，不让样本之外的值按空值入库。Parquet / JSON 用文件自带的类型（转 CSV 时记在暂存文件旁的 `.kinds.json` 里，预览时优先）；SQL 结果另存为数据集时按结果的 SQL 类型。超过 2^53 的整数在接口里以文本下发（浏览器的 JSON 数字会丢掉末几位）。
 
+## 外部数据集（直接查询 Parquet）
+
+`server/src/external.rs`：管理员把收件目录（`LEDGER_INBOX_ROOTS`）里的一组 Parquet 文件登记成只读数据集（登记表里 `kind = 'external'`），数据库里是一个视图：
+
+```sql
+SELECT <各列，日期换成文本>, file_index::INTEGER AS __fi, file_row_number AS __fr,
+       (<每个文件的起始位置>)[file_index + 1] + file_row_number AS __rid
+FROM read_parquet([<文件列表>], union_by_name = true, hive_partitioning = …)
+```
+
+文件列表和每个文件的行数在创建 / 刷新时确定并记在定义里，所以列数据集、给行数都不读文件。浏览走两条快路径（`dataset.rs` 的游标）：直通游标把行位置区间换算成 `(__fi, __fr)` 的范围，筛选 / 排序后的位置表存 `(fi, fr)` 而不是行号，取一屏时按它关联——两种条件都能下推到 Parquet 扫描，只读要显示的那一段；按计算出来的 `__rid` 取数要扫全表（1000 万行上约 150 毫秒对 5 ~ 15 毫秒），只留给关联视图等通用路径。
+
 ## 分享链接
 
 带 `x-share-token` 的请求在 `auth.rs` 的 `guard` 里走独立分支（`share_request`），**不经过登录与权限表**：只能调用 `share.rs` 里 `ALLOWED` 登记的 10 个只读接口（工作簿内容 / 元信息、数据集列表、游标 / 取行 / 统计 / 取值 / 聚合 / 透视）。工作簿接口只认被分享的那一个；数据集接口只认「这个工作簿用到的数据集」——打开分享页（读内容）时用 `template::refs::collect` 从工作簿内容里算出引用的数据集（id 与名称）并记在 `ledger_share.datasets`。请求在**创建人的数据范围**内执行（`resolve_scope` 用创建人身份），所以分享不会比创建人多看一行。前端 `/share/:token` 复用表格引擎与图表 / 指标卡 / 切片器部件，用演示模式的编辑拦截（`present-guard`）挡住编辑。

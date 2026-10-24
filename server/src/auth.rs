@@ -342,6 +342,10 @@ const ROUTES: &[(&str, &str, Rule, &str)] = &[
     ("POST", "/ledger/datasets/views/preview", Open, ""),
     ("POST", "/ledger/datasets/views", Open, "创建关联视图"),
     ("PUT", "/ledger/datasets/views/{id}", Dataset, "修改关联视图"),
+    // 外部数据集读服务器上的文件：只有管理员
+    ("POST", "/ledger/datasets/external/preview", Admin, ""),
+    ("POST", "/ledger/datasets/external", Admin, "新建外部数据集"),
+    ("POST", "/ledger/datasets/{id}/external/refresh", Admin, "刷新外部数据集"),
     ("DELETE", "/ledger/datasets/trash", Admin, "清空数据集回收站"),
     ("POST", "/ledger/datasets/input", Open, "新建填报数据集"),
     ("POST", "/ledger/datasets/{id}/writeback", Open, "填报提交"),
@@ -938,6 +942,7 @@ const FULL_ONLY: &[(&str, &str)] = &[
     // 数据集：导入、建视图、新建填报数据集、改结构、回收站、使用情况（填报本身对受限用户开放，见 writeback::submit）
     ("POST", "/ledger/datasets/import/preview"), ("POST", "/ledger/datasets/import/preview-url"), ("POST", "/ledger/datasets/import/commit"),
     ("POST", "/ledger/datasets/views/preview"), ("POST", "/ledger/datasets/views"), ("POST", "/ledger/datasets/summaries"), ("PUT", "/ledger/datasets/views/{id}"),
+    ("POST", "/ledger/datasets/external/preview"), ("POST", "/ledger/datasets/external"), ("POST", "/ledger/datasets/{id}/external/refresh"),
     ("POST", "/ledger/datasets/input"), ("GET", "/ledger/writebacks"), ("POST", "/ledger/writebacks/{id}/undo"),
     ("GET", "/ledger/datasets/trash"), ("DELETE", "/ledger/datasets/trash"), ("POST", "/ledger/datasets/{id}/untrash"), ("DELETE", "/ledger/datasets/{id}/purge"),
     ("PUT", "/ledger/datasets/{id}"), ("DELETE", "/ledger/datasets/{id}"),

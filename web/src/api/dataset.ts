@@ -33,10 +33,11 @@ export interface DatasetInfo {
   /** 内置数据集（如资金流水）由专门的导入流程维护，不能改名 / 删除 */
   builtin: boolean
   primaryKey: string[]
-  /** builtin / table / view（关联视图）/ recon（对账结果）/ summary（透视表转成的汇总数据集） */
-  kind: 'builtin' | 'table' | 'view' | 'recon' | 'summary'
+  /** builtin / table / view（关联视图）/ recon（对账结果）/ summary（透视表转成的汇总数据集）/ external（直接查询 Parquet 文件） */
+  kind: 'builtin' | 'table' | 'view' | 'recon' | 'summary' | 'external'
   view?: ViewDef
   summary?: SummaryDef
+  external?: ExternalInfo
   rowCount: number
   /** 所有者（内置与登录校验启用前创建的没有所有者，只有管理员能改名 / 删除 / 改结构） */
   ownerId?: string | null
@@ -220,7 +221,7 @@ export function deleteDatasetApi(id: string, operator: string) {
 export interface TrashedDataset {
   id: string
   name: string
-  kind: 'table' | 'view' | 'recon' | 'summary'
+  kind: 'table' | 'view' | 'recon' | 'summary' | 'external'
   /** 行数（关联视图、对账为空） */
   rowCount: number | null
   deletedAt: string
@@ -373,6 +374,57 @@ export interface SummaryDef {
 
 export function createSummaryApi(name: string, def: SummaryDef) {
   return request<string>({ url: url('/summaries'), method: 'post', data: { name, def } })
+}
+
+/** 外部数据集：直接查询服务器收件目录（LEDGER_INBOX_ROOTS）里的 Parquet 文件，不导入；只有管理员能建 / 刷新 */
+export interface ExternalInput {
+  /** 目录：绝对路径，或相对于第一个收件目录 */
+  path: string
+  /** 文件名通配符，多个用 ; 分隔 */
+  pattern: string
+  /** 包含子目录 */
+  recursive: boolean
+  /** 把 key=value 形式的目录名读成列（Hive 分区） */
+  hive: boolean
+}
+
+export interface ExternalInfo extends ExternalInput {
+  fileCount: number
+  rows: number
+  size: number
+  refreshedAt: string
+}
+
+export interface ExternalPreview {
+  fileCount: number
+  /** 前几个文件（相对于目录） */
+  files: string[]
+  rows: number
+  size: number
+  columns: { title: string, source: string, kind: DatasetColumnKind, sqlType: string }[]
+  sampleRows: CellValue[][]
+}
+
+export interface ExternalRefreshOutcome {
+  fileCount: number
+  rows: number
+  addedFiles: number
+  removedFiles: number
+  addedColumns: string[]
+  removedColumns: string[]
+}
+
+export function previewExternalApi(input: ExternalInput) {
+  return request<ExternalPreview>({ url: url('/external/preview'), method: 'post', data: input, timeout: 5 * 60 * 1000 })
+}
+
+export function createExternalApi(name: string, input: ExternalInput) {
+  return request<string>({ url: url('/external'), method: 'post', data: { name, ...input }, timeout: 5 * 60 * 1000 })
+}
+
+/** 文件有增减或结构变化后重新读取；会让计算列、关联视图失效时服务端整体取消并说明原因 */
+export function refreshExternalApi(id: string) {
+  return request<ExternalRefreshOutcome>({ url: url(`/${id}/external/refresh`), method: 'post', timeout: 5 * 60 * 1000 })
 }
 
 export function createViewApi(name: string, def: ViewDef) {
