@@ -2972,5 +2972,6 @@
   "{0} 个文件": "{0} file(s)",
   "正在读取文件结构": "Reading file structure",
   "预览": "Preview",
-  "创建数据集": "Create dataset"
+  "创建数据集": "Create dataset",
+  "外部文件（直接查询）": "External files (queried directly)"
 }

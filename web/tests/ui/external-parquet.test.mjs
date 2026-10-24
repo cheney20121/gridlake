@@ -67,6 +67,8 @@ describe('外部数据集（界面）', { skip }, () => {
       await page.waitFor(`location.pathname === '/excel' && location.search.includes('ds=')`, { what: '进入编辑器打开数据集', timeout: 60_000 })
       await page.waitFor(`document.body.innerText.includes('外部文件') && document.body.innerText.includes('1,500 行')`, { what: '数据表：外部文件标签、1500 行', timeout: 60_000 })
 
+      await page.waitFor(`[...document.querySelectorAll('.data-panel')].some(e => e.innerText.includes('外部文件（直接查询）') && e.innerText.includes('订单'))`, { what: '左侧数据面板里有「外部文件」分组和这个数据集' })
+
       fs.copyFileSync(path.join(FIXTURES, 'orders-2026-11.parquet'), path.join(dir, 'orders-2026-11.parquet'))
       await page.click('button', '刷新文件列表')
       await page.waitFor(`document.body.innerText.includes('新增列：备注')`, { what: '刷新结果提示', timeout: 60_000 })

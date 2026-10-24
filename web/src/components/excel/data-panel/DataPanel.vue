@@ -50,6 +50,7 @@ const groups = computed(() => {
   const sorted = [...list].sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind])
   return [
     { key: 'table', title: t('数据集'), items: sorted.filter(d => d.kind === 'builtin' || d.kind === 'table') },
+    { key: 'external', title: t('外部文件（直接查询）'), items: sorted.filter(d => d.kind === 'external') },
     { key: 'view', title: t('关联视图'), items: sorted.filter(d => d.kind === 'view') },
     { key: 'summary', title: t('汇总（透视转成）'), items: sorted.filter(d => d.kind === 'summary') },
     { key: 'recon', title: t('对账'), items: sorted.filter(d => d.kind === 'recon') },
