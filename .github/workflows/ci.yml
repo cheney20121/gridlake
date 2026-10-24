@@ -118,6 +118,8 @@ jobs:
         run: pnpm exec vue-tsc --noEmit -p tsconfig.app.json
       - name: 国际化检查（t() 用到的键都有英文）
         run: pnpm i18n:check
+      - name: 函数兼容清单是最新的（docs/excel-functions.md 由表格内核的函数目录生成）
+        run: pnpm formula:catalog --check
       - name: 单元测试
         run: pnpm test:unit
       - name: 构建

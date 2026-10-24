@@ -50,7 +50,7 @@ describe('SQL / SQLVALUE 公式（界面）', { skip }, () => {
         sheet.getRange('B4').setFormula('=SQL("SELECT * FROM 不存在的表")')
         sheet.getRange('B5').setFormula('=SQLVALUE("DELETE FROM 订单")')
       })()`)
-      const grid = (range) => page.eval(`JSON.stringify(window.__univerAPI.getActiveWorkbook().getActiveSheet().getRange(${JSON.stringify(range)}).getValues())`).then(JSON.parse)
+      const grid = range => page.eval(`JSON.stringify(window.__univerAPI.getActiveWorkbook().getActiveSheet().getRange(${JSON.stringify(range)}).getValues())`).then(JSON.parse)
       const read = cell => page.eval(`String(window.__univerAPI.getActiveWorkbook().getActiveSheet().getRange(${JSON.stringify(cell)}).getDisplayValue())`)
       await page.waitFor(`String(window.__univerAPI.getActiveWorkbook().getActiveSheet().getRange('E4').getValue()) === '100'`, { timeout: 60_000, what: 'SQL 结果铺到 D1:E4' })
       assert.deepEqual(await grid('D1:E4'), [['店铺', '合计'], ['A', 30], ['B', 5], ['C', 100]], '表头 + 三行')

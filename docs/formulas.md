@@ -90,6 +90,8 @@ Gridlake 的公式引擎是 Univer（浏览器里计算，函数集与 Excel 基
 
 ## xlsx 兼容
 
+逐个函数的支持情况见 [Excel 函数兼容清单](excel-functions.md)（绝大多数 Excel 函数都支持，含 `XLOOKUP`、`LET`、`LAMBDA`、`VSTACK`、`TEXTSPLIT`、`REGEXTEST` 等新函数）。导入的文件用到不支持的函数时，导入结果会点名是哪几个；公式诊断里 `#NAME?` 的格子会说明是不支持的函数（附原因 / 替代）还是拼错了。
+
 - 导入导出时处理 Excel 的新函数前缀：表格里写的 `XLOOKUP`、`IFS`、`FILTER`、`SORT`、`LET`、`LAMBDA` 等，写入 xlsx 时加 `_xlfn.` / `_xlfn._xlws.` / `_xlpm.` 前缀（Excel 打开才认），读入时去掉，往返不丢失。
 - 条件格式（含图标集）、Excel 表格（含汇总行）、行列分组、命名区域会导入导出；暂不支持的内容导入时会提示「未能导入」。
 - **没有实现**：VBA 宏（xlsm）、Power Query、外部数据连接；xlsx 里 Excel 原生的数据透视表没有专门处理（Gridlake 的透视表是服务端计算后写成普通工作表，用「透视分析」重新建）。

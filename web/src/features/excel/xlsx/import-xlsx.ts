@@ -3,6 +3,7 @@ import type { FUniver } from '@univerjs/core/facade'
 import type { FWorkbook } from '@univerjs/sheets/facade'
 import type { Cell, Workbook as ExcelWorkbook, Worksheet } from 'exceljs'
 import type { FeatureStats } from './sheet-features'
+import { functionProblems } from '@/features/excel/formula/function-check'
 import { emptyOutline, groupsOf, hasOutline, MAX_LEVEL } from '@/features/excel/outline/outline'
 import { t as tr } from '@/i18n'
 import { fromExcelFormula } from './formula-compat'
@@ -32,6 +33,8 @@ export interface ImportSummary {
   features: FeatureStats
   /** 导入后计算结果为 #NAME? 的公式数（使用了不支持的函数） */
   unknownFunctions: number
+  /** 这些公式里不支持 / 不认识的函数名（按出现次数从多到少） */
+  unknownFunctionNames?: string[]
   /** 命名区域：导入个数与跳过的名称（指向多个区域、未导入的页签或重名） */
   definedNames?: { imported: number, skipped: string[] }
 }
@@ -299,7 +302,8 @@ export async function importXlsx(api: FUniver, data: ArrayBuffer): Promise<Impor
     workbook.setActiveSheet(created[0])
   summary.definedNames = importDefinedNames(workbook, book, renamed)
 
-  // 统计使用了不支持函数的公式（计算完成后结果为 #NAME?）
+  // 统计使用了不支持函数的公式（计算完成后结果为 #NAME?），并点名是哪些函数
+  const nameCounts = new Map<string, number>()
   await api.getFormula().onCalculationResultApplied(30_000).catch(() => {})
   for (const id of created) {
     const s = workbook.getSheetBySheetId(id)
@@ -309,12 +313,17 @@ export async function importXlsx(api: FUniver, data: ArrayBuffer): Promise<Impor
     const lastCol = s.getLastColumn()
     if (lastRow < 0 || lastCol < 0)
       continue
-    for (const row of s.getRange(0, 0, lastRow + 1, lastCol + 1).getRawValues()) {
-      for (const v of row) {
-        if (v === '#NAME?')
-          summary.unknownFunctions++
-      }
-    }
+    const range = s.getRange(0, 0, lastRow + 1, lastCol + 1)
+    const formulas = range.getFormulas()
+    range.getRawValues().forEach((row, r) => row.forEach((v, c) => {
+      if (v !== '#NAME?')
+        return
+      summary.unknownFunctions++
+      const p = functionProblems(formulas[r]?.[c] ?? '')
+      for (const name of [...p.unsupported.map(x => x.name), ...p.unknown])
+        nameCounts.set(name, (nameCounts.get(name) ?? 0) + 1)
+    }))
   }
+  summary.unknownFunctionNames = [...nameCounts.entries()].sort((a, b) => b[1] - a[1]).map(([n]) => n)
   return summary
 }

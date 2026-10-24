@@ -2976,5 +2976,8 @@
   "外部文件（直接查询）": "External files (queried directly)",
   "#结果超过 {0} 行：请先 GROUP BY 汇总或加 LIMIT": "#More than {0} rows: aggregate with GROUP BY or add LIMIT first",
   "在服务端对数据集执行只读 SQL，结果（带表头）铺到右下方：SQL(\"SELECT 店铺, sum(金额) FROM 订单 GROUP BY 1\", 参数名, 值, …)，SQL 里用 {0} 引用参数": "Runs read-only SQL on datasets on the server and spills the result (with a header row) to the right and down: SQL(\"SELECT shop, sum(amount) FROM orders GROUP BY 1\", name, value, …); refer to a parameter as {0} in the SQL",
-  "执行只读 SQL，取第一行第一列：SQLVALUE(\"SELECT sum(金额) FROM 订单\")；参数的写法与 SQL 函数相同": "Runs read-only SQL and returns the first column of the first row: SQLVALUE(\"SELECT sum(amount) FROM orders\"); parameters work as in the SQL function"
+  "执行只读 SQL，取第一行第一列：SQLVALUE(\"SELECT sum(金额) FROM 订单\")；参数的写法与 SQL 函数相同": "Runs read-only SQL and returns the first column of the first row: SQLVALUE(\"SELECT sum(amount) FROM orders\"); parameters work as in the SQL function",
+  "<span style=\"color:#B91C1C\">{0} 个公式使用了当前不支持的函数（显示 #NAME?）：{1}</span>": "<span style=\"color:#B91C1C\">{0} formula(s) use functions that are not supported yet (shown as #NAME?): {1}</span>",
+  "不支持的函数 {0}：{1}": "Unsupported function {0}: {1}",
+  "不认识的函数 {0}（拼错了？）": "Unknown function {0} (typo?)"
 }
