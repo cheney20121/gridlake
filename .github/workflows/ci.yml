@@ -92,7 +92,8 @@ jobs:
       - name: 单元测试
         # macOS 上编译内置的 DuckDB 需要显式指定 C++ 标准库头文件目录
         run: |
-          export CXXFLAGS="-isystem $(xcrun --show-sdk-path)/usr/include/c++/v1"
+          sdk="$(xcrun --show-sdk-path)"
+          export CXXFLAGS="-isystem ${sdk}/usr/include/c++/v1"
           cargo test --locked
 
   frontend:

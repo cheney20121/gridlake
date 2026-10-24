@@ -49,7 +49,10 @@ jobs:
           cache-dependency-path: web/pnpm-lock.yaml
       - name: 构建安装包
         run: |
-          if [ "$RUNNER_OS" = macOS ]; then export CXXFLAGS="-isystem $(xcrun --show-sdk-path)/usr/include/c++/v1"; fi
+          if [ "$RUNNER_OS" = macOS ]; then
+            sdk="$(xcrun --show-sdk-path)"
+            export CXXFLAGS="-isystem ${sdk}/usr/include/c++/v1"
+          fi
           ./deploy/package.sh
       - uses: actions/upload-artifact@v4
         with:
@@ -130,9 +133,10 @@ jobs:
       - name: 创建多架构标签
         working-directory: /tmp/digests
         run: |
-          docker buildx imagetools create \
-            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf '${{ env.IMAGE }}@sha256:%s ' *)
+          mapfile -t tags < <(jq -r '.tags[] | "-t", .' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          refs=()
+          for digest in *; do refs+=("${{ env.IMAGE }}@sha256:${digest}"); done
+          docker buildx imagetools create "${tags[@]}" "${refs[@]}"
 
   release:
     name: 发布 GitHub Release
@@ -148,7 +152,7 @@ jobs:
           pattern: package-*
           merge-multiple: true
       - name: 汇总校验和
-        run: cd assets && cat *.sha256 > SHA256SUMS && ls -l
+        run: cd assets && cat ./*.sha256 > SHA256SUMS && ls -l
       - name: 从 CHANGELOG 取本版说明
         run: |
           v="${GITHUB_REF_NAME#v}"
