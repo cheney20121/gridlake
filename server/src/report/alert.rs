@@ -1289,6 +1289,21 @@ async fn evaluate_and_notify(state: &AppState, alert: &StoredAlert, chans: &[Sto
     if (to_notify > 0 || want_recovery) && chans.is_empty() {
         return Err(AppError::bad("告警没有可用的推送渠道（可能已被删除）"));
     }
+    if to_notify > 0 {
+        let hits: Vec<serde_json::Value> = plan
+            .hits
+            .iter()
+            .filter_map(|h| {
+                let kind = match h.notice.as_ref()? {
+                    Notice::New => "new",
+                    Notice::Reminder => "reminder",
+                };
+                Some(serde_json::json!({ "group": h.group.key, "value": h.group.value, "judged": h.group.judged, "note": h.group.note, "notice": kind }))
+            })
+            .collect();
+        let data = serde_json::json!({ "alertId": alert.id, "name": alert.input.name, "datasetId": alert.input.dataset_id, "hits": hits, "totalHits": plan.hits.len() });
+        crate::webhook::emit(state, "alert.triggered", None, data);
+    }
     let mut results = Vec::new();
     if to_notify > 0 {
         let content = build_content(alert, &plan, now);

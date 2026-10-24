@@ -62,6 +62,7 @@ mod template;
 mod totp;
 mod views;
 mod web;
+mod webhook;
 mod workbook;
 mod writeback;
 mod xref;
@@ -207,6 +208,7 @@ async fn serve(config: config::Config, ready: Option<Ready>) -> anyhow::Result<(
     tokio::spawn(purge_trash(state.clone()));
     tokio::spawn(flush_usage(state.clone()));
     tokio::spawn(auth::run_audit_writer(state.clone()));
+    tokio::spawn(webhook::run(state.clone()));
 
     // 场景包的路由：没启用时不注册，访问得到 404（见 ecommerce/mod.rs）
     let api = Router::new()
@@ -326,6 +328,12 @@ async fn serve(config: config::Config, ready: Option<Ready>) -> anyhow::Result<(
         .route("/ledger/report-channels", post(routes::create_report_channel))
         .route("/ledger/report-channels/{id}", put(routes::update_report_channel).delete(routes::delete_report_channel))
         .route("/ledger/report-channels/{id}/test", post(routes::test_report_channel))
+        .route("/ledger/webhooks", get(webhook::list_hooks).post(webhook::create_hook))
+        .route("/ledger/webhooks/{id}", put(webhook::update_hook).delete(webhook::delete_hook))
+        .route("/ledger/webhooks/{id}/secret", post(webhook::rotate_hook_secret))
+        .route("/ledger/webhooks/{id}/test", post(webhook::test_hook))
+        .route("/ledger/webhooks/{id}/deliveries", get(webhook::hook_deliveries))
+        .route("/ledger/webhooks/deliveries/{id}/redeliver", post(webhook::redeliver_hook))
         .route("/ledger/me", get(auth::me))
         .route("/ledger/auth/login", post(account::login_route))
         .route("/ledger/auth/oidc/login", get(oidc::login_route))

@@ -219,6 +219,8 @@ pub async fn dataset_import_commit(State(db): State<AppState>, Extension(user): 
         return Err(AppError::bad("预览已过期，请重新选择文件"));
     }
     let dir = db.tmp_dir.clone();
+    let (mode, file_name) = (req.mode, req.file_name.clone());
+    let actor = user.clone();
     let _guard = db.import_lock.lock().await;
     let result = blocking(&db, move |conn| {
         // 整体替换已有数据集：和改结构一样，只有所有者与管理员
@@ -237,6 +239,16 @@ pub async fn dataset_import_commit(State(db): State<AppState>, Extension(user): 
     tracing::info!(dataset = %result.dataset_id, rows = result.rows_read, inserted = result.inserted, ms = result.elapsed_ms, "dataset import");
     db.cursors.invalidate();
     db.checkpoint();
+    let created = matches!(mode, crate::dataset_import::Mode::Create);
+    crate::webhook::emit(
+        &db,
+        if created { "dataset.created" } else { "dataset.imported" },
+        Some(&actor),
+        serde_json::json!({
+            "datasetId": result.dataset_id, "name": result.name, "source": "import", "mode": mode, "fileName": file_name,
+            "rowsRead": result.rows_read, "inserted": result.inserted, "updated": result.updated, "replaced": result.replaced, "skipped": result.skipped,
+        }),
+    );
     Ok(ok(result))
 }
 
@@ -272,11 +284,16 @@ pub async fn column_kind_apply(State(db): State<AppState>, Path(id): Path<String
 }
 
 /// DELETE /api/ledger/datasets/{id}?operator=  删除数据集：移到回收站（数据保留，可恢复）
-pub async fn delete_dataset(State(db): State<AppState>, Path(id): Path<String>, Query(q): Query<OperatorQuery>) -> AppResult<Json<Envelope<i64>>> {
+pub async fn delete_dataset(State(db): State<AppState>, Extension(user): Extension<CurrentUser>, Path(id): Path<String>, Query(q): Query<OperatorQuery>) -> AppResult<Json<Envelope<i64>>> {
     let _guard = db.import_lock.lock().await;
-    let n = blocking(&db, move |conn| dataset::delete(conn, &id, &q.operator)).await?;
+    let (n, id, name) = blocking(&db, move |conn| {
+        let name = dataset::datasets(conn)?.into_iter().find(|d| d.id == id).map(|d| d.name);
+        Ok((dataset::delete(conn, &id, &q.operator)?, id, name))
+    })
+    .await?;
     db.cursors.invalidate();
     db.checkpoint();
+    crate::webhook::emit(&db, "dataset.deleted", Some(&user), serde_json::json!({ "datasetId": id, "name": name }));
     Ok(ok(n))
 }
 

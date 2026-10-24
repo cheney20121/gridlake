@@ -7301,6 +7301,304 @@
         ]
       }
     },
+    "/ledger/webhooks": {
+      "get": {
+        "tags": [
+          "其他"
+        ],
+        "summary": "Webhook 列表与可订阅的事件",
+        "description": "Webhook 列表与可订阅的事件",
+        "operationId": "get_ledger_webhooks",
+        "x-permission": "仅管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "其他"
+        ],
+        "summary": "新建 Webhook，返回 id 和签名密钥（只显示这一次）",
+        "description": "{ name, url, events, enabled? }  新建 Webhook，返回 id 和签名密钥（只显示这一次）",
+        "operationId": "post_ledger_webhooks",
+        "x-permission": "仅管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-audit": "新建 Webhook",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HookInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ledger/webhooks/deliveries/{id}/redeliver": {
+      "post": {
+        "tags": [
+          "其他"
+        ],
+        "summary": "重新发送一条记录（同一个请求体与 X-Gridlake-Delivery，签名时间戳是新的）",
+        "description": "重新发送一条记录（同一个请求体与 X-Gridlake-Delivery，签名时间戳是新的）",
+        "operationId": "post_ledger_webhooks_deliveries_by_id_redeliver",
+        "x-permission": "仅管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-audit": "重新发送 Webhook",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/ledger/webhooks/{id}": {
+      "put": {
+        "tags": [
+          "其他"
+        ],
+        "summary": "修改（地址不填表示不变",
+        "description": "{ name, url?, events, enabled }  修改（地址不填表示不变；停用时取消排队中的发送）",
+        "operationId": "put_ledger_webhooks_by_id",
+        "x-permission": "仅管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-audit": "修改 Webhook",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HookInput"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "其他"
+        ],
+        "summary": "删除（连同发送记录）",
+        "description": "删除（连同发送记录）",
+        "operationId": "delete_ledger_webhooks_by_id",
+        "x-permission": "仅管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-audit": "删除 Webhook",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/ledger/webhooks/{id}/deliveries": {
+      "get": {
+        "tags": [
+          "其他"
+        ],
+        "summary": "最近的发送记录（新的在前，含请求体与对方响应） 查询参数：`limit=`",
+        "description": "最近的发送记录（新的在前，含请求体与对方响应） 查询参数：`limit=`",
+        "operationId": "get_ledger_webhooks_by_id_deliveries",
+        "x-permission": "仅管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/ledger/webhooks/{id}/secret": {
+      "post": {
+        "tags": [
+          "其他"
+        ],
+        "summary": "重置签名密钥，返回新密钥（只显示这一次",
+        "description": "重置签名密钥，返回新密钥（只显示这一次；旧密钥立即失效）",
+        "operationId": "post_ledger_webhooks_by_id_secret",
+        "x-permission": "仅管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-audit": "重置 Webhook 签名密钥",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/ledger/webhooks/{id}/test": {
+      "post": {
+        "tags": [
+          "其他"
+        ],
+        "summary": "立即发一个 ping 事件（不重试），返回这次发送的结果",
+        "description": "立即发一个 ping 事件（不重试），返回这次发送的结果；停用的也能测试",
+        "operationId": "post_ledger_webhooks_by_id_test",
+        "x-permission": "仅管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-audit": "测试 Webhook",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
     "/ledger/withdrawals": {
       "get": {
         "tags": [
@@ -9647,6 +9945,32 @@
         "required": [
           "name",
           "value"
+        ]
+      },
+      "HookInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "description": "接收地址（http / https）；修改时不填表示不变"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "订阅的事件名（见 `GET /ledger/webhooks` 的 events）；`*` 表示全部"
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "events"
         ]
       },
       "HttpSource": {

@@ -20,6 +20,7 @@ pub async fn external_preview(State(db): State<AppState>, body: axum::body::Byte
 pub async fn create_external(State(db): State<AppState>, Extension(user): Extension<CurrentUser>, body: axum::body::Bytes) -> AppResult<Json<Envelope<String>>> {
     let req: CreateExternalBody = parse_json(&body)?;
     let roots = db.config.inbox_roots.clone();
+    let (name, actor) = (req.name.trim().to_string(), user.clone());
     let _guard = db.import_lock.lock().await;
     let id = blocking(&db, move |conn| {
         let id = crate::external::create(conn, &roots, &req.name, &req.input)?;
@@ -29,6 +30,7 @@ pub async fn create_external(State(db): State<AppState>, Extension(user): Extens
     .await?;
     db.cursors.invalidate();
     db.checkpoint();
+    crate::webhook::emit(&db, "dataset.created", Some(&actor), serde_json::json!({ "datasetId": id, "name": name, "source": "external" }));
     Ok(ok(id))
 }
 

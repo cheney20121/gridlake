@@ -650,6 +650,35 @@ CREATE TABLE IF NOT EXISTS ledger_template_use (
   used_by VARCHAR,
   used_at TIMESTAMP
 );
+-- 事件 Webhook：地址与签名密钥加密存放，events 为订阅的事件名（JSON 数组，["*"] 表示全部）
+CREATE TABLE IF NOT EXISTS ledger_webhook (
+  id VARCHAR PRIMARY KEY,
+  name VARCHAR NOT NULL,
+  url_enc VARCHAR NOT NULL,
+  secret_enc VARCHAR NOT NULL,
+  events VARCHAR NOT NULL,
+  enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  created_by VARCHAR,
+  created_at TIMESTAMP,
+  last_status VARCHAR,
+  last_at TIMESTAMP,
+  last_error VARCHAR
+);
+-- Webhook 发送队列与记录：pending 等待发送 / 重试（next_at 到点发），success，failed（重试用完），cancelled（Webhook 停用）
+CREATE TABLE IF NOT EXISTS ledger_webhook_delivery (
+  id VARCHAR PRIMARY KEY,
+  webhook_id VARCHAR NOT NULL,
+  event VARCHAR NOT NULL,
+  payload VARCHAR NOT NULL,
+  status VARCHAR NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  http_status INTEGER,
+  error VARCHAR,
+  response VARCHAR,
+  created_at TIMESTAMP,
+  last_attempt_at TIMESTAMP,
+  next_at TIMESTAMP
+);
 -- 定时推送渠道：Webhook 地址 / 收件人与加签密钥加密存放
 CREATE TABLE IF NOT EXISTS ledger_report_channel (
   id VARCHAR PRIMARY KEY,

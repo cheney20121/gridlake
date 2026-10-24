@@ -94,7 +94,7 @@
 
 - 十亿行规模验证，或分区 / 外部 Parquet 表；🟡 **外部 Parquet 表已完成**（服务器目录 / 挂载盘里的文件直接查询，不导入，见 `server/src/external.rs`、部署手册「外部数据集」）。**未做**：直接查询对象存储（S3）上的 Parquet（要 DuckDB 的 httpfs 扩展，目前没有编进程序）、Iceberg / Delta / DuckLake 表、按计划自动刷新文件列表、外部数据集修改目录 / 规则（现在要删了重建）；
 - 多节点读副本、高可用；
-- 插件 / UDF 扩展机制、事件 Webhook；
+- 插件 / UDF 扩展机制（🟡 **事件 Webhook 已完成**：导入、同步、填报、审批、告警等 10 种事件，签名、持久化队列与重试，见 `server/src/webhook.rs`、部署手册「事件 Webhook」）；
 - 移动端只读查看、桌面版封装（🟡 `gridlake open` 已能在本机一条命令打开文件；未做：打包成双击即用的桌面应用、Homebrew / Scoop 安装源、纯浏览器（DuckDB-WASM）的在线体验版）。
 
 ## 四、建议路线

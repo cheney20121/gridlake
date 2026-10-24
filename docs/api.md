@@ -17,7 +17,7 @@
 - **数据范围受限的用户**（管理员给用户设置了「只能看某些店铺」）：只能调用下表「受限用户」列为 ✓ 的接口，其余一律返回 403；✓ 的接口读取的数据也已按范围过滤。
 - **审计**：「审计」列非空的接口会记入操作审计，列里是审计里显示的操作名。
 
-共 218 个接口。
+共 226 个接口。
 
 ## 存活检查与运维
 
@@ -321,3 +321,11 @@
 | GET | `/api/ledger/tokens` | 我的访问令牌（不含令牌本身） | 登录用户 | ✓ |  |
 | POST | `/api/ledger/tokens` | { name, days?, readOnly?, datasets? }  新建访问令牌；响应里的 token 只显示这一次 | 登录用户 | ✓ | 创建访问令牌 |
 | DELETE | `/api/ledger/tokens/{id}` | 吊销我的访问令牌（立即生效） | 登录用户 | ✓ | 吊销访问令牌 |
+| GET | `/api/ledger/webhooks` | Webhook 列表与可订阅的事件 | 仅管理员 | — |  |
+| POST | `/api/ledger/webhooks` | { name, url, events, enabled? }  新建 Webhook，返回 id 和签名密钥（只显示这一次） | 仅管理员 | — | 新建 Webhook |
+| POST | `/api/ledger/webhooks/deliveries/{id}/redeliver` | 重新发送一条记录（同一个请求体与 X-Gridlake-Delivery，签名时间戳是新的） | 仅管理员 | — | 重新发送 Webhook |
+| PUT | `/api/ledger/webhooks/{id}` | { name, url?, events, enabled }  修改（地址不填表示不变；停用时取消排队中的发送） | 仅管理员 | — | 修改 Webhook |
+| DELETE | `/api/ledger/webhooks/{id}` | 删除（连同发送记录） | 仅管理员 | — | 删除 Webhook |
+| GET | `/api/ledger/webhooks/{id}/deliveries` | 最近的发送记录（新的在前，含请求体与对方响应） 查询参数：`limit=` | 仅管理员 | — |  |
+| POST | `/api/ledger/webhooks/{id}/secret` | 重置签名密钥，返回新密钥（只显示这一次；旧密钥立即失效） | 仅管理员 | — | 重置 Webhook 签名密钥 |
+| POST | `/api/ledger/webhooks/{id}/test` | 立即发一个 ping 事件（不重试），返回这次发送的结果；停用的也能测试 | 仅管理员 | — | 测试 Webhook |

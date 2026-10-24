@@ -6,6 +6,7 @@ use super::*;
 /// 整批校验，有错误时不写入并返回出错的格子（errors）
 pub async fn dataset_writeback(State(db): State<AppState>, Extension(user): Extension<CurrentUser>, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Envelope<crate::writeback::WritebackOutcome>>> {
     let req: crate::writeback::WritebackRequest = parse_json(&body)?;
+    let (dataset_id, actor) = (id.clone(), user.clone());
     let _guard = db.import_lock.lock().await;
     let r = blocking(&db, move |conn| {
         // 数据集属于收集任务时：先校验期次和单位，写入成功后记下谁提交了哪个单位；不属于任何任务时这两步什么都不做
@@ -19,6 +20,15 @@ pub async fn dataset_writeback(State(db): State<AppState>, Extension(user): Exte
         tracing::info!(dataset = %r.dataset_name, inserted = r.inserted, updated = r.updated, "writeback");
         db.cursors.invalidate();
         db.checkpoint();
+        crate::webhook::emit(
+            &db,
+            "writeback.submitted",
+            Some(&actor),
+            serde_json::json!({
+                "datasetId": dataset_id, "name": r.dataset_name, "batchId": r.batch_id,
+                "inserted": r.inserted, "updated": r.updated, "deleted": r.deleted, "unchanged": r.unchanged,
+            }),
+        );
     }
     Ok(ok(r))
 }
@@ -50,14 +60,17 @@ pub async fn undo_writeback(State(db): State<AppState>, Path(id): Path<String>, 
 /// POST /api/ledger/datasets/input  { name, columns: [{ title, kind }], primaryKey }  新建空的填报数据集，返回 id
 pub async fn create_input_dataset(State(db): State<AppState>, Extension(user): Extension<CurrentUser>, body: axum::body::Bytes) -> AppResult<Json<Envelope<String>>> {
     let input: crate::writeback::NewInputDataset = parse_json(&body)?;
+    let actor = user.clone();
     let _guard = db.import_lock.lock().await;
-    let id = blocking(&db, move |conn| {
+    let (id, name) = blocking(&db, move |conn| {
         let id = crate::writeback::create_dataset(conn, &input)?;
         crate::dataset::set_owner(conn, &id, &user)?;
-        Ok(id)
+        let name = crate::dataset::datasets(conn)?.into_iter().find(|d| d.id == id).map(|d| d.name);
+        Ok((id, name))
     })
     .await?;
     db.checkpoint();
+    crate::webhook::emit(&db, "dataset.created", Some(&actor), serde_json::json!({ "datasetId": id, "name": name, "source": "input" }));
     Ok(ok(id))
 }
 

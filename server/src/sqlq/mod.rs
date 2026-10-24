@@ -742,6 +742,11 @@ pub fn refresh_now(state: &AppState, conn: &Connection, id: &str, new_dataset: O
                 )?;
             }
         }
+        let data = match &r {
+            Ok(m) => serde_json::json!({ "queryId": id, "name": q.name, "status": "success", "datasetId": m.dataset_id, "datasetName": m.dataset_name, "rows": m.rows, "rebuilt": m.rebuilt }),
+            Err(e) => serde_json::json!({ "queryId": id, "name": q.name, "status": "failed", "datasetId": target, "message": e.message() }),
+        };
+        crate::webhook::emit_with(conn, &state.webhooks, "sql.refreshed", None, data);
         r
     })();
     if let Ok(mut r) = running().lock() {
