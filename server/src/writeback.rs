@@ -16,6 +16,7 @@ use serde_json::Value as Json;
 use crate::dataset::{self, StoredColumn};
 use crate::db::now_local;
 use crate::error::{AppError, AppResult};
+use crate::kinds;
 use crate::schema::{ident, literal};
 
 /// 单次提交的行数上限
@@ -113,7 +114,7 @@ fn kind_of(c: &StoredColumn) -> &str {
 }
 
 fn numeric(c: &StoredColumn) -> bool {
-    matches!(kind_of(c), "number" | "money")
+    kinds::is_numeric(kind_of(c))
 }
 
 /// 单元格值 → 文本（空白为 None）
@@ -170,17 +171,30 @@ fn target(conn: &Connection, id: &str) -> AppResult<(String, Vec<StoredColumn>, 
 }
 
 fn search_expr(cols: &[StoredColumn], prefix: &str) -> String {
-    let text: Vec<String> = cols.iter().filter(|c| matches!(kind_of(c), "text" | "id")).map(|c| format!("{prefix}{}", ident(&c.title))).collect();
+    let text: Vec<String> = cols.iter().filter(|c| kinds::is_textual(kind_of(c))).map(|c| format!("{prefix}{}", ident(&c.title))).collect();
     if text.is_empty() { "NULL".into() } else { format!("lower(concat_ws(' ', {}))", text.join(", ")) }
 }
 
 fn to_value(c: &StoredColumn, v: &Json) -> Value {
     match v {
         Json::Null => Value::Null,
+        Json::Number(n) if kind_of(c) == "integer" => n.as_i64().map(Value::BigInt).or_else(|| n.as_f64().map(Value::Double)).unwrap_or(Value::Null),
         Json::Number(n) if numeric(c) => n.as_f64().map(Value::Double).unwrap_or(Value::Null),
+        Json::Bool(b) if kind_of(c) == "boolean" => Value::Boolean(*b),
         Json::String(s) => Value::Text(s.clone()),
         other => Value::Text(other.to_string()),
     }
+}
+
+/// 一个单元格按列类型取值（撤销快照用：整数不经过浮点，是否列为布尔值）
+fn cell_json(r: &duckdb::Row, i: usize, c: &StoredColumn) -> duckdb::Result<Json> {
+    Ok(match kind_of(c) {
+        "integer" => r.get::<_, Option<i64>>(i)?.map(Json::from),
+        "boolean" => r.get::<_, Option<bool>>(i)?.map(Json::Bool),
+        _ if numeric(c) => r.get::<_, Option<f64>>(i)?.map(Json::from),
+        _ => r.get::<_, Option<String>>(i)?.map(Json::String),
+    }
+    .unwrap_or(Json::Null))
 }
 
 /// 读出若干行（数据集全部列）作为 JSON
@@ -193,13 +207,7 @@ fn read_rows(conn: &Connection, table: &str, cols: &[StoredColumn], where_sql: &
         let row = cols
             .iter()
             .enumerate()
-            .map(|(i, c)| -> duckdb::Result<Json> {
-                Ok(if numeric(c) {
-                    r.get::<_, Option<f64>>(i)?.map(Json::from).unwrap_or(Json::Null)
-                } else {
-                    r.get::<_, Option<String>>(i)?.map(Json::String).unwrap_or(Json::Null)
-                })
-            })
+            .map(|(i, c)| cell_json(r, i, c))
             .collect::<duckdb::Result<Vec<_>>>()?;
         out.push(row);
     }
@@ -240,7 +248,7 @@ fn touch(conn: &Connection, id: &str) -> AppResult<String> {
 /// 提交的主键对上了已有的、但不在 shops 范围内的行（返回提交里的行下标）
 fn foreign_rows(conn: &Connection, table: &str, given: &[&StoredColumn], keys: &[String], values: &[Vec<Json>], scope_title: &str, shops: &[String]) -> AppResult<Vec<usize>> {
     let key_cols: Vec<(usize, &StoredColumn)> = keys.iter().filter_map(|k| given.iter().position(|g| &g.title == k).map(|i| (i, given[i]))).collect();
-    let defs = key_cols.iter().map(|(_, c)| format!("{} {}", ident(&c.title), if numeric(c) { "DOUBLE" } else { "VARCHAR" })).collect::<Vec<_>>().join(", ");
+    let defs = key_cols.iter().map(|(_, c)| format!("{} {}", ident(&c.title), kinds::sql_type(kind_of(c)))).collect::<Vec<_>>().join(", ");
     conn.execute_batch(&format!("CREATE OR REPLACE TEMP TABLE wb_chk (__line BIGINT, {defs})"))?;
     let r = (|| -> AppResult<Vec<usize>> {
         let ph = vec!["?"; key_cols.len() + 1].join(", ");
@@ -331,6 +339,20 @@ pub fn submit(conn: &Connection, dataset_id: &str, req: &WritebackRequest) -> Ap
             let text = row.get(ci).and_then(cell_text);
             let v = match (text, kind_of(c)) {
                 (None, _) => Json::Null,
+                (Some(s), "integer") => match kinds::parse_integer(&s) {
+                    Some(n) => Json::from(n),
+                    None => {
+                        errors.push(CellError { row: ri, column: c.title.clone(), message: format!("「{s}」不是有效的整数") });
+                        Json::Null
+                    }
+                },
+                (Some(s), "boolean") => match kinds::parse_bool(&s) {
+                    Some(b) => Json::Bool(b),
+                    None => {
+                        errors.push(CellError { row: ri, column: c.title.clone(), message: format!("「{s}」不是有效的是 / 否，请写 TRUE / FALSE 或 是 / 否") });
+                        Json::Null
+                    }
+                },
                 (Some(s), "number" | "money") => match parse_number(&s) {
                     Some(n) => Json::from(n),
                     None => {
@@ -404,7 +426,7 @@ pub fn submit(conn: &Connection, dataset_id: &str, req: &WritebackRequest) -> Ap
     let table = dataset_id.to_string();
     conn.execute_batch("BEGIN TRANSACTION")?;
     let r = (|| -> AppResult<(i64, i64, i64, i64, Undo)> {
-        let defs = given.iter().map(|c| format!("{} {}", ident(&c.title), if numeric(c) { "DOUBLE" } else { "VARCHAR" })).collect::<Vec<_>>().join(", ");
+        let defs = given.iter().map(|c| format!("{} {}", ident(&c.title), kinds::sql_type(kind_of(c)))).collect::<Vec<_>>().join(", ");
         conn.execute_batch(&format!("CREATE OR REPLACE TEMP TABLE wb_in (__line BIGINT, {defs})"))?;
         {
             let ph = vec!["?"; given.len() + 1].join(", ");
@@ -470,9 +492,7 @@ pub fn submit(conn: &Connection, dataset_id: &str, req: &WritebackRequest) -> Ap
                 let vals: Vec<Json> = given
                     .iter()
                     .enumerate()
-                    .map(|(i, c)| -> duckdb::Result<Json> {
-                        Ok(if numeric(c) { row.get::<_, Option<f64>>(i)?.map(Json::from).unwrap_or(Json::Null) } else { row.get::<_, Option<String>>(i)?.map(Json::String).unwrap_or(Json::Null) })
-                    })
+                    .map(|(i, c)| cell_json(row, i, c))
                     .collect::<duckdb::Result<_>>()?;
                 let key: Vec<String> = key_given.iter().map(|&i| cell_text(&vals[i]).unwrap_or_default()).collect();
                 if !before_keys.contains(&key) {

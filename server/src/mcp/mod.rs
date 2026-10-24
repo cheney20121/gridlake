@@ -289,7 +289,7 @@ fn list_datasets(conn: &Connection, caller: &Caller) -> AppResult<String> {
             .def
             .columns
             .iter()
-            .map(|c| format!("{}({})", c.title, match c.kind { "money" => "金额", "number" => "数值", "datetime" => "日期时间", "id" => "编号", _ => "文本" }))
+            .map(|c| format!("{}({})", c.title, crate::kinds::label(c.kind)))
             .collect();
         out.push_str(&format!("- 「{}」{} 行：{}\n", d.def.name, d.row_count, cols.join("、")));
     }

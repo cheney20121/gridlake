@@ -3,6 +3,7 @@ import type { FWorksheet } from '@univerjs/sheets/facade'
 import type { FixedColumns } from './fixed-columns'
 import type { CellValue, DatasetColumn, DatasetInfo, WritebackCellError, WritebackMode } from '@/api/dataset'
 import { getDistinctApi } from '@/api/dataset'
+import { isNumericKind } from '@/features/excel/dataset/column-kinds'
 
 /**
  * 填报区：工作表上的一块区域，首行为表头（对应数据集的列），下面逐行填写，提交后写回数据集。
@@ -200,7 +201,7 @@ export function readInputRows(sheet: FWorksheet, spec: InputSpec, ds: DatasetInf
   const range = sheet.getRange(spec.row + 1, spec.col, n, spec.fields.length)
   const raw = range.getValues()
   const shown = range.getDisplayValues()
-  const numeric = spec.fields.map(f => ['money', 'number'].includes(columnOf(ds, f)?.kind ?? ''))
+  const numeric = spec.fields.map(f => isNumericKind(columnOf(ds, f)?.kind ?? ''))
   const rows = raw.map((r, ri) => r.map((v, ci) => {
     if (blank(v))
       return null

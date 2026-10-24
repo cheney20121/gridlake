@@ -42,6 +42,22 @@ gridlake（单进程：Rust + axum）
 | `collab.rs` | 实时协作（SSE 推送 + POST 提交，按版本号收敛冲突） |
 | `ai/` / `mcp/` | AI 助手（OpenAI 兼容接口，方案卡确认后才写入）、MCP 只读服务 |
 
+## 列类型
+
+数据集的每一列有一个类型（`kind`），决定存储类型、能不能求和、筛选怎么比较、界面怎么显示。定义集中在 `server/src/kinds.rs` 与 `web/src/features/excel/dataset/column-kinds.ts`，两边一一对应；判断「是不是数值列」一律用 `kinds::is_numeric` / `isNumericKind`，新增类型时只改这两个文件。
+
+| kind | 含义 | 存储类型 |
+|---|---|---|
+| `text` | 文本 | VARCHAR |
+| `id` | 编号（订单号、手机号：长数字串 / 前导零，按文本保存不丢位） | VARCHAR |
+| `integer` | 整数（数量、件数：精确到个位） | BIGINT |
+| `number` | 数值 | DOUBLE |
+| `money` | 金额 | DOUBLE |
+| `datetime` | 日期时间，统一写成 `2026-09-15 10:00:00` 形式的**文本**（透视按年 / 季 / 月 / 周分组、切片器、AI 与 MCP 的说明都按这个约定） | VARCHAR |
+| `boolean` | 是 / 否 | BOOLEAN |
+
+类型从哪里来：CSV / XLSX 按前 2000 行样本推断（全是整数 → `integer`，全是 `true` / `false` → `boolean`）；新建时再用全量数据核对一次，样本之后出现小数的整数列改成数值列、出现其他写法的是否列改成文本列，不让样本之外的值按空值入库。Parquet / JSON 用文件自带的类型（转 CSV 时记在暂存文件旁的 `.kinds.json` 里，预览时优先）；SQL 结果另存为数据集时按结果的 SQL 类型。超过 2^53 的整数在接口里以文本下发（浏览器的 JSON 数字会丢掉末几位）。
+
 ## 分享链接
 
 带 `x-share-token` 的请求在 `auth.rs` 的 `guard` 里走独立分支（`share_request`），**不经过登录与权限表**：只能调用 `share.rs` 里 `ALLOWED` 登记的 10 个只读接口（工作簿内容 / 元信息、数据集列表、游标 / 取行 / 统计 / 取值 / 聚合 / 透视）。工作簿接口只认被分享的那一个；数据集接口只认「这个工作簿用到的数据集」——打开分享页（读内容）时用 `template::refs::collect` 从工作簿内容里算出引用的数据集（id 与名称）并记在 `ledger_share.datasets`。请求在**创建人的数据范围**内执行（`resolve_scope` 用创建人身份），所以分享不会比创建人多看一行。前端 `/share/:token` 复用表格引擎与图表 / 指标卡 / 切片器部件，用演示模式的编辑拦截（`present-guard`）挡住编辑。

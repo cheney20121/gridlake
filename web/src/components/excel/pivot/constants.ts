@@ -1,4 +1,5 @@
 import type { DatasetColumn, DatasetFilter, PivotAgg, PivotGranularity, PivotShow } from '@/api/dataset'
+import { isNumericKind } from '@/features/excel/dataset/column-kinds'
 import { t } from '@/i18n'
 
 /** 透视表字段面板的区域、条目与选项 */
@@ -110,9 +111,9 @@ export const SORT_OPTIONS = [
   { value: 'value-asc', label: t('按第一个值 从小到大') },
 ]
 
-export const KIND_ICON: Record<string, string> = { text: 'Aa', id: '#', money: '¥', number: '12', datetime: '📅' }
+export const KIND_ICON: Record<string, string> = { text: 'Aa', id: '#', integer: '123', money: '¥', number: '1.2', datetime: '📅', boolean: '✓' }
 
-export const isNumeric = (kind: string) => kind === 'money' || kind === 'number'
+export const isNumeric = isNumericKind
 
 /** 从字段列表拖出时生成区域条目 */
 export function cloneField(col: DatasetColumn): Item {

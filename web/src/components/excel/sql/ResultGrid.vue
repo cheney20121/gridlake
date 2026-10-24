@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { SqlResult } from '@/api/sql'
 import BusyInline from '@/components/excel/common/BusyInline.vue'
+import { isNumericKind } from '@/features/excel/dataset/column-kinds'
 import { t as tr } from '@/i18n'
 import { fmt, KIND_LABEL } from './format'
 
@@ -63,7 +64,7 @@ function downloadCsv() {
               <th class="rownum">
                 #
               </th>
-              <th v-for="c in result.columns" :key="c.name" :class="{ num: c.kind === 'money' || c.kind === 'number' }" :title="`${c.name}（${KIND_LABEL[c.kind] ?? c.kind}，${c.sqlType}）`">
+              <th v-for="c in result.columns" :key="c.name" :class="{ num: isNumericKind(c.kind) }" :title="`${c.name}（${KIND_LABEL[c.kind] ?? c.kind}，${c.sqlType}）`">
                 {{ c.name }}
               </th>
             </tr>
@@ -73,7 +74,7 @@ function downloadCsv() {
               <td class="rownum">
                 {{ ri + 1 }}
               </td>
-              <td v-for="(v, ci) in r" :key="ci" :class="{ num: result.columns[ci]!.kind === 'money' || result.columns[ci]!.kind === 'number', nil: v == null }">
+              <td v-for="(v, ci) in r" :key="ci" :class="{ num: isNumericKind(result.columns[ci]!.kind), nil: v == null }">
                 {{ fmt(v, result.columns[ci]!.kind) }}
               </td>
             </tr>

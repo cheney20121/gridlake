@@ -366,13 +366,7 @@ fn check_col(def: &DatasetDef, c: &str) -> AppResult<()> {
 }
 
 fn kind_label(k: &str) -> &'static str {
-    match k {
-        "money" => "金额",
-        "number" => "数值",
-        "datetime" => "日期时间",
-        "id" => "编号",
-        _ => "文本",
-    }
+    crate::kinds::label(k)
 }
 
 fn num(v: Option<f64>, kind: &str) -> String {
@@ -1444,7 +1438,7 @@ fn json_text(v: &Json) -> Option<String> {
 
 /// 校验一条条件格式规则并整理成界面使用的写法（列类型要与运算匹配、颜色只能是十六进制）
 fn check_rule(col: &dataset::ColumnDef, n: usize, r: &RuleArg) -> AppResult<Json> {
-    let numeric = matches!(col.kind, "money" | "number");
+    let numeric = crate::kinds::is_numeric(col.kind);
     let bad = |m: String| AppError::bad(format!("第 {n} 条规则：{m}"));
     let mut out = serde_json::Map::new();
     out.insert("op".into(), json!(r.op));
@@ -1581,7 +1575,7 @@ fn set_column_format(conn: &Connection, catalog: &[DatasetDef], args: &str) -> A
     if a.num_fmt.is_none() && a.rules.is_none() {
         return Err(AppError::bad("没有要设置的内容：numFmt / rules 至少给一项"));
     }
-    let numeric = matches!(col.kind, "money" | "number");
+    let numeric = crate::kinds::is_numeric(col.kind);
     if let Some(f) = a.num_fmt.as_deref() {
         if !NUM_FMTS.contains(&f) {
             return Err(AppError::bad(format!("没有数字格式「{f}」，可用：{}", NUM_FMTS.join(" / "))));

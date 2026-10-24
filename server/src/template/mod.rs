@@ -494,26 +494,21 @@ pub struct UseOutcome {
 }
 
 fn numeric(kind: &str) -> bool {
-    matches!(kind, "money" | "number")
+    crate::kinds::is_numeric(kind)
 }
 
 /// 所需列类型与数据集列类型是否相容：日期时间、数值需要同类；文本类可对应任意列
 fn compatible(need: &str, have: &str) -> bool {
     match need {
         "datetime" => have == "datetime",
+        "boolean" => have == "boolean",
         k if numeric(k) => numeric(have),
         _ => true,
     }
 }
 
 fn kind_label(kind: &str) -> &'static str {
-    match kind {
-        "datetime" => "日期时间",
-        "money" => "金额",
-        "number" => "数值",
-        "id" => "编号",
-        _ => "文本",
-    }
+    crate::kinds::label(kind)
 }
 
 /// 校验绑定并生成改写规则

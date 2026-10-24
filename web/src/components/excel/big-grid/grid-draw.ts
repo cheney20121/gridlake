@@ -1,5 +1,6 @@
 import type { GridCell, GridColumn } from './types'
 import type { CellValue } from '@/api/dataset'
+import { isNumericKind } from '@/features/excel/dataset/column-kinds'
 import { COLORS, FIELD_H, FILTER_BTN, FONT, HEAD_FONT, ROW_H, SMALL_FONT } from './grid-constants'
 import { columnLetter, formatCell, integer } from './grid-format'
 
@@ -71,7 +72,7 @@ export function drawGrid(ctx: CanvasRenderingContext2D, st: DrawState) {
     ctx.beginPath()
     ctx.rect(Math.max(x, st.numW), st.headH, col.width, st.height - st.headH)
     ctx.clip()
-    const right = col.kind === 'money' || col.kind === 'number'
+    const right = isNumericKind(col.kind)
     ctx.textAlign = right ? 'right' : 'left'
     for (let r = first; r <= last; r++) {
       const row = st.cell(r)
@@ -145,7 +146,7 @@ export function drawGrid(ctx: CanvasRenderingContext2D, st: DrawState) {
           ctx.beginPath()
           ctx.rect(fx, fy, col.width, ROW_H)
           ctx.clip()
-          const right = col.kind === 'money' || col.kind === 'number'
+          const right = isNumericKind(col.kind)
           ctx.textAlign = right ? 'right' : 'left'
           ctx.fillStyle = hit?.color ?? (typeof v === 'number' && v < 0 ? COLORS.negative : COLORS.text)
           ctx.font = col.emphasis || hit?.bold ? `600 ${FONT}` : FONT

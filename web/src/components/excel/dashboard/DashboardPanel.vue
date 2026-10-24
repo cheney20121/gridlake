@@ -10,6 +10,7 @@ import { chartBus, findFloat, insertFloat, listFloats, removeFloat, updateFloat 
 import { CHART_COMPONENT_KEY } from '@/features/excel/chart/types'
 import { datasetById } from '@/features/excel/dashboard/slicer'
 import { KPI_KEY, SLICER_KEY, TABLE_KEY } from '@/features/excel/dashboard/types'
+import { isNumericKind } from '@/features/excel/dataset/column-kinds'
 import { cellsToFloat, CellTableBlockedError, floatToCells, removeCellTable, resetCellTableEdits, updateCellTable } from '@/features/excel/datatable/cell-table'
 import { editCount } from '@/features/excel/datatable/edits'
 import { renameTableFormulas } from '@/features/excel/datatable/formula-input'
@@ -68,9 +69,9 @@ watch(() => props.datasets, (list) => {
 
 const dataset = computed(() => props.datasets.find(d => d.id === (form.value?.datasetId ?? datasetId.value)))
 const columns = computed(() => dataset.value?.columns ?? [])
-const numeric = computed(() => columns.value.filter(c => c.kind === 'money' || c.kind === 'number'))
+const numeric = computed(() => columns.value.filter(c => isNumericKind(c.kind)))
 const dates = computed(() => columns.value.filter(c => c.kind === 'datetime'))
-const groupable = computed(() => columns.value.filter(c => c.kind !== 'money' && c.kind !== 'number'))
+const groupable = computed(() => columns.value.filter(c => !isNumericKind(c.kind)))
 const kindOf = (title: string): DatasetColumn['kind'] | undefined => columns.value.find(c => c.title === title || c.key === title)?.kind
 
 function refreshParts() {
@@ -361,7 +362,7 @@ function add(kind: 'slicer' | 'kpi' | 'table' | 'datatable') {
   }
   const text = ds.columns.find(c => c.kind === 'text') ?? ds.columns.find(c => c.kind === 'id')
   const date = ds.columns.find(c => c.kind === 'datetime')
-  const money = ds.columns.find(c => c.kind === 'money') ?? ds.columns.find(c => c.kind === 'number')
+  const money = ds.columns.find(c => c.kind === 'money') ?? ds.columns.find(c => isNumericKind(c.kind))
   let spec: DashboardSpec
   let key: string
   let size: { width: number, height: number }

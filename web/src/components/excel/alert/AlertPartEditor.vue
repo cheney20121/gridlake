@@ -3,6 +3,7 @@ import type { AlertAgg, AlertPart } from '@/api/alert'
 import type { DatasetColumn } from '@/api/dataset'
 import { computed } from 'vue'
 import { AGG_LABEL } from '@/api/alert'
+import { isNumericKind } from '@/features/excel/dataset/column-kinds'
 
 /** 一个汇总值：对某列求和 / 计数…（计数可不选列） */
 const props = defineProps<{
@@ -19,13 +20,13 @@ const aggOptions = computed(() => props.aggs ?? (Object.keys(AGG_LABEL) as Alert
 /** 求和 / 平均 / 最小 / 最大只能用数值列 */
 const columnOptions = computed(() => {
   const numeric = ['sum', 'avg', 'min', 'max'].includes(props.modelValue.agg)
-  return numeric ? props.columns.filter(c => c.kind === 'money' || c.kind === 'number') : props.columns
+  return numeric ? props.columns.filter(c => isNumericKind(c.kind)) : props.columns
 })
 
 /** 换汇总方式时，已选的列如果不适用（如给文本列求和）就清掉 */
 function setAgg(agg: AlertAgg) {
   const col = props.columns.find(c => c.key === props.modelValue.column)
-  const ok = !col || !['sum', 'avg', 'min', 'max'].includes(agg) || col.kind === 'money' || col.kind === 'number'
+  const ok = !col || !['sum', 'avg', 'min', 'max'].includes(agg) || isNumericKind(col.kind)
   emit('update:modelValue', { agg, column: ok ? props.modelValue.column : null })
 }
 </script>

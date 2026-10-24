@@ -24,6 +24,7 @@ use serde_json::{Value as Json, json};
 use crate::dataset::{self, DatasetDef, StoredColumn};
 use crate::db::now_local;
 use crate::error::{AppError, AppResult};
+use crate::kinds;
 use crate::routes::AppState;
 use crate::schema::ident;
 
@@ -142,12 +143,12 @@ fn to_json(v: Value) -> Json {
         Value::TinyInt(x) => json!(x),
         Value::SmallInt(x) => json!(x),
         Value::Int(x) => json!(x),
-        Value::BigInt(x) => json!(x),
-        Value::HugeInt(x) => json!(x as f64),
+        Value::BigInt(x) => crate::tabular::int_json(x as i128),
+        Value::HugeInt(x) => crate::tabular::int_json(x),
         Value::UTinyInt(x) => json!(x),
         Value::USmallInt(x) => json!(x),
         Value::UInt(x) => json!(x),
-        Value::UBigInt(x) => json!(x),
+        Value::UBigInt(x) => crate::tabular::int_json(x as i128),
         Value::Double(x) => clean(x),
         Value::Float(x) => clean(x as f64),
         Value::Decimal(d) => d.to_string().parse::<f64>().map(|x| json!(x)).unwrap_or(Json::Null),
@@ -174,15 +175,30 @@ fn money_hint(name: &str) -> bool {
 /// 结果列类型：与来源数据集同名的列沿用其类型；否则按 SQL 类型推断（数值列名像金额的记为金额）
 fn kind_of(name: &str, sql_type: &str, used: &[DatasetDef]) -> String {
     let t = sql_type.to_uppercase();
-    let numeric = ["DOUBLE", "FLOAT", "REAL", "DECIMAL", "INTEGER", "BIGINT", "SMALLINT", "TINYINT", "HUGEINT", "UBIGINT", "UINTEGER", "USMALLINT", "UTINYINT"].iter().any(|n| t.starts_with(n));
+    let integral = ["INTEGER", "BIGINT", "SMALLINT", "TINYINT", "HUGEINT", "UBIGINT", "UINTEGER", "USMALLINT", "UTINYINT"].iter().any(|n| t == *n);
+    let numeric = integral || ["DOUBLE", "FLOAT", "REAL", "DECIMAL"].iter().any(|n| t.starts_with(n));
+    let boolean = t == "BOOLEAN";
     if let Some(c) = used.iter().flat_map(|d| d.columns.iter()).find(|c| c.title == name) {
         let k = c.kind;
-        if (numeric && matches!(k, "money" | "number")) || (!numeric && !matches!(k, "money" | "number")) {
+        // 同名列沿用来源类型，但要和结果的 SQL 类型对得上：整数列求平均后是小数，不能再存成整数
+        let fits = match k {
+            "integer" => integral,
+            "boolean" => boolean,
+            k if kinds::is_numeric(k) => numeric,
+            _ => !numeric && !boolean,
+        };
+        if fits {
             return if k == "id" { "text".into() } else { k.into() };
         }
     }
     if numeric {
-        return if money_hint(name) { "money".into() } else { "number".into() };
+        if money_hint(name) {
+            return "money".into();
+        }
+        return if integral { "integer".into() } else { "number".into() };
+    }
+    if boolean {
+        return "boolean".into();
     }
     if t.starts_with("TIMESTAMP") || t == "DATE" {
         return "datetime".into();
@@ -277,11 +293,14 @@ fn plan_columns(desc: &[(String, String)], used: &[DatasetDef], overrides: &Hash
         if matches!(title.to_lowercase().as_str(), "search_text" | "rowid" | "__rid") || title == "资金净额" {
             return Err(AppError::bad(format!("「{title}」是保留列名，请用 AS 改名")));
         }
-        let kind = overrides.get(name).cloned().filter(|k| matches!(k.as_str(), "text" | "id" | "number" | "money" | "datetime")).unwrap_or_else(|| kind_of(name, ty, used));
+        let kind = overrides.get(name).and_then(|k| kinds::parse(k)).map(String::from).unwrap_or_else(|| kind_of(name, ty, used));
         let src = format!("q.{}", ident(name));
         let t = ty.to_uppercase();
         let expr = match kind.as_str() {
             "number" | "money" => format!("TRY_CAST({src} AS DOUBLE)"),
+            "integer" => format!("TRY_CAST({src} AS BIGINT)"),
+            "boolean" if t == "BOOLEAN" => src.clone(),
+            "boolean" => kinds::bool_sql(&format!("trim(CAST({src} AS VARCHAR))")),
             "datetime" if t.starts_with("TIMESTAMP") => format!("strftime({src}, '%Y-%m-%d %H:%M:%S')"),
             "datetime" if t == "DATE" => format!("strftime({src}, '%Y-%m-%d')"),
             _ => format!("CAST({src} AS VARCHAR)"),
@@ -289,7 +308,7 @@ fn plan_columns(desc: &[(String, String)], used: &[DatasetDef], overrides: &Hash
         let width = match kind.as_str() {
             "money" | "number" => 120,
             "datetime" => 160,
-            _ => 140,
+            k => kinds::default_width(k).min(140),
         };
         out.push((StoredColumn { key: title.clone(), title, kind, width, source: name.clone() }, expr));
     }
@@ -322,11 +341,11 @@ fn materialize(conn: &Connection, sql: &str, name: &str, target: Option<&str>, o
     let desc = with_timeout(conn, || describe(conn, &checked.sql))?;
     let cols = plan_columns(&desc, &used, overrides)?;
     let stored: Vec<StoredColumn> = cols.iter().map(|(c, _)| c.clone()).collect();
-    let text_cols: Vec<String> = stored.iter().filter(|c| matches!(c.kind.as_str(), "text" | "id")).map(|c| ident(&c.title)).collect();
+    let text_cols: Vec<String> = stored.iter().filter(|c| kinds::is_textual(&c.kind)).map(|c| ident(&c.title)).collect();
     let search = if text_cols.is_empty() { "NULL".into() } else { format!("lower(concat_ws(' ', {}))", text_cols.join(", ")) };
     let select = cols.iter().map(|(c, e)| format!("{e} AS {}", ident(&c.title))).collect::<Vec<_>>().join(", ");
     let col_list = stored.iter().map(|c| ident(&c.title)).collect::<Vec<_>>().join(", ");
-    let defs = stored.iter().map(|c| format!("{} {}", ident(&c.title), if matches!(c.kind.as_str(), "number" | "money") { "DOUBLE" } else { "VARCHAR" })).collect::<Vec<_>>().join(", ");
+    let defs = stored.iter().map(|c| format!("{} {}", ident(&c.title), kinds::sql_type(&c.kind))).collect::<Vec<_>>().join(", ");
     // 写入：先算到临时表（受时限约束，超行数直接报错），再在事务里替换
     with_timeout(conn, || {
         conn.execute_batch(&format!("CREATE OR REPLACE TEMP TABLE sqlq_result AS SELECT {select} FROM (\n{}\n) q LIMIT {}", checked.sql, max_rows + 1))?;
@@ -785,7 +804,10 @@ mod tests {
     #[test]
     fn kinds_and_values() {
         assert_eq!(kind_of("订单金额", "DOUBLE", &[]), "money");
-        assert_eq!(kind_of("订单数", "BIGINT", &[]), "number");
+        assert_eq!(kind_of("订单数", "BIGINT", &[]), "integer");
+        assert_eq!(kind_of("均价", "DOUBLE", &[]), "money");
+        assert_eq!(kind_of("比例", "DECIMAL(18,3)", &[]), "number");
+        assert_eq!(kind_of("已付款", "BOOLEAN", &[]), "boolean");
         assert_eq!(kind_of("月份", "VARCHAR", &[]), "text");
         assert_eq!(kind_of("日期", "DATE", &[]), "datetime");
         assert_eq!(to_json(Value::Date32(0)), json!("1970-01-01"));

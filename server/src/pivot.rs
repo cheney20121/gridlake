@@ -421,7 +421,7 @@ pub(crate) fn value_sql(def: &DatasetDef, v: &PivotValue) -> AppResult<(String, 
     }
     let name = v.column.as_deref().ok_or_else(|| AppError::bad("值字段缺少列"))?;
     let col = def.columns.iter().find(|c| c.key == name || c.title == name).ok_or_else(|| AppError::bad(format!("列不存在：{name}")))?;
-    let numeric = matches!(col.kind, "money" | "number");
+    let numeric = crate::kinds::is_numeric(col.kind);
     let e = dataset::column_sql(col);
     let sql = match agg {
         "count" => format!("count({e})::DOUBLE"),
@@ -443,7 +443,12 @@ pub(crate) fn value_sql(def: &DatasetDef, v: &PivotValue) -> AppResult<(String, 
         _ => return Err(AppError::bad(format!("「{}」不是数值列，只能计数或去重计数", col.title))),
     };
     // 与原列同单位的（求和、平均、最值、分位数、标准差）沿用金额格式；方差、计数为普通数字
-    let kind = if numeric && !matches!(agg, "count" | "count_distinct" | "approx_distinct" | "var") { col.kind.to_string() } else { "number".into() };
+    // 整数列只有求和、最值、首末个还是整数，平均、分位数、标准差带小数
+    let kind = match col.kind {
+        "integer" if !matches!(agg, "sum" | "min" | "max" | "first" | "last") => "number".into(),
+        k if numeric && !matches!(agg, "count" | "count_distinct" | "approx_distinct" | "var") => k.to_string(),
+        _ => "number".into(),
+    };
     let label = custom.unwrap_or_else(|| format!("{}（{}）", col.title, agg_label(agg)));
     Ok((sql, ValueInfo { label, agg: agg.into(), column: Some(col.title.clone()), kind, show: "raw".into() }))
 }

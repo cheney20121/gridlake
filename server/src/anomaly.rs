@@ -202,7 +202,7 @@ pub fn scan(conn: &Connection, def: &DatasetDef) -> AppResult<ScanResult> {
         return Ok(res);
     };
     res.time_column = Some(time.key.clone());
-    let metrics: Vec<&ColumnDef> = def.columns.iter().filter(|c| c.kind == "money").chain(def.columns.iter().filter(|c| c.kind == "number")).take(MAX_METRICS).collect();
+    let metrics: Vec<&ColumnDef> = def.columns.iter().filter(|c| c.kind == "money").chain(def.columns.iter().filter(|c| matches!(c.kind, "integer" | "number"))).take(MAX_METRICS).collect();
     let d = date_expr(time);
 
     // 每日聚合：行数 + 各指标列的日合计

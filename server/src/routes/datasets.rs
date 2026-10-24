@@ -189,6 +189,7 @@ async fn preview_uploads(db: &AppState, token: String, uploads: Vec<crate::impor
         });
         if r.is_err() {
             let _ = std::fs::remove_file(&path);
+            let _ = std::fs::remove_file(crate::import_source::hints_path(&path));
         }
         r
     })
@@ -227,6 +228,7 @@ pub async fn dataset_import_commit(State(db): State<AppState>, Extension(user): 
         let r = crate::dataset_import::commit(conn, &path, &req, &dir);
         if let Ok(o) = &r {
             let _ = std::fs::remove_file(&path);
+            let _ = std::fs::remove_file(crate::import_source::hints_path(&path));
             crate::dataset::set_owner(conn, &o.dataset_id, &user)?;
         }
         r

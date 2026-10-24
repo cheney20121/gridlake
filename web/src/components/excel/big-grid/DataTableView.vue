@@ -7,6 +7,7 @@ import { isCancel } from 'axios'
 import { computed, nextTick, ref, shallowRef, watch } from 'vue'
 import { CONTRIBUTION_KEY, exportUrl, getStatsApi, MAX_EXPORT_ROWS, MAX_XLSX_ROWS, openCursorApi } from '@/api/dataset'
 import BusyOverlay from '@/components/excel/common/BusyOverlay.vue'
+import { formatBool } from '@/features/excel/dataset/column-kinds'
 import { t } from '@/i18n'
 import { errorText } from '@/utils/busy-hint'
 import { formatMoney } from '@/utils/format-money'
@@ -285,6 +286,8 @@ const rowFields = computed(() => {
 function display(v: CellValue, kind: string) {
   if (v == null || v === '')
     return '—'
+  if (typeof v === 'boolean')
+    return formatBool(v)
   return kind === 'money' && typeof v === 'number' ? formatMoney(v) : String(v)
 }
 

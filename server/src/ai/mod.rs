@@ -585,7 +585,7 @@ fn context_text(c: &Context) -> String {
 fn system_prompt(conn: &Connection) -> AppResult<String> {
     let mut catalog = String::new();
     for d in crate::dataset::list(conn)? {
-        let cols: Vec<String> = d.def.columns.iter().take(60).map(|c| format!("{}({})", c.title, match c.kind { "money" => "金额", "number" => "数值", "datetime" => "日期", "id" => "编号", _ => "文本" })).collect();
+        let cols: Vec<String> = d.def.columns.iter().take(60).map(|c| format!("{}({})", c.title, crate::kinds::label(c.kind))).collect();
         catalog.push_str(&format!("- 「{}」{} 行：{}{}\n", d.def.name, d.row_count, cols.join("、"), if d.def.columns.len() > 60 { "…" } else { "" }));
     }
     Ok(format!(

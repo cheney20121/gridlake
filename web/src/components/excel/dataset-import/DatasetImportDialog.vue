@@ -21,9 +21,11 @@ const emit = defineEmits<{
 const KIND_OPTIONS: { value: DatasetColumnKind, label: string, hint: string }[] = [
   { value: 'text', label: tr('文本'), hint: tr('名称、状态等') },
   { value: 'id', label: tr('编号'), hint: tr('订单号、手机号：保留前导零与全部位数') },
+  { value: 'integer', label: tr('整数'), hint: tr('数量、件数：精确到个位，可求和') },
   { value: 'money', label: tr('金额'), hint: tr('两位小数，可求和') },
-  { value: 'number', label: tr('数值'), hint: tr('数量、次数，可求和') },
+  { value: 'number', label: tr('数值'), hint: tr('比率、小数，可求和') },
   { value: 'datetime', label: tr('日期时间'), hint: tr('统一为 YYYY-MM-DD HH:MM:SS') },
+  { value: 'boolean', label: tr('是/否'), hint: tr('TRUE / FALSE、是 / 否、1 / 0') },
 ]
 
 const step = ref<'pick' | 'map' | 'done'>('pick')
@@ -422,7 +424,10 @@ const sizeText = (n: number) => n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Mat
         <span class="text-gray-400">{{ $t('（{0} 秒）', [(outcome.elapsedMs / 1000).toFixed(1)]) }}</span>
       </div>
       <div v-for="x in outcome.invalid" :key="x.column" class="text-[#92400E]">
-        {{ $t('「{0}」有 {1} 个值无法识别为数字，已按空值入库', [x.column, x.count.toLocaleString()]) }}
+        {{ $t('「{0}」有 {1} 个值与列类型不符，已按空值入库', [x.column, x.count.toLocaleString()]) }}
+      </div>
+      <div v-if="outcome.widened?.length" class="text-[#92400E]">
+        {{ $t('「{0}」在样本之后出现了小数或其他写法，已改为数值 / 文本列，没有丢数据', [outcome.widened.join('、')]) }}
       </div>
       <div class="mt-1 rounded bg-[#F7F8FA] px-3 py-2 text-xs text-gray-600">
         {{ $t('在任意单元格使用：') }}<code>{{ $t('=DSUMIFS("{0}", "求和列", "条件列", 条件)', [outcome.name]) }}</code>

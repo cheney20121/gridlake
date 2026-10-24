@@ -21,6 +21,7 @@ use crate::ecommerce::detail::{RuleTerm, contribution_sql};
 use crate::tabular::to_json;
 use crate::auth::CurrentUser;
 use crate::error::{AppError, AppResult};
+use crate::kinds;
 use crate::schema::{DETAIL_COLUMNS, ID_COLUMNS, ident, is_numeric};
 
 /// 同时保留的游标数（每个约占 数据行数 × 16 字节，千万行约 160 MB）
@@ -38,7 +39,7 @@ pub struct ColumnDef {
     /// 列名（SQL 列名，也是筛选 / 排序时引用的键）
     pub key: String,
     pub title: String,
-    /// text / id / money / number / datetime
+    /// 列类型，见 [`crate::kinds`]
     pub kind: &'static str,
     pub width: u32,
     /// 计算列的 SQL 表达式（如资金净额 = 入账为正、出账为负）；None 为表中的实际列
@@ -102,16 +103,6 @@ pub struct StoredColumn {
     /// 文件中的原始列名（映射模板：同一来源的文件追加时按它对齐）
     #[serde(default)]
     pub source: String,
-}
-
-fn kind_static(k: &str) -> &'static str {
-    match k {
-        "id" => "id",
-        "number" => "number",
-        "money" => "money",
-        "datetime" => "datetime",
-        _ => "text",
-    }
 }
 
 /// 用户导入的数据集：(id, 名称, 列)
@@ -276,10 +267,10 @@ pub fn load(conn: &Connection) -> AppResult<(Vec<DatasetDef>, Vec<String>)> {
             table: id.clone(),
             id,
             name,
-            searchable: cols.iter().any(|c| matches!(c.kind.as_str(), "text" | "id")),
+            searchable: cols.iter().any(|c| kinds::is_textual(&c.kind)),
             columns: cols
                 .into_iter()
-                .map(|c| ColumnDef { key: c.key, title: c.title, kind: kind_static(&c.kind), width: c.width, expr: None, computed: false, formula: None, origin: None })
+                .map(|c| ColumnDef { key: c.key, title: c.title, kind: kinds::normalize(&c.kind), width: c.width, expr: None, computed: false, formula: None, origin: None })
                 .collect(),
             supports_rule: false,
             builtin: false,
@@ -449,7 +440,11 @@ pub fn derived_views<'a>(defs: &'a [DatasetDef], id: &str) -> Vec<&'a DatasetDef
 struct DefResolver<'a>(&'a DatasetDef);
 impl crate::calc::Resolver for DefResolver<'_> {
     fn column(&self, name: &str) -> Option<(String, bool)> {
-        self.0.columns.iter().find(|c| c.title == name || c.key == name).map(|c| (column_sql(c), matches!(c.kind, "money" | "number")))
+        self.0.columns.iter().find(|c| c.title == name || c.key == name).map(|c| {
+            // 是否列在公式里当文本「是 / 否」用，与公式里比较运算结果的写法一致（如 =IF([已付款]="是", …)）
+            let sql = if c.kind == "boolean" { format!("(CASE WHEN {s} THEN '是' WHEN NOT {s} THEN '否' END)", s = column_sql(c)) } else { column_sql(c) };
+            (sql, kinds::is_numeric(c.kind))
+        })
     }
 }
 
@@ -632,7 +627,7 @@ fn where_clause(def: &DatasetDef, spec: &QuerySpec, contribution: Option<&str>, 
                 conds.push(format!("({})", ors.join(" OR ")));
             }
             Filter::Between { min, max, .. } => {
-                let numeric = matches!(col.kind, "money" | "number");
+                let numeric = kinds::is_numeric(col.kind);
                 for (bound, op) in [(min, ">="), (max, "<=")] {
                     let Some(v) = bound.as_ref().filter(|v| !v.is_null()) else { continue };
                     if numeric {
@@ -1049,7 +1044,7 @@ pub fn stats(conn: &Connection, cache: &CursorCache, dataset_id: &str, req: &Sta
         let col = check_column(&def, key)?;
         let c = format!("({})", column_sql(col));
         counts.push(format!("count({c})"));
-        if matches!(col.kind, "money" | "number") {
+        if kinds::is_numeric(col.kind) {
             numeric.push(format!("{c}::DOUBLE"));
         }
     }
@@ -1182,6 +1177,7 @@ pub fn export_csv(conn: &Connection, cache: &CursorCache, dataset_id: &str, curs
         let c = format!("({})", column_sql(col));
         let expr = match col.kind {
             "money" | "number" => format!("{c}::DOUBLE"),
+            "integer" => format!("{c}::BIGINT"),
             "id" => format!("CASE WHEN {c} IS NULL THEN NULL ELSE chr(9) || {c} END"),
             _ => c,
         };
@@ -1259,7 +1255,11 @@ pub fn export_xlsx(
         }
         let col = check_column(&def, key)?;
         let base = format!("({})", column_sql(col));
-        let expr = if matches!(col.kind, "money" | "number") { format!("{base}::DOUBLE") } else { format!("CAST({base} AS VARCHAR)") };
+        let expr = match col.kind {
+            k if kinds::is_numeric(k) => format!("{base}::DOUBLE"),
+            "boolean" => format!("{base}::BOOLEAN"),
+            _ => format!("CAST({base} AS VARCHAR)"),
+        };
         cols.push(Col { title: col.title.clone(), kind: col.kind, width: col.width, expr });
     }
     if cols.is_empty() {
@@ -1276,7 +1276,7 @@ pub fn export_xlsx(
     book.set_tempdir(dir).map_err(|e| anyhow::anyhow!("{e}"))?;
 
     // ── 汇总页签 ──
-    let numeric: Vec<(usize, &Col)> = cols.iter().enumerate().filter(|(_, c)| matches!(c.kind, "money" | "number")).collect();
+    let numeric: Vec<(usize, &Col)> = cols.iter().enumerate().filter(|(_, c)| kinds::is_numeric(c.kind)).collect();
     let agg_sql = if numeric.is_empty() {
         String::new()
     } else {
@@ -1357,10 +1357,14 @@ pub fn export_xlsx(
         while let Some(row) = rows.next()? {
             for (i, c) in cols.iter().enumerate() {
                 let i16 = i as u16;
-                if matches!(c.kind, "money" | "number") {
+                if kinds::is_numeric(c.kind) {
                     if let Some(v) = row.get::<_, Option<f64>>(i)? {
                         let fmt = if c.kind == "money" { &money } else { &integer };
                         ws.write_number_with_format(r, i16, v, fmt).map_err(|e| anyhow::anyhow!("{e}"))?;
+                    }
+                } else if c.kind == "boolean" {
+                    if let Some(v) = row.get::<_, Option<bool>>(i)? {
+                        ws.write_boolean(r, i16, v).map_err(|e| anyhow::anyhow!("{e}"))?;
                     }
                 } else if let Some(v) = row.get::<_, Option<String>>(i)? {
                     // 编号列按文本写入，Excel 不会转成科学计数法

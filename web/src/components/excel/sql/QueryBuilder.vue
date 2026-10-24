@@ -2,6 +2,7 @@
 import type { DatasetInfo } from '@/api/dataset'
 import type { Agg, BuilderModel, FilterOp } from '@/features/excel/sql/builder'
 import { computed } from 'vue'
+import { isNumericKind } from '@/features/excel/dataset/column-kinds'
 import { AGG_LABEL, emptyModel, OP_LABEL, sortOptions } from '@/features/excel/sql/builder'
 
 /** 查询构建器：选数据集、分组列、汇总、筛选、排序，实时预览生成的 SQL */
@@ -23,7 +24,7 @@ function addField() {
   model.value.fields.push({ column: builderDs.value?.columns[0]?.title ?? '', granularity: null })
 }
 function addMeasure() {
-  const money = builderDs.value?.columns.find(c => c.kind === 'money' || c.kind === 'number')
+  const money = builderDs.value?.columns.find(c => isNumericKind(c.kind))
   model.value.measures.push(money ? { agg: 'sum', column: money.title, alias: '' } : { agg: 'count', column: null, alias: '' })
 }
 function addFilter() {
@@ -70,7 +71,7 @@ const isDate = (col: string) => builderDs.value?.columns.find(c => c.title === c
               <el-option v-for="(label, k) in AGG_LABEL" :key="k" :label="label" :value="(k as Agg)" />
             </el-select>
             <el-select v-model="m.column" size="small" class="!w-36" :placeholder="m.agg === 'count' ? $t('全部行') : $t('选择列')" clearable>
-              <el-option v-for="c in builderDs.columns.filter(c => m.agg === 'count' || m.agg === 'count_distinct' || m.agg === 'min' || m.agg === 'max' || ['money', 'number'].includes(c.kind))" :key="c.key" :label="c.title" :value="c.title" />
+              <el-option v-for="c in builderDs.columns.filter(c => m.agg === 'count' || m.agg === 'count_distinct' || m.agg === 'min' || m.agg === 'max' || isNumericKind(c.kind))" :key="c.key" :label="c.title" :value="c.title" />
             </el-select>
             <el-input v-model="m.alias" size="small" class="!w-28" :placeholder="$t('结果列名')" />
             <span class="x" @click="model.measures.splice(i, 1)">×</span>

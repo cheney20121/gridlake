@@ -1,11 +1,13 @@
-import { t } from '@/i18n'
+import { COLUMN_KINDS, formatBool, kindLabel } from '@/features/excel/dataset/column-kinds'
 /** SQL 工作台的显示格式 */
-export const KIND_LABEL: Record<string, string> = { text: t('文本'), id: '编号', number: '数值', money: '金额', datetime: '日期时间' }
+export const KIND_LABEL: Record<string, string> = Object.fromEntries(COLUMN_KINDS.map(k => [k, kindLabel(k)]))
 
 /** 结果单元格的显示：金额两位小数、整数加千分位、空值为空 */
 export function fmt(v: unknown, kind: string) {
   if (v == null)
     return ''
+  if (typeof v === 'boolean')
+    return formatBool(v)
   if (typeof v === 'number') {
     if (kind === 'money')
       return v.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })

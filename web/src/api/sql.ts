@@ -4,7 +4,7 @@ import request from '@/utils/request'
 /** SQL 查询：对数据集写只读 SQL，结果可另存为数据集并按计划重算 */
 const url = (path: string) => `${LEDGER_BASE}/api/ledger/sql${path}`
 
-export type SqlColumnKind = 'text' | 'id' | 'number' | 'money' | 'datetime'
+export type SqlColumnKind = 'text' | 'id' | 'integer' | 'number' | 'money' | 'datetime' | 'boolean'
 
 export interface SqlColumn {
   name: string

@@ -8,7 +8,8 @@ import request from '@/utils/request'
  */
 const url = (path: string) => `${LEDGER_BASE}/api/ledger/datasets${path}`
 
-export type DatasetColumnKind = 'text' | 'id' | 'money' | 'number' | 'datetime'
+/** 列类型，见 features/excel/dataset/column-kinds.ts */
+export type DatasetColumnKind = 'text' | 'id' | 'integer' | 'money' | 'number' | 'datetime' | 'boolean'
 
 export interface DatasetColumn {
   key: string
@@ -75,7 +76,7 @@ export interface DatasetCursor {
   elapsedMs: number
 }
 
-export type CellValue = string | number | null
+export type CellValue = string | number | boolean | null
 
 export interface DatasetRows {
   /** 游标失效（数据变更或被淘汰）：需重新建游标 */
@@ -170,6 +171,8 @@ export interface ImportOutcome {
   skipped: number
   replaced: number
   invalid: { column: string, count: number }[]
+  /** 新建时按样本推断的整数 / 是否列，全量数据里有放不下的值，已改成数值 / 文本列 */
+  widened?: string[]
   elapsedMs: number
 }
 

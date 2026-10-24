@@ -116,7 +116,7 @@ interface TableExport {
   /** Excel 表格名（结构化引用用） */
   excelName: string
   columns: { title: string, kind: string }[]
-  rows: (string | number | null)[][]
+  rows: (string | number | boolean | null)[][]
   total: number
 }
 
@@ -158,7 +158,7 @@ async function fetchTable(api: FUniver, loc: FloatLocation<DataTableSpec>, sheet
   const cur = await openCursorApi(ds.id, tableQuery(api, loc.spec, loc.sheet.getSheetId()))
   const fields = cols.map(c => c.title)
   const limit = Math.min(cur.total, DATA_TABLE_EXPORT_ROWS)
-  const rows: (string | number | null)[][] = []
+  const rows: (string | number | boolean | null)[][] = []
   for (let off = 0; off < limit; off += 2000) {
     const r = await getRowsApi(ds.id, cur.cursorId, off, Math.min(2000, limit - off), undefined, fields)
     if (r.expired)

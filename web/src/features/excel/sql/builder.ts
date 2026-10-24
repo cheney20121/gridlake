@@ -1,4 +1,5 @@
 import type { DatasetInfo } from '@/api/dataset'
+import { isNumericKind } from '@/features/excel/dataset/column-kinds'
 
 /**
  * 查询构建器：选数据集、分组、汇总值、筛选、排序 → 生成可读的 SQL（之后可在编辑器里继续改）
@@ -114,7 +115,7 @@ function filterExpr(f: BuilderModel['filters'][number], numeric: boolean) {
 export function buildSql(m: BuilderModel, ds: DatasetInfo | undefined): string {
   if (!m.dataset || !ds)
     return ''
-  const numeric = (col: string) => ['money', 'number'].includes(ds.columns.find(c => c.title === col)?.kind ?? '')
+  const numeric = (col: string) => isNumericKind(ds.columns.find(c => c.title === col)?.kind ?? '')
   const aggregate = m.measures.length > 0
   const select: string[] = m.fields.map(f => `${fieldExpr(f)}${f.granularity || aggregate ? ` AS ${q(fieldAlias(f))}` : ''}`)
   select.push(...m.measures.map(x => `${measureExpr(x)} AS ${q(measureAlias(x))}`))

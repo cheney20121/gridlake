@@ -799,7 +799,8 @@
   "，主键重复跳过 {0} 行": ", skipped {0} rows with duplicate keys",
   "，替换删除旧数据 {0} 行": ", deleted {0} old rows when replacing",
   "（{0} 秒）": "({0} s)",
-  "「{0}」有 {1} 个值无法识别为数字，已按空值入库": "\"{0}\" has {1} values that could not be read as numbers and were stored as empty",
+  "「{0}」有 {1} 个值与列类型不符，已按空值入库": "{1} value(s) in \"{0}\" don't match the column type and were imported as blank",
+  "「{0}」在样本之后出现了小数或其他写法，已改为数值 / 文本列，没有丢数据": "\"{0}\" had decimals or other values after the sample rows, so the column was changed to number / text; no data was lost",
   "在任意单元格使用：": "Use it in any cell: ",
   "=DSUMIFS(\"{0}\", \"求和列\", \"条件列\", 条件)": "=DSUMIFS(\"{0}\", \"sum column\", \"condition column\", condition)",
   "正在写入数据库": "Writing to the database",
@@ -817,7 +818,9 @@
   "名称、状态等": "Names, status, etc.",
   "订单号、手机号：保留前导零与全部位数": "Order numbers, phone numbers: keeps leading zeros and every digit",
   "两位小数，可求和": "Two decimals; can be summed",
-  "数量、次数，可求和": "Quantities, counts; can be summed",
+  "数量、件数：精确到个位，可求和": "Quantities and counts: exact whole numbers, can be summed",
+  "比率、小数，可求和": "Ratios and decimals, can be summed",
+  "TRUE / FALSE、是 / 否、1 / 0": "TRUE / FALSE, Yes / No, 1 / 0",
   "统一为 YYYY-MM-DD HH:MM:SS": "Normalized to YYYY-MM-DD HH:MM:SS",
   "确认替换": "Confirm replace",
   "数据集回收站": "Dataset trash",
@@ -2946,5 +2949,8 @@
   "限定后只能读写这些数据集的数据，不能做其他操作": "Once limited, it can only read and write these datasets and nothing else",
   "限定 {0} 个数据集": "Limited to {0} datasets",
   "要嵌入到你自己的网页里，用下面的代码：": "To embed it in your own web page, use this code:",
-  "别的网站要能显示它，需要管理员在服务端设置 LEDGER_EMBED_ORIGINS（见部署手册「分享链接」）；默认只允许本站页面嵌入。": "For other sites to display it, an administrator must set LEDGER_EMBED_ORIGINS on the server (see the deployment manual, \"Share links\"). By default only pages of this site may embed it."
+  "别的网站要能显示它，需要管理员在服务端设置 LEDGER_EMBED_ORIGINS（见部署手册「分享链接」）；默认只允许本站页面嵌入。": "For other sites to display it, an administrator must set LEDGER_EMBED_ORIGINS on the server (see the deployment manual, \"Share links\"). By default only pages of this site may embed it.",
+  "是/否": "Yes/No",
+  "是": "Yes",
+  "否": "No"
 }

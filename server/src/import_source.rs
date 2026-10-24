@@ -1,11 +1,13 @@
 //! 导入来源规整：把各种来源统一成一个「首行是表头的 CSV」，之后的预览、类型识别、提交都沿用数据集导入管线
 //!
 //! - 单个 CSV / TXT / XLS / XLSX：原样暂存（编码、表头行由预览识别）
-//! - Parquet、JSON（数组或逐行 JSON）：用 DuckDB 转成 CSV
+//! - Parquet、JSON（数组或逐行 JSON）：用 DuckDB 转成 CSV；源文件自带的列类型（整数、小数、布尔、日期）记在暂存文件旁边，
+//!   预览时优先于按样本推断（见 [`kind_hints`]）
 //! - 多个文件：各自规整（跳过表头上方的标题行、GBK 转码）后按列名对齐合并，追加「来源文件」列；
 //!   列顺序不同、个别文件缺列都可以，缺的列为空值
 //! - 网址：下载到临时文件后同上（只允许 http / https，限制大小与超时，不访问本机地址）
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use duckdb::Connection;
@@ -73,11 +75,63 @@ fn csv_reader(path: &Path, skip: usize) -> String {
     )
 }
 
+/// 自带列类型的来源（Parquet、JSON）的查询
+fn typed_select(up: &Upload) -> Option<String> {
+    match kind_of(&up.name)? {
+        Kind::Parquet => Some(format!("SELECT * FROM read_parquet({})", literal(&up.path.to_string_lossy()))),
+        Kind::Json => Some(format!("SELECT * FROM read_json_auto({})", literal(&up.path.to_string_lossy()))),
+        Kind::Delimited | Kind::Excel => None,
+    }
+}
+
+/// DuckDB 的列类型 → 数据集列类型；文本等没有明确类型的返回 None（仍按样本推断）
+pub fn kind_for_type(name: &str, sql_type: &str) -> Option<&'static str> {
+    let t = sql_type.to_uppercase();
+    if matches!(t.as_str(), "TINYINT" | "SMALLINT" | "INTEGER" | "BIGINT" | "HUGEINT" | "UTINYINT" | "USMALLINT" | "UINTEGER" | "UBIGINT") {
+        return Some("integer");
+    }
+    if t == "DOUBLE" || t == "FLOAT" || t == "REAL" || t.starts_with("DECIMAL") {
+        let money_name = ["金额", "价", "费", "款", "收入", "支出", "余额", "成本", "利润", "佣金", "补贴", "amount", "price", "cost", "revenue", "fee"].iter().any(|k| name.to_lowercase().contains(k));
+        // DECIMAL(p,2) 是典型的金额写法
+        return Some(if money_name || t.ends_with(",2)") { "money" } else { "number" });
+    }
+    if t == "BOOLEAN" {
+        return Some("boolean");
+    }
+    if t == "DATE" || t.starts_with("TIMESTAMP") {
+        return Some("datetime");
+    }
+    None
+}
+
+/// 列类型提示文件：与暂存文件同名、扩展名为 .kinds.json（同样以 preview- 开头，过期清理规则相同）
+pub fn hints_path(staged: &Path) -> PathBuf {
+    staged.with_extension("kinds.json")
+}
+
+/// 读取暂存文件的列类型提示：{原始列名: 列类型}；没有提示文件时为空
+pub fn kind_hints(staged: &Path) -> HashMap<String, String> {
+    std::fs::read(hints_path(staged)).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default()
+}
+
+fn write_hints(conn: &Connection, select: &str, staged: &Path, name: &str) -> AppResult<()> {
+    let mut stmt = conn.prepare(&format!("DESCRIBE {select}")).map_err(|e| duck_err(name, e))?;
+    let cols = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
+    let hints: HashMap<String, &str> = cols.iter().filter_map(|(c, t)| kind_for_type(c, t).map(|k| (c.clone(), k))).collect();
+    if !hints.is_empty() {
+        std::fs::write(hints_path(staged), serde_json::to_vec(&hints)?)?;
+    }
+    Ok(())
+}
+
 /// 单个文件 → 首行为表头的 UTF-8 CSV（out）
 fn to_clean_csv(conn: &Connection, up: &Upload, out: &Path) -> AppResult<()> {
+    if let Some(select) = typed_select(up) {
+        return copy_to_csv(conn, &select, out, &up.name);
+    }
     match kind_of(&up.name).ok_or_else(|| unsupported(&up.name))? {
-        Kind::Parquet => copy_to_csv(conn, &format!("SELECT * FROM read_parquet({})", literal(&up.path.to_string_lossy())), out, &up.name),
-        Kind::Json => copy_to_csv(conn, &format!("SELECT * FROM read_json_auto({})", literal(&up.path.to_string_lossy())), out, &up.name),
+        // 已在上面按自带类型转换
+        Kind::Parquet | Kind::Json => Ok(()),
         Kind::Delimited => {
             crate::tabular::ensure_utf8(&up.path)?;
             let skip = header_row(&up.path, "upload.csv")?;
@@ -126,7 +180,12 @@ fn prepare_inner(conn: &Connection, dir: &Path, token: &str, uploads: &[Upload])
         let target = staged_path(dir, token, &up.name)?;
         match kind_of(&up.name) {
             Some(Kind::Delimited | Kind::Excel) => std::fs::copy(&up.path, &target).map(|_| ())?,
-            _ => to_clean_csv(conn, up, &target)?,
+            _ => {
+                to_clean_csv(conn, up, &target)?;
+                if let Some(select) = typed_select(up) {
+                    write_hints(conn, &select, &target, &up.name)?;
+                }
+            }
         }
         return Ok((up.name.clone(), vec![]));
     }
@@ -331,12 +390,30 @@ mod tests {
         let rows = read_csv(&staged_path(dir.path(), "t2", &name).unwrap());
         // 19 位编号不丢精度、金额与时间为文本
         assert_eq!(rows[1], vec!["6900000000000000123", "12.34", "2026-10-05 09:30:00"]);
+        // 源文件自带的列类型记在提示文件里：BIGINT 为整数、DECIMAL(10,2) 为金额、TIMESTAMP 为日期时间
+        let hints = kind_hints(&staged_path(dir.path(), "t2", &name).unwrap());
+        assert_eq!((hints["order_id"].as_str(), hints["amount"].as_str(), hints["ts"].as_str()), ("integer", "money", "datetime"));
 
         let j = write(dir.path(), "a.jsonl", "{\"店铺\":\"旗舰店\",\"金额\":1.5}\n{\"店铺\":\"专卖店\",\"金额\":2}\n".as_bytes());
         let (name, _) = prepare(&conn, dir.path(), "t3", vec![j]).unwrap();
         let rows = read_csv(&staged_path(dir.path(), "t3", &name).unwrap());
         assert_eq!(rows.len(), 3);
         assert_eq!(rows[0], vec!["店铺", "金额"]);
+    }
+
+    #[test]
+    fn duckdb_types_map_to_kinds() {
+        assert_eq!(kind_for_type("qty", "INTEGER"), Some("integer"));
+        assert_eq!(kind_for_type("id", "UBIGINT"), Some("integer"));
+        assert_eq!(kind_for_type("ratio", "DOUBLE"), Some("number"));
+        assert_eq!(kind_for_type("unit_price", "DOUBLE"), Some("money"));
+        assert_eq!(kind_for_type("x", "DECIMAL(18,2)"), Some("money"));
+        assert_eq!(kind_for_type("x", "DECIMAL(18,4)"), Some("number"));
+        assert_eq!(kind_for_type("paid", "BOOLEAN"), Some("boolean"));
+        assert_eq!(kind_for_type("d", "DATE"), Some("datetime"));
+        assert_eq!(kind_for_type("t", "TIMESTAMP WITH TIME ZONE"), Some("datetime"));
+        assert_eq!(kind_for_type("name", "VARCHAR"), None);
+        assert_eq!(kind_for_type("tags", "VARCHAR[]"), None);
     }
 
     #[test]

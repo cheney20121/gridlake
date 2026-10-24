@@ -287,7 +287,7 @@ fn prepare(def: &DatasetDef, call: &AggregateCall) -> Result<Prepared, String> {
     } else {
         let name = call.column.as_deref().ok_or("缺少求和列")?;
         let col = find_column(def, name).ok_or_else(|| format!("数据集「{}」没有列「{name}」", def.name))?;
-        let numeric = matches!(col.kind, "money" | "number");
+        let numeric = crate::kinds::is_numeric(col.kind);
         if func == "distinct" {
             // 去重计数：任何类型的列都行；空值不算一个取值
             Some(format!("NULLIF(CAST(({}) AS VARCHAR), '')", dataset::column_sql(col)))
@@ -311,7 +311,7 @@ fn prepare(def: &DatasetDef, call: &AggregateCall) -> Result<Prepared, String> {
     let mut numeric = Vec::new();
     for c in &call.criteria {
         let col = find_column(def, &c.column).ok_or_else(|| format!("数据集「{}」没有列「{}」", def.name, c.column))?;
-        let is_num = matches!(col.kind, "money" | "number");
+        let is_num = crate::kinds::is_numeric(col.kind);
         let expr = dataset::column_sql(col);
         match parse_criterion(&c.value, is_num) {
             Parsed::Numeric { op, value } => numeric.push(format!("({expr})::DOUBLE {} {value}", op.sql())),

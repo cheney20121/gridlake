@@ -8,6 +8,7 @@ import { readRange, resolveChartData } from '@/features/excel/chart/chart-data'
 import { selectionSource, suggestType } from '@/features/excel/chart/chart-defaults'
 import { findChart, insertChart, newChartId, removeChart, updateChart } from '@/features/excel/chart/chart-manager'
 import { CHART_TYPE_LABEL } from '@/features/excel/chart/types'
+import { isNumericKind } from '@/features/excel/dataset/column-kinds'
 import { t as tr } from '@/i18n'
 
 /**
@@ -61,7 +62,7 @@ const rangeSource = computed(() => source.value?.kind === 'range' ? source.value
 const datasetSource = computed(() => source.value?.kind === 'dataset' ? source.value : null)
 const dataset = computed(() => datasetSource.value ? props.datasets.find(d => d.id === datasetSource.value!.datasetId) : undefined)
 const xColumns = computed(() => dataset.value?.columns ?? [])
-const numericColumns = computed(() => dataset.value?.columns.filter(c => c.kind === 'money' || c.kind === 'number') ?? [])
+const numericColumns = computed(() => dataset.value?.columns.filter(c => isNumericKind(c.kind)) ?? [])
 const splitColumns = computed(() => dataset.value?.columns.filter(c => c.kind === 'text' || c.kind === 'id') ?? [])
 const xIsDate = computed(() => xColumns.value.find(c => c.key === datasetSource.value?.x.column)?.kind === 'datetime')
 const sheetName = computed(() => rangeSource.value ? props.univerApi?.getActiveWorkbook()?.getSheetBySheetId(rangeSource.value.sheetId)?.getSheetName() ?? tr('（已删除）') : '')
@@ -70,7 +71,7 @@ const stackable = computed(() => spec.value && ['column', 'bar', 'area'].include
 function datasetDefaults(datasetId: string, filters: DatasetFilter[] = []): DatasetSource {
   const ds = props.datasets.find(d => d.id === datasetId)
   const x = ds?.columns.find(c => c.kind === 'datetime') ?? ds?.columns.find(c => c.kind === 'text') ?? ds?.columns[0]
-  const v = ds?.columns.find(c => c.kind === 'money') ?? ds?.columns.find(c => c.kind === 'number')
+  const v = ds?.columns.find(c => c.kind === 'money') ?? ds?.columns.find(c => isNumericKind(c.kind))
   return {
     kind: 'dataset',
     datasetId,

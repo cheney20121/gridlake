@@ -124,15 +124,45 @@ fn round2(v: f64) -> f64 {
     (v * 100.0).round() / 100.0
 }
 
+/// 浏览器里 JSON 数字是双精度浮点，超过 2^53 的整数会丢掉末几位：这样的整数按文本给出，显示时一位不差
+const MAX_SAFE_INTEGER: i128 = (1 << 53) - 1;
+
+pub fn int_json(i: i128) -> Json {
+    if i.abs() <= MAX_SAFE_INTEGER { Json::from(i as i64) } else { Json::String(i.to_string()) }
+}
+
 pub fn to_json(v: ValueRef<'_>) -> Json {
     match v {
         ValueRef::Null => Json::Null,
-        ValueRef::BigInt(i) => Json::from(i),
+        ValueRef::Boolean(b) => Json::Bool(b),
+        ValueRef::TinyInt(i) => Json::from(i),
+        ValueRef::SmallInt(i) => Json::from(i),
         ValueRef::Int(i) => Json::from(i),
+        ValueRef::BigInt(i) => int_json(i as i128),
+        ValueRef::UTinyInt(i) => Json::from(i),
+        ValueRef::USmallInt(i) => Json::from(i),
+        ValueRef::UInt(i) => Json::from(i),
+        ValueRef::UBigInt(i) => int_json(i as i128),
+        // 整数列求和的结果是 HUGEINT
+        ValueRef::HugeInt(i) => int_json(i),
+        ValueRef::Float(f) => Json::from(round2(f as f64)),
         ValueRef::Double(f) => Json::from(round2(f)),
         ValueRef::Text(bytes) => Json::String(String::from_utf8_lossy(bytes).into_owned()),
         // DECIMAL(18,2) 金额列：按十进制文本转数值，不经过二进制浮点运算
         ValueRef::Decimal(d) => d.to_string().parse::<f64>().map(Json::from).unwrap_or(Json::Null),
+        // 日期 / 时间戳（SQL 结果、外部数据源）：与数据集里日期时间列的文本写法一致
+        ValueRef::Date32(days) => {
+            NaiveDate::from_num_days_from_ce_opt(days + 719_163).map(|d| Json::String(d.format("%Y-%m-%d").to_string())).unwrap_or(Json::Null)
+        }
+        ValueRef::Timestamp(unit, x) => {
+            let micros = match unit {
+                duckdb::types::TimeUnit::Second => x.saturating_mul(1_000_000),
+                duckdb::types::TimeUnit::Millisecond => x.saturating_mul(1000),
+                duckdb::types::TimeUnit::Microsecond => x,
+                duckdb::types::TimeUnit::Nanosecond => x / 1000,
+            };
+            chrono::DateTime::from_timestamp_micros(micros).map(|t| Json::String(t.naive_utc().format("%Y-%m-%d %H:%M:%S").to_string())).unwrap_or(Json::Null)
+        }
         other => Json::String(format!("{other:?}")),
     }
 }

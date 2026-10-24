@@ -35,6 +35,7 @@ mod dataset_import;
 mod db;
 mod ecommerce;
 mod error;
+mod kinds;
 mod import_source;
 mod mcp;
 mod metrics;
