@@ -110,3 +110,7 @@ FROM read_parquet([<文件列表>], union_by_name = true, hive_partitioning = �
 `server/src/webhook.rs`。业务代码在事件发生的地方调用 `webhook::emit`（异步处理函数里）或 `webhook::emit_with`（已有数据库连接的阻塞代码里，如连接器同步收尾、SQL 重算）：给每个订阅了这个事件、启用中的 Webhook 往 `ledger_webhook_delivery` 插一条 `pending` 记录（请求体在这时定下来，重发时不变），再唤醒后台发送任务 `webhook::run`。「哪些事件有人订阅」缓存在 `Db.webhooks`（增删改时清空），没人订阅时 `emit` 直接返回、不碰数据库，所以埋点几乎没有开销。
 
 发送任务每次取 16 条到点的记录并发发送，按结果改成 `success`、`pending`（排下次重试，`next_at` 按 1 分钟 → 6 小时退避）或 `failed`（6 次用完）；没有新事件时每 15 秒看一次到点的重试。签名是 `HMAC-SHA256(密钥, "<秒级时间戳>.<请求体>")`，时间戳放在签名头里，接收方据此拒绝重放。HTTP 客户端用 `netguard::client_builder()`（连接时过滤地址、重定向逐跳检查）。新增事件：在 `EVENTS` 里登记名称和说明（名称是对外约定，只增不改），在发生的地方调用 `emit`，并在部署手册的事件表里补一行。
+
+## 数据概况
+
+`server/src/profile.rs`。概况把所有列要算的统计拼进**一条** `SELECT`（每列十来个聚合：`count`、`approx_count_distinct`、`min` / `max`、数值列的 `sum` / `avg` / `stddev_samp` / `approx_quantile`、`count(*) FILTER (WHERE …)` 数零、负数、空白、认不出的日期），DuckDB 一次扫描、多核并行算完；第二条 `SELECT` 只对估计不同值不超过 10 万的列做精确的 `count(DISTINCT …)`（HyperLogLog 在取值很少时误差反而大，而这些列的哈希表很小）。数据来源用 `dataset::dataset()`（数据范围受限时已换成带过滤的子查询），条件用 `dataset::rows_sql()`（与游标同一套筛选、关键字和汇总项规则），所以概况看到的行和数据表一致。单列分布是两三条按分档 / 日期前缀 / 取值的 `GROUP BY`。两个接口都走重计算并发闸门（`blocking_heavy`）。

@@ -4494,6 +4494,100 @@
         }
       }
     },
+    "/ledger/datasets/{id}/profile": {
+      "post": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "数据概况：按当前筛选，每列的空值、近似去重数、范围、数值分布（一次扫描）",
+        "description": "{ filters?, keyword?, rule?, columns? }  数据概况：按当前筛选，每列的空值、近似去重数、范围、数值分布（一次扫描）",
+        "operationId": "post_ledger_datasets_by_id_profile",
+        "x-permission": "登录用户",
+        "x-restricted-users": true,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "字段见 description 里的概要，以后端对应的 Rust 代码为准"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ledger/datasets/{id}/profile/column": {
+      "post": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "一列的分布：直方图（数值分箱 / 日期按日月年）与最常见的取值",
+        "description": "{ column, filters?, keyword?, rule? }  一列的分布：直方图（数值分箱 / 日期按日月年）与最常见的取值",
+        "operationId": "post_ledger_datasets_by_id_profile_column",
+        "x-permission": "登录用户",
+        "x-restricted-users": true,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ColumnRequest"
+              }
+            }
+          }
+        }
+      }
+    },
     "/ledger/datasets/{id}/purge": {
       "delete": {
         "tags": [
@@ -9462,6 +9556,24 @@
         "required": [
           "name",
           "units"
+        ]
+      },
+      "ColumnRequest": {
+        "allOf": [
+          {
+            "type": "object",
+            "properties": {
+              "column": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "column"
+            ]
+          },
+          {
+            "$ref": "#/components/schemas/QuerySpec"
+          }
         ]
       },
       "CommitColumn": {

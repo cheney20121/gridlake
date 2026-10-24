@@ -121,6 +121,74 @@ export function getStatsApi(datasetId: string, data: { cursorId: string, from: n
   return request<SelectionStats>({ url: url(`/${datasetId}/stats`), method: 'post', data, signal })
 }
 
+/** 数据概况：按当前筛选，每列的空值、不同值个数、范围与数值统计（服务端一次扫描） */
+export interface ColumnProfile {
+  key: string
+  title: string
+  kind: DatasetColumnKind
+  computed: boolean
+  nonNull: number
+  nulls: number
+  distinct: number
+  /** false 时 distinct 是估计值（取值很多的列） */
+  distinctExact: boolean
+  min: CellValue
+  max: CellValue
+  blanks?: number
+  minLen?: number
+  avgLen?: number
+  maxLen?: number
+  sum?: number
+  mean?: number
+  std?: number
+  q1?: number
+  median?: number
+  q3?: number
+  zeros?: number
+  negatives?: number
+  /** 日期时间列里认不出的写法 */
+  invalid?: number
+  /** 是否列里「是」的个数 */
+  trues?: number
+}
+
+export interface DatasetProfile {
+  rows: number
+  columns: ColumnProfile[]
+  elapsedMs: number
+}
+
+/** 直方图的一档：数值用 from / to 区间筛选，日期用 prefix 前缀筛选 */
+export interface ProfileBucket {
+  label: string
+  from?: number
+  to?: number
+  prefix?: string
+  count: number
+}
+
+export interface ColumnDetail {
+  key: string
+  title: string
+  kind: DatasetColumnKind
+  rows: number
+  nulls: number
+  granularity?: 'bin' | 'value' | 'day' | 'month' | 'year'
+  histogram: ProfileBucket[]
+  top: { value: string, count: number }[]
+  /** 最常见的取值之外的其余非空值个数 */
+  others: number
+  elapsedMs: number
+}
+
+export function profileDatasetApi(datasetId: string, query: DatasetQuery, signal?: AbortSignal) {
+  return request<DatasetProfile>({ url: url(`/${datasetId}/profile`), method: 'post', data: { ...query, sort: [] }, signal, timeout: 5 * 60 * 1000 })
+}
+
+export function profileColumnApi(datasetId: string, query: DatasetQuery, column: string, signal?: AbortSignal) {
+  return request<ColumnDetail>({ url: url(`/${datasetId}/profile/column`), method: 'post', data: { ...query, sort: [], column }, signal, timeout: 5 * 60 * 1000 })
+}
+
 export function getDistinctApi(datasetId: string, data: DatasetQuery & { column: string, search?: string }, signal?: AbortSignal) {
   return request<DistinctResult>({ url: url(`/${datasetId}/distinct`), method: 'post', data, signal })
 }

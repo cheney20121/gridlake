@@ -59,6 +59,18 @@ pub async fn dataset_distinct(State(db): State<AppState>, Path(id): Path<String>
     Ok(ok(blocking_read(&db, move |conn| dataset::distinct(conn, &id, &req)).await?))
 }
 
+/// POST /api/ledger/datasets/{id}/profile  { filters?, keyword?, rule?, columns? }  数据概况：按当前筛选，每列的空值、近似去重数、范围、数值分布（一次扫描）
+pub async fn dataset_profile(State(db): State<AppState>, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Envelope<crate::profile::Profile>>> {
+    let req: crate::profile::ProfileRequest = if body.is_empty() { Default::default() } else { parse_json(&body)? };
+    Ok(ok(blocking_heavy(&db, move |conn| crate::profile::overview(conn, &id, &req)).await?))
+}
+
+/// POST /api/ledger/datasets/{id}/profile/column  { column, filters?, keyword?, rule? }  一列的分布：直方图（数值分箱 / 日期按日月年）与最常见的取值
+pub async fn dataset_profile_column(State(db): State<AppState>, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Envelope<crate::profile::ColumnDetail>>> {
+    let req: crate::profile::ColumnRequest = parse_json(&body)?;
+    Ok(ok(blocking_heavy(&db, move |conn| crate::profile::column(conn, &id, &req)).await?))
+}
+
 #[derive(Deserialize)]
 pub struct ExportQuery {
     pub cursor: String,

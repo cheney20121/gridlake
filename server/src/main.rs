@@ -50,6 +50,7 @@ mod pat;
 mod share;
 mod pivot;
 mod pivot_calc;
+mod profile;
 mod recon;
 mod summary;
 mod collect;
@@ -280,6 +281,8 @@ async fn serve(config: config::Config, ready: Option<Ready>) -> anyhow::Result<(
         .route("/ledger/datasets/{id}/rows", get(routes::dataset_rows))
         .route("/ledger/datasets/{id}/stats", post(routes::dataset_stats))
         .route("/ledger/datasets/{id}/distinct", post(routes::dataset_distinct))
+        .route("/ledger/datasets/{id}/profile", post(routes::dataset_profile))
+        .route("/ledger/datasets/{id}/profile/column", post(routes::dataset_profile_column))
         .route("/ledger/datasets/{id}/export", get(routes::dataset_export))
         .route("/ledger/datasets/{id}/aggregate", post(routes::dataset_aggregate))
         .route("/ledger/datasets/{id}/pivot", post(routes::dataset_pivot))

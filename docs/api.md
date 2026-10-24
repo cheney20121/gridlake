@@ -17,7 +17,7 @@
 - **数据范围受限的用户**（管理员给用户设置了「只能看某些店铺」）：只能调用下表「受限用户」列为 ✓ 的接口，其余一律返回 403；✓ 的接口读取的数据也已按范围过滤。
 - **审计**：「审计」列非空的接口会记入操作审计，列里是审计里显示的操作名。
 
-共 227 个接口。
+共 229 个接口。
 
 ## 存活检查与运维
 
@@ -118,6 +118,8 @@
 | PUT | `/api/ledger/datasets/{id}/external` | { path, pattern, recursive, hive, refreshMinutes? } 修改读取方式（变了就按新规则重新读取，会让计算列 / 关联视图失效时整体取消）或自动检查的间隔（分钟，不填表示只手动刷新） | 仅管理员 | — | 修改外部数据集 |
 | POST | `/api/ledger/datasets/{id}/external/refresh` | 重新查找文件、读取结构（文件有增减或结构变化后）；没有变化时视图不动（changed = false） | 仅管理员 | — | 刷新外部数据集 |
 | POST | `/api/ledger/datasets/{id}/pivot` | 数据透视表（rows / columns / values / filters / sort / top / subtotals / grandTotals） | 登录用户 | ✓ |  |
+| POST | `/api/ledger/datasets/{id}/profile` | { filters?, keyword?, rule?, columns? }  数据概况：按当前筛选，每列的空值、近似去重数、范围、数值分布（一次扫描） | 登录用户 | ✓ |  |
+| POST | `/api/ledger/datasets/{id}/profile/column` | { column, filters?, keyword?, rule? }  一列的分布：直方图（数值分箱 / 日期按日月年）与最常见的取值 | 登录用户 | ✓ |  |
 | DELETE | `/api/ledger/datasets/{id}/purge` | 彻底删除（连同回收站里基于它的关联视图），返回删除的名称 | 数据集所有者或管理员 | ✗ | 彻底删除数据集 |
 | GET | `/api/ledger/datasets/{id}/rows` | 按位置取一段 查询参数：`cursor=&offset=&limit=&columns=` | 登录用户 | ✓ |  |
 | POST | `/api/ledger/datasets/{id}/stats` | 选区统计 | 登录用户 | ✓ |  |

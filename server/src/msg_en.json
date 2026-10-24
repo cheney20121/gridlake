@@ -899,5 +899,6 @@
   "行数应在 1000 ~ {0} 之间": "The row count must be between 1000 and {0}",
   "端口号不对：{0}": "Invalid port: {0}",
   "不认识的参数：{0}\n{1}": "Unknown argument: {0}\n{1}",
-  "删除 {0} 失败：{1}": "Failed to delete {0}: {1}"
+  "删除 {0} 失败：{1}": "Failed to delete {0}: {1}",
+  "一次最多统计 {0} 列，请分批（columns）": "At most {0} columns can be profiled at once; request them in batches (columns)"
 }

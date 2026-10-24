@@ -708,6 +708,17 @@ pub fn filter_sql(_conn: &Connection, def: &DatasetDef, spec: &QuerySpec) -> App
     where_clause(def, spec, None, None)
 }
 
+/// 数据表当前看到的那些行的 WHERE：筛选、关键字，以及汇总项规则（只保留贡献不为 0 的行），与游标的行集合一致
+pub(crate) fn rows_sql(def: &DatasetDef, spec: &QuerySpec) -> AppResult<(String, Vec<Value>)> {
+    let contribution = contribution_of(def, spec)?;
+    where_clause(def, spec, contribution.as_deref(), None)
+}
+
+/// 按列名或标题找列
+pub(crate) fn find_column<'a>(def: &'a DatasetDef, key: &str) -> AppResult<&'a ColumnDef> {
+    check_column(def, key)
+}
+
 /// 同 filter_sql，不需要连接（汇总数据集加载时生成数据来源用）
 pub fn filter_sql_for(def: &DatasetDef, spec: &QuerySpec) -> AppResult<(String, Vec<Value>)> {
     where_clause(def, spec, None, None)

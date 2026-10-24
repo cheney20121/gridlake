@@ -16,6 +16,7 @@ import { formatMoney } from '@/utils/format-money'
 import BigGrid from './BigGrid.vue'
 import ColumnKindDialog from './ColumnKindDialog.vue'
 import FilterMenu from './FilterMenu.vue'
+import ProfileDrawer from './ProfileDrawer.vue'
 
 /** 大数据表视图：工具栏（搜索 / 筛选标签 / 下钻核对）+ canvas 表格 + 状态栏（选区统计） */
 const props = defineProps<{
@@ -136,6 +137,12 @@ const query = computed<DatasetQuery>(() => ({
 }))
 
 const filteredColumns = computed(() => new Set(userFilters.value.map(f => f.column)))
+
+/** 数据概况（按当前筛选）；在概况里点一档 / 一个取值：替换这一列的筛选 */
+const profileVisible = ref(false)
+function onProfileFilter(filter: DatasetFilter) {
+  userFilters.value = [...userFilters.value.filter(f => f.column !== filter.column), filter]
+}
 
 // ── 游标 ──
 const loading = ref(false)
@@ -475,6 +482,9 @@ function exportData(format: 'csv' | 'xlsx') {
         </el-button>
       </div>
       <div class="ml-auto flex shrink-0 items-center gap-1.5">
+        <el-button size="small" :title="$t('按当前筛选看每列的空值、取值个数、范围和分布')" data-testid="open-profile" @click="profileVisible = true">
+          {{ $t('数据概况') }}
+        </el-button>
         <el-button size="small" :title="$t('以当前筛选新建数据透视表')" @click="emit('pivot', dataset.id, query.filters ?? [])">
           {{ $t('透视分析') }}
         </el-button>
@@ -623,6 +633,7 @@ function exportData(format: 'csv' | 'xlsx') {
       @close="menu = null"
       @change-kind="kindColumn = { title: menu!.column.title, kind: menu!.column.kind }; menu = null"
     />
+    <ProfileDrawer v-model:visible="profileVisible" :dataset-id="dataset.id" :query="query" @filter="onProfileFilter" />
     <ColumnKindDialog :dataset-id="dataset.id" :column="kindColumn" @close="kindColumn = null" @changed="emit('changed', dataset.id)" />
     <ExternalDatasetDialog v-if="dataset.kind === 'external'" v-model:visible="externalSettings" :dataset="dataset" @saved="onExternalSaved" />
 

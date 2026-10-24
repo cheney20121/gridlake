@@ -36,6 +36,7 @@ Measured on 100M rows × 8 columns of synthetic order data (MacBook, 8 cores, 16
 ## Features
 
 - **Large datasets** — import CSV / Excel / Parquet / JSON; connect ClickHouse, MySQL / PostgreSQL, HTTP APIs; filter, sort, search, computed columns, joined views, trash.
+- **Column profiles** — for the current filters, one scan shows every column's empty values, distinct counts, ranges, mean / median and unrecognized dates; open a column for its histogram and most common values, and click a bar to filter by it (about 3 s on 10 million rows).
 - **Pivot tables** — computed on the server and written as normal sheets; calculated values and items, share / YoY / MoM, approximate quantiles, drill-down.
 - **Formula push-down** — `=SUMIFS(Orders[Amount], Orders[Shop], B2)` runs on the server; platform functions such as `DSUMIFS`; exported to native Excel formulas.
 - **SQL workbench** — read-only SQL (checked against a parser-based allow-list), typed parameters, save results as datasets, scheduled refresh.
