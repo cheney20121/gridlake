@@ -1,6 +1,6 @@
 // 手动查看界面用：起好模拟网关 + 表格服务 + 前端，造一批演示数据后一直运行（Ctrl+C 退出）。
 //   node tests/ui/serve.mjs
-// 然后在浏览器里先设置 Cookie：document.cookie = 'webexcel-token=tok-alice; path=/'，再打开 http://127.0.0.1:5291/excel/home
+// 然后在浏览器里先设置 Cookie：document.cookie = 'gridlake-token=tok-alice; path=/'，再打开 http://127.0.0.1:5291/excel/home
 // 注意：和 npm run test:ui 用同一组端口，两者不能同时运行
 import process from 'node:process'
 import { api, startServices, TOKEN, WEB } from './infra.mjs'

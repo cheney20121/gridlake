@@ -49,7 +49,7 @@ async function main() {
     const info = (await api.call('GET', '/ledger/datasets', TOKEN.alice)).data.find(d => d.id === id)
     const widths = info.columns.map(c => c.width)
     const page = await browser.newPage()
-    await page.setCookie('webexcel-token', TOKEN.alice, WEB)
+    await page.setCookie('gridlake-token', TOKEN.alice, WEB)
     await page.goto(`${WEB}/excel?ds=${id}`)
     await page.waitFor(`!!document.querySelector('.statusbar') && !document.querySelector('[data-busy]') && !!document.querySelector('.scroller')`, { timeout: 180_000 })
     await sleep(1500)

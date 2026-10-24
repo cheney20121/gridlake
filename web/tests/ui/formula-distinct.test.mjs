@@ -8,7 +8,7 @@ import { api, startServices, TOKEN, WEB } from './infra.mjs'
 
 const ARTIFACTS = path.join(path.dirname(fileURLToPath(import.meta.url)), '.artifacts')
 const skip = findChrome() ? false : '本机没有 Chrome / Chromium（可用 CHROME_BIN 指定）'
-const COOKIE = 'webexcel-token'
+const COOKIE = 'gridlake-token'
 const ALLOWED = [/command "formula\.mutation\.set-trigger-formula-calculation-start" is not registered/]
 // 客户 c1 同时在 A、B 两家店：A 店 2 个、B 店 2 个，两家合并是 3 个
 const CSV = '订单号,店铺,客户,金额\n1,A,c1,10\n2,A,c1,20\n3,A,c2,5\n4,B,c1,100\n5,B,c3,200\n6,C,,1\n7,B,c3,7\n'

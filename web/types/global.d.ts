@@ -4,7 +4,7 @@ interface GridlakeConfig {
   ledgerApi?: string
   /** 网关登录模式：未登录时跳转的统一登录地址（会带上 redirect 参数） */
   loginUrl?: string
-  /** 登录令牌所在的 cookie 名（默认 webexcel-token；网关模式改成网关写入的 cookie 名） */
+  /** 登录令牌所在的 cookie 名（默认 gridlake-token；网关模式改成网关写入的 cookie 名） */
   tokenCookie?: string
 }
 

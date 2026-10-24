@@ -10,7 +10,7 @@ async function main() {
   const browser = await launchChrome()
   try {
     const page = await browser.newPage()
-    await page.setCookie('webexcel-token', TOKEN[user], WEB)
+    await page.setCookie('gridlake-token', TOKEN[user], WEB)
     await page.goto(`${WEB}${url}`)
     await new Promise(r => setTimeout(r, Number(wait)))
     for (const c of clicks) {

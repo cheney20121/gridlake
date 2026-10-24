@@ -10,7 +10,7 @@ import { findChrome, launchChrome } from './cdp.mjs'
 import { api, API, llm, PORTS, startServices, TOKEN, WEB } from './infra.mjs'
 
 const ARTIFACTS = path.join(path.dirname(fileURLToPath(import.meta.url)), '.artifacts')
-const COOKIE = 'webexcel-token'
+const COOKIE = 'gridlake-token'
 
 /**
  * 已知的、与被测功能无关的启动期控制台错误（只放行这一条，其他任何错误都会让测试失败）：
@@ -208,9 +208,8 @@ describe('在线表格编辑器（界面）', { skip }, () => {
       await page.waitFor(`!!document.querySelector('input[placeholder*="搜索功能"]')`, { what: '命令面板' })
       await page.fill('input[placeholder*="搜索功能"]', '公式诊断')
       await page.waitFor(`document.querySelector('[data-active="true"]')?.innerText.includes('公式诊断')`, { what: '搜到公式诊断' })
-      // 工作表加载完成时会把焦点抢回画布：回车前确认焦点在搜索框里，否则回车会落到表格上（选中格下移）而不是执行命令
-      await page.eval(`document.querySelector('input[placeholder*="搜索功能"]')?.focus()`)
-      await page.press('Enter')
+      // 用点击代替回车：工作表刚加载完时按键可能被表格的快捷键先处理（选中格下移），点击不受影响
+      await page.click('[data-active="true"]')
       await page.waitFor(`!!document.querySelector('.ec-dialog')`, { what: '诊断对话框' })
       // 有循环引用时直接停在「循环引用」页签
       await page.waitFor(`document.querySelector('.ec-radio-button.is-active')?.innerText.includes('循环引用（2）')`, { what: '循环引用页签有 2 处' })
@@ -338,9 +337,8 @@ describe('在线表格编辑器（界面）', { skip }, () => {
       await page.waitFor(`!!document.querySelector('input[placeholder*="搜索功能"]')`, { what: '命令面板' })
       await page.fill('input[placeholder*="搜索功能"]', '仪表盘')
       await page.waitFor(`document.querySelector('[data-active="true"]')?.innerText.includes('仪表盘')`, { what: '搜到仪表盘' })
-      // 工作表加载完成时会把焦点抢回画布：回车前确认焦点在搜索框里，否则回车会落到表格上（选中格下移）而不是执行命令
-      await page.eval(`document.querySelector('input[placeholder*="搜索功能"]')?.focus()`)
-      await page.press('Enter')
+      // 用点击代替回车：工作表刚加载完时按键可能被表格的快捷键先处理（选中格下移），点击不受影响
+      await page.click('[data-active="true"]')
       await page.waitFor(`[...document.querySelectorAll('.side-panel .part')].some(e => e.innerText.includes('明细表keep'))`, { what: '仪表盘面板列出这张表' })
       await page.click('.side-panel .part button', '编辑')
       await page.waitFor(`document.querySelector('.side-panel')?.innerText.includes('保留手工调整') && document.querySelector('.side-panel').innerText.includes('现有 2 处')`, { what: '面板显示保留手工调整与处数' })
@@ -540,9 +538,8 @@ describe('在线表格编辑器（界面）', { skip }, () => {
       await page.waitFor(`!!document.querySelector('input[placeholder*="搜索功能"]')`, { what: '命令面板' })
       await page.fill('input[placeholder*="搜索功能"]', '评论')
       await page.waitFor(`document.querySelector('[data-active="true"]')?.innerText.includes('评论')`, { what: '搜到评论' })
-      // 工作表加载完成时会把焦点抢回画布：回车前确认焦点在搜索框里，否则回车会落到表格上（选中格下移）而不是执行命令
-      await page.eval(`document.querySelector('input[placeholder*="搜索功能"]')?.focus()`)
-      await page.press('Enter')
+      // 用点击代替回车：工作表刚加载完时按键可能被表格的快捷键先处理（选中格下移），点击不受影响
+      await page.click('[data-active="true"]')
       await page.waitFor(`document.querySelector('.side-panel .panel-title')?.innerText.includes('评论')`, { what: '评论面板' })
     }
     // Alice：选中 B2，写评论并 @Bob（输入 @ 后选人）
@@ -862,7 +859,7 @@ describe('在线表格编辑器（界面）', { skip }, () => {
       await page.click('.data-panel button', '数据中心')
       await page.waitFor(`[...document.querySelectorAll('.ec-dropdown-menu__item')].some(e => e.offsetParent && e.innerText.includes('异常发现'))`, { what: '数据中心菜单' })
       await page.click('.ec-dropdown-menu__item', '异常发现')
-      await page.waitFor(`[...document.querySelectorAll('.ec-dialog')].some(d => d.offsetParent && d.innerText.includes('2026-09-25') && d.innerText.includes('店铺「C」最近 7 天没有数据'))`, { what: '扫描出故障日与消失的店铺', timeout: 60_000 })
+      await page.waitFor(`[...document.querySelectorAll('.ec-dialog')].some(d => d.offsetParent && d.innerText.includes('2026-09-25') && d.innerText.includes('店铺「C」最近 7 天没有数据') && d.innerText.includes('未能比较「订单」'))`, { what: '扫描出故障日与消失的店铺', timeout: 60_000 })
       const text = await page.eval(`[...document.querySelectorAll('.ec-dialog')].find(d => d.offsetParent && d.innerText.includes('异常发现')).innerText`)
       assert.match(text, /日销售/)
       assert.match(text, /行数偏低/)
@@ -1593,9 +1590,8 @@ describe('在线表格编辑器（界面）', { skip }, () => {
       await page.waitFor(`!!document.querySelector('input[placeholder*="搜索功能"]')`, { what: '命令面板' })
       await page.fill('input[placeholder*="搜索功能"]', 'SQL')
       await page.waitFor(`document.querySelector('[data-active="true"]')?.innerText.includes('SQL 查询')`, { what: '搜索到 SQL 查询' })
-      // 工作表加载完成时会把焦点抢回画布：回车前确认焦点在搜索框里，否则回车会落到表格上（选中格下移）而不是执行命令
-      await page.eval(`document.querySelector('input[placeholder*="搜索功能"]')?.focus()`)
-      await page.press('Enter')
+      // 用点击代替回车：工作表刚加载完时按键可能被表格的快捷键先处理（选中格下移），点击不受影响
+      await page.click('[data-active="true"]')
       await page.waitFor(`[...document.querySelectorAll('.ec-dialog, .ec-overlay-dialog')].some(d => d.offsetParent && d.innerText.includes('订单'))`, { what: 'SQL 工作台列出数据集「订单」' })
     })
   })
@@ -1607,9 +1603,8 @@ describe('在线表格编辑器（界面）', { skip }, () => {
       await page.waitFor(`!!document.querySelector('input[placeholder*="搜索功能"]')`, { what: '命令面板' })
       await page.fill('input[placeholder*="搜索功能"]', '演示')
       await page.waitFor(`document.querySelector('[data-active="true"]')?.innerText.includes('演示')`, { what: '搜索到演示' })
-      // 工作表加载完成时会把焦点抢回画布：回车前确认焦点在搜索框里，否则回车会落到表格上（选中格下移）而不是执行命令
-      await page.eval(`document.querySelector('input[placeholder*="搜索功能"]')?.focus()`)
-      await page.press('Enter')
+      // 用点击代替回车：工作表刚加载完时按键可能被表格的快捷键先处理（选中格下移），点击不受影响
+      await page.click('[data-active="true"]')
       await page.waitFor(`!!document.querySelector('.excel-workspace.presenting')`, { what: '进入演示模式' })
       assert.equal(await page.eval(`getComputedStyle(document.querySelector('.excel-topbar')).display`), 'none', '演示时隐藏顶栏')
       const gridHidden = () => page.eval(`window.__univerAPI.getActiveWorkbook().getSheets().map(s => s.hasHiddenGridLines())`)
@@ -2083,9 +2078,8 @@ describe('在线表格编辑器（界面）', { skip }, () => {
       await page.press('q', { alt: true, code: 'KeyQ' })
       await page.fill('input[placeholder*="搜索功能"]', '填报')
       await page.waitFor(`document.querySelector('[data-active="true"]')?.innerText.includes('填报')`, { what: '搜索结果含「填报」' })
-      // 工作表加载完成时会把焦点抢回画布：回车前确认焦点在搜索框里，否则回车会落到表格上（选中格下移）而不是执行命令
-      await page.eval(`document.querySelector('input[placeholder*="搜索功能"]')?.focus()`)
-      await page.press('Enter')
+      // 用点击代替回车：工作表刚加载完时按键可能被表格的快捷键先处理（选中格下移），点击不受影响
+      await page.click('[data-active="true"]')
       await page.waitFor(`!!document.querySelector('.wb-panel')`, { what: '填报面板' })
       await page.click('.wb-panel button', '新建填报区')
       await page.waitFor(`!!document.querySelector('.wb-panel .ec-select__wrapper')`, { what: '新建表单' })

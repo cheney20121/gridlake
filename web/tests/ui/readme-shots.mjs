@@ -30,7 +30,7 @@ async function main() {
     const browser = await launchChrome()
     try {
       const page = await browser.newPage()
-      await page.setCookie('webexcel-token', TOKEN.alice, WEB)
+      await page.setCookie('gridlake-token', TOKEN.alice, WEB)
       await page.goto(`${WEB}/excel?wb=${made.data.id}`)
       await page.waitFor(`!!window.__univerAPI?.getActiveWorkbook() && document.querySelector('.status-indicator')?.innerText.includes('已保存')`, { timeout: 120_000, what: '编辑器加载' })
       await page.waitFor(`[...document.querySelectorAll('.data-panel .item')].some(e => e.innerText.includes('订单'))`, { what: '数据面板' })

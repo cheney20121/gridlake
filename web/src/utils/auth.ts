@@ -7,7 +7,7 @@ import { runtimeConfig } from '@/utils/runtime-config'
  * - 内置账号 + 前后端跨域部署：由登录页写入。
  * 内置账号 + 同源部署（默认）不走这里：服务端登录时写 HttpOnly 会话 cookie，页面读不到，也不需要读
  */
-const TOKEN_KEY = (runtimeConfig().tokenCookie as string | undefined) || 'webexcel-token'
+const TOKEN_KEY = (runtimeConfig().tokenCookie as string | undefined) || 'gridlake-token'
 
 export function getToken(): string | undefined {
   return Cookies.get(TOKEN_KEY) || undefined

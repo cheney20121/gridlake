@@ -8,7 +8,7 @@ import { api, startServices, TOKEN, WEB } from './infra.mjs'
 
 const ARTIFACTS = path.join(path.dirname(fileURLToPath(import.meta.url)), '.artifacts')
 const skip = findChrome() ? false : '本机没有 Chrome / Chromium（可用 CHROME_BIN 指定）'
-const COOKIE = 'webexcel-token'
+const COOKIE = 'gridlake-token'
 const NAME = '密码分享测试看板'
 const PASSWORD = 'open-sesame'
 // 输错密码时服务端返回 400；吊销后的链接是 403；公式刷新的启动期提示与本功能无关
@@ -64,9 +64,8 @@ describe('带访问密码的分享链接（界面）', { skip }, () => {
       await page.waitFor(`!!document.querySelector('input[placeholder*="搜索功能"]')`, { what: '命令面板' })
       await page.fill('input[placeholder*="搜索功能"]', '分享链接')
       await page.waitFor(`document.querySelector('[data-active="true"]')?.innerText.includes('分享链接')`, { what: '搜索到分享链接' })
-      // 工作表加载完成时会把焦点抢回画布：回车前确认焦点在搜索框里，否则回车会落到表格上（选中格下移）而不是执行命令
-      await page.eval(`document.querySelector('input[placeholder*="搜索功能"]')?.focus()`)
-      await page.press('Enter')
+      // 用点击代替回车：工作表刚加载完时按键可能被表格的快捷键先处理（选中格下移），点击不受影响
+      await page.click('[data-active="true"]')
       await page.waitFor(`!!document.querySelector('[data-testid="share-new-password"]')`, { what: '分享对话框' })
 
       // 太短：前端先拦下，不创建
