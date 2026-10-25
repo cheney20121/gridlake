@@ -17,7 +17,7 @@
 - **数据范围受限的用户**（管理员给用户设置了「只能看某些店铺」）：只能调用下表「受限用户」列为 ✓ 的接口，其余一律返回 403；✓ 的接口读取的数据也已按范围过滤。
 - **审计**：「审计」列非空的接口会记入操作审计，列里是审计里显示的操作名。
 
-共 235 个接口。
+共 236 个接口。
 
 ## 存活检查与运维
 
@@ -127,6 +127,7 @@
 | DELETE | `/api/ledger/datasets/{id}/purge` | 彻底删除（连同回收站里基于它的关联视图），返回删除的名称 | 数据集所有者或管理员 | ✗ | 彻底删除数据集 |
 | GET | `/api/ledger/datasets/{id}/rows` | 按位置取一段 查询参数：`cursor=&offset=&limit=&columns=` | 登录用户 | ✓ |  |
 | POST | `/api/ledger/datasets/{id}/stats` | 选区统计 | 登录用户 | ✓ |  |
+| POST | `/api/ledger/datasets/{id}/totals` | { cursorId, items: [{ column, func }] }  汇总行：按当前筛选对整个结果集算每列的合计 / 平均 / 计数等 | 登录用户 | ✓ |  |
 | POST | `/api/ledger/datasets/{id}/untrash` | 从回收站恢复 | 数据集所有者或管理员 | ✗ | 恢复数据集 |
 | GET | `/api/ledger/datasets/{id}/usage` | 使用情况：引用它的工作簿 / 模板 / 视图 / SQL / 连接 / 推送，近 30 天访问次数 | 登录用户 | ✗ |  |
 | POST | `/api/ledger/datasets/{id}/window` | { calcs, partitionBy?, orderBy?, topN?, name, autoRefresh? } 窗口计算：保存为 SQL 查询并另存为新数据集（默认源数据集更新后自动重算），返回保存的查询 | 登录用户 | ✗ | 窗口计算生成数据集 |

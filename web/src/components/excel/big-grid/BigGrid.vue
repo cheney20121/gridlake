@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Hit, HitGeometry } from './grid-hit'
-import type { GridColumn, GridSelection } from './types'
+import type { GridColumn, GridFooter, GridSelection } from './types'
 import type { CellValue } from '@/api/dataset'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { t } from '@/i18n'
@@ -28,6 +28,8 @@ const props = defineProps<{
   fields?: string[]
   /** 不显示 A / B / C 列字母行（嵌在工作表里时避免与工作表列号混淆） */
   hideLetters?: boolean
+  /** 底部汇总行（与 columns 一一对应，随横向滚动）；省略不显示 */
+  footer?: GridFooter | null
 }>()
 
 const emit = defineEmits<{
@@ -40,6 +42,8 @@ const emit = defineEmits<{
   (e: 'expired'): void
   /** 按了 Ctrl / ⌘ + G：请父组件弹出「跳转到行」 */
   (e: 'gotoRequest'): void
+  /** 点了汇总行的某一格；rect 为格子在视口中的位置 */
+  (e: 'footerClick', column: GridColumn, rect: DOMRect): void
 }>()
 
 const LETTER_H = letterHeight(props.hideLetters)
@@ -480,21 +484,45 @@ defineExpose({
 </script>
 
 <template>
-  <div ref="wrapRef" class="relative h-full w-full overflow-hidden bg-white">
-    <canvas ref="canvasRef" class="absolute left-0 top-0" />
-    <!-- 透明滚动层：提供原生滚动条并接收鼠标 / 键盘事件，内容由 canvas 绘制 -->
-    <div
-      ref="scrollerRef"
-      class="scroller absolute inset-0 overflow-auto outline-none"
-      tabindex="0"
-      @scroll="onScroll"
-      @wheel="onWheel"
-      @mousedown="onMouseDown"
-      @mousemove="onHover"
-      @dblclick="onDblClick"
-      @keydown="onKeyDown"
-    >
-      <div :style="{ width: `${contentW}px`, height: `${spacerH}px` }" />
+  <div class="h-full w-full flex flex-col overflow-hidden bg-white">
+    <div ref="wrapRef" class="relative min-h-0 w-full flex-1 overflow-hidden">
+      <canvas ref="canvasRef" class="absolute left-0 top-0" />
+      <!-- 透明滚动层：提供原生滚动条并接收鼠标 / 键盘事件，内容由 canvas 绘制 -->
+      <div
+        ref="scrollerRef"
+        class="scroller absolute inset-0 overflow-auto outline-none"
+        tabindex="0"
+        @scroll="onScroll"
+        @wheel="onWheel"
+        @mousedown="onMouseDown"
+        @mousemove="onHover"
+        @dblclick="onDblClick"
+        @keydown="onKeyDown"
+      >
+        <div :style="{ width: `${contentW}px`, height: `${spacerH}px` }" />
+      </div>
+    </div>
+    <div v-if="footer" class="grid-footer" data-testid="grid-footer">
+      <div class="footer-label" :class="{ bad: footer.error }" :style="{ width: `${numW}px` }" :title="footer.error || footer.tip">
+        {{ footer.label }}
+      </div>
+      <div class="relative min-w-0 flex-1 overflow-hidden">
+        <div class="absolute left-0 top-0 h-full flex" :style="{ transform: `translateX(${-scrollLeft}px)` }">
+          <button
+            v-for="(c, i) in footer.cells"
+            :key="columns[i]?.key ?? i"
+            class="footer-cell"
+            :class="{ empty: !c.label }"
+            :style="{ width: `${columns[i]?.width ?? 0}px` }"
+            :title="c.label ? `${c.label} ${c.value}` : t('点击选择汇总方式')"
+            :data-col="columns[i]?.key"
+            @click="emit('footerClick', columns[i]!, ($event.currentTarget as HTMLElement).getBoundingClientRect())"
+          >
+            <span class="footer-func">{{ c.label }}</span>
+            <span class="footer-value">{{ c.value }}</span>
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -502,5 +530,38 @@ defineExpose({
 <style scoped lang="scss">
 .scroller {
   scrollbar-width: auto;
+}
+
+.grid-footer {
+  @apply flex h-[26px] shrink-0 border-t border-[#d9d9d9] border-t-solid bg-[#F5F5F5] text-xs;
+}
+
+.footer-label {
+  @apply shrink-0 truncate border-r border-[#E1E1E1] border-r-solid px-1 text-center leading-[25px] font-semibold text-[#5F5F5F];
+
+  &.bad {
+    @apply text-[#C00000];
+  }
+}
+
+.footer-cell {
+  @apply flex h-full shrink-0 items-center gap-1 overflow-hidden border-0 border-r border-[#E1E1E1] border-r-solid bg-transparent px-1.5 text-left cursor-pointer;
+
+  &:hover {
+    @apply bg-[#E8F3EC];
+  }
+
+  &.empty:hover::after {
+    @apply text-gray-400;
+    content: 'Σ';
+  }
+}
+
+.footer-func {
+  @apply shrink-0 text-[11px] text-gray-500;
+}
+
+.footer-value {
+  @apply min-w-0 flex-1 truncate text-right font-semibold tabular-nums text-[#1F1F1F];
 }
 </style>

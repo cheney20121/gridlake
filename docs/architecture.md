@@ -115,6 +115,12 @@ FROM read_parquet([<文件列表>], union_by_name = true, hive_partitioning = �
 
 `server/src/profile.rs`。概况把所有列要算的统计拼进**一条** `SELECT`（每列十来个聚合：`count`、`approx_count_distinct`、`min` / `max`、数值列的 `sum` / `avg` / `stddev_samp` / `approx_quantile`、`count(*) FILTER (WHERE …)` 数零、负数、空白、认不出的日期），DuckDB 一次扫描、多核并行算完；第二条 `SELECT` 只对估计不同值不超过 10 万的列做精确的 `count(DISTINCT …)`（HyperLogLog 在取值很少时误差反而大，而这些列的哈希表很小）。数据来源用 `dataset::dataset()`（数据范围受限时已换成带过滤的子查询），条件用 `dataset::rows_sql()`（与游标同一套筛选、关键字和汇总项规则），所以概况看到的行和数据表一致。单列分布是两三条按分档 / 日期前缀 / 取值的 `GROUP BY`。两个接口都走重计算并发闸门（`blocking_heavy`）。
 
+## 汇总行
+
+`dataset::totals`。汇总行用的是表格已经建好的游标（筛选、搜索、规则都已经物化成位置表，或是直通游标），对游标覆盖的整个结果集算，所以和表格显示的行严格一致，也自动带上数据范围过滤（游标的 `from_sql` 连接的是按用户过滤后的表）。每列一种汇总方式，所有列拼进**一条** `SELECT`（`sum` / `avg` / `median` / `min` / `max` / `count(*) FILTER (…)` / `count(DISTINCT …)`），一次扫描；可选的方式按列类型限定（`dataset::total_funcs`，前端 `big-grid/totals.ts` 与之一致），不适用时报错而不是返回无意义的值。日期列存的是文本，最早 / 最晚只在符合日期格式的值里取（与数据概况的 `DATE_RE` 一致）。
+
+前端把汇总行画在 canvas 外的一行 HTML 里（`BigGrid` 的 `footer`），按 `scrollLeft` 平移与列对齐；切换游标（筛选变了、数据变了）就重算，改了某列的方式只等那一列。开关和每列的选择存在浏览器本地（与列宽一样），不影响别人。
+
 ## 数据清洗
 
 `server/src/clean.rs`。每种清洗（删除重复行、去空白、查找替换、填充空值、删除筛选出的行）先由 `plan` 翻译成「哪些行」（条件）和「改成什么」（列 → 新值表达式），预览和执行共用同一份，所以预览的行数就是执行的行数。删除重复行按 `row_number() OVER (PARTITION BY 列 ORDER BY rowid) > 1` 找行，向下填充用 `last_value(… IGNORE NULLS) OVER (ORDER BY rowid …)`，删除筛选出的行复用数据表的筛选（`dataset::rows_sql`）。

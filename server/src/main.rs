@@ -285,6 +285,7 @@ async fn serve(config: config::Config, ready: Option<Ready>) -> anyhow::Result<(
         .route("/ledger/datasets/{id}/cursor", post(routes::open_cursor))
         .route("/ledger/datasets/{id}/rows", get(routes::dataset_rows))
         .route("/ledger/datasets/{id}/stats", post(routes::dataset_stats))
+        .route("/ledger/datasets/{id}/totals", post(routes::dataset_totals))
         .route("/ledger/datasets/{id}/distinct", post(routes::dataset_distinct))
         .route("/ledger/datasets/{id}/profile", post(routes::dataset_profile))
         .route("/ledger/datasets/{id}/profile/column", post(routes::dataset_profile_column))

@@ -1131,6 +1131,110 @@ pub fn stats(conn: &Connection, cache: &CursorCache, dataset_id: &str, req: &Sta
     })
 }
 
+// ── 汇总行（数据表底部）──────────────────────────────
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TotalsRequest {
+    pub cursor_id: String,
+    pub items: Vec<TotalItem>,
+}
+
+#[derive(Deserialize)]
+pub struct TotalItem {
+    /// 列名；可为 __contribution（下钻时的贡献金额）
+    pub column: String,
+    /// sum / average / median / min / max / count（非空） / empty（空） / distinct（不同值） / trues（「是」的个数）
+    pub func: String,
+}
+
+#[derive(Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct TotalsResult {
+    pub expired: bool,
+    /// 与 items 一一对应
+    pub values: Vec<Json>,
+    pub elapsed_ms: i64,
+}
+
+/// 某种列类型能选的汇总方式（前端菜单按这个给选项）
+pub fn total_funcs(kind: &str) -> &'static [&'static str] {
+    match kind {
+        k if kinds::is_numeric(k) => &["sum", "average", "median", "min", "max", "count", "empty", "distinct"],
+        "datetime" => &["min", "max", "count", "empty", "distinct"],
+        "boolean" => &["trues", "count", "empty"],
+        _ => &["count", "empty", "distinct"],
+    }
+}
+
+const MAX_TOTALS: usize = 500;
+
+/// 汇总行：按游标（当前筛选 / 关键字 / 规则）对整个结果集算每列的汇总，一条 SQL
+pub fn totals(conn: &Connection, cache: &CursorCache, dataset_id: &str, req: &TotalsRequest) -> AppResult<TotalsResult> {
+    let started = Instant::now();
+    if req.items.len() > MAX_TOTALS {
+        return Err(AppError::bad(format!("一次最多汇总 {MAX_TOTALS} 列")));
+    }
+    let def = dataset(conn, dataset_id)?;
+    let Some(cur) = find_cursor(cache, &req.cursor_id)? else {
+        return Ok(TotalsResult { expired: true, ..Default::default() });
+    };
+    if req.items.is_empty() {
+        return Ok(TotalsResult::default());
+    }
+    let mut exprs = Vec::new();
+    for it in &req.items {
+        let (c, kind, title) = if it.column == CONTRIBUTION_KEY {
+            if !cur.has_c {
+                return Err(AppError::bad("当前没有汇总项规则，没有贡献金额列"));
+            }
+            ("c.c".to_string(), "money", "贡献金额")
+        } else {
+            let col = check_column(&def, &it.column)?;
+            (format!("({})", column_sql(col)), col.kind, col.title.as_str())
+        };
+        if !total_funcs(kind).contains(&it.func.as_str()) {
+            return Err(AppError::bad(format!("「{title}」是{}列，不能{}", kinds::label(kind), total_label(&it.func))));
+        }
+        let blank = if kinds::is_numeric(kind) || kind == "boolean" { format!("{c} IS NULL") } else { format!("({c} IS NULL OR trim(CAST({c} AS VARCHAR)) = '')") };
+        let money = kind == "money";
+        let round = |e: String| if money { format!("round({e}, 2)") } else { e };
+        exprs.push(match it.func.as_str() {
+            "sum" if kind == "integer" => format!("sum({c})::BIGINT"),
+            "sum" => round(format!("sum({c})::DOUBLE")),
+            "average" => round(format!("avg({c})::DOUBLE")),
+            "median" => round(format!("median({c})::DOUBLE")),
+            "min" | "max" if kind == "datetime" => format!("{}(CAST({c} AS VARCHAR)) FILTER (WHERE regexp_full_match(CAST({c} AS VARCHAR), '{}'))", it.func, crate::profile::DATE_RE),
+            "min" | "max" => format!("{}({c})", it.func),
+            "count" => format!("count(*) FILTER (WHERE NOT {blank})"),
+            "empty" => format!("count(*) FILTER (WHERE {blank})"),
+            "distinct" => format!("count(DISTINCT {c}) FILTER (WHERE NOT {blank})"),
+            _ => format!("count(*) FILTER (WHERE {c})"),
+        });
+    }
+    let sql = format!("SELECT {} FROM {} WHERE {}", exprs.join(", "), cur.from_sql(&def), cur.range(&def, 0, cur.total));
+    let n = exprs.len();
+    let values = conn.query_row(&sql, [], |r| (0..n).map(|i| Ok(to_json(r.get_ref(i)?))).collect::<duckdb::Result<Vec<_>>>())?;
+    // -0.0 显示成 0
+    let values = values.into_iter().map(|v| if v.as_f64() == Some(0.0) && v.is_f64() { Json::from(0.0) } else { v }).collect();
+    Ok(TotalsResult { expired: false, values, elapsed_ms: started.elapsed().as_millis() as i64 })
+}
+
+fn total_label(func: &str) -> &'static str {
+    match func {
+        "sum" => "求和",
+        "average" => "求平均",
+        "median" => "求中位数",
+        "min" => "取最小值",
+        "max" => "取最大值",
+        "count" => "计数",
+        "empty" => "数空值",
+        "distinct" => "数不同值",
+        "trues" => "数「是」",
+        _ => "这样汇总",
+    }
+}
+
 // ── 列值分面（筛选下拉）──────────────────────────────
 
 #[derive(Deserialize)]

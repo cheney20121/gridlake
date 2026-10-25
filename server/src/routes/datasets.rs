@@ -53,6 +53,13 @@ pub async fn dataset_stats(State(db): State<AppState>, Path(id): Path<String>, b
     Ok(ok(blocking_read(&db, move |conn| dataset::stats(conn, &db2.cursors, &id, &req)).await?))
 }
 
+/// POST /api/ledger/datasets/{id}/totals  { cursorId, items: [{ column, func }] }  汇总行：按当前筛选对整个结果集算每列的合计 / 平均 / 计数等
+pub async fn dataset_totals(State(db): State<AppState>, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Envelope<dataset::TotalsResult>>> {
+    let req: dataset::TotalsRequest = parse_json(&body)?;
+    let db2 = db.clone();
+    Ok(ok(blocking_heavy(&db, move |conn| dataset::totals(conn, &db2.cursors, &id, &req)).await?))
+}
+
 /// POST /api/ledger/datasets/{id}/distinct  列值分面（筛选下拉）
 pub async fn dataset_distinct(State(db): State<AppState>, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Envelope<DistinctResult>>> {
     let req: DistinctRequest = parse_json(&body)?;

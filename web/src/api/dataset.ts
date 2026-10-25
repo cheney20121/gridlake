@@ -121,6 +121,21 @@ export function getStatsApi(datasetId: string, data: { cursorId: string, from: n
   return request<SelectionStats>({ url: url(`/${datasetId}/stats`), method: 'post', data, signal })
 }
 
+/** 汇总行的汇总方式：合计 / 平均 / 中位数 / 最小 / 最大 / 非空 / 空值 / 不同值 / 「是」的个数 */
+export type TotalFunc = 'sum' | 'average' | 'median' | 'min' | 'max' | 'count' | 'empty' | 'distinct' | 'trues'
+
+export interface TotalsResult {
+  expired: boolean
+  /** 与 items 一一对应；超出 JS 安全整数的整数合计是文本 */
+  values: CellValue[]
+  elapsedMs: number
+}
+
+/** 汇总行：按游标（当前筛选 / 搜索）对整个结果集算每列的汇总 */
+export function totalsApi(datasetId: string, data: { cursorId: string, items: { column: string, func: TotalFunc }[] }, signal?: AbortSignal) {
+  return request<TotalsResult>({ url: url(`/${datasetId}/totals`), method: 'post', data, signal, timeout: 5 * 60 * 1000 })
+}
+
 /** 数据概况：按当前筛选，每列的空值、不同值个数、范围与数值统计（服务端一次扫描） */
 export interface ColumnProfile {
   key: string

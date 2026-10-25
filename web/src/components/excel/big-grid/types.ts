@@ -15,6 +15,18 @@ export interface GridColumn {
   style?: RuleMatcher
 }
 
+/** 数据表底部汇总行 */
+export interface GridFooter {
+  /** 行号列里的文字 */
+  label: string
+  /** 悬停在行号列上的说明（按多少行计算、耗时） */
+  tip?: string
+  /** 计算出错的原因 */
+  error?: string
+  /** 与列一一对应；label 为空表示这一列不汇总 */
+  cells: { label: string, value: string }[]
+}
+
 export interface GridCell {
   row: number
   col: number

@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import type { DatasetDrill } from './drill'
-import type { GridColumn, GridSelection } from './types'
-import type { CellValue, DatasetColumnKind, DatasetCursor, DatasetFilter, DatasetInfo, DatasetQuery, ExternalRefreshOutcome, SelectionStats } from '@/api/dataset'
-import { useDebounceFn, useLocalStorage } from '@vueuse/core'
+import type { GridColumn, GridFooter, GridSelection } from './types'
+import type { CellValue, DatasetColumnKind, DatasetCursor, DatasetFilter, DatasetInfo, DatasetQuery, ExternalRefreshOutcome, SelectionStats, TotalFunc } from '@/api/dataset'
+import { onClickOutside, useDebounceFn, useLocalStorage } from '@vueuse/core'
 import { isCancel } from 'axios'
 import { computed, nextTick, ref, shallowRef, watch } from 'vue'
-import { CONTRIBUTION_KEY, exportUrl, getStatsApi, MAX_EXPORT_ROWS, MAX_XLSX_ROWS, openCursorApi, refreshExternalApi } from '@/api/dataset'
+import { CONTRIBUTION_KEY, exportUrl, getStatsApi, MAX_EXPORT_ROWS, MAX_XLSX_ROWS, openCursorApi, refreshExternalApi, totalsApi } from '@/api/dataset'
 import BusyOverlay from '@/components/excel/common/BusyOverlay.vue'
 import ExternalDatasetDialog from '@/components/excel/dataset-import/ExternalDatasetDialog.vue'
 import { formatBool } from '@/features/excel/dataset/column-kinds'
@@ -18,6 +18,7 @@ import CleanDialog from './CleanDialog.vue'
 import ColumnKindDialog from './ColumnKindDialog.vue'
 import FilterMenu from './FilterMenu.vue'
 import ProfileDrawer from './ProfileDrawer.vue'
+import { formatTotal, pickTotal, totalFuncs, totalLabel } from './totals'
 import WindowCalcDialog from './WindowCalcDialog.vue'
 
 /** 大数据表视图：工具栏（搜索 / 筛选标签 / 下钻核对）+ canvas 表格 + 状态栏（选区统计） */
@@ -352,6 +353,88 @@ function onSelection(s: GridSelection | null) {
   loadStats()
 }
 
+// ── 汇总行：每列选一种汇总方式，服务端按当前筛选对整个结果集计算；开关和每列的选择记在本机 ──
+const totalsOn = useLocalStorage(`big-grid-totals-on:${props.dataset.id}`, false)
+const totalsSaved = useLocalStorage<Record<string, TotalFunc | ''>>(`big-grid-totals:${props.dataset.id}`, {})
+const totalPicks = computed(() => columns.value.map(c => pickTotal(c, totalsSaved.value)))
+/** 算好的值：「列|方式」→ 值（改了某列的方式，别的列不用等） */
+const totalValues = shallowRef<Record<string, CellValue>>({})
+const totalsInfo = ref<{ rows: number, elapsedMs: number } | null>(null)
+const totalsError = ref('')
+let totalsController: AbortController | null = null
+
+const totalItems = computed(() => columns.value
+  .map((c, i) => ({ column: c.key, func: totalPicks.value[i]! }))
+  .filter((x): x is { column: string, func: TotalFunc } => !!x.func))
+
+const loadTotals = useDebounceFn(async () => {
+  totalsController?.abort()
+  const cur = cursor.value
+  const items = totalItems.value
+  if (!totalsOn.value || !cur || !items.length)
+    return
+  const c = new AbortController()
+  totalsController = c
+  totalsError.value = ''
+  try {
+    const r = await totalsApi(props.dataset.id, { cursorId: cur.cursorId, items }, c.signal)
+    // 游标失效时表格会重新建游标，换了游标后再算
+    if (c !== totalsController || r.expired)
+      return
+    const next: Record<string, CellValue> = {}
+    items.forEach((it, i) => next[`${it.column}|${it.func}`] = r.values[i] ?? null)
+    totalValues.value = next
+    totalsInfo.value = { rows: cur.total, elapsedMs: r.elapsedMs }
+  }
+  catch (e) {
+    if (!isCancel(e) && c === totalsController)
+      totalsError.value = errorText(e)
+  }
+}, 150)
+
+watch(() => totalsOn.value && cursor.value ? JSON.stringify([cursor.value.cursorId, cursor.value.total, totalItems.value]) : '', (key, before) => {
+  if (!key) {
+    totalsController?.abort()
+    return
+  }
+  // 换了游标（筛选 / 数据变了）：旧的值不能再显示
+  if (before && JSON.parse(before)[0] !== JSON.parse(key)[0])
+    totalValues.value = {}
+  loadTotals()
+}, { immediate: true })
+
+const footer = computed<GridFooter | null>(() => {
+  if (!totalsOn.value)
+    return null
+  const info = totalsInfo.value
+  return {
+    label: totalsError.value ? t('出错') : t('汇总'),
+    error: totalsError.value,
+    tip: info ? t('按当前筛选的 {0} 行计算，耗时 {1} ms；点各列的汇总格选择汇总方式', [info.rows.toLocaleString(), info.elapsedMs.toLocaleString()]) : '',
+    cells: columns.value.map((c, i) => {
+      const f = totalPicks.value[i]
+      if (!f)
+        return { label: '', value: '' }
+      const k = `${c.key}|${f}`
+      return { label: totalLabel(f, c.kind), value: k in totalValues.value ? formatTotal(totalValues.value[k] ?? null, f, c) : '…' }
+    }),
+  }
+})
+
+const totalMenu = shallowRef<{ column: GridColumn, rect: DOMRect } | null>(null)
+const totalMenuRef = ref<HTMLElement>()
+onClickOutside(totalMenuRef, () => totalMenu.value = null)
+const totalMenuStyle = computed(() => {
+  const r = totalMenu.value?.rect
+  return r ? { left: `${Math.max(4, Math.min(r.left, window.innerWidth - 160))}px`, bottom: `${window.innerHeight - r.top + 4}px` } : {}
+})
+const totalMenuCurrent = computed(() => totalMenu.value ? pickTotal(totalMenu.value.column, totalsSaved.value) : '')
+
+function setTotal(col: GridColumn, func: TotalFunc | '') {
+  totalsSaved.value = { ...totalsSaved.value, [col.key]: func }
+  totalMenu.value = null
+}
+
 // ── 行详情 ──
 const openedRow = shallowRef<{ row: number, values: CellValue[] } | null>(null)
 const rowFields = computed(() => {
@@ -588,7 +671,9 @@ function exportData(format: 'csv' | 'xlsx') {
         :total="cursor.total"
         :sort="sort"
         :filtered="filteredColumns"
+        :footer="footer"
         @selection-change="onSelection"
+        @footer-click="(column, rect) => totalMenu = { column, rect }"
         @header-menu="(column, rect) => menu = { column, rect }"
         @resize-column="onResize"
         @row-open="(row, values) => openedRow = { row, values }"
@@ -642,6 +727,9 @@ function exportData(format: 'csv' | 'xlsx') {
           {{ $t('行') }}
         </template>
         <button v-else class="goto-btn" :title="$t('跳转到指定行（Ctrl / ⌘ + G）')" @click="openGoto">{{ $t('跳转到行') }}</button>
+        <button class="goto-btn" :class="{ on: totalsOn }" data-testid="toggle-totals" :title="$t('在表格底部显示每列的合计、平均、计数等（按当前筛选的全部行计算）')" @click="totalsOn = !totalsOn">
+          Σ {{ $t('汇总行') }}
+        </button>
       </span>
       <span v-if="cursor" class="shrink-0 whitespace-nowrap text-gray-400">
         {{ cursor.cached ? $t('查询结果已缓存') : $t('查询耗时 {0} ms', [cursor.elapsedMs.toLocaleString()]) }}
@@ -662,6 +750,17 @@ function exportData(format: 'csv' | 'xlsx') {
       @close="menu = null"
       @change-kind="kindColumn = { title: menu!.column.title, kind: menu!.column.kind }; menu = null"
     />
+    <div v-if="totalMenu" ref="totalMenuRef" class="total-menu" :style="totalMenuStyle" data-testid="total-menu">
+      <div class="total-menu-title">
+        {{ $t('「{0}」的汇总', [totalMenu.column.title]) }}
+      </div>
+      <button v-for="f in totalFuncs(totalMenu.column.kind)" :key="f" class="total-menu-item" :class="{ on: totalMenuCurrent === f }" @click="setTotal(totalMenu.column, f)">
+        {{ totalLabel(f, totalMenu.column.kind) }}
+      </button>
+      <button class="total-menu-item" :class="{ on: !totalMenuCurrent }" @click="setTotal(totalMenu.column, '')">
+        {{ $t('不汇总') }}
+      </button>
+    </div>
     <CleanDialog v-model:visible="cleanVisible" :dataset="dataset" :query="query" :filter-text="queryDesc" @changed="onCleaned" />
     <WindowCalcDialog v-model:visible="windowVisible" :dataset="dataset" @created="(id: string) => emit('openDataset', id)" />
     <ProfileDrawer v-model:visible="profileVisible" :dataset-id="dataset.id" :query="query" @filter="onProfileFilter" />
@@ -709,6 +808,26 @@ function exportData(format: 'csv' | 'xlsx') {
 
 .goto-btn {
   @apply cursor-pointer rounded border-none bg-transparent px-1.5 py-0.5 text-xs text-gray-500 hover:bg-gray-200 hover:text-gray-800;
+
+  &.on {
+    @apply bg-[#E7F4EC] text-[#0B5A2E];
+  }
+}
+
+.total-menu {
+  @apply fixed z-[3000] min-w-[140px] flex flex-col rounded border border-[#e6e6e6] border-solid bg-white py-1 text-[13px] shadow-lg;
+}
+
+.total-menu-title {
+  @apply truncate px-3 py-1 text-xs text-gray-400;
+}
+
+.total-menu-item {
+  @apply cursor-pointer border-none bg-transparent px-3 py-1 text-left hover:bg-[#F2F8F4];
+
+  &.on {
+    @apply font-semibold text-[#217346];
+  }
 }
 
 .goto-input {

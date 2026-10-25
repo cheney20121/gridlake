@@ -923,5 +923,14 @@
   "请填写要查找的内容": "Please enter the text to find",
   "请先筛选出要删除的行（没有筛选条件时不能整表删除；要清空请删除数据集）": "Filter the rows to delete first (without a filter the whole table cannot be deleted; delete the dataset to empty it)",
   "没有需要处理的行": "No rows need this change",
-  "这个数据集没有清洗记录": "This dataset has not been cleaned"
+  "这个数据集没有清洗记录": "This dataset has not been cleaned",
+  "一次最多汇总 {0} 列": "At most {0} columns can be totaled at once",
+  "当前没有汇总项规则，没有贡献金额列": "There is no summary rule, so there is no contribution column",
+  "「{0}」是{1}列，不能{2}": "“{0}” is a {1} column and cannot {2}",
+  "求中位数": "take the median",
+  "计数": "count",
+  "数空值": "count empty values",
+  "数不同值": "count distinct values",
+  "数「是」": "count “yes” values",
+  "这样汇总": "be totaled this way"
 }

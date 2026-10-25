@@ -108,7 +108,7 @@ fn float(r: &duckdb::Row<'_>, i: usize) -> duckdb::Result<Option<f64>> {
 }
 
 /// 日期时间列的「认得出」写法（与导入时转换后的写法一致）
-const DATE_RE: &str = r"\d{4}-\d{2}-\d{2}( \d{2}:\d{2}(:\d{2})?)?";
+pub(crate) const DATE_RE: &str = r"\d{4}-\d{2}-\d{2}( \d{2}:\d{2}(:\d{2})?)?";
 
 fn stats_for(col: &ColumnDef) -> Vec<Stat> {
     let c = format!("({})", dataset::column_sql(col));

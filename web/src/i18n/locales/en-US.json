@@ -3170,5 +3170,16 @@
   "要删除的行": "Rows to delete",
   "请先在数据表上筛选出要删除的行（没有筛选条件时不能整表删除）": "Filter the rows to delete in the table first (the whole table cannot be deleted without a filter)",
   "这些列都相同的行只留最先导入的一行，其余删除": "Among rows matching on these columns, keep the first imported one and delete the rest",
-  "（只列出前 {0} 行）": "(showing the first {0} rows)"
+  "（只列出前 {0} 行）": "(showing the first {0} rows)",
+  "点击选择汇总方式": "Click to choose how to total this column",
+  "按当前筛选的 {0} 行计算，耗时 {1} ms；点各列的汇总格选择汇总方式": "Computed over {0} rows matching the current filters in {1} ms; click a column's total to change how it is totaled",
+  "在表格底部显示每列的合计、平均、计数等（按当前筛选的全部行计算）": "Show each column's sum, average, count and more at the bottom of the table (computed over all rows matching the current filters)",
+  "汇总行": "Totals",
+  "「{0}」的汇总": "Total for “{0}”",
+  "不汇总": "None",
+  "最早": "Earliest",
+  "最晚": "Latest",
+  "非空": "Filled",
+  "不同值": "Distinct",
+  "「是」": "Yes"
 }

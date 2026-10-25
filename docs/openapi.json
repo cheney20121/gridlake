@@ -4903,6 +4903,52 @@
         }
       }
     },
+    "/ledger/datasets/{id}/totals": {
+      "post": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "{ cursorId, items: [] } 汇总行：按当前筛选对整个结果集算每列的合计 / 平均 / 计数等",
+        "description": "{ cursorId, items: [{ column, func }] }  汇总行：按当前筛选对整个结果集算每列的合计 / 平均 / 计数等",
+        "operationId": "post_ledger_datasets_by_id_totals",
+        "x-permission": "登录用户",
+        "x-restricted-users": true,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TotalsRequest"
+              }
+            }
+          }
+        }
+      }
+    },
     "/ledger/datasets/{id}/untrash": {
       "post": {
         "tags": [
@@ -11970,6 +12016,41 @@
         },
         "required": [
           "name"
+        ]
+      },
+      "TotalItem": {
+        "type": "object",
+        "properties": {
+          "column": {
+            "type": "string",
+            "description": "列名；可为 __contribution（下钻时的贡献金额）"
+          },
+          "func": {
+            "type": "string",
+            "description": "sum / average / median / min / max / count（非空） / empty（空） / distinct（不同值） / trues（「是」的个数）"
+          }
+        },
+        "required": [
+          "column",
+          "func"
+        ]
+      },
+      "TotalsRequest": {
+        "type": "object",
+        "properties": {
+          "cursorId": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TotalItem"
+            }
+          }
+        },
+        "required": [
+          "cursorId",
+          "items"
         ]
       },
       "UnitInput": {
