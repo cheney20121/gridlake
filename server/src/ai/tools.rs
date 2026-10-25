@@ -302,7 +302,7 @@ pub fn definitions() -> Json {
             "type": "function",
             "function": {
                 "name": "add_calc_column",
-                "description": "建议给数据集加一个计算列（用户确认后添加，之后透视 / 图表 / 公式都能用）。语法：=[列A]-[列B]、=ROUND([佣金]/[订单实付应结],4)、=IF([动账方向]=\"入账\",[动账金额],-[动账金额])、=LEFT([下单时间],7)；函数 ROUND ABS IF IFNULL MAX MIN LEFT RIGHT MID LEN UPPER LOWER TRIM YEAR MONTH DAY",
+                "description": "建议给数据集加一个计算列（用户确认后添加，之后透视 / 图表 / 公式都能用）。语法：=[列A]-[列B]、=ROUND([佣金]/[订单实付应结],4)、=IF([动账方向]=\"入账\",[动账金额],-[动账金额])、=LEFT([下单时间],7)；函数 ROUND ABS IF IFNULL MAX MIN LEFT RIGHT MID LEN UPPER LOWER TRIM YEAR MONTH DAY；拆分 / 合并文本：SPLITPART([收货地址],\"-\",2) 取第 2 段（负数从后往前数）、TEXTBEFORE / TEXTAFTER([列],\"-\",N) 第 N 个分隔符之前 / 之后、FIND(\"-\",[列])、SUBSTITUTE([列],\"旧\",\"新\")、CONCAT([省],[市])、TEXTJOIN(\"-\",TRUE,[省],[市],[区])（TRUE 忽略空值）。用户要「把一列拆成几列」时每一段各加一个计算列（多段用 propose_plan 一次加完），「把几列合成一列」用 TEXTJOIN；不修改原数据，之后新导入的行也会自动拆好",
                 "parameters": {
                     "type": "object",
                     "properties": { "dataset": dataset_param(), "name": { "type": "string", "description": "新列名" }, "formula": { "type": "string" }, "kind": { "type": "string", "enum": ["money", "number", "text", "datetime"], "description": "结果类型（可不填，自动推断）" } },

@@ -54,6 +54,12 @@ pub async fn calc_preview(State(db): State<AppState>, Path(id): Path<String>, bo
     Ok(ok(blocking(&db, move |conn| dataset::preview_calc(conn, &id, &req.formula)).await?))
 }
 
+/// POST /api/ledger/datasets/{id}/split/preview  { column, separator }  拆分列预览：每行能拆成几段、样例（拆分本身是加计算列）
+pub async fn split_preview(State(db): State<AppState>, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Envelope<crate::column_split::SplitPreview>>> {
+    let req: crate::column_split::SplitRequest = parse_json(&body)?;
+    Ok(ok(blocking_heavy(&db, move |conn| crate::column_split::preview(conn, &id, &req)).await?))
+}
+
 /// POST /api/ledger/datasets/{id}/calc  { name, formula, kind? }  新增计算列
 pub async fn add_calc(State(db): State<AppState>, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Envelope<bool>>> {
     let req: CalcBody = parse_json(&body)?;

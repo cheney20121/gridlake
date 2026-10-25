@@ -26,6 +26,7 @@ mod account;
 mod auth;
 mod calc;
 mod clean;
+mod column_split;
 mod config;
 mod connector;
 mod comment;
@@ -305,6 +306,7 @@ async fn serve(config: config::Config, ready: Option<Ready>) -> anyhow::Result<(
         .route("/ledger/recons/{id}/match", post(routes::recon_match))
         .route("/ledger/recons/{id}/unmatch", post(routes::recon_unmatch))
         .route("/ledger/datasets/{id}/calc/preview", post(routes::calc_preview))
+        .route("/ledger/datasets/{id}/split/preview", post(routes::split_preview))
         .route("/ledger/datasets/{id}/calc", post(routes::add_calc))
         .route("/ledger/datasets/{id}/calc/{name}", put(routes::update_calc).delete(routes::remove_calc))
         .route(

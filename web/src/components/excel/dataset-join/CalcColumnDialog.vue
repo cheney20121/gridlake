@@ -66,6 +66,10 @@ const FUNCTIONS = [
   { name: 'LEFT(文本, 长度)', example: 'LEFT([下单时间],7)' },
   { name: 'ABS / MAX / MIN', example: 'ABS([佣金])' },
   { name: 'YEAR / MONTH / DAY', example: 'MONTH([下单时间])' },
+  { name: 'SPLITPART(文本, 分隔符, 第几段)', example: 'SPLITPART([收货地址],"-",1)' },
+  { name: 'TEXTBEFORE / TEXTAFTER', example: 'TEXTAFTER([商品编码],"-")' },
+  { name: 'TEXTJOIN(分隔符, TRUE, 文本…)', example: 'TEXTJOIN("-",TRUE,[省],[市])' },
+  { name: 'SUBSTITUTE(文本, 旧, 新)', example: 'SUBSTITUTE([店铺],"旗舰店","")' },
 ]
 
 /** 在光标处插入文本 */

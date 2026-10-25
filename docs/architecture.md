@@ -129,6 +129,10 @@ FROM read_parquet([<文件列表>], union_by_name = true, hive_partitioning = �
 
 前端把汇总行画在 canvas 外的一行 HTML 里（`BigGrid` 的 `footer`），按 `scrollLeft` 平移与列对齐；切换游标（筛选变了、数据变了）就重算，改了某列的方式只等那一列。开关和每列的选择存在浏览器本地（与列宽一样），不影响别人。
 
+## 拆分 / 合并列
+
+拆分 / 合并不改存储的数据，而是生成计算列（`calc.rs` 的 `SPLITPART` / `TEXTAFTER` / `TEXTJOIN` / `CONCAT`，翻译成 DuckDB 的 `split_part` / `string_split` / `concat_ws`）：导入追加、数据连接同步时只写登记过来源的列，物理上拆出来的新列在新行里会是空的，而计算列对每一行（包括以后进来的）都有效，删掉就回到原样，也不用另做撤销。`column_split.rs` 只负责预览：一条 `GROUP BY len(string_split(列, 分隔符))` 数出各段数的行数，再取几个样例（最常见段数的在前），前端据此定列数、起列名，按 `features/excel/dataset/split-merge.ts` 生成公式后逐个加计算列，中途失败把已加的撤回。
+
 ## 数据清洗
 
 `server/src/clean.rs`。每种清洗（删除重复行、去空白、查找替换、填充空值、删除筛选出的行）先由 `plan` 翻译成「哪些行」（条件）和「改成什么」（列 → 新值表达式），预览和执行共用同一份，所以预览的行数就是执行的行数。删除重复行按 `row_number() OVER (PARTITION BY 列 ORDER BY rowid) > 1` 找行，向下填充用 `last_value(… IGNORE NULLS) OVER (ORDER BY rowid …)`，删除筛选出的行复用数据表的筛选（`dataset::rows_sql`）。

@@ -20,6 +20,7 @@ import CleanDialog from './CleanDialog.vue'
 import ColumnKindDialog from './ColumnKindDialog.vue'
 import FilterMenu from './FilterMenu.vue'
 import ProfileDrawer from './ProfileDrawer.vue'
+import SplitMergeDialog from './SplitMergeDialog.vue'
 import { formatTotal, pickTotal, totalFuncs, totalLabel } from './totals'
 import WindowCalcDialog from './WindowCalcDialog.vue'
 
@@ -492,6 +493,8 @@ async function openGoto() {
 }
 
 const windowVisible = ref(false)
+/** 拆分 / 合并列（加计算列）：关联视图上不能加计算列 */
+const splitVisible = ref(false)
 /** 数据清洗：只有数据表（导入 / 填报的）的所有者或管理员，数据范围受限的不行 */
 const cleanVisible = ref(false)
 const canClean = computed(() => {
@@ -509,8 +512,10 @@ function onCleaned() {
   emit('changed', props.dataset.id)
 }
 
-function onMore(cmd: 'calc' | 'join' | 'window' | 'clean' | 'copy' | 'goto') {
-  if (cmd === 'clean')
+function onMore(cmd: 'calc' | 'split' | 'join' | 'window' | 'clean' | 'copy' | 'goto') {
+  if (cmd === 'split')
+    splitVisible.value = true
+  else if (cmd === 'clean')
     cleanVisible.value = true
   else if (cmd === 'window')
     windowVisible.value = true
@@ -630,6 +635,9 @@ function exportData(format: 'csv' | 'xlsx') {
             <el-dropdown-menu>
               <el-dropdown-item command="calc">
                 {{ $t('计算列…（用公式新增一列）') }}
+              </el-dropdown-item>
+              <el-dropdown-item v-if="dataset.kind !== 'view'" command="split" data-testid="open-split">
+                {{ $t('拆分 / 合并列…（按分隔符拆成几列，或几列拼成一列）') }}
               </el-dropdown-item>
               <el-dropdown-item command="join">
                 {{ $t('关联…（按键带入另一个数据集的列）') }}
@@ -783,6 +791,7 @@ function exportData(format: 'csv' | 'xlsx') {
         {{ $t('不汇总') }}
       </button>
     </div>
+    <SplitMergeDialog v-model:visible="splitVisible" :dataset="dataset" @changed="emit('changed', dataset.id)" />
     <CleanDialog v-model:visible="cleanVisible" :dataset="dataset" :query="query" :filter-text="queryDesc" @changed="onCleaned" />
     <WindowCalcDialog v-model:visible="windowVisible" :dataset="dataset" @created="(id: string) => emit('openDataset', id)" />
     <ProfileDrawer v-model:visible="profileVisible" :dataset-id="dataset.id" :query="query" @filter="onProfileFilter" />

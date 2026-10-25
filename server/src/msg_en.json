@@ -298,7 +298,7 @@
  "公式格式错误：意外的 {0}": "Formula error: unexpected {0}",
  "公式不完整": "The formula is incomplete",
  "{0} 的参数个数不正确": "{0} has the wrong number of arguments",
- "不支持的函数：{0}（可用：ROUND ABS IF IFNULL MAX MIN LEFT RIGHT MID LEN UPPER LOWER TRIM YEAR MONTH DAY）": "Unsupported function: {0} (available: ROUND ABS IF IFNULL MAX MIN LEFT RIGHT MID LEN UPPER LOWER TRIM YEAR MONTH DAY)",
+ "不支持的函数：{0}（可用：ROUND ABS IF IFNULL MAX MIN LEFT RIGHT MID LEN UPPER LOWER TRIM FIND SUBSTITUTE SPLITPART TEXTBEFORE TEXTAFTER CONCAT TEXTJOIN YEAR MONTH DAY）": "Unsupported function: {0} (available: ROUND ABS IF IFNULL MAX MIN LEFT RIGHT MID LEN UPPER LOWER TRIM FIND SUBSTITUTE SPLITPART TEXTBEFORE TEXTAFTER CONCAT TEXTJOIN YEAR MONTH DAY)",
  "公式不能为空": "The formula cannot be empty",
  "公式格式错误：多余的内容": "Formula error: extra content",
  "计算列至少要引用一个列，如 [金额]": "A calculated column must reference at least one column, such as [Amount]",
@@ -939,5 +939,8 @@
   "清洗参数不正确：{0}": "The cleaning arguments are not valid: {0}",
   "当前用户的数据范围受限，不能{0}": "Your data scope is restricted, so you cannot {0}",
   "清洗数据": "clean data",
-  "生成数据集": "create datasets"
+  "生成数据集": "create datasets",
+  "请填分隔符": "Enter a separator",
+  "分隔符不能为空": "The separator cannot be empty",
+  "TEXTJOIN 的第二个参数要写 TRUE（忽略空值）或 FALSE": "The second argument of TEXTJOIN must be TRUE (ignore empty values) or FALSE"
 }

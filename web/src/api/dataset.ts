@@ -642,6 +642,20 @@ export function previewCalcApi(datasetId: string, formula: string, signal?: Abor
   return request<CalcPreview>({ url: url(`/${datasetId}/calc/preview`), method: 'post', data: { formula }, signal, timeout: 5 * 60 * 1000 })
 }
 
+/** 拆分列预览：每行能拆成几段、样例 */
+export interface SplitPreview {
+  rows: number
+  nonEmpty: number
+  counts: { parts: number, rows: number }[]
+  maxParts: number
+  commonParts: number
+  samples: [string, string[]][]
+}
+
+export function previewSplitApi(datasetId: string, column: string, separator: string, signal?: AbortSignal) {
+  return request<SplitPreview>({ url: url(`/${datasetId}/split/preview`), method: 'post', data: { column, separator }, signal, timeout: 5 * 60 * 1000 })
+}
+
 export function addCalcApi(datasetId: string, name: string, formula: string, kind?: DatasetColumnKind | null) {
   return request<boolean>({ url: url(`/${datasetId}/calc`), method: 'post', data: { name, formula, kind: kind || null } })
 }

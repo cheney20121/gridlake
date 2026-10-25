@@ -17,7 +17,7 @@
 - **数据范围受限的用户**（管理员给用户设置了「只能看某些店铺」）：只能调用下表「受限用户」列为 ✓ 的接口，其余一律返回 403；✓ 的接口读取的数据也已按范围过滤。
 - **审计**：「审计」列非空的接口会记入操作审计，列里是审计里显示的操作名。
 
-共 236 个接口。
+共 237 个接口。
 
 ## 存活检查与运维
 
@@ -126,6 +126,7 @@
 | POST | `/api/ledger/datasets/{id}/profile/column` | { column, filters?, keyword?, rule? }  一列的分布：直方图（数值分箱 / 日期按日月年）与最常见的取值 | 登录用户 | ✓ |  |
 | DELETE | `/api/ledger/datasets/{id}/purge` | 彻底删除（连同回收站里基于它的关联视图），返回删除的名称 | 数据集所有者或管理员 | ✗ | 彻底删除数据集 |
 | GET | `/api/ledger/datasets/{id}/rows` | 按位置取一段 查询参数：`cursor=&offset=&limit=&columns=` | 登录用户 | ✓ |  |
+| POST | `/api/ledger/datasets/{id}/split/preview` | { column, separator }  拆分列预览：每行能拆成几段、样例（拆分本身是加计算列） | 登录用户 | ✓ |  |
 | POST | `/api/ledger/datasets/{id}/stats` | 选区统计 | 登录用户 | ✓ |  |
 | POST | `/api/ledger/datasets/{id}/totals` | { cursorId, items: [{ column, func }] }  汇总行：按当前筛选对整个结果集算每列的合计 / 平均 / 计数等 | 登录用户 | ✓ |  |
 | POST | `/api/ledger/datasets/{id}/untrash` | 从回收站恢复 | 数据集所有者或管理员 | ✗ | 恢复数据集 |

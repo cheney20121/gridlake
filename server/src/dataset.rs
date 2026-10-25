@@ -236,7 +236,7 @@ pub fn load(conn: &Connection) -> AppResult<(Vec<DatasetDef>, Vec<String>)> {
     let mut out = if crate::ecommerce::enabled() { vec![ledger_detail_def()] } else { Vec::new() };
     let mut problems = Vec::new();
     let calcs: Vec<CalcRow> = {
-        let mut stmt = conn.prepare("SELECT dataset_id, name, formula, kind FROM ledger_calc_column ORDER BY created_at, name")?;
+        let mut stmt = conn.prepare("SELECT dataset_id, name, formula, kind FROM ledger_calc_column ORDER BY created_at, rowid")?;
         stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?.collect::<Result<Vec<_>, _>>()?
     };
     let mut stmt = conn.prepare("SELECT id, name, columns, primary_key, kind, definition FROM ledger_dataset WHERE deleted_at IS NULL ORDER BY created_at")?;
