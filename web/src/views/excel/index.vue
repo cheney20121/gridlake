@@ -57,6 +57,7 @@ import { rowColManager } from '@/features/excel/data/row-col-manager'
 import { watchSelection } from '@/features/excel/data/selection'
 import { sortFilterEngine } from '@/features/excel/data/sort-filter'
 import { styleManager } from '@/features/excel/data/style-manager'
+import { setDatasetViewShown } from '@/features/excel/dataset/active-view'
 import { registerTableFormulaInput } from '@/features/excel/datatable/formula-input'
 import { DATA_TABLE_KEY } from '@/features/excel/datatable/types'
 import { registerDatasetFunctions } from '@/features/excel/formula/dataset-functions'
@@ -210,6 +211,8 @@ onUnmounted(() => {
 })
 
 const workspaceView = ref<'workbook' | 'dataset'>('workbook')
+// AI 助手只在数据集页面在前台时把它当作界面上下文
+watch(workspaceView, v => setDatasetViewShown(v === 'dataset'), { immediate: true })
 
 // 操作人（写入版本历史、回收站记录）
 const ledgerOperator = useLedgerOperator()

@@ -10014,6 +10014,14 @@
               "$ref": "#/components/schemas/TableCtx"
             },
             "description": "工作簿里的数据表（set_table_view 的对象）"
+          },
+          "dataset": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DatasetViewCtx"
+              }
+            ],
+            "description": "正在数据集页面看的数据集（当前筛选、搜索、排序）"
           }
         },
         "required": [
@@ -10095,6 +10103,44 @@
         "required": [
           "column",
           "value"
+        ]
+      },
+      "DatasetViewCtx": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "ows": {
+            "type": "integer",
+            "description": "数据集总行数"
+          },
+          "matched": {
+            "type": "integer",
+            "description": "按当前筛选 / 搜索命中的行数"
+          },
+          "filters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Filter"
+            }
+          },
+          "sort": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SortSpec"
+            }
+          },
+          "keyword": {
+            "type": "string"
+          },
+          "drill": {
+            "type": "string",
+            "description": "从透视表 / 公式下钻过来时的说明"
+          }
+        },
+        "required": [
+          "name"
         ]
       },
       "DbSource": {

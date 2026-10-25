@@ -119,4 +119,38 @@ describe('AI 数据清洗 / 窗口计算建议（界面）', { skip }, () => {
       throw e
     }
   }, { timeout: 300_000 })
+
+  it('数据集页面提问时带上正在看的数据集与筛选；切回工作簿后不带', async () => {
+    const page = await browser.newPage()
+    const sent = () => JSON.stringify(llm.requests.at(-1)?.messages.at(-1) ?? '')
+    llm.reset()
+    llm.say({ text: '看到了北京的订单。' })
+    llm.say({ text: '这是工作簿里的问题。' })
+    try {
+      await page.clearCookies()
+      await page.setCookie(COOKIE, TOKEN.alice, WEB)
+      await page.goto(`${WEB}/excel?ds=${datasetId}&lang=zh-CN`)
+      await page.waitFor(`document.body.innerText.includes('4 行')`, { timeout: 90_000, what: '打开数据表' })
+      await page.fill('input[placeholder*="搜索"]', '北京')
+      await page.waitFor(`document.body.innerText.includes('2 行')`, { what: '搜索后 2 行', timeout: 30_000 })
+      await ask(page, '这些订单一共多少钱？', '看到了北京的订单')
+      assert.equal(await page.eval(`document.querySelector('[data-testid="ai-context"]')?.innerText`), '数据集「AI订单」 · 当前筛选（2 行）', '面板上的上下文提示')
+      const asked = sent()
+      assert.match(asked, /正在看数据集「AI订单」（共 4 行；搜索「北京」；命中 2 行）/, asked)
+      assert.match(asked, /带上同样的筛选条件/)
+      assert.doesNotMatch(asked, /当前工作表/, '数据集页面不带被挡住的工作表')
+
+      await page.click('.data-panel .item', '订单审批跟踪表')
+      await page.waitFor(`document.querySelector('[data-testid="ai-context"]')?.innerText.startsWith('工作表')`, { what: '上下文提示换成工作表', timeout: 30_000 })
+      await page.fill('.ai textarea', '工作簿里的问题')
+      await page.click('.ai button', '发送')
+      await page.waitFor(`[...document.querySelectorAll('.ai .answer')].some(a => a.innerText.includes('这是工作簿里的问题'))`, { what: '第二次回答', timeout: 30_000 })
+      assert.doesNotMatch(sent(), /正在看数据集/, '切回工作簿后不带数据集')
+      assert.deepEqual(page.errors.filter(e => !ALLOWED.some(re => re.test(e))), [], '没有控制台报错')
+    }
+    catch (e) {
+      await page.screenshot(path.join(ARTIFACTS, 'ai-dataset-context-failed.png')).catch(() => {})
+      throw e
+    }
+  }, { timeout: 300_000 })
 })

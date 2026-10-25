@@ -3194,5 +3194,7 @@
   "已用窗口计算生成数据集「{0}」{1}": "Created dataset “{0}” with a window calculation{1}",
   "已撤销对「{0}」的清洗（{1}）": "Undid the cleaning of “{0}” ({1})",
   "「{0}」之后又做过别的清洗，只能撤销最近一次": "“{0}” has been cleaned again since; only the most recent cleaning can be undone",
-  "不能撤销": "Cannot be undone"
+  "不能撤销": "Cannot be undone",
+  "当前筛选（{0} 行）": "current filters ({0} rows)",
+  "当前筛选": "current filters"
 }

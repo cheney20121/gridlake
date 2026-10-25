@@ -8,6 +8,7 @@ import type { PivotSpec } from '@/features/excel/pivot/pivot-sheet'
 import { addCalcApi, applyCleanApi, createWindowApi, lastCleanApi, removeCalcApi, undoCleanApi } from '@/api/dataset'
 import { colName } from '@/features/excel/chart/chart-defaults'
 import { insertChart, newChartId, removeChart } from '@/features/excel/chart/chart-manager'
+import { currentDatasetView } from '@/features/excel/dataset/active-view'
 import { markDataChanged } from '@/features/excel/dataset/data-changes'
 import { createPivotSheet, getPivotSpec, refreshPivot } from '@/features/excel/pivot/pivot-sheet'
 import { t } from '@/i18n'
@@ -25,6 +26,13 @@ const MAX_ROWS = 20
 const MAX_COLS = 10
 
 export function collectContext(api: FUniver | null | undefined): AiContext {
+  // 数据集页面在前台：带上正在看的数据集与筛选；工作表、选区被盖在后面，不带（工作簿里的数据表仍可调整）
+  const view = currentDatasetView()
+  if (view) {
+    const { id: _, ...dataset } = view
+    const tables = collectTableContext(api)
+    return tables.length ? { dataset, tables } : { dataset }
+  }
   const sheet = api?.getActiveWorkbook()?.getActiveSheet()
   if (!sheet)
     return {}

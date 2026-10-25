@@ -6,6 +6,7 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { aiAttachStream, aiChatStream, aiCreateThreadApi, aiDecideApi, aiDeleteThreadApi, aiStatusApi, aiStopApi, aiThreadApi, aiThreadsApi } from '@/api/ai'
 import { renderMarkdown } from '@/features/excel/ai/markdown'
 import { applyAction, collectContext, undoApplied } from '@/features/excel/ai/workbook'
+import { currentDatasetView } from '@/features/excel/dataset/active-view'
 import { t as tr } from '@/i18n'
 import { useExcelUIStore } from '@/stores/excel-ui'
 import AiActionCard from './AiActionCard.vue'
@@ -60,10 +61,17 @@ const contextPreview = ref<AiContext>({})
 function refreshContext() {
   contextPreview.value = collectContext(props.univerApi)
 }
+// 切换数据集页面 / 改了筛选：上下文提示跟着变
+watch(currentDatasetView, refreshContext, { immediate: true })
 
 const contextText = computed(() => {
   const c = contextPreview.value
   const parts: string[] = []
+  if (c.dataset) {
+    parts.push(tr('数据集「{0}」', [c.dataset.name]))
+    if (c.dataset.filters.length || c.dataset.keyword)
+      parts.push(c.dataset.matched != null ? tr('当前筛选（{0} 行）', [c.dataset.matched.toLocaleString()]) : tr('当前筛选'))
+  }
   if (c.sheetName)
     parts.push(tr('工作表「{0}」', [c.sheetName]))
   if (c.pivot)
@@ -499,7 +507,7 @@ onBeforeUnmount(() => controller?.abort())
           <el-checkbox v-model="withContext" size="small" @change="refreshContext">
             {{ $t('附带当前界面') }}
           </el-checkbox>
-          <span v-if="withContext" class="min-w-0 truncate" :title="contextText">{{ contextText }}</span>
+          <span v-if="withContext" class="min-w-0 truncate" data-testid="ai-context" :title="contextText">{{ contextText }}</span>
         </div>
         <div class="flex items-end gap-2">
           <el-input

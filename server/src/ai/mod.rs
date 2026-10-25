@@ -491,6 +491,63 @@ pub struct Context {
     pub pivot: Option<Json>,
     /// 工作簿里的数据表（set_table_view 的对象）
     pub tables: Vec<TableCtx>,
+    /// 正在数据集页面看的数据集（当前筛选、搜索、排序）
+    pub dataset: Option<DatasetViewCtx>,
+}
+
+/// 数据集页面当前的视图：用户问「这些订单」「这张表」时指的就是它
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DatasetViewCtx {
+    pub name: String,
+    /// 数据集总行数
+    #[serde(default)]
+    pub rows: Option<i64>,
+    /// 按当前筛选 / 搜索命中的行数
+    #[serde(default)]
+    pub matched: Option<i64>,
+    #[serde(default)]
+    pub filters: Vec<crate::dataset::Filter>,
+    #[serde(default)]
+    pub sort: Vec<crate::dataset::SortSpec>,
+    #[serde(default)]
+    pub keyword: Option<String>,
+    /// 从透视表 / 公式下钻过来时的说明
+    #[serde(default)]
+    pub drill: Option<String>,
+}
+
+fn dataset_view_text(d: &DatasetViewCtx) -> String {
+    let mut s = format!("正在看数据集「{}」", d.name);
+    let mut bits = Vec::new();
+    if let Some(n) = d.rows {
+        bits.push(format!("共 {n} 行"));
+    }
+    if let Some(t) = d.drill.as_deref().filter(|t| !t.is_empty()) {
+        bits.push(format!("从「{t}」下钻过来"));
+    }
+    if !d.filters.is_empty() {
+        bits.push(format!("筛选：{}", tools::filters_desc(&d.filters)));
+    }
+    if let Some(k) = d.keyword.as_deref().filter(|k| !k.is_empty()) {
+        bits.push(format!("搜索「{k}」"));
+    }
+    if !d.sort.is_empty() {
+        bits.push(format!("排序：{}", d.sort.iter().map(|x| format!("{}{}", x.column, if x.desc { "降序" } else { "升序" })).collect::<Vec<_>>().join("、")));
+    }
+    let narrowed = !d.filters.is_empty() || d.keyword.as_deref().is_some_and(|k| !k.is_empty());
+    if let (Some(m), true) = (d.matched, narrowed) {
+        bits.push(format!("命中 {m} 行"));
+    }
+    if !bits.is_empty() {
+        s.push_str(&format!("（{}）", bits.join("；")));
+    }
+    s.push_str(if narrowed {
+        "。问题里没有指明数据集时就是指它；说「这些 / 当前 / 筛选出的」数据时，查询要带上同样的筛选条件（搜索词没法作为筛选条件时用 contains 筛对应的列，或说明口径）"
+    } else {
+        "。问题里没有指明数据集时就是指它"
+    });
+    s
 }
 
 /// 工作簿里一张数据表当前的视图
@@ -561,6 +618,9 @@ pub struct ChatInput {
 
 fn context_text(c: &Context) -> String {
     let mut parts = Vec::new();
+    if let Some(d) = &c.dataset {
+        parts.push(dataset_view_text(d));
+    }
     if let Some(s) = &c.sheet_name {
         parts.push(format!("当前工作表「{s}」"));
     }
@@ -914,8 +974,18 @@ mod tests {
         let h = history(&stored);
         assert_eq!(h.first().unwrap().role, "user");
         assert_eq!(h.iter().filter(|x| x.role == "user").count(), HISTORY_TURNS);
-        let ctx = Context { sheet_name: Some("透视表1".into()), selection: Some("B2:C3".into()), selection_values: Some(vec![vec![json!("店铺"), json!(12.5)]]), pivot: None, tables: vec![] };
+        let ctx = Context { sheet_name: Some("透视表1".into()), selection: Some("B2:C3".into()), selection_values: Some(vec![vec![json!("店铺"), json!(12.5)]]), pivot: None, tables: vec![], dataset: None };
         assert!(context_text(&ctx).contains("店铺\t12.5"));
+        // 数据集页面：说明正在看哪个数据集、当前筛选与命中行数；没有筛选时不提「带上同样的筛选」
+        let view = |filters: Vec<crate::dataset::Filter>, keyword: Option<&str>| Context {
+            dataset: Some(DatasetViewCtx { name: "订单".into(), rows: Some(1000), matched: Some(12), filters, sort: vec![], keyword: keyword.map(String::from), drill: None }),
+            ..Default::default()
+        };
+        let t = context_text(&view(vec![crate::dataset::Filter::In { column: "店铺".into(), values: vec!["A".into()] }], Some("退款")));
+        assert!(t.starts_with("【界面上下文】正在看数据集「订单」（共 1000 行；筛选：店铺=A；搜索「退款」；命中 12 行）。问题里没有指明数据集时就是指它；说「这些"), "{t}");
+        let t = context_text(&view(vec![], None));
+        assert_eq!(t, "【界面上下文】正在看数据集「订单」（共 1000 行）。问题里没有指明数据集时就是指它\n【问题】");
+        assert!(!t.contains("命中") && !t.contains("同样的筛选"), "{t}");
         let ctx = Context {
             tables: vec![TableCtx {
                 name: "订单表".into(),

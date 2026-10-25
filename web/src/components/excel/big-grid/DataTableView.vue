@@ -4,10 +4,11 @@ import type { GridColumn, GridFooter, GridSelection } from './types'
 import type { CellValue, DatasetColumnKind, DatasetCursor, DatasetFilter, DatasetInfo, DatasetQuery, ExternalRefreshOutcome, SelectionStats, TotalFunc } from '@/api/dataset'
 import { onClickOutside, useDebounceFn, useLocalStorage } from '@vueuse/core'
 import { isCancel } from 'axios'
-import { computed, nextTick, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { CONTRIBUTION_KEY, exportUrl, getStatsApi, MAX_EXPORT_ROWS, MAX_XLSX_ROWS, openCursorApi, refreshExternalApi, totalsApi } from '@/api/dataset'
 import BusyOverlay from '@/components/excel/common/BusyOverlay.vue'
 import ExternalDatasetDialog from '@/components/excel/dataset-import/ExternalDatasetDialog.vue'
+import { clearDatasetView, publishDatasetView } from '@/features/excel/dataset/active-view'
 import { formatBool } from '@/features/excel/dataset/column-kinds'
 import { dataVersion } from '@/features/excel/dataset/data-changes'
 import { t } from '@/i18n'
@@ -193,6 +194,23 @@ async function openCursor(force = false) {
   }
 }
 const debouncedOpen = useDebounceFn(() => openCursor(), 300)
+
+// 告诉 AI 助手正在看什么：数据集、当前筛选 / 搜索 / 排序（列键换成列名）、命中行数（查询中时不给，免得是上一次的）
+watch(() => [props.dataset, props.drill, query.value, cursor.value, loading.value] as const, () => {
+  const d = props.dataset
+  const title = (key: string) => key === CONTRIBUTION_KEY ? t('贡献金额') : d.columns.find(c => c.key === key)?.title ?? key
+  publishDatasetView({
+    id: d.id,
+    name: d.name,
+    rows: d.rowCount,
+    matched: loading.value ? undefined : cursor.value?.total,
+    filters: (query.value.filters ?? []).map(f => ({ ...f, column: title(f.column) })),
+    sort: (query.value.sort ?? []).map(s => ({ ...s, column: title(s.column) })),
+    keyword: query.value.keyword,
+    drill: props.drill?.title,
+  })
+}, { immediate: true })
+onBeforeUnmount(() => clearDatasetView(props.dataset.id))
 
 /** 取消正在进行的查询，条件回到上一次成功的状态（表格里一直是那次的数据） */
 function cancelQuery() {

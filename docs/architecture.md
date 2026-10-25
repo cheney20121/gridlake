@@ -119,6 +119,8 @@ FROM read_parquet([<文件列表>], union_by_name = true, hive_partitioning = �
 
 `ai/tools.rs`。AI 工具分两类：查询类直接执行、结果回给模型；产出类只生成「建议」（kind + 参数 + 预览），用户在卡片上点「应用」后由前端调用与手动操作相同的接口（`features/excel/ai/workbook.ts`），权限检查也就和手动操作一致。数据概况 `profile_dataset` 是查询类，复用 `profile::overview`，同时开放给 MCP。清洗 `propose_clean` 和窗口计算 `create_window_dataset` 是产出类：服务端先用 `clean::preview` / `window::preview` 算出受影响行数、改前改后或新列的前几行放进卡片，模型给错参数时把错误回给它修正；因为会修改 / 新建服务端数据，不能放进方案卡（方案卡要能整体撤回），也不对 MCP 开放（MCP 没有人工确认）。数据范围受限的用户不能提这两种建议（`scope::restricted_now`），与对应接口对受限用户关闭一致。
 
+数据集页面的数据表把正在看的数据集和当前筛选 / 搜索 / 排序发布到 `features/excel/dataset/active-view.ts`，数据集页面在前台时 `collectContext` 用它代替工作表和选区作为界面上下文（`ai/mod.rs` 的 `DatasetViewCtx`），助手据此理解「这些 / 当前」指的是什么。
+
 清洗只能撤销最近一次，所以撤销卡片前先读 `GET …/clean`，确认最近一次的说明和时间与应用时记下的一致，否则拒绝，避免撤销到后来的另一次清洗。应用 / 撤销后调用 `markDataChanged`（`features/excel/dataset/data-changes.ts`），打开着的数据表据此重新建游标——查找替换不改行数，不能靠数据集列表里的行数判断。
 
 ## 汇总行
