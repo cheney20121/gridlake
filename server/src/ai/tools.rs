@@ -1387,7 +1387,7 @@ struct ViewPreview {
 
 /// 命中行数、总行数与前 6 行；有筛选 / 搜索却一行都没命中时报错，让模型去核对筛选值的写法
 fn view_preview(conn: &Connection, def: &DatasetDef, v: &View) -> AppResult<ViewPreview> {
-    let spec = QuerySpec { filters: v.filters.clone().unwrap_or_default(), keyword: v.keyword.clone().filter(|k| !k.is_empty()), sort: v.sort.clone().unwrap_or_default(), rule: None };
+    let spec = QuerySpec { filters: v.filters.clone().unwrap_or_default(), keyword: v.keyword.clone().filter(|k| !k.is_empty()), sort: v.sort.clone().unwrap_or_default(), rule: None, violation: None };
     let shown: Vec<&dataset::ColumnDef> = match v.fields.as_ref().filter(|f| !f.is_empty()) {
         Some(fs) => fs.iter().filter_map(|t| def.columns.iter().find(|x| &x.title == t)).collect(),
         None => def.columns.iter().take(8).collect(),

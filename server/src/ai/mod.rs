@@ -515,6 +515,9 @@ pub struct DatasetViewCtx {
     /// 从透视表 / 公式下钻过来时的说明
     #[serde(default)]
     pub drill: Option<String>,
+    /// 只看不符合这条校验规则的行（规则的说明）
+    #[serde(default)]
+    pub violation: Option<String>,
 }
 
 fn dataset_view_text(d: &DatasetViewCtx) -> String {
@@ -526,6 +529,9 @@ fn dataset_view_text(d: &DatasetViewCtx) -> String {
     if let Some(t) = d.drill.as_deref().filter(|t| !t.is_empty()) {
         bits.push(format!("从「{t}」下钻过来"));
     }
+    if let Some(v) = d.violation.as_deref().filter(|v| !v.is_empty()) {
+        bits.push(format!("只看不符合校验规则 {v} 的行"));
+    }
     if !d.filters.is_empty() {
         bits.push(format!("筛选：{}", tools::filters_desc(&d.filters)));
     }
@@ -535,7 +541,7 @@ fn dataset_view_text(d: &DatasetViewCtx) -> String {
     if !d.sort.is_empty() {
         bits.push(format!("排序：{}", d.sort.iter().map(|x| format!("{}{}", x.column, if x.desc { "降序" } else { "升序" })).collect::<Vec<_>>().join("、")));
     }
-    let narrowed = !d.filters.is_empty() || d.keyword.as_deref().is_some_and(|k| !k.is_empty());
+    let narrowed = !d.filters.is_empty() || d.keyword.as_deref().is_some_and(|k| !k.is_empty()) || d.violation.as_deref().is_some_and(|v| !v.is_empty());
     if let (Some(m), true) = (d.matched, narrowed) {
         bits.push(format!("命中 {m} 行"));
     }
@@ -978,7 +984,7 @@ mod tests {
         assert!(context_text(&ctx).contains("店铺\t12.5"));
         // 数据集页面：说明正在看哪个数据集、当前筛选与命中行数；没有筛选时不提「带上同样的筛选」
         let view = |filters: Vec<crate::dataset::Filter>, keyword: Option<&str>| Context {
-            dataset: Some(DatasetViewCtx { name: "订单".into(), rows: Some(1000), matched: Some(12), filters, sort: vec![], keyword: keyword.map(String::from), drill: None }),
+            dataset: Some(DatasetViewCtx { name: "订单".into(), rows: Some(1000), matched: Some(12), filters, sort: vec![], keyword: keyword.map(String::from), drill: None, violation: None }),
             ..Default::default()
         };
         let t = context_text(&view(vec![crate::dataset::Filter::In { column: "店铺".into(), values: vec!["A".into()] }], Some("退款")));

@@ -5068,6 +5068,123 @@
         ]
       }
     },
+    "/ledger/datasets/{id}/validation": {
+      "get": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "数据校验规则与最近一次检查结果",
+        "description": "数据校验规则与最近一次检查结果",
+        "operationId": "get_ledger_datasets_by_id_validation",
+        "x-permission": "登录用户",
+        "x-restricted-users": true,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "{ rules: [] } 保存校验规则并立即检查",
+        "description": "{ rules: [{ column, kind: required / unique / range / format / allowed, … }] }  保存校验规则并立即检查",
+        "operationId": "put_ledger_datasets_by_id_validation",
+        "x-permission": "数据集所有者或管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-audit": "设置数据校验规则",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidationBody"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ledger/datasets/{id}/validation/check": {
+      "post": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "按规则重新检查（数据范围受限的用户只检查自己能看到的行）",
+        "description": "按规则重新检查（数据范围受限的用户只检查自己能看到的行）",
+        "operationId": "post_ledger_datasets_by_id_validation_check",
+        "x-permission": "登录用户",
+        "x-restricted-users": true,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
     "/ledger/datasets/{id}/window": {
       "post": {
         "tags": [
@@ -9808,6 +9925,30 @@
           }
         }
       },
+      "Check": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string",
+            "description": "pass 通过 / warn 提示 / fail 不通过"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "level",
+          "message"
+        ]
+      },
       "CleanOp": {},
       "CloseAction": {
         "type": "object",
@@ -10183,6 +10324,10 @@
           "drill": {
             "type": "string",
             "description": "从透视表 / 公式下钻过来时的说明"
+          },
+          "violation": {
+            "type": "string",
+            "description": "只看不符合这条校验规则的行（规则的说明）"
           }
         },
         "required": [
@@ -11328,6 +11473,14 @@
               "$ref": "#/components/schemas/RuleTerm"
             },
             "description": "汇总项规则：只保留贡献不为 0 的行，并提供贡献列（可按 __contribution 排序）"
+          },
+          "violation": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Rule"
+              }
+            ],
+            "description": "只看不符合这条校验规则的行（见 validation.rs）"
           }
         },
         "required": [
@@ -11582,6 +11735,24 @@
         },
         "required": [
           "filter"
+        ]
+      },
+      "Rule": {
+        "allOf": [
+          {
+            "type": "object",
+            "properties": {
+              "column": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "column"
+            ]
+          },
+          {
+            "$ref": "#/components/schemas/Check"
+          }
         ]
       },
       "RuleTerm": {},
@@ -12279,6 +12450,20 @@
         },
         "required": [
           "name"
+        ]
+      },
+      "ValidationBody": {
+        "type": "object",
+        "properties": {
+          "ules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Rule"
+            }
+          }
+        },
+        "required": [
+          "ules"
         ]
       },
       "ViewColumn": {

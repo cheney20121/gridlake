@@ -171,6 +171,7 @@ fn purge_ids(conn: &Connection, ids: &[String]) -> AppResult<Vec<String>> {
             conn.execute("DELETE FROM ledger_calc_column WHERE dataset_id = ?", params![r.id])?;
             conn.execute("DELETE FROM ledger_writeback WHERE dataset_id = ?", params![r.id])?;
             crate::clean::forget(conn, &r.id)?;
+            crate::validation::forget(conn, &r.id)?;
             if r.kind == "recon" {
                 crate::recon::purge(conn, &r.id)?;
             }

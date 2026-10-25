@@ -323,6 +323,27 @@ pub async fn clean_apply(State(db): State<AppState>, Extension(user): Extension<
     Ok(ok(r))
 }
 
+/// GET /api/ledger/datasets/{id}/validation  数据校验规则与最近一次检查结果
+pub async fn validation_get(State(db): State<AppState>, Path(id): Path<String>) -> AppResult<Json<Envelope<crate::validation::Validation>>> {
+    Ok(ok(blocking(&db, move |conn| crate::validation::get(conn, &id)).await?))
+}
+
+#[derive(Deserialize)]
+pub struct ValidationBody {
+    pub rules: Vec<crate::validation::Rule>,
+}
+
+/// PUT /api/ledger/datasets/{id}/validation  { rules: [{ column, kind: required / unique / range / format / allowed, … }] }  保存校验规则并立即检查
+pub async fn validation_save(State(db): State<AppState>, Extension(user): Extension<CurrentUser>, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Envelope<crate::validation::Validation>>> {
+    let req: ValidationBody = parse_json(&body)?;
+    Ok(ok(blocking_heavy(&db, move |conn| crate::validation::save(conn, &id, req.rules, &user)).await?))
+}
+
+/// POST /api/ledger/datasets/{id}/validation/check  按规则重新检查（数据范围受限的用户只检查自己能看到的行）
+pub async fn validation_check(State(db): State<AppState>, Path(id): Path<String>) -> AppResult<Json<Envelope<crate::validation::Report>>> {
+    Ok(ok(blocking_heavy(&db, move |conn| crate::validation::check(conn, &id)).await?))
+}
+
 /// GET /api/ledger/datasets/{id}/clean  最近一次清洗与能否撤销（没有时为 null）
 pub async fn clean_last(State(db): State<AppState>, Path(id): Path<String>) -> AppResult<Json<Envelope<Option<crate::clean::LastClean>>>> {
     Ok(ok(blocking(&db, move |conn| crate::clean::last(conn, &id)).await?))

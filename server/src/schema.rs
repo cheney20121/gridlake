@@ -665,6 +665,14 @@ CREATE TABLE IF NOT EXISTS ledger_clean (
   undone_at TIMESTAMP,
   undone_by VARCHAR
 );
+-- 数据校验规则（JSON 数组）与最近一次检查结果（JSON；规则改过后清空，重新检查后写入）
+CREATE TABLE IF NOT EXISTS ledger_validation (
+  dataset_id VARCHAR PRIMARY KEY,
+  rules VARCHAR NOT NULL,
+  report VARCHAR,
+  updated_by VARCHAR,
+  updated_at TIMESTAMP
+);
 -- 事件 Webhook：地址与签名密钥加密存放，events 为订阅的事件名（JSON 数组，["*"] 表示全部）
 CREATE TABLE IF NOT EXISTS ledger_webhook (
   id VARCHAR PRIMARY KEY,

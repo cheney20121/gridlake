@@ -30,6 +30,7 @@ pub const EVENTS: &[(&str, &str)] = &[
     ("dataset.imported", "向已有数据集导入：追加、整体替换、按主键更新"),
     ("dataset.deleted", "数据集移入回收站"),
     ("dataset.refreshed", "外部数据集的文件有变化，重新读取了（手动刷新、自动检查、修改读取方式）"),
+    ("dataset.validation_failed", "数据变了以后按校验规则重新检查，有不合格的行（导入、同步、外部文件刷新、清洗之后）"),
     ("sql.refreshed", "SQL 查询重算并写入数据集（手动、定时、同步后）"),
     ("connector.synced", "数据连接同步结束（成功、没有新数据、失败）"),
     ("writeback.submitted", "填报提交"),

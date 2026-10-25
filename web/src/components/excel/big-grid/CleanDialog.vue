@@ -49,7 +49,7 @@ const form = reactive({
 /** 能清洗的列：数据表里实际存的列（计算列不行） */
 const columns = computed(() => props.dataset.columns.filter(c => !c.computed))
 const textColumns = computed(() => columns.value.filter(c => c.kind === 'text' || c.kind === 'id'))
-const hasFilter = computed(() => !!props.query.filters?.length || !!props.query.keyword?.trim())
+const hasFilter = computed(() => !!props.query.filters?.length || !!props.query.keyword?.trim() || !!props.query.violation)
 
 const preview = ref<CleanPreview | null>(null)
 const previewError = ref('')

@@ -208,7 +208,7 @@ fn plan(def: &dataset::DatasetDef, cols: &[StoredColumn], op: &CleanOp) -> AppRe
             }
         }
         CleanOp::DeleteRows { spec } => {
-            let has_filter = !spec.filters.is_empty() || spec.keyword.as_deref().is_some_and(|k| !k.trim().is_empty());
+            let has_filter = !spec.filters.is_empty() || spec.keyword.as_deref().is_some_and(|k| !k.trim().is_empty()) || spec.violation.is_some();
             if !has_filter {
                 return Err(AppError::bad("请先筛选出要删除的行（没有筛选条件时不能整表删除；要清空请删除数据集）"));
             }

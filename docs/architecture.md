@@ -129,6 +129,12 @@ FROM read_parquet([<文件列表>], union_by_name = true, hive_partitioning = �
 
 前端把汇总行画在 canvas 外的一行 HTML 里（`BigGrid` 的 `footer`），按 `scrollLeft` 平移与列对齐；切换游标（筛选变了、数据变了）就重算，改了某列的方式只等那一列。开关和每列的选择存在浏览器本地（与列宽一样），不影响别人。
 
+## 数据校验
+
+`server/src/validation.rs`。每条规则翻译成「不合格的行」的 SQL 条件（`violation_sql`，值都走参数）：必填是空值或只有空白；不能重复是 `列 IN (SELECT 列 … GROUP BY 列 HAVING count(*) > 1)`；范围、格式（`regexp_full_match`）、取值列表都先排除空值（空值归「必填」管）。检查把所有规则拼成一条 `SELECT count(*) FILTER (WHERE 条件1), …, count(*) FILTER (WHERE 条件1 OR 条件2 …)`，一次扫描得到每条规则和「至少违反一条」的行数，再给不合格的规则各取几个样例值。规则和最近一次结果存在 `ledger_validation`，数据集列表带一份小结。
+
+同一个条件也是查询条件的一部分：`QuerySpec::violation` 放一条规则，`where_clause` 把它和其他筛选一起拼进 WHERE，所以「只看不合格的行」对游标、透视、导出、数据清洗都一样有效（直通游标的判断也要看它）。数据变了以后（`sqlq::on_data_changed`：导入、同步、外部刷新、清洗）在后台重新检查，有不合格的发 `dataset.validation_failed`。数据范围受限的用户手动检查时，数据集定义已经换成带过滤的子查询，结果只代表他能看到的行，所以不保存。
+
 ## 拆分 / 合并列
 
 拆分 / 合并不改存储的数据，而是生成计算列（`calc.rs` 的 `SPLITPART` / `TEXTAFTER` / `TEXTJOIN` / `CONCAT`，翻译成 DuckDB 的 `split_part` / `string_split` / `concat_ws`）：导入追加、数据连接同步时只写登记过来源的列，物理上拆出来的新列在新行里会是空的，而计算列对每一行（包括以后进来的）都有效，删掉就回到原样，也不用另做撤销。`column_split.rs` 只负责预览：一条 `GROUP BY len(string_split(列, 分隔符))` 数出各段数的行数，再取几个样例（最常见段数的在前），前端据此定列数、起列名，按 `features/excel/dataset/split-merge.ts` 生成公式后逐个加计算列，中途失败把已加的撤回。

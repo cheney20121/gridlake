@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { DatasetDrill } from './drill'
 import type { GridColumn, GridFooter, GridSelection } from './types'
-import type { CellValue, DatasetColumnKind, DatasetCursor, DatasetFilter, DatasetInfo, DatasetQuery, ExternalRefreshOutcome, SelectionStats, TotalFunc } from '@/api/dataset'
+import type { CellValue, DatasetColumnKind, DatasetCursor, DatasetFilter, DatasetInfo, DatasetQuery, ExternalRefreshOutcome, SelectionStats, TotalFunc, ValidationRule } from '@/api/dataset'
 import { onClickOutside, useDebounceFn, useLocalStorage } from '@vueuse/core'
 import { isCancel } from 'axios'
 import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
@@ -22,6 +22,7 @@ import FilterMenu from './FilterMenu.vue'
 import ProfileDrawer from './ProfileDrawer.vue'
 import SplitMergeDialog from './SplitMergeDialog.vue'
 import { formatTotal, pickTotal, totalFuncs, totalLabel } from './totals'
+import ValidationDialog from './ValidationDialog.vue'
 import WindowCalcDialog from './WindowCalcDialog.vue'
 
 /** 大数据表视图：工具栏（搜索 / 筛选标签 / 下钻核对）+ canvas 表格 + 状态栏（选区统计） */
@@ -136,12 +137,15 @@ const keyword = ref('')
 const userFilters = ref<DatasetFilter[]>([])
 const sort = ref<{ column: string, desc: boolean } | null>(null)
 const useRule = ref(true)
+/** 只看不符合某条校验规则的行（label 是规则的说明，显示在筛选标签上） */
+const violation = shallowRef<{ rule: ValidationRule, label: string } | null>(null)
 
 const query = computed<DatasetQuery>(() => ({
   filters: [...(props.drill?.filters ?? []), ...userFilters.value],
   keyword: keyword.value.trim() || undefined,
   sort: sort.value ? [sort.value] : [],
   rule: useRule.value ? props.drill?.rule : undefined,
+  violation: violation.value?.rule,
 }))
 
 const filteredColumns = computed(() => new Set(userFilters.value.map(f => f.column)))
@@ -158,7 +162,7 @@ const error = ref('')
 let controller: AbortController | null = null
 
 /** 上一次成功的查询条件：取消 / 失败后还原到它，界面上的筛选标签、排序箭头才和表格里的数据一致 */
-let lastGood: { key: string, filters: DatasetFilter[], keyword: string, sort: { column: string, desc: boolean } | null, useRule: boolean } | null = null
+let lastGood: { key: string, filters: DatasetFilter[], keyword: string, sort: { column: string, desc: boolean } | null, useRule: boolean, violation: typeof violation.value } | null = null
 const queryKey = () => JSON.stringify(query.value)
 
 /** force：条件没变也重新取（下钻切换、列定义变化、游标失效）；否则条件与当前游标相同就不重复请求 */
@@ -173,7 +177,7 @@ async function openCursor(force = false) {
   const c = new AbortController()
   controller = c
   const key = queryKey()
-  const snapshot = { filters: JSON.parse(JSON.stringify(userFilters.value)), keyword: keyword.value, sort: sort.value ? { ...sort.value } : null, useRule: useRule.value }
+  const snapshot = { filters: JSON.parse(JSON.stringify(userFilters.value)), keyword: keyword.value, sort: sort.value ? { ...sort.value } : null, useRule: useRule.value, violation: violation.value }
   loading.value = true
   error.value = ''
   try {
@@ -197,7 +201,7 @@ async function openCursor(force = false) {
 const debouncedOpen = useDebounceFn(() => openCursor(), 300)
 
 // 告诉 AI 助手正在看什么：数据集、当前筛选 / 搜索 / 排序（列键换成列名）、命中行数（查询中时不给，免得是上一次的）
-watch(() => [props.dataset, props.drill, query.value, cursor.value, loading.value] as const, () => {
+watch(() => [props.dataset, props.drill, query.value, cursor.value, loading.value, violation.value] as const, () => {
   const d = props.dataset
   const title = (key: string) => key === CONTRIBUTION_KEY ? t('贡献金额') : d.columns.find(c => c.key === key)?.title ?? key
   publishDatasetView({
@@ -209,6 +213,7 @@ watch(() => [props.dataset, props.drill, query.value, cursor.value, loading.valu
     sort: (query.value.sort ?? []).map(s => ({ ...s, column: title(s.column) })),
     keyword: query.value.keyword,
     drill: props.drill?.title,
+    violation: violation.value?.label,
   })
 }, { immediate: true })
 onBeforeUnmount(() => clearDatasetView(props.dataset.id))
@@ -232,6 +237,7 @@ function revertQuery() {
   keyword.value = g.keyword
   sort.value = g.sort
   useRule.value = g.useRule
+  violation.value = g.violation
 }
 
 watch(() => props.drill, () => {
@@ -239,9 +245,10 @@ watch(() => props.drill, () => {
   keyword.value = ''
   sort.value = null
   useRule.value = true
+  violation.value = null
   openCursor(true)
 }, { immediate: true })
-watch(() => [userFilters.value, sort.value, useRule.value], () => openCursor(), { deep: true })
+watch(() => [userFilters.value, sort.value, useRule.value, violation.value], () => openCursor(), { deep: true })
 watch(keyword, debouncedOpen)
 // 新增 / 修改 / 删除计算列、修改关联定义后：重新建游标取数（列名不变但值变了也要刷新）
 watch(() => JSON.stringify([props.dataset.columns.map(c => [c.key, c.kind, c.formula]), props.dataset.view]), (now, before) => {
@@ -493,6 +500,12 @@ async function openGoto() {
 }
 
 const windowVisible = ref(false)
+/** 数据校验：所有人能看规则、重新检查；所有者 / 管理员能改规则 */
+const validationVisible = ref(false)
+const canManage = computed(() => {
+  const d = props.dataset
+  return !ledgerUser.authRequired || ledgerUser.isAdmin || (!!d.ownerId && d.ownerId === ledgerUser.user?.id)
+})
 /** 拆分 / 合并列（加计算列）：关联视图上不能加计算列 */
 const splitVisible = ref(false)
 /** 数据清洗：只有数据表（导入 / 填报的）的所有者或管理员，数据范围受限的不行 */
@@ -512,8 +525,10 @@ function onCleaned() {
   emit('changed', props.dataset.id)
 }
 
-function onMore(cmd: 'calc' | 'split' | 'join' | 'window' | 'clean' | 'copy' | 'goto') {
-  if (cmd === 'split')
+function onMore(cmd: 'calc' | 'split' | 'join' | 'window' | 'clean' | 'validate' | 'copy' | 'goto') {
+  if (cmd === 'validate')
+    validationVisible.value = true
+  else if (cmd === 'split')
     splitVisible.value = true
   else if (cmd === 'clean')
     cleanVisible.value = true
@@ -544,6 +559,7 @@ function doGoto() {
 /** 当前筛选的文字描述（写入 Excel 汇总页签） */
 const queryDesc = computed(() => [
   props.drill ? t('下钻：{0}', [props.drill.title]) : '',
+  violation.value ? t('不符合 {0}', [violation.value.label]) : '',
   ...userFilters.value.map(filterLabel),
   keyword.value.trim() ? t('关键字「{0}」', [keyword.value.trim()]) : '',
   sort.value ? t('按「{0}」{1}', [columns.value.find(c => c.key === sort.value!.column)?.title ?? sort.value.column, sort.value.desc ? t('降序') : t('升序')]) : '',
@@ -607,6 +623,12 @@ function exportData(format: 'csv' | 'xlsx') {
       </span>
       <el-input v-if="dataset.searchable" v-model="keyword" size="small" clearable :placeholder="$t('搜索订单号 / 流水号 / 商品 / 达人 / 备注')" class="min-w-44 max-w-72 flex-1" />
       <div class="min-w-0 flex flex-1 flex-wrap items-center gap-1.5 overflow-hidden">
+        <el-tag v-if="dataset.validation" size="small" :type="dataset.validation.failed ? 'danger' : 'success'" effect="plain" class="cursor-pointer" data-testid="validation-badge" :title="dataset.validation.checkedAt ? $t('检查于 {0}', [dataset.validation.checkedAt]) : ''" @click="validationVisible = true">
+          {{ dataset.validation.failed ? $t('校验：{0} 项不通过（{1} 行）', [dataset.validation.failed, dataset.validation.badRows.toLocaleString()]) : $t('校验通过') }}
+        </el-tag>
+        <el-tag v-if="violation" size="small" type="warning" closable data-testid="violation-tag" @close="violation = null">
+          {{ $t('只看不合格：{0}', [violation.label]) }}
+        </el-tag>
         <el-tag v-for="(f, i) in userFilters" :key="i" size="small" closable @close="removeFilter(i)">
           {{ filterLabel(f) }}
         </el-tag>
@@ -641,6 +663,9 @@ function exportData(format: 'csv' | 'xlsx') {
               </el-dropdown-item>
               <el-dropdown-item command="join">
                 {{ $t('关联…（按键带入另一个数据集的列）') }}
+              </el-dropdown-item>
+              <el-dropdown-item command="validate" data-testid="open-validation">
+                {{ $t('数据校验…（必填、不重复、范围、格式，找出不合格的行）') }}
               </el-dropdown-item>
               <el-dropdown-item v-if="canClean" command="clean" data-testid="open-clean">
                 {{ $t('数据清洗…（去重、去空白、查找替换、填充空值）') }}
@@ -791,6 +816,7 @@ function exportData(format: 'csv' | 'xlsx') {
         {{ $t('不汇总') }}
       </button>
     </div>
+    <ValidationDialog v-model:visible="validationVisible" :dataset="dataset" :can-edit="canManage && !ledgerUser.restricted" @filter="(rule, label) => violation = { rule, label }" @changed="emit('changed', dataset.id)" />
     <SplitMergeDialog v-model:visible="splitVisible" :dataset="dataset" @changed="emit('changed', dataset.id)" />
     <CleanDialog v-model:visible="cleanVisible" :dataset="dataset" :query="query" :filter-text="queryDesc" @changed="onCleaned" />
     <WindowCalcDialog v-model:visible="windowVisible" :dataset="dataset" @created="(id: string) => emit('openDataset', id)" />

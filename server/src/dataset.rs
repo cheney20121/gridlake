@@ -511,9 +511,13 @@ pub struct DatasetInfo {
     /// 所有者（登录体系启用前创建的、内置的没有所有者，只有管理员能改名 / 删除 / 改结构）
     pub owner_id: Option<String>,
     pub owner_name: Option<String>,
+    /// 设了校验规则时：规则条数、不合格的规则条数与行数
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub validation: Option<crate::validation::Summary>,
 }
 
 pub fn list(conn: &Connection) -> AppResult<Vec<DatasetInfo>> {
+    let mut validation = crate::validation::summaries(conn)?;
     let owners: HashMap<String, (Option<String>, Option<String>)> = {
         let mut stmt = conn.prepare("SELECT id, owner_id, owner_name FROM ledger_dataset")?;
         stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, (r.get(1)?, r.get(2)?))))?.collect::<Result<_, _>>()?
@@ -527,7 +531,8 @@ pub fn list(conn: &Connection) -> AppResult<Vec<DatasetInfo>> {
                 None => conn.query_row(&format!("SELECT count(*) FROM {}", def.table), [], |r| r.get(0))?,
             };
             let (owner_id, owner_name) = owners.get(&def.id).cloned().unwrap_or((None, None));
-            Ok(DatasetInfo { def, row_count, owner_id, owner_name })
+            let validation = validation.remove(&def.id);
+            Ok(DatasetInfo { def, row_count, owner_id, owner_name, validation })
         })
         .collect()
 }
@@ -607,6 +612,9 @@ pub struct QuerySpec {
     pub sort: Vec<SortSpec>,
     /// 汇总项规则：只保留贡献不为 0 的行，并提供贡献列（可按 __contribution 排序）
     pub rule: Option<Vec<RuleTerm>>,
+    /// 只看不符合这条校验规则的行（见 validation.rs）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub violation: Option<crate::validation::Rule>,
 }
 
 fn escape_like(s: &str) -> String {
@@ -696,6 +704,11 @@ fn where_clause(def: &DatasetDef, spec: &QuerySpec, contribution: Option<&str>, 
         }
         conds.push("search_text LIKE ? ESCAPE '\\'".into());
         args.push(Value::Text(format!("%{}%", escape_like(&kw.to_lowercase()))));
+    }
+    if let Some(rule) = &spec.violation {
+        let (c, a) = crate::validation::violation_sql(def, rule)?;
+        conds.push(c);
+        args.extend(a);
     }
     if let Some(expr) = contribution {
         conds.push(format!("({expr}) <> 0"));
@@ -930,7 +943,7 @@ fn drop_cursor_table(conn: &Connection, e: &CursorEntry) {
 /// （min / max / count 都是秒内的元数据级查询；删过行留下空洞时返回 None，由调用方物化）
 fn plain_total(conn: &Connection, def: &DatasetDef, spec: &QuerySpec, contribution: Option<&str>) -> AppResult<Option<i64>> {
     let no_keyword = spec.keyword.as_deref().is_none_or(|k| k.trim().is_empty());
-    if !(spec.filters.is_empty() && no_keyword && spec.sort.is_empty() && contribution.is_none() && def.scope_sig.is_empty() && (def.rid == "rowid" || def.external.is_some())) {
+    if !(spec.filters.is_empty() && no_keyword && spec.sort.is_empty() && contribution.is_none() && spec.violation.is_none() && def.scope_sig.is_empty() && (def.rid == "rowid" || def.external.is_some())) {
         return Ok(None);
     }
     // 外部数据集：位置按文件顺序连续，总行数记在定义里

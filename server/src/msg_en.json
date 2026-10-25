@@ -942,5 +942,17 @@
   "生成数据集": "create datasets",
   "请填分隔符": "Enter a separator",
   "分隔符不能为空": "The separator cannot be empty",
-  "TEXTJOIN 的第二个参数要写 TRUE（忽略空值）或 FALSE": "The second argument of TEXTJOIN must be TRUE (ignore empty values) or FALSE"
+  "TEXTJOIN 的第二个参数要写 TRUE（忽略空值）或 FALSE": "The second argument of TEXTJOIN must be TRUE (ignore empty values) or FALSE",
+  "自定义格式要填正则表达式": "A custom format needs a regular expression",
+  "正则表达式太长（最多 200 个字符）": "The regular expression is too long (200 characters at most)",
+  "不认识的格式：{0}": "Unknown format: {0}",
+  "「{0}」的范围要写数字": "The range of “{0}” must be numbers",
+  "「{0}」的范围至少要写最小值或最大值": "The range of “{0}” needs a minimum or a maximum",
+  "「{0}」允许的取值不能为空": "The allowed values of “{0}” cannot be empty",
+  "一个数据集最多 {0} 条校验规则": "A dataset can have at most {0} validation rules",
+  "「{0}」是{1}列，取值范围只能用于数值、金额、整数和日期时间列": "“{0}” is a {1} column; ranges only apply to number, money, integer and date-time columns",
+  "「{0}」的最小值不能大于最大值": "The minimum of “{0}” cannot be greater than the maximum",
+  "「{0}」的正则表达式写得不对：{1}": "The regular expression for “{0}” is invalid: {1}",
+  "「{0}」允许的取值最多 {1} 个": "“{0}” can have at most {1} allowed values",
+  "「{0}」还没有设置校验规则": "“{0}” has no validation rules yet"
 }

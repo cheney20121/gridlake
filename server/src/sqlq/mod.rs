@@ -866,6 +866,17 @@ pub fn on_data_changed(state: &AppState, dataset_id: &str) {
         }
         crate::report::on_data_changed(&st, &did);
         crate::report::alert::on_data_changed(&st, &did);
+        // 数据校验：按规则重新检查，有不合格的发事件
+        let st2 = st.clone();
+        let checked = tokio::task::spawn_blocking(move || st2.connection().map_err(AppError::from).and_then(|conn| crate::validation::recheck(&conn, &did))).await;
+        match checked {
+            Ok(Ok(Some((def, report)))) if report.failed > 0 => {
+                let failed: Vec<serde_json::Value> = report.results.iter().filter(|r| r.violations > 0).map(|r| serde_json::json!({ "rule": r.label, "violations": r.violations })).collect();
+                crate::webhook::emit(&st, "dataset.validation_failed", None, serde_json::json!({ "datasetId": def.id, "datasetName": def.name, "rows": report.rows, "badRows": report.bad_rows, "failed": failed }));
+            }
+            Ok(Err(e)) => tracing::warn!("数据更新后的校验失败：{}", e.message()),
+            _ => {}
+        }
     });
 }
 

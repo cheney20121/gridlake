@@ -16,6 +16,8 @@ export interface DatasetViewContext {
   keyword?: string
   /** 从透视表 / 公式下钻过来时的说明 */
   drill?: string
+  /** 只看不符合这条校验规则的行（规则的说明） */
+  violation?: string
 }
 
 const view = shallowRef<DatasetViewContext | null>(null)

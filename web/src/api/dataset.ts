@@ -42,6 +42,8 @@ export interface DatasetInfo {
   /** 所有者（内置与登录校验启用前创建的没有所有者，只有管理员能改名 / 删除 / 改结构） */
   ownerId?: string | null
   ownerName?: string | null
+  /** 设了校验规则时的小结 */
+  validation?: ValidationSummary
 }
 
 /** 筛选条件；In 的 "" 表示空值 */
@@ -63,6 +65,63 @@ export interface DatasetQuery {
   sort?: DatasetSort[]
   /** 汇总项规则：只保留有贡献的行，并提供贡献列 */
   rule?: RuleTerm[]
+  /** 只看不符合这条校验规则的行 */
+  violation?: ValidationRule
+}
+
+// ── 数据校验 ──
+
+export type ValidationFormat = 'phone' | 'email' | 'date' | 'digits' | 'idcard' | 'regex'
+
+/** 校验规则：必填 / 不能重复 / 取值范围 / 格式 / 只能是某几个值 */
+export type ValidationRule
+  = | { column: string, kind: 'required' }
+    | { column: string, kind: 'unique' }
+    | { column: string, kind: 'range', min?: number | string | null, max?: number | string | null }
+    | { column: string, kind: 'format', format: ValidationFormat, pattern?: string }
+    | { column: string, kind: 'allowed', values: string[] }
+
+export interface ValidationResult {
+  rule: ValidationRule
+  label: string
+  violations: number
+  samples: string[]
+}
+
+export interface ValidationReport {
+  rows: number
+  badRows: number
+  failed: number
+  results: ValidationResult[]
+  checkedAt: string
+  elapsedMs: number
+}
+
+export interface DatasetValidation {
+  rules: ValidationRule[]
+  report: ValidationReport | null
+  updatedBy: string | null
+  updatedAt: string | null
+}
+
+export interface ValidationSummary {
+  rules: number
+  failed: number
+  badRows: number
+  checkedAt: string | null
+}
+
+export function getValidationApi(datasetId: string) {
+  return request<DatasetValidation>({ url: url(`/${datasetId}/validation`), method: 'get' })
+}
+
+/** 保存规则并立即检查 */
+export function saveValidationApi(datasetId: string, rules: ValidationRule[]) {
+  return request<DatasetValidation>({ url: url(`/${datasetId}/validation`), method: 'put', data: { rules }, timeout: 5 * 60 * 1000 })
+}
+
+export function checkValidationApi(datasetId: string) {
+  return request<ValidationReport>({ url: url(`/${datasetId}/validation/check`), method: 'post', timeout: 5 * 60 * 1000 })
 }
 
 /** 规则贡献列在排序 / 统计中的键 */
