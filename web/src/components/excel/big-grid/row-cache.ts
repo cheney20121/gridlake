@@ -49,14 +49,21 @@ export class RowCache {
 
   /** 声明当前需要的行区间；只保留最新视口的待取段，快速滚动时不会排长队 */
   ensure(from: number, to: number) {
+    this.ensureSpans([[from, to]])
+  }
+
+  /** 同上，几段不连续的行（分类汇总折叠了中间的组时，屏幕上的数据行不连续） */
+  ensureSpans(spans: [number, number][]) {
     if (!this.cursorId || this.total === 0)
       return
-    const first = Math.floor(Math.max(0, from) / CHUNK)
-    const last = Math.floor(Math.min(this.total - 1, to) / CHUNK)
     this.wanted = []
-    for (let i = first; i <= last; i++) {
-      if (!this.chunks.has(i) && !this.loading.has(i))
-        this.wanted.push(i)
+    for (const [from, to] of spans) {
+      const first = Math.floor(Math.max(0, from) / CHUNK)
+      const last = Math.floor(Math.min(this.total - 1, to) / CHUNK)
+      for (let i = first; i <= last; i++) {
+        if (!this.chunks.has(i) && !this.loading.has(i) && !this.wanted.includes(i))
+          this.wanted.push(i)
+      }
     }
     this.pump()
   }

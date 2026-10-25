@@ -1,5 +1,5 @@
 // 分类汇总（界面）：列头菜单「按此列分类汇总」→ 数据按店铺排好、每组后面一行小计（画布上出现小计行的底色）→
-// 全选时只数数据行 → 标签上显示几组 → 取消
+// 全部折叠 / 点小计行的行号展开一组 / 全部展开 → 全选时只数数据行 → 标签上显示几组 → 取消
 import assert from 'node:assert/strict'
 import path from 'node:path'
 import { after, before, describe, it } from 'node:test'
@@ -54,6 +54,20 @@ describe('分类汇总（界面）', { skip }, () => {
       await page.waitFor(`${tag}.includes('按「店铺」分类汇总（4 组）')`, { what: '分类汇总标签：4 组', timeout: 30_000 })
       await page.waitFor(`${tinted} > 1000`, { what: '画布上出现小计行', timeout: 30_000 })
       await page.screenshot(path.join(ARTIFACTS, 'subtotals.png')).catch(() => {})
+
+      // 第 i 个显示行是不是小计行（看行首一个像素的底色）
+      const isSub = i => `(() => { const cv = document.querySelector('.scroller').parentElement.querySelector('canvas'); const k = window.devicePixelRatio || 1; const d = cv.getContext('2d').getImageData(Math.round((48 + 8) * k), Math.round((48 + ${i} * 24 + 4) * k), 1, 1).data; return d[0] === 238 && d[1] === 246 && d[2] === 241 })()`
+      const pattern = async n => (await Promise.all(Array.from({ length: n }, (_, i) => page.eval(isSub(i))))).map(x => x ? 'S' : 'd').join('')
+      assert.equal(await pattern(5), 'ddSdd', '上海店 2 行 + 小计，北京店…')
+      await page.click('[data-testid="collapse-all"]')
+      await page.waitFor(`${isSub(0)} && ${isSub(3)} && !${isSub(4)}`, { what: '全部折叠：只剩 4 行小计', timeout: 30_000 })
+      await page.screenshot(path.join(ARTIFACTS, 'subtotals-collapsed.png')).catch(() => {})
+      // 点「北京店」小计（第 2 行）的行号：展开这一组
+      await page.mouseClick(canvas[0] + 20, canvas[1] + 48 + 24 * 1 + 12)
+      await page.waitFor(`${isSub(0)} && !${isSub(1)} && !${isSub(3)} && ${isSub(4)}`, { what: '展开北京店', timeout: 30_000 })
+      assert.equal(await pattern(7), 'SdddSSS')
+      await page.click('[data-testid="expand-all"]')
+      await page.waitFor(`!${isSub(0)} && ${isSub(2)}`, { what: '全部展开', timeout: 30_000 })
 
       // 全选：7 个数据行（不含 4 行小计）
       await page.mouseClick(canvas[0] + 48 + 20, canvas[1] + 48 + 24 * 1 + 12)

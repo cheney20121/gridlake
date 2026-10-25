@@ -46,6 +46,8 @@ const emit = defineEmits<{
   (e: 'expired'): void
   /** 按了 Ctrl / ⌘ + G：请父组件弹出「跳转到行」 */
   (e: 'gotoRequest'): void
+  /** 分类汇总：点小计行的行号（或双击小计行）折叠 / 展开这一组 */
+  (e: 'groupToggle', group: number): void
   /** 点了汇总行的某一格；rect 为格子在视口中的位置 */
   (e: 'footerClick', column: GridColumn, rect: DOMRect): void
 }>()
@@ -71,7 +73,7 @@ const gmap = computed(() => {
   const g = props.groups
   if (!g)
     return null
-  const m = new GroupMap(g.sizes)
+  const m = new GroupMap(g.sizes, g.collapsed ?? [])
   return m.dataTotal === props.total ? m : null
 })
 /** 显示的行数 */
@@ -183,9 +185,11 @@ function draw() {
   const first = firstRow.value
   const last = Math.min(rows.value - 1, first + viewRows.value)
   const m = gmap.value
-  const span: [number, number] | null = m && last >= first ? m.dataRange(first, last) : [first, last]
-  if (span)
-    cache.ensure(span[0] - 40, span[1] + 120)
+  // 多取一些上下的行，滚动时不闪；折叠的组不取
+  if (m)
+    cache.ensureSpans(m.dataSpans(Math.max(0, first - 40), Math.min(rows.value - 1, last + 120)))
+  else
+    cache.ensure(first - 40, last + 120)
   drawGrid(ctx, {
     width: width.value,
     height: height.value,
@@ -216,7 +220,7 @@ function draw() {
     rowLabel: m
       ? (r) => {
           const v = m.at(r)
-          return v.kind === 'data' ? integer.format(v.row + 1) : ''
+          return v.kind === 'data' ? integer.format(v.row + 1) : m.isCollapsed(v.group) ? '▸' : '▾'
         }
       : undefined,
   })
@@ -301,12 +305,19 @@ function onMouseDown(e: MouseEvent) {
         : { anchor: { row: 0, col: hit.col }, focus: { row: lastRow, col: hit.col } })
       drag = { kind: 'cols' }
       break
-    case 'row':
+    case 'row': {
+      // 小计行的行号：折叠 / 展开这一组
+      const v = gmap.value?.at(hit.row)
+      if (v?.kind === 'sub') {
+        emit('groupToggle', v.group)
+        return
+      }
       setSelection(extend
         ? { anchor: { row: sel.value!.anchor.row, col: 0 }, focus: { row: hit.row, col: lastCol } }
         : { anchor: { row: hit.row, col: 0 }, focus: { row: hit.row, col: lastCol } })
       drag = { kind: 'rows' }
       break
+    }
     case 'cell':
       setSelection(extend
         ? { anchor: sel.value!.anchor, focus: { row: hit.row, col: hit.col } }
@@ -375,7 +386,8 @@ function onHover(e: MouseEvent) {
   if (drag)
     return
   const hit = hitAt(e)
-  scrollerRef.value!.style.cursor = hit.area === 'resize' ? 'col-resize' : hit.area === 'filter' ? 'pointer' : 'cell'
+  const toggle = hit.area === 'row' && gmap.value?.at(hit.row).kind === 'sub'
+  scrollerRef.value!.style.cursor = hit.area === 'resize' ? 'col-resize' : hit.area === 'filter' || toggle ? 'pointer' : 'cell'
 }
 
 function onDblClick(e: MouseEvent) {
@@ -387,6 +399,11 @@ function onDblClick(e: MouseEvent) {
     return
   }
   if (hit.area === 'cell' || hit.area === 'row') {
+    const v = gmap.value?.at(hit.row)
+    if (v?.kind === 'sub') {
+      emit('groupToggle', v.group)
+      return
+    }
     // 小计行没有明细
     const d = dataRow(hit.row)
     const values = d == null ? undefined : cache.get(d)

@@ -463,6 +463,26 @@ const footer = computed<GridFooter | null>(() => {
 // ── 分类汇总：按分组列每组一行小计，汇总方式与汇总行相同（默认数值列求和）──
 const groups = shallowRef<{ cursorId: string, column: string, items: { column: string, func: TotalFunc }[], rows: { key: CellValue, count: number, values: CellValue[] }[] } | null>(null)
 let groupsController: AbortController | null = null
+/** 折叠的组（按组的取值记，筛选变了组的位置变了也还认得）；换分组列时清空 */
+const collapsedKeys = ref(new Set<string>())
+const groupKey = (k: CellValue) => JSON.stringify(k ?? null)
+watch(groupBy, () => collapsedKeys.value = new Set())
+
+function toggleGroup(g: number) {
+  const row = groups.value?.rows[g]
+  if (!row)
+    return
+  const next = new Set(collapsedKeys.value)
+  const k = groupKey(row.key)
+  if (!next.delete(k))
+    next.add(k)
+  collapsedKeys.value = next
+}
+
+/** 全部折叠（只看各组小计）/ 全部展开 */
+function collapseAll(on: boolean) {
+  collapsedKeys.value = on ? new Set((groups.value?.rows ?? []).map(r => groupKey(r.key))) : new Set()
+}
 
 const loadGroups = useDebounceFn(async () => {
   groupsController?.abort()
@@ -501,8 +521,10 @@ const gridGroups = computed<GridGroups | null>(() => {
     return null
   const cols = columns.value
   const at = new Map(g.items.map((it, i) => [it.column, i]))
+  const collapsed = collapsedKeys.value
   return {
     sizes: g.rows.map(r => r.count),
+    collapsed: g.rows.map(r => collapsed.has(groupKey(r.key))),
     cells: (gi) => {
       const row = g.rows[gi]!
       return cols.map((c) => {
@@ -697,6 +719,14 @@ function exportData(format: 'csv' | 'xlsx') {
         <el-tag v-if="groupBy" size="small" type="success" closable data-testid="group-tag" @close="groupBy = null">
           {{ $t('按「{0}」分类汇总', [columns.find(c => c.key === groupBy)?.title ?? groupBy]) }}{{ groupInfo }}
         </el-tag>
+        <template v-if="gridGroups">
+          <el-button v-if="collapsedKeys.size < gridGroups.sizes.length" link size="small" data-testid="collapse-all" :title="$t('只看各组的小计；点小计行的行号展开一组')" @click="collapseAll(true)">
+            {{ $t('全部折叠') }}
+          </el-button>
+          <el-button v-if="collapsedKeys.size" link size="small" data-testid="expand-all" @click="collapseAll(false)">
+            {{ $t('全部展开') }}
+          </el-button>
+        </template>
         <el-tag v-if="violation" size="small" type="warning" closable data-testid="violation-tag" @close="violation = null">
           {{ $t('只看不合格：{0}', [violation.label]) }}
         </el-tag>
@@ -799,6 +829,7 @@ function exportData(format: 'csv' | 'xlsx') {
         :filtered="filteredColumns"
         :footer="footer"
         :groups="gridGroups"
+        @group-toggle="toggleGroup"
         @selection-change="onSelection"
         @footer-click="(column, rect) => totalMenu = { column, rect }"
         @header-menu="(column, rect) => menu = { column, rect }"

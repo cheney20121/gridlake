@@ -43,4 +43,6 @@ export interface GridSelection {
 export interface GridGroups {
   sizes: number[]
   cells: (group: number) => (string | null)[]
+  /** 折叠的组只显示小计行 */
+  collapsed?: boolean[]
 }
