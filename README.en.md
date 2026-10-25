@@ -10,6 +10,12 @@
 
 ![Pivot table over 2M rows, computed on the server and written into a normal sheet](docs/images/pivot.png)
 
+## Documentation
+
+- [Highlights](docs/highlights.en.md) — what makes Gridlake different, benchmarks, comparison with other tools
+- User manual and use cases are currently in Chinese: [用户手册](docs/用户手册.md), [应用场景](docs/应用场景.md)
+- Architecture, REST API and formula compatibility: [docs/](docs/README.md)
+
 ## Why
 
 - Excel stops at 1,048,576 rows.
