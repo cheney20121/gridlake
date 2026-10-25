@@ -21,8 +21,8 @@ const props = defineProps<{
   hideSort?: boolean
   /** 显示「更改列类型」（数据表的所有者与管理员） */
   canChangeKind?: boolean
-  /** 分类汇总：this 已按这一列分类汇总，other 按别的列，none 没有；不传则不显示（嵌在工作表里的数据表） */
-  groupState?: 'none' | 'this' | 'other'
+  /** 分类汇总：现在有几级、这一列是第几级（从 0 数，不是分组列为 -1）；不传则不显示（嵌在工作表里的数据表） */
+  grouping?: { count: number, level: number }
 }>()
 
 const emit = defineEmits<{
@@ -30,13 +30,15 @@ const emit = defineEmits<{
   (e: 'sort', desc: boolean | null): void
   (e: 'close'): void
   (e: 'changeKind'): void
-  /** 按这一列分类汇总（true）/ 取消（false） */
-  (e: 'group', on: boolean): void
+  /** 只按这一列分类汇总 / 加为下一级 / 取消这一级 / 全部取消 */
+  (e: 'group', action: 'replace' | 'add' | 'remove' | 'clear'): void
 }>()
 
 const numeric = computed(() => isNumericKind(props.column.kind))
 const isDate = computed(() => props.column.kind === 'datetime')
 const isContribution = computed(() => props.column.key === '__contribution')
+/** 分类汇总最多几级（与服务端一致） */
+const MAX_GROUP_LEVELS = 3
 
 const menuRef = ref<HTMLDivElement>()
 const style = computed(() => {
@@ -166,12 +168,24 @@ onBeforeUnmount(() => {
       <button v-if="sortDesc != null" class="item text-gray-500" @click="emit('sort', null)">
         {{ $t('清除排序') }}
       </button>
-      <button v-if="groupState && groupState !== 'this' && !isContribution" class="item" data-testid="group-by-column" @click="emit('group', true)">
-        {{ $t('按此列分类汇总（每组后面加一行小计）') }}
-      </button>
-      <button v-if="groupState === 'this'" class="item" data-testid="ungroup" @click="emit('group', false)">
-        {{ $t('取消分类汇总') }}
-      </button>
+      <template v-if="grouping && !isContribution">
+        <template v-if="grouping.level < 0">
+          <button class="item" data-testid="group-by-column" @click="emit('group', 'replace')">
+            {{ grouping.count ? $t('只按此列分类汇总（替换现在的）') : $t('按此列分类汇总（每组后面加一行小计）') }}
+          </button>
+          <button v-if="grouping.count && grouping.count < MAX_GROUP_LEVELS" class="item" data-testid="group-add-level" @click="emit('group', 'add')">
+            {{ $t('添加为第 {0} 级分类汇总（在现有的每组里再按此列分组）', [grouping.count + 1]) }}
+          </button>
+        </template>
+        <template v-else>
+          <button class="item" data-testid="ungroup" @click="emit('group', 'remove')">
+            {{ grouping.count > 1 ? $t('取消这一级分类汇总（第 {0} 级）', [grouping.level + 1]) : $t('取消分类汇总') }}
+          </button>
+          <button v-if="grouping.count > 1" class="item" data-testid="ungroup-all" @click="emit('group', 'clear')">
+            {{ $t('取消全部分类汇总') }}
+          </button>
+        </template>
+      </template>
       <button v-if="canChangeKind" class="item" data-testid="change-column-kind" @click="emit('changeKind')">
         {{ $t('更改列类型（现在是{0}）…', [kindLabel(column.kind)]) }}
       </button>

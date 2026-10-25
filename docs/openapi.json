@@ -4617,8 +4617,8 @@
         "tags": [
           "数据集（导入、取数、透视、公式下推）"
         ],
-        "summary": "{ filters?, keyword?, rule?, violation?, column, desc?, items: [] } 分类汇总：按某列分组，每",
-        "description": "{ filters?, keyword?, rule?, violation?, column, desc?, items: [{ column, func }] }  分类汇总：按某列分组，每组的行数与汇总（顺序与按该列排序的数据表一致）",
+        "summary": "{ filters?, keyword?, rule?, violation?, levels: []（或只有一级时 column, desc?）, items",
+        "description": "{ filters?, keyword?, rule?, violation?, levels: [{ column, desc? }]（或只有一级时 column, desc?）, items: [{ column, func }] }  分类汇总：按一到三列逐级分组，每一级每组的行数与汇总（顺序与依次按这些列排序的数据表一致）",
         "operationId": "post_ledger_datasets_by_id_groups",
         "x-permission": "登录用户",
         "x-restricted-users": true,
@@ -10690,6 +10690,21 @@
           "pattern"
         ]
       },
+      "GroupLevel": {
+        "type": "object",
+        "properties": {
+          "column": {
+            "type": "string"
+          },
+          "desc": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "column",
+          "desc"
+        ]
+      },
       "GroupsRequest": {
         "allOf": [
           {
@@ -10697,11 +10712,18 @@
             "properties": {
               "column": {
                 "type": "string",
-                "description": "分组的列"
+                "description": "只有一级时：分组的列"
               },
               "desc": {
                 "type": "boolean",
-                "description": "分组降序（与数据表按这一列排序的方向一致）"
+                "description": "只有一级时：分组降序（与数据表按这一列排序的方向一致）"
+              },
+              "levels": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/GroupLevel"
+                },
+                "description": "多级分组（外层在前，最多 3 级）；给了就不看 column / desc"
               },
               "items": {
                 "type": "array",
@@ -10710,10 +10732,7 @@
                 },
                 "description": "每组要算的汇总（与汇总行相同的方式）"
               }
-            },
-            "required": [
-              "column"
-            ]
+            }
           },
           {
             "$ref": "#/components/schemas/QuerySpec"

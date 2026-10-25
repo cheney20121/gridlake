@@ -47,7 +47,7 @@ const emit = defineEmits<{
   /** 按了 Ctrl / ⌘ + G：请父组件弹出「跳转到行」 */
   (e: 'gotoRequest'): void
   /** 分类汇总：点小计行的行号（或双击小计行）折叠 / 展开这一组 */
-  (e: 'groupToggle', group: number): void
+  (e: 'groupToggle', level: number, group: number): void
   /** 点了汇总行的某一格；rect 为格子在视口中的位置 */
   (e: 'footerClick', column: GridColumn, rect: DOMRect): void
 }>()
@@ -73,8 +73,8 @@ const gmap = computed(() => {
   const g = props.groups
   if (!g)
     return null
-  const m = new GroupMap(g.sizes, g.collapsed ?? [])
-  return m.dataTotal === props.total ? m : null
+  const m = new GroupMap(g.levels, g.collapsed ?? [])
+  return m.consistent && m.dataTotal === props.total ? m : null
 })
 /** 显示的行数 */
 const rows = computed(() => gmap.value?.virtualTotal ?? props.total)
@@ -214,13 +214,14 @@ function draw() {
     subtotal: m
       ? (r) => {
           const v = m.at(r)
-          return v.kind === 'sub' ? props.groups!.cells(v.group) : null
+          // 外层的小计底色深一些
+          return v.kind === 'sub' ? { cells: props.groups!.cells(v.level, v.group), outer: m.depth - 1 - v.level } : null
         }
       : undefined,
     rowLabel: m
       ? (r) => {
           const v = m.at(r)
-          return v.kind === 'data' ? integer.format(v.row + 1) : m.isCollapsed(v.group) ? '▸' : '▾'
+          return v.kind === 'data' ? integer.format(v.row + 1) : m.isCollapsed(v.level, v.group) ? '▸' : '▾'
         }
       : undefined,
   })
@@ -309,7 +310,7 @@ function onMouseDown(e: MouseEvent) {
       // 小计行的行号：折叠 / 展开这一组
       const v = gmap.value?.at(hit.row)
       if (v?.kind === 'sub') {
-        emit('groupToggle', v.group)
+        emit('groupToggle', v.level, v.group)
         return
       }
       setSelection(extend
@@ -401,7 +402,7 @@ function onDblClick(e: MouseEvent) {
   if (hit.area === 'cell' || hit.area === 'row') {
     const v = gmap.value?.at(hit.row)
     if (v?.kind === 'sub') {
-      emit('groupToggle', v.group)
+      emit('groupToggle', v.level, v.group)
       return
     }
     // 小计行没有明细

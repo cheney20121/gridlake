@@ -190,13 +190,23 @@ export interface TotalsResult {
   elapsedMs: number
 }
 
-/** 分类汇总：每组的取值、行数与汇总（与 items 一一对应），顺序与按分组列排序的数据表一致 */
+/** 一级分类汇总：按哪一列分组、是否降序 */
+export interface GroupLevel {
+  column: string
+  desc: boolean
+}
+
+/**
+ * 分类汇总：每一级每组的取值、行数与汇总（与 items 一一对应），顺序与依次按各级分组列排序的数据表一致；
+ * 内层的组按行数依次落在外层的组里。groups 为最外层
+ */
 export interface GroupsResult {
   groups: { key: CellValue, count: number, values: CellValue[] }[]
+  levels: { key: CellValue, count: number, values: CellValue[] }[][]
   elapsedMs: number
 }
 
-export function groupsApi(datasetId: string, data: DatasetQuery & { column: string, desc: boolean, items: { column: string, func: TotalFunc }[] }, signal?: AbortSignal) {
+export function groupsApi(datasetId: string, data: DatasetQuery & { levels: GroupLevel[], items: { column: string, func: TotalFunc }[] }, signal?: AbortSignal) {
   return request<GroupsResult>({ url: url(`/${datasetId}/groups`), method: 'post', data, signal, timeout: 5 * 60 * 1000 })
 }
 
@@ -358,12 +368,12 @@ export const MAX_XLSX_ROWS = 1_048_575
 /** 导出地址：用浏览器原生下载（流式写盘），百万行也不占页面内存 */
 /** 导出 xlsx 时带上分类汇总：每组后面一行小计（SUBTOTAL 公式），设成 Excel 的分级显示，折叠的组导出后也折叠 */
 export interface ExportGroup {
-  column: string
-  desc: boolean
+  levels: GroupLevel[]
   items: { column: string, func: TotalFunc }[]
-  /** 折叠的组（按顺序的序号） */
-  collapsed: number[]
-  allCollapsed: boolean
+  /** 每一级折叠的组（按这一级的顺序的序号） */
+  collapsed: number[][]
+  /** 这一级的组全部折叠 */
+  collapseLevel: number | null
 }
 
 export function exportUrl(datasetId: string, cursorId: string, columns: string[], name: string, format: 'csv' | 'xlsx' = 'csv', desc = '', group?: ExportGroup | null) {

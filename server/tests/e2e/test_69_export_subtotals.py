@@ -57,7 +57,7 @@ def sheet(data, n):
     return out
 
 
-s, data = export({"column": "店铺", "desc": False, "items": ITEMS, "collapsed": [1]})
+s, data = export({"column": "店铺", "desc": False, "items": ITEMS, "collapsed": [[1]]})
 check("导出成功", s == 200 and data[:2] == b"PK", (s, data[:200]))
 rows = sheet(data, 2)
 labels = [(r, cells.get("B", (None,))[0]) for r, _, cells in rows]
@@ -77,11 +77,11 @@ if openpyxl:
     check("openpyxl 能读：分级、隐藏、折叠都在", ws.row_dimensions[5].outlineLevel == 1 and ws.row_dimensions[5].hidden and ws.row_dimensions[8].collapsed and ws.sheet_format.outlineLevelRow == 1 and ws["B13"].value == "总计", (ws.row_dimensions[5].outlineLevel, ws.sheet_format.outlineLevelRow))
 summary = sheet(data, 1)
 note = [cells.get("B", (None,))[0] for _, _, cells in summary if cells.get("A", (None,))[0] == "分类汇总"]
-check("「汇总」页签说明分组情况", note and "按「店铺」分为 4 组" in note[0], note)
+check("「汇总」页签说明分组情况", note and "按「店铺」（4 组）分类汇总" in note[0], note)
 sumf = [cells for _, _, cells in summary if cells.get("A", (None,))[0] == "金额"]
 check("「汇总」页签的合计覆盖到总计行", sumf and sumf[0]["B"][1] == "SUBTOTAL(109,'数据'!C2:C13)", sumf)
 
-s, data = export({"column": "店铺", "desc": False, "items": ITEMS, "allCollapsed": True})
+s, data = export({"column": "店铺", "desc": False, "items": ITEMS, "collapseLevel": 0})
 rows = {r: attrs for r, attrs, _ in sheet(data, 2)}
 check("全部折叠：所有数据行都隐藏，只剩小计和总计", all(rows[r].get("hidden") == "1" for r in (2, 3, 5, 6, 7, 9, 11)) and "hidden" not in rows[4] and "hidden" not in rows[13] and all(rows[r].get("collapsed") == "1" for r in (4, 8, 10, 12)), rows)
 

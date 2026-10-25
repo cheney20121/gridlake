@@ -23,6 +23,8 @@ export const COLORS = {
   accent: '#217346',
   /** 分类汇总的小计行 */
   subBg: '#EEF6F1',
+  /** 外层的小计（多级分类汇总） */
+  subBgOuter: '#DCEDE2',
   subText: '#0B5A2E',
 }
 export const FONT = '13px -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif'

@@ -1244,24 +1244,89 @@ fn clean_zero(v: Json) -> Json {
 /// 分组太多时不做分类汇总（每组一行小计，再多就没法看了）
 pub const MAX_GROUPS: usize = 10_000;
 
+/// 分类汇总最多几级（如 店铺 → 渠道 → 月份）
+pub const MAX_GROUP_LEVELS: usize = 3;
+
+/// 一级分类汇总：按哪一列分组、是否降序（与数据表按这一列排序的方向一致）
+#[derive(Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct GroupLevel {
+    pub column: String,
+    pub desc: bool,
+}
+
+/// 各级分组的列（外层在前）：levels 为空时用 column / desc（只有一级）
+fn group_levels<'a>(def: &'a DatasetDef, column: &str, desc: bool, levels: &[GroupLevel]) -> AppResult<Vec<(&'a ColumnDef, bool)>> {
+    let one = [GroupLevel { column: column.to_string(), desc }];
+    let levels = if levels.is_empty() { &one[..] } else { levels };
+    if levels.len() > MAX_GROUP_LEVELS {
+        return Err(AppError::bad(format!("分类汇总最多 {MAX_GROUP_LEVELS} 级")));
+    }
+    let mut out: Vec<(&ColumnDef, bool)> = Vec::new();
+    for l in levels {
+        let col = check_column(def, &l.column)?;
+        if out.iter().any(|(c, _)| c.key == col.key) {
+            return Err(AppError::bad(format!("「{}」已经是一级分类汇总了", col.title)));
+        }
+        out.push((col, l.desc));
+    }
+    Ok(out)
+}
+
+/// 多级分组：每一级的组（顺序与按各级分组列依次排序的游标一致：同样的表达式、同样的 NULLS LAST），
+/// 内层的组嵌在外层的组里，各级的行数加起来都是总行数。from 为 FROM 子句（可带 WHERE，参数为 args）
+fn nested_groups(conn: &Connection, levels: &[(&ColumnDef, bool)], exprs: &[String], from: &str, args: &[Value]) -> AppResult<Vec<Vec<GroupRow>>> {
+    let n = exprs.len();
+    let mut out = Vec::with_capacity(levels.len());
+    for depth in 1..=levels.len() {
+        let keys = &levels[..depth];
+        let mut selects: Vec<String> = keys.iter().map(|(c, _)| format!("({})", column_sql(c))).collect();
+        selects.push("count(*)".into());
+        selects.extend(exprs.iter().cloned());
+        let by = (1..=depth).map(|i| i.to_string()).collect::<Vec<_>>().join(", ");
+        let order = keys.iter().enumerate().map(|(i, (_, desc))| format!("{} {} NULLS LAST", i + 1, if *desc { "DESC" } else { "ASC" })).collect::<Vec<_>>().join(", ");
+        let sql = format!("SELECT {} FROM {from} GROUP BY {by} ORDER BY {order} LIMIT {}", selects.join(", "), MAX_GROUPS + 1);
+        let mut st = conn.prepare(&sql)?;
+        let rows: Vec<GroupRow> = st
+            .query_map(params_from_iter(args.iter()), |r| {
+                Ok(GroupRow { key: to_json(r.get_ref(depth - 1)?), count: r.get(depth)?, values: (0..n).map(|i| Ok(clean_zero(to_json(r.get_ref(depth + 1 + i)?)))).collect::<duckdb::Result<Vec<_>>>()? })
+            })?
+            .collect::<Result<_, _>>()?;
+        if rows.len() > MAX_GROUPS {
+            if depth == 1 {
+                return Err(AppError::bad(format!("「{}」的取值超过 {} 种，分类汇总看不过来：请换一列，或先筛选缩小范围", keys[0].0.title, MAX_GROUPS)));
+            }
+            let names = keys.iter().map(|(c, _)| c.title.as_str()).collect::<Vec<_>>().join(" × ");
+            return Err(AppError::bad(format!("「{names}」的组合超过 {MAX_GROUPS} 种，分类汇总看不过来：请少分一级，或先筛选缩小范围")));
+        }
+        out.push(rows);
+    }
+    Ok(out)
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GroupsRequest {
     #[serde(flatten)]
     pub spec: QuerySpec,
-    /// 分组的列
+    /// 只有一级时：分组的列
+    #[serde(default)]
     pub column: String,
-    /// 分组降序（与数据表按这一列排序的方向一致）
+    /// 只有一级时：分组降序（与数据表按这一列排序的方向一致）
     #[serde(default)]
     pub desc: bool,
+    /// 多级分组（外层在前，最多 3 级）；给了就不看 column / desc
+    #[serde(default)]
+    pub levels: Vec<GroupLevel>,
     /// 每组要算的汇总（与汇总行相同的方式）
     #[serde(default)]
     pub items: Vec<TotalItem>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct GroupRow {
+    /// 这一级分组列的取值
     pub key: Json,
     pub count: i64,
     pub values: Vec<Json>,
@@ -1270,43 +1335,25 @@ pub struct GroupRow {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GroupsResult {
-    /// 按数据表的排序先后（分组列 ASC / DESC NULLS LAST），每组的行数与汇总
+    /// 最外层的组（只有一级时就是全部的组）
     pub groups: Vec<GroupRow>,
+    /// 每一级的组（外层在前），按数据表的排序先后；第 i + 1 级的组依次嵌在第 i 级的组里
+    pub levels: Vec<Vec<GroupRow>>,
     pub elapsed_ms: i64,
 }
 
-/// 每组的行数与汇总：分组和顺序与按「分组列」排序的游标完全一致（同一个表达式、同样的 NULLS LAST），
-/// 前端据此在每组最后一行后面插入小计
+/// 每组的行数与汇总：分组和顺序与按各级分组列排序的游标完全一致，前端据此在每组最后一行后面插入小计
 pub fn groups(conn: &Connection, dataset_id: &str, req: &GroupsRequest) -> AppResult<GroupsResult> {
     let started = Instant::now();
     if req.items.len() > MAX_TOTALS {
         return Err(AppError::bad(format!("一次最多汇总 {MAX_TOTALS} 列")));
     }
     let def = dataset(conn, dataset_id)?;
-    let col = check_column(&def, &req.column)?;
+    let levels = group_levels(&def, &req.column, req.desc, &req.levels)?;
     let exprs = req.items.iter().map(|it| total_expr(&def, it, false)).collect::<AppResult<Vec<_>>>()?;
     let (where_sql, args) = rows_sql(&def, &req.spec)?;
-    let mut selects = vec!["__k".to_string(), "count(*)".to_string()];
-    selects.extend(exprs);
-    let sql = format!(
-        "SELECT {} FROM (SELECT *, ({}) AS __k FROM {} WHERE {where_sql}) GROUP BY __k ORDER BY __k {} NULLS LAST LIMIT {}",
-        selects.join(", "),
-        column_sql(col),
-        def.table,
-        if req.desc { "DESC" } else { "ASC" },
-        MAX_GROUPS + 1
-    );
-    let n = req.items.len();
-    let mut st = conn.prepare(&sql)?;
-    let groups: Vec<GroupRow> = st
-        .query_map(params_from_iter(args.iter()), |r| {
-            Ok(GroupRow { key: to_json(r.get_ref(0)?), count: r.get(1)?, values: (0..n).map(|i| Ok(clean_zero(to_json(r.get_ref(i + 2)?)))).collect::<duckdb::Result<Vec<_>>>()? })
-        })?
-        .collect::<Result<_, _>>()?;
-    if groups.len() > MAX_GROUPS {
-        return Err(AppError::bad(format!("「{}」的取值超过 {} 种，分类汇总看不过来：请换一列，或先筛选缩小范围", col.title, MAX_GROUPS)));
-    }
-    Ok(GroupsResult { groups, elapsed_ms: started.elapsed().as_millis() as i64 })
+    let levels = nested_groups(conn, &levels, &exprs, &format!("{} WHERE {where_sql}", def.table), &args)?;
+    Ok(GroupsResult { groups: levels[0].clone(), levels, elapsed_ms: started.elapsed().as_millis() as i64 })
 }
 
 fn total_label(func: &str) -> &'static str {
@@ -1456,15 +1503,17 @@ fn excel_col(i: usize) -> String {
 #[derive(Deserialize, Default)]
 #[serde(rename_all = "camelCase", default)]
 pub struct GroupExport {
-    /// 分组的列（游标已按它排好序）
+    /// 只有一级时：分组的列（游标已按它排好序）
     pub column: String,
     pub desc: bool,
+    /// 多级分组（外层在前，游标已按各级依次排好序）；给了就不看 column / desc
+    pub levels: Vec<GroupLevel>,
     /// 每列的小计方式（与汇总行相同）
     pub items: Vec<TotalItem>,
-    /// 折叠的组（按顺序的序号）
-    pub collapsed: Vec<usize>,
-    /// 全部折叠
-    pub all_collapsed: bool,
+    /// 折叠的组：第 i 项为第 i 级折叠的组的序号（按这一级的顺序）
+    pub collapsed: Vec<Vec<usize>>,
+    /// 这一级的组全部折叠（组很多时代替 collapsed）
+    pub collapse_level: Option<usize>,
 }
 
 /// 小计方式对应的 Excel SUBTOTAL 函数号（9 求和、1 平均、3 非空计数、5 最小、4 最大）；
@@ -1540,46 +1589,74 @@ pub fn export_xlsx(
         return Err(AppError::bad("没有可导出的列"));
     }
 
-    // ── 分类汇总：每组的行数与小计（按游标算，分组顺序与游标一致），以及总计 ──
-    struct Grp {
-        key: Json,
-        count: i64,
-        values: Vec<Json>,
+    // ── 分类汇总：每一级每组的行数与小计（按游标算，分组顺序与游标一致），以及总计 ──
+    struct Grouped<'a> {
+        g: &'a GroupExport,
+        /// 各级分组列（外层在前）
+        cols: Vec<&'a ColumnDef>,
+        levels: Vec<Vec<GroupRow>>,
+        /// 每组在「数据」页签占的行数（含嵌在里面的小计行，不含自己的小计行）
+        spans: Vec<Vec<u32>>,
+        /// 折叠的组
+        folded: Vec<Vec<bool>>,
+        grand: Vec<Json>,
     }
-    let grouped: Option<(&GroupExport, Vec<Grp>, Vec<Json>, &ColumnDef)> = match group {
+    let grouped: Option<Grouped> = match group {
         Some(g) => {
-            let gcol = check_column(&def, &g.column)?;
+            let lv = group_levels(&def, &g.column, g.desc, &g.levels)?;
             let exprs = g.items.iter().map(|it| total_expr(&def, it, has_c)).collect::<AppResult<Vec<_>>>()?;
             let n = exprs.len();
-            let mut sel = vec![format!("({}) AS __k", column_sql(gcol)), "count(*)".to_string()];
-            sel.extend(exprs.iter().cloned());
-            let sql = format!("SELECT {} FROM {} GROUP BY __k ORDER BY __k {} NULLS LAST LIMIT {}", sel.join(", "), cur.from_sql(&def), if g.desc { "DESC" } else { "ASC" }, MAX_GROUPS + 1);
-            let mut st = conn.prepare(&sql)?;
-            let groups: Vec<Grp> = st
-                .query_map([], |r| Ok(Grp { key: to_json(r.get_ref(0)?), count: r.get(1)?, values: (0..n).map(|i| Ok(clean_zero(to_json(r.get_ref(i + 2)?)))).collect::<duckdb::Result<Vec<_>>>()? }))?
-                .collect::<Result<_, _>>()?;
-            if groups.len() > MAX_GROUPS {
-                return Err(AppError::bad(format!("「{}」的取值超过 {} 种，分类汇总看不过来：请换一列，或先筛选缩小范围", gcol.title, MAX_GROUPS)));
-            }
-            if groups.iter().map(|g| g.count).sum::<i64>() != total {
+            let levels = nested_groups(conn, &lv, &exprs, &cur.from_sql(&def), &[])?;
+            if levels.iter().any(|l| l.iter().map(|g| g.count).sum::<i64>() != total) {
                 return Err(AppError::bad("数据已更新，请刷新后重新导出"));
             }
             // 小计行和总计行也占行：加起来不能超过 Excel 的上限
-            if total + groups.len() as i64 + 1 > MAX_XLSX_ROWS {
-                return Err(AppError::bad(format!("当前结果 {total} 行，加上 {} 行小计超过 Excel 单表上限 {MAX_XLSX_ROWS} 行，请先筛选或取消分类汇总", groups.len() + 1)));
+            let subs: usize = levels.iter().map(Vec::len).sum();
+            if total + subs as i64 + 1 > MAX_XLSX_ROWS {
+                return Err(AppError::bad(format!("当前结果 {total} 行，加上 {} 行小计超过 Excel 单表上限 {MAX_XLSX_ROWS} 行，请先筛选或取消分类汇总", subs + 1)));
             }
+            // 从最内层往外算每组占的行数：内层的组依次落在外层的组里（按行数对齐）
+            let depth = levels.len();
+            let mut spans: Vec<Vec<u32>> = vec![Vec::new(); depth];
+            spans[depth - 1] = levels[depth - 1].iter().map(|g| g.count as u32).collect();
+            for d in (0..depth - 1).rev() {
+                let (mut j, mut out) = (0usize, Vec::with_capacity(levels[d].len()));
+                for grp in &levels[d] {
+                    let (mut rows, mut span) = (0i64, 0u32);
+                    while rows < grp.count && j < levels[d + 1].len() {
+                        rows += levels[d + 1][j].count;
+                        span += spans[d + 1][j] + 1;
+                        j += 1;
+                    }
+                    out.push(span);
+                }
+                spans[d] = out;
+            }
+            let folded = levels
+                .iter()
+                .enumerate()
+                .map(|(d, l)| {
+                    let mut f = vec![g.collapse_level == Some(d); l.len()];
+                    for &i in g.collapsed.get(d).map(Vec::as_slice).unwrap_or(&[]) {
+                        if let Some(x) = f.get_mut(i) {
+                            *x = true;
+                        }
+                    }
+                    f
+                })
+                .collect();
             let grand: Vec<Json> = if exprs.is_empty() {
                 vec![]
             } else {
                 conn.query_row(&format!("SELECT {} FROM {}", exprs.join(", "), cur.from_sql(&def)), [], |r| (0..n).map(|i| Ok(clean_zero(to_json(r.get_ref(i)?)))).collect::<duckdb::Result<Vec<_>>>())?
             };
-            Some((g, groups, grand, gcol))
+            Some(Grouped { g, cols: lv.iter().map(|(c, _)| *c).collect(), levels, spans, folded, grand })
         }
         None => None,
     };
     // 数据页签最后一行（Excel 行号，从 1 数）：表头 + 数据 + 每组小计 + 总计
     let data_last = match &grouped {
-        Some((_, groups, ..)) => total + groups.len() as i64 + 2,
+        Some(gr) => total + gr.levels.iter().map(Vec::len).sum::<usize>() as i64 + 2,
         None => total + 1,
     };
 
@@ -1631,9 +1708,11 @@ pub fn export_xlsx(
             ws.write_number_with_format(3, 1, total as f64, &integer).map_err(e)?;
             ws.write_string_with_format(4, 0, "说明", &label).map_err(e)?;
             ws.write_string(4, 1, "下表用 SUBTOTAL 公式引用「数据」页签：在「数据」页签中筛选后，合计 / 平均 / 最小 / 最大按可见行自动重算").map_err(e)?;
-            if let Some((_, groups, _, gcol)) = &grouped {
+            if let Some(gr) = &grouped {
+                let by = gr.cols.iter().zip(&gr.levels).map(|(c, l)| format!("「{}」（{} 组）", c.title, l.len())).collect::<Vec<_>>().join(" → ");
+                let buttons = (1..=gr.levels.len() + 1).map(|i| i.to_string()).collect::<Vec<_>>().join(" / ");
                 ws.write_string_with_format(5, 0, "分类汇总", &label).map_err(e)?;
-                ws.write_string(5, 1, format!("「数据」页签按「{}」分为 {} 组，每组后面一行小计、最后一行总计；用左侧的分级按钮（1 / 2）折叠或展开", gcol.title, groups.len())).map_err(e)?;
+                ws.write_string(5, 1, format!("「数据」页签按{by}分类汇总，每组后面一行小计、最后一行总计；用左侧的分级按钮（{buttons}）折叠或展开")).map_err(e)?;
             }
             for (i, h) in ["列", "合计", "平均", "最小", "最大"].iter().enumerate() {
                 ws.write_string_with_format(6, i as u16, *h, &header).map_err(e)?;
@@ -1674,16 +1753,18 @@ pub fn export_xlsx(
         let sub_money = sub.clone().set_num_format("#,##0.00;-#,##0.00;\"-\"");
         let sub_int = sub.clone().set_num_format("#,##0");
         let item_at: HashMap<usize, usize> = match &grouped {
-            Some((g, ..)) => cols.iter().enumerate().filter_map(|(ci, c)| g.items.iter().position(|it| it.column == c.key || it.column == c.title).map(|ii| (ci, ii))).collect(),
+            Some(Grouped { g, .. }) => cols.iter().enumerate().filter_map(|(ci, c)| g.items.iter().position(|it| it.column == c.key || it.column == c.title).map(|ii| (ci, ii))).collect(),
             None => HashMap::new(),
         };
-        let label_col = grouped.as_ref().and_then(|(_, _, _, gcol)| cols.iter().position(|c| c.key == gcol.key)).unwrap_or(0);
-        // 写一行小计 / 总计：rows 为它汇总的数据行区间（0 起的行号，含两端）
-        let write_total = |ws: &mut Worksheet, r: u32, rows: (u32, u32), label: &str, values: &[Json], items: &[TotalItem]| -> anyhow::Result<()> {
+        // 小计行的名字写在这一级分组列下面（没导出这一列时写在第一列）
+        let label_col = |d: usize| grouped.as_ref().and_then(|gr| cols.iter().position(|c| c.key == gr.cols[d].key)).unwrap_or(0);
+        let depth = grouped.as_ref().map_or(0, |gr| gr.levels.len());
+        // 写一行小计 / 总计：rows 为它汇总的行区间（0 起的行号，含两端），里面有第 inner 级及更内层的小计行
+        let write_total = |ws: &mut Worksheet, r: u32, rows: (u32, u32), (at, label): (usize, &str), inner: usize, values: &[Json], items: &[TotalItem]| -> anyhow::Result<()> {
             for (ci, c) in cols.iter().enumerate() {
                 let c16 = ci as u16;
                 let fmt = if c.kind == "money" { &sub_money } else if kinds::is_numeric(c.kind) { &sub_int } else { &sub };
-                if ci == label_col {
+                if ci == at {
                     ws.write_string_with_format(r, c16, label, &sub)?;
                     continue;
                 }
@@ -1692,7 +1773,9 @@ pub fn export_xlsx(
                     continue;
                 };
                 let v = values.get(ii).cloned().unwrap_or(Json::Null);
-                match subtotal_code(&items[ii].func, c.kind) {
+                // 区域里有内层小计行的名字（这一列是内层的分组列）时，SUBTOTAL 计数会把名字也数进去：写算好的值
+                let names_inside = items[ii].func == "count" && (inner..depth).any(|d| label_col(d) == ci);
+                match subtotal_code(&items[ii].func, c.kind).filter(|_| !names_inside) {
                     Some(code) => {
                         let col = excel_col(ci);
                         let mut f = Formula::new(format!("=SUBTOTAL({code},{col}{}:{col}{})", rows.0 + 1, rows.1 + 1));
@@ -1725,22 +1808,24 @@ pub fn export_xlsx(
         ))?;
         let mut rows = stmt.query([])?;
         let mut r: u32 = 1;
-        // 分类汇总：当前是第几组、这一组已写了几行、这一组从哪一行开始
-        let (mut gi, mut in_group, mut gstart) = (0usize, 0i64, 1u32);
+        // 分类汇总：每一级当前是第几组、这一组已写了几行数据、这一组从哪一行开始
+        let (mut gi, mut in_group, mut gstart) = (vec![0usize; depth], vec![0i64; depth], vec![1u32; depth]);
         // 分级（Excel 行号）：常量内存模式写不出来，保存后补（见 xlsx_outline）
-        let mut outline = crate::xlsx_outline::Outline { data: Vec::new(), collapsed: Vec::new() };
+        let (mut ranges, mut collapsed) = (Vec::new(), Vec::new());
         while let Some(row) = rows.next()? {
-            if let Some((g, groups, ..)) = &grouped
-                && in_group == 0
-            {
-                // 常量内存模式下行的属性要在写这一行之前设好：一组开始时把整组设成一个分级
-                let n = groups[gi].count as u32;
-                if g.all_collapsed || g.collapsed.contains(&gi) {
-                    ws.group_rows_collapsed(r, r + n - 1).map_err(|e| anyhow::anyhow!("{e}"))?;
-                } else {
-                    ws.group_rows(r, r + n - 1).map_err(|e| anyhow::anyhow!("{e}"))?;
+            if let Some(gr) = &grouped {
+                // 常量内存模式下行的属性要在写这一行之前设好：一组开始时把整组（含里面的小计行）设成一个分级，外层先设
+                for d in 0..depth {
+                    if in_group[d] == 0 {
+                        let span = gr.spans[d][gi[d]];
+                        if gr.folded[d][gi[d]] {
+                            ws.group_rows_collapsed(r, r + span - 1).map_err(|e| anyhow::anyhow!("{e}"))?;
+                        } else {
+                            ws.group_rows(r, r + span - 1).map_err(|e| anyhow::anyhow!("{e}"))?;
+                        }
+                        gstart[d] = r;
+                    }
                 }
-                gstart = r;
             }
             for (i, c) in cols.iter().enumerate() {
                 let i16 = i as u16;
@@ -1759,31 +1844,37 @@ pub fn export_xlsx(
                 }
             }
             r += 1;
-            if let Some((g, groups, ..)) = &grouped {
-                in_group += 1;
-                if in_group == groups[gi].count {
-                    let key = &groups[gi].key;
-                    let name = match key {
+            if let Some(gr) = &grouped {
+                for n in in_group.iter_mut() {
+                    *n += 1;
+                }
+                // 由内往外：这一级的组写完了就写它的小计，外层的组只可能在内层的组结束时结束
+                for d in (0..depth).rev() {
+                    let grp = &gr.levels[d][gi[d]];
+                    if in_group[d] < grp.count {
+                        break;
+                    }
+                    let name = match &grp.key {
                         Json::Null => "（空）".to_string(),
                         Json::String(s) if s.is_empty() => "（空）".to_string(),
                         Json::String(s) => s.clone(),
                         other => other.to_string(),
                     };
-                    write_total(ws, r, (gstart, r - 1), &format!("{name} 小计"), &groups[gi].values, &g.items)?;
-                    outline.data.push((gstart + 1, r));
-                    if g.all_collapsed || g.collapsed.contains(&gi) {
-                        outline.collapsed.push(r + 1);
+                    write_total(ws, r, (gstart[d], r - 1), (label_col(d), &format!("{name} 小计")), d + 1, &grp.values, &gr.g.items)?;
+                    ranges.push((gstart[d] + 1, r));
+                    if gr.folded[d][gi[d]] {
+                        collapsed.push(r + 1);
                     }
                     r += 1;
-                    gi += 1;
-                    in_group = 0;
+                    gi[d] += 1;
+                    in_group[d] = 0;
                 }
             }
         }
-        if let Some((g, _, grand, _)) = &grouped {
-            write_total(ws, r, (1, r - 1), "总计", grand, &g.items)?;
+        if let Some(gr) = &grouped {
+            write_total(ws, r, (1, r - 1), (label_col(0), "总计"), 0, &gr.grand, &gr.g.items)?;
         }
-        outline
+        crate::xlsx_outline::Outline::new(&ranges, collapsed)
     };
 
     let path = dir.join(format!("export-{}-{}.xlsx", cursor_id, std::process::id()));

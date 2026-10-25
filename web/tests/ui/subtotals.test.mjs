@@ -1,5 +1,6 @@
 // 分类汇总（界面）：列头菜单「按此列分类汇总」→ 数据按店铺排好、每组后面一行小计（画布上出现小计行的底色）→
-// 全部折叠 / 点小计行的行号展开一组 / 全部展开 → 全选时只数数据行 → 标签上显示几组 → 取消
+// 全部折叠 / 点小计行的行号展开一组 / 全部展开 → 全选时只数数据行 → 标签上显示几组 → 取消；
+// 再按渠道「添加为第 2 级」：内层、外层两种小计，折叠到某一级，取消一级
 import assert from 'node:assert/strict'
 import { Buffer } from 'node:buffer'
 import path from 'node:path'
@@ -13,17 +14,20 @@ const skip = findChrome() ? false : '本机没有 Chrome / Chromium（可用 CHR
 const COOKIE = 'gridlake-token'
 const ALLOWED = [/command "formula\.mutation\.set-trigger-formula-calculation-start" is not registered/]
 const CSV = '单号,店铺,金额\n1,北京店,10\n2,上海店,20\n3,北京店,30\n4,,40\n5,上海店,50\n6,广州店,60\n7,北京店,70\n'
+const CSV2 = '单号,店铺,渠道,金额\n1,北京店,直播,10\n2,上海店,直播,20\n3,北京店,短视频,30\n4,,直播,40\n5,上海店,短视频,50\n6,广州店,直播,60\n7,北京店,直播,70\n'
 
 describe('分类汇总（界面）', { skip }, () => {
   let services
   let browser
   let datasetId
+  let twoLevelId
 
   before(async () => {
     services = await startServices()
     browser = await launchChrome()
     await api.registerUsers()
     datasetId = await api.importDataset(TOKEN.alice, '分组订单', CSV)
+    twoLevelId = await api.importDataset(TOKEN.alice, '两级订单', CSV2)
   }, { timeout: 300_000 })
 
   after(async () => {
@@ -80,7 +84,7 @@ describe('分类汇总（界面）', { skip }, () => {
       await page.click('.ec-dropdown-menu__item', '含分类汇总')
       await page.waitFor(`!!window.__lastExport`, { what: '导出链接' })
       const group = JSON.parse(new URL(await page.eval(`window.__lastExport`)).searchParams.get('group'))
-      assert.deepEqual([group.column, group.collapsed, group.allCollapsed], ['店铺', [1, 2, 3], false], JSON.stringify(group))
+      assert.deepEqual([group.levels, group.collapsed, group.collapseLevel], [[{ column: '店铺', desc: false }], [[1, 2, 3]], null], JSON.stringify(group))
       // 用同一个链接下载（测试里页面的登录不走 cookie，这里带上令牌直接请求接口）
       const href = new URL(await page.eval(`window.__lastExport`))
       const res = await fetch(API + href.pathname.slice(href.pathname.indexOf('/ledger/datasets')) + href.search, { headers: { 'x-user-token': TOKEN.alice } })
@@ -101,6 +105,73 @@ describe('分类汇总（界面）', { skip }, () => {
     }
     catch (e) {
       await page.screenshot(path.join(ARTIFACTS, 'subtotals-failed.png')).catch(() => {})
+      throw e
+    }
+  }, { timeout: 240_000 })
+
+  it('两级：先按店铺、再按渠道，内层小计和外层小计，折叠到某一级，取消一级', async () => {
+    const page = await browser.newPage()
+    const tag = `(document.querySelector('[data-testid="group-tag"]')?.innerText ?? '')`
+    try {
+      const cols = (await api.call('GET', '/ledger/datasets', TOKEN.alice)).data.find(d => d.id === twoLevelId).columns
+      await page.clearCookies()
+      await page.setCookie(COOKIE, TOKEN.alice, WEB)
+      await page.goto(`${WEB}/excel?ds=${twoLevelId}&lang=zh-CN`)
+      await page.waitFor(`document.body.innerText.includes('7 行') && !!document.querySelector('.scroller')`, { timeout: 90_000, what: '打开数据表' })
+      // 画布的位置（工具栏可能换行，每次点之前重新量）
+      const canvasAt = () => page.eval(`(() => { const r = document.querySelector('.scroller').parentElement.querySelector('canvas').getBoundingClientRect(); return [r.left, r.top] })()`)
+      // 第 n 列表头上的菜单按钮
+      const header = async (n) => {
+        const [x, y] = await canvasAt()
+        await page.mouseClick(x + 48 + cols.slice(0, n + 1).reduce((w, c) => w + c.width, 0) - 9, y + 34)
+      }
+      await header(1)
+      await page.waitFor(`!!document.querySelector('[data-testid="group-by-column"]')`, { what: '店铺列的菜单' })
+      await page.click('[data-testid="group-by-column"]')
+      await page.waitFor(`${tag}.includes('按「店铺」分类汇总（4 组）')`, { what: '一级', timeout: 30_000 })
+      await header(2)
+      await page.waitFor(`!!document.querySelector('[data-testid="group-add-level"]')`, { what: '渠道列的菜单里「添加为第 2 级分类汇总」' })
+      await page.click('[data-testid="group-add-level"]')
+      await page.waitFor(`${tag}.includes('按「店铺 → 渠道」分类汇总（4 / 6 组）')`, { what: '两级', timeout: 30_000 })
+
+      // 第 i 个显示行：d 数据、s 内层小计（#EEF6F1）、S 外层小计（#DCEDE2）
+      const kind = i => `(() => { const cv = document.querySelector('.scroller').parentElement.querySelector('canvas'); const k = window.devicePixelRatio || 1; const d = cv.getContext('2d').getImageData(Math.round((48 + 8) * k), Math.round((48 + ${i} * 24 + 4) * k), 1, 1).data; return d[0] === 238 && d[1] === 246 && d[2] === 241 ? 's' : d[0] === 220 && d[1] === 237 && d[2] === 226 ? 'S' : 'd' })()`
+      const pattern = async n => (await Promise.all(Array.from({ length: n }, (_, i) => page.eval(kind(i))))).join('')
+      // 上海店：直播 1 行 + 小计、短视频 1 行 + 小计、店铺小计；北京店：直播 2 行…
+      await page.waitFor(`${kind(0)} === 'd' && ${kind(1)} === 's' && ${kind(4)} === 'S'`, { what: '内层、外层小计', timeout: 30_000 })
+      assert.equal(await pattern(10), 'dsdsSddsds')
+      await page.screenshot(path.join(ARTIFACTS, 'subtotals-two-levels.png')).catch(() => {})
+
+      await page.click('[data-testid="collapse-level-0"]')
+      await page.waitFor(`${kind(0)} === 'S' && ${kind(3)} === 'S'`, { what: '折叠到店铺：只剩 4 行店铺小计', timeout: 30_000 })
+      assert.equal(await pattern(4), 'SSSS')
+      // 点上海店小计的行号：展开它，里面的渠道小计又出来了
+      const [x0, y0] = await canvasAt()
+      await page.mouseClick(x0 + 20, y0 + 48 + 12)
+      await page.waitFor(`${kind(0)} === 'd' && ${kind(4)} === 'S' && ${kind(5)} === 'S'`, { what: '展开上海店', timeout: 30_000 })
+      assert.equal(await pattern(7), 'dsdsSSS')
+      await page.click('[data-testid="collapse-level-1"]')
+      await page.waitFor(`${kind(0)} === 's' && ${kind(2)} === 'S'`, { what: '折叠到渠道：只剩渠道小计和店铺小计', timeout: 30_000 })
+      assert.equal(await pattern(10), 'ssSssSsSsS')
+
+      // 导出：两级、内层全部折叠
+      await page.eval(`(() => { const orig = HTMLAnchorElement.prototype.click; HTMLAnchorElement.prototype.click = function () { if (this.href.includes('/export?')) { window.__lastExport = this.href; return } return orig.call(this) } })(); 0`)
+      await page.click('button', '导出 ▾')
+      await page.waitFor(`[...document.querySelectorAll('.ec-dropdown-menu__item')].some(e => e.offsetParent && e.innerText.includes('含分类汇总'))`, { what: '导出菜单' })
+      await page.click('.ec-dropdown-menu__item', '含分类汇总')
+      await page.waitFor(`!!window.__lastExport`, { what: '导出链接' })
+      const group = JSON.parse(new URL(await page.eval(`window.__lastExport`)).searchParams.get('group'))
+      assert.deepEqual([group.levels.map(l => l.column), group.collapsed, group.collapseLevel], [['店铺', '渠道'], [[], [0, 1, 2, 3, 4, 5]], 1], JSON.stringify(group))
+
+      // 取消店铺这一级：只剩按渠道
+      await header(1)
+      await page.waitFor(`!!document.querySelector('[data-testid="ungroup"]')`, { what: '店铺列的「取消这一级」' })
+      await page.click('[data-testid="ungroup"]')
+      await page.waitFor(`${tag}.includes('按「渠道」分类汇总（2 组）')`, { what: '只剩一级', timeout: 30_000 })
+      assert.deepEqual(page.errors.filter(e => !ALLOWED.some(re => re.test(e))), [], '没有控制台报错')
+    }
+    catch (e) {
+      await page.screenshot(path.join(ARTIFACTS, 'subtotals-two-levels-failed.png')).catch(() => {})
       throw e
     }
   }, { timeout: 240_000 })

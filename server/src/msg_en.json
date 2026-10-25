@@ -959,5 +959,8 @@
   "当前结果 {0} 行，加上 {1} 行小计超过 Excel 单表上限 {2} 行，请先筛选或取消分类汇总": "The result has {0} rows; with {1} subtotal rows it exceeds Excel's limit of {2} rows per sheet. Filter first or remove the subtotals",
   "分类汇总参数不正确：{0}": "Invalid subtotal parameters: {0}",
   "读取 Excel 失败：{0}": "Failed to read the Excel file: {0}",
-  "写 Excel 失败：{0}": "Failed to write the Excel file: {0}"
+  "写 Excel 失败：{0}": "Failed to write the Excel file: {0}",
+  "分类汇总最多 {0} 级": "Subtotals can have at most {0} levels",
+  "「{0}」已经是一级分类汇总了": "“{0}” is already a subtotal level",
+  "「{0}」的组合超过 {1} 种，分类汇总看不过来：请少分一级，或先筛选缩小范围": "“{0}” has more than {1} combinations, too many to subtotal: use fewer levels or filter first"
 }

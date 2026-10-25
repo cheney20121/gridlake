@@ -140,14 +140,17 @@ const sort = ref<{ column: string, desc: boolean } | null>(null)
 const useRule = ref(true)
 /** 只看不符合某条校验规则的行（label 是规则的说明，显示在筛选标签上） */
 const violation = shallowRef<{ rule: ValidationRule, label: string } | null>(null)
-/** 分类汇总的列（列键）：数据先按它排序，每组后面插一行小计；按这一列排序时用那个方向 */
-const groupBy = ref<string | null>(null)
-const groupSort = computed(() => groupBy.value ? { column: groupBy.value, desc: sort.value?.column === groupBy.value ? sort.value.desc : false } : null)
+/**
+ * 分类汇总的列（列键，外层在前，最多 3 级）：数据先依次按它们排序，每组后面插一行小计；
+ * 按其中某一列排序时这一级用那个方向，按别的列排序时作为组内的顺序
+ */
+const groupBy = ref<string[]>([])
+const groupSort = computed(() => groupBy.value.map(column => ({ column, desc: sort.value?.column === column ? sort.value.desc : false })))
 
 const query = computed<DatasetQuery>(() => ({
   filters: [...(props.drill?.filters ?? []), ...userFilters.value],
   keyword: keyword.value.trim() || undefined,
-  sort: groupSort.value ? [groupSort.value, ...(sort.value && sort.value.column !== groupBy.value ? [sort.value] : [])] : sort.value ? [sort.value] : [],
+  sort: [...groupSort.value, ...(sort.value && !groupBy.value.includes(sort.value.column) ? [sort.value] : [])],
   rule: useRule.value ? props.drill?.rule : undefined,
   violation: violation.value?.rule,
 }))
@@ -166,7 +169,7 @@ const error = ref('')
 let controller: AbortController | null = null
 
 /** 上一次成功的查询条件：取消 / 失败后还原到它，界面上的筛选标签、排序箭头才和表格里的数据一致 */
-let lastGood: { key: string, filters: DatasetFilter[], keyword: string, sort: { column: string, desc: boolean } | null, useRule: boolean, violation: typeof violation.value, groupBy: string | null } | null = null
+let lastGood: { key: string, filters: DatasetFilter[], keyword: string, sort: { column: string, desc: boolean } | null, useRule: boolean, violation: typeof violation.value, groupBy: string[] } | null = null
 const queryKey = () => JSON.stringify(query.value)
 
 /** force：条件没变也重新取（下钻切换、列定义变化、游标失效）；否则条件与当前游标相同就不重复请求 */
@@ -181,7 +184,7 @@ async function openCursor(force = false) {
   const c = new AbortController()
   controller = c
   const key = queryKey()
-  const snapshot = { filters: JSON.parse(JSON.stringify(userFilters.value)), keyword: keyword.value, sort: sort.value ? { ...sort.value } : null, useRule: useRule.value, violation: violation.value, groupBy: groupBy.value }
+  const snapshot = { filters: JSON.parse(JSON.stringify(userFilters.value)), keyword: keyword.value, sort: sort.value ? { ...sort.value } : null, useRule: useRule.value, violation: violation.value, groupBy: [...groupBy.value] }
   loading.value = true
   error.value = ''
   try {
@@ -251,7 +254,7 @@ watch(() => props.drill, () => {
   sort.value = null
   useRule.value = true
   violation.value = null
-  groupBy.value = null
+  groupBy.value = []
   openCursor(true)
 }, { immediate: true })
 watch(() => [userFilters.value, sort.value, useRule.value, violation.value, groupBy.value], () => openCursor(), { deep: true })
@@ -284,8 +287,9 @@ function onSort(desc: boolean | null) {
   menu.value = null
 }
 
-function onGroup(on: boolean) {
-  groupBy.value = on ? menu.value!.column.key : null
+function onGroup(action: 'replace' | 'add' | 'remove' | 'clear') {
+  const col = menu.value!.column.key
+  groupBy.value = action === 'replace' ? [col] : action === 'add' ? [...groupBy.value, col] : action === 'remove' ? groupBy.value.filter(c => c !== col) : []
   menu.value = null
 }
 
@@ -460,75 +464,102 @@ const footer = computed<GridFooter | null>(() => {
   }
 })
 
-// ── 分类汇总：按分组列每组一行小计，汇总方式与汇总行相同（默认数值列求和）──
-const groups = shallowRef<{ cursorId: string, column: string, items: { column: string, func: TotalFunc }[], rows: { key: CellValue, count: number, values: CellValue[] }[] } | null>(null)
+// ── 分类汇总：按分组列每组一行小计（多级时先内层的小计、再外层的），汇总方式与汇总行相同（默认数值列求和）──
+interface GroupRow { key: CellValue, count: number, values: CellValue[] }
+const groups = shallowRef<{ cursorId: string, columns: string[], items: { column: string, func: TotalFunc }[], levels: GroupRow[][], paths: string[][] } | null>(null)
 let groupsController: AbortController | null = null
-/** 折叠的组（按组的取值记，筛选变了组的位置变了也还认得）；换分组列时清空 */
+/** 折叠的组（按「各级取值」的路径记，筛选变了组的位置变了也还认得）；换分组列时清空 */
 const collapsedKeys = ref(new Set<string>())
-const groupKey = (k: CellValue) => JSON.stringify(k ?? null)
-watch(groupBy, () => collapsedKeys.value = new Set())
+watch(() => groupBy.value.join('\u0001'), () => collapsedKeys.value = new Set())
 
-function toggleGroup(g: number) {
-  const row = groups.value?.rows[g]
-  if (!row)
+/** 每一级每组的路径（外层取值 + 自己的取值）：内层的组按行数依次落在外层的组里 */
+function groupPaths(levels: GroupRow[][]): string[][] {
+  const out: string[][] = []
+  let parents: { path: unknown[], count: number }[] = [{ path: [], count: Infinity }]
+  for (const level of levels) {
+    const paths: string[] = []
+    const next: { path: unknown[], count: number }[] = []
+    let p = 0
+    let used = 0
+    for (const row of level) {
+      while (p < parents.length - 1 && used >= parents[p]!.count) {
+        p++
+        used = 0
+      }
+      const path = [...parents[p]!.path, row.key ?? null]
+      used += row.count
+      paths.push(JSON.stringify(path))
+      next.push({ path, count: row.count })
+    }
+    out.push(paths)
+    parents = next
+  }
+  return out
+}
+
+function toggleGroup(level: number, g: number) {
+  const k = groups.value?.paths[level]?.[g]
+  if (k == null)
     return
   const next = new Set(collapsedKeys.value)
-  const k = groupKey(row.key)
   if (!next.delete(k))
     next.add(k)
   collapsedKeys.value = next
 }
 
-/** 全部折叠（只看各组小计）/ 全部展开 */
-function collapseAll(on: boolean) {
-  collapsedKeys.value = on ? new Set((groups.value?.rows ?? []).map(r => groupKey(r.key))) : new Set()
+/** 折叠第 level 级的全部组（只看这一级及外层的小计）；null 为全部展开 */
+function collapseLevel(level: number | null) {
+  collapsedKeys.value = new Set(level == null ? [] : groups.value?.paths[level] ?? [])
 }
+/** 第 level 级的组是不是全部折叠了 */
+const levelCollapsed = (level: number) => !!groups.value?.paths[level]?.every(k => collapsedKeys.value.has(k))
 
 const loadGroups = useDebounceFn(async () => {
   groupsController?.abort()
   const cur = cursor.value
-  const column = groupBy.value
-  if (!cur || !column || loading.value)
+  const columns = [...groupBy.value]
+  if (!cur || !columns.length || loading.value)
     return
   const items = totalItems.value.filter(it => it.column !== CONTRIBUTION_KEY)
   const c = new AbortController()
   groupsController = c
   try {
     const q = query.value
-    const r = await groupsApi(props.dataset.id, { filters: q.filters, keyword: q.keyword, rule: q.rule, violation: q.violation, column, desc: groupSort.value?.desc ?? false, items }, c.signal)
+    const r = await groupsApi(props.dataset.id, { filters: q.filters, keyword: q.keyword, rule: q.rule, violation: q.violation, levels: groupSort.value, items }, c.signal)
     if (c === groupsController)
-      groups.value = { cursorId: cur.cursorId, column, items, rows: r.groups }
+      groups.value = { cursorId: cur.cursorId, columns, items, levels: r.levels, paths: groupPaths(r.levels) }
   }
   catch (e) {
     if (!isCancel(e) && c === groupsController) {
       ElMessage.warning(errorText(e))
-      groupBy.value = null
+      // 加的这一级不行（如组合太多）：退回上一级
+      groupBy.value = columns.slice(0, -1)
     }
   }
 }, 100)
 
-watch(() => groupBy.value && cursor.value && !loading.value ? JSON.stringify([cursor.value.cursorId, groupBy.value, totalItems.value]) : '', (key) => {
+watch(() => groupBy.value.length && cursor.value && !loading.value ? JSON.stringify([cursor.value.cursorId, groupBy.value, totalItems.value]) : '', (key) => {
   if (key)
     loadGroups()
-  else if (!groupBy.value)
+  else if (!groupBy.value.length)
     groups.value = null
 })
 
 /** 交给表格的分组：只用和当前游标、当前分组列对得上的那一份 */
 const gridGroups = computed<GridGroups | null>(() => {
   const g = groups.value
-  if (!g || !groupBy.value || g.column !== groupBy.value || g.cursorId !== cursor.value?.cursorId)
+  if (!g || !groupBy.value.length || g.columns.join('\u0001') !== groupBy.value.join('\u0001') || g.cursorId !== cursor.value?.cursorId)
     return null
   const cols = columns.value
   const at = new Map(g.items.map((it, i) => [it.column, i]))
   const collapsed = collapsedKeys.value
   return {
-    sizes: g.rows.map(r => r.count),
-    collapsed: g.rows.map(r => collapsed.has(groupKey(r.key))),
-    cells: (gi) => {
-      const row = g.rows[gi]!
+    levels: g.levels.map(l => l.map(r => r.count)),
+    collapsed: g.paths.map(l => l.map(k => collapsed.has(k))),
+    cells: (level, gi) => {
+      const row = g.levels[level]![gi]!
       return cols.map((c) => {
-        if (c.key === g.column)
+        if (c.key === g.columns[level])
           return t('{0} 小计（{1} 行）', [row.key == null || row.key === '' ? t('（空）') : formatCell(row.key, c) || String(row.key), row.count.toLocaleString()])
         const i = at.get(c.key)
         return i == null ? null : formatTotal(row.values[i] ?? null, g.items[i]!.func, c)
@@ -536,7 +567,8 @@ const gridGroups = computed<GridGroups | null>(() => {
     },
   }
 })
-const groupInfo = computed(() => gridGroups.value ? t('（{0} 组）', [gridGroups.value.sizes.length.toLocaleString()]) : '')
+const groupTitles = computed(() => groupBy.value.map(k => columns.value.find(c => c.key === k)?.title ?? k))
+const groupInfo = computed(() => gridGroups.value ? t('（{0} 组）', [gridGroups.value.levels.map(l => l.length.toLocaleString()).join(' / ')]) : '')
 
 const totalMenu = shallowRef<{ column: GridColumn, rect: DOMRect } | null>(null)
 const totalMenuRef = ref<HTMLElement>()
@@ -655,14 +687,15 @@ const queryDesc = computed(() => [
   sort.value ? t('按「{0}」{1}', [columns.value.find(c => c.key === sort.value!.column)?.title ?? sort.value.column, sort.value.desc ? t('降序') : t('升序')]) : '',
 ].filter(Boolean).join('；'))
 
-/** 分类汇总时导出 Excel：带上分组、小计方式和折叠的组（折叠的太多时只在全部折叠时带上） */
+/** 分类汇总时导出 Excel：带上各级分组、小计方式和折叠的组（折叠的太多时只带上整级折叠的那一级） */
 function exportGroup(): ExportGroup | null {
   const g = groups.value
   if (!gridGroups.value || !g)
     return null
-  const collapsed = g.rows.map((r, i) => collapsedKeys.value.has(groupKey(r.key)) ? i : -1).filter(i => i >= 0)
-  const all = collapsed.length === g.rows.length
-  return { column: g.column, desc: groupSort.value?.desc ?? false, items: g.items, collapsed: all || collapsed.length > 1000 ? [] : collapsed, allCollapsed: all }
+  const collapsed = g.paths.map(l => l.map((k, i) => collapsedKeys.value.has(k) ? i : -1).filter(i => i >= 0))
+  const whole = g.paths.findIndex((l, d) => l.length > 0 && collapsed[d]!.length === l.length)
+  const many = collapsed.reduce((n, l) => n + l.length, 0) > 1000
+  return { levels: groupSort.value, items: g.items, collapsed: many ? [] : collapsed, collapseLevel: whole >= 0 ? whole : null }
 }
 
 function exportData(format: 'csv' | 'xlsx') {
@@ -726,14 +759,20 @@ function exportData(format: 'csv' | 'xlsx') {
         <el-tag v-if="dataset.validation" size="small" :type="dataset.validation.failed ? 'danger' : 'success'" effect="plain" class="cursor-pointer" data-testid="validation-badge" :title="dataset.validation.checkedAt ? $t('检查于 {0}', [dataset.validation.checkedAt]) : ''" @click="validationVisible = true">
           {{ dataset.validation.failed ? $t('校验：{0} 项不通过（{1} 行）', [dataset.validation.failed, dataset.validation.badRows.toLocaleString()]) : $t('校验通过') }}
         </el-tag>
-        <el-tag v-if="groupBy" size="small" type="success" closable data-testid="group-tag" @close="groupBy = null">
-          {{ $t('按「{0}」分类汇总', [columns.find(c => c.key === groupBy)?.title ?? groupBy]) }}{{ groupInfo }}
+        <el-tag v-if="groupBy.length" size="small" type="success" closable data-testid="group-tag" @close="groupBy = []">
+          {{ $t('按「{0}」分类汇总', [groupTitles.join(' → ')]) }}{{ groupInfo }}
         </el-tag>
         <template v-if="gridGroups">
-          <el-button v-if="collapsedKeys.size < gridGroups.sizes.length" link size="small" data-testid="collapse-all" :title="$t('只看各组的小计；点小计行的行号展开一组')" @click="collapseAll(true)">
+          <span v-if="groupBy.length > 1" class="flex items-center gap-1 text-xs text-gray-400">
+            {{ $t('折叠到') }}
+            <el-button v-for="(title, i) in groupTitles" :key="i" link size="small" class="!ml-0" :data-testid="`collapse-level-${i}`" :disabled="levelCollapsed(i) && collapsedKeys.size === (groups?.paths[i]?.length ?? 0)" :title="$t('只看到「{0}」这一级的小计；点小计行的行号展开一组', [title])" @click="collapseLevel(i)">
+              {{ title }}
+            </el-button>
+          </span>
+          <el-button v-else-if="!levelCollapsed(0)" link size="small" data-testid="collapse-all" :title="$t('只看各组的小计；点小计行的行号展开一组')" @click="collapseLevel(0)">
             {{ $t('全部折叠') }}
           </el-button>
-          <el-button v-if="collapsedKeys.size" link size="small" data-testid="expand-all" @click="collapseAll(false)">
+          <el-button v-if="collapsedKeys.size" link size="small" data-testid="expand-all" @click="collapseLevel(null)">
             {{ $t('全部展开') }}
           </el-button>
         </template>
@@ -913,7 +952,7 @@ function exportData(format: 'csv' | 'xlsx') {
       :sort-desc="sort?.column === menu.column.key ? sort.desc : null"
       :anchor="menu.rect"
       :can-change-kind="canChangeKind(menu.column)"
-      :group-state="groupBy === menu.column.key ? 'this' : groupBy ? 'other' : 'none'"
+      :grouping="{ count: groupBy.length, level: groupBy.indexOf(menu.column.key) }"
       @apply="onApplyFilter"
       @sort="onSort"
       @group="onGroup"

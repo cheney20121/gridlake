@@ -36,12 +36,18 @@ export interface DrawState {
   /** 取已加载的行；还没加载出来时返回 undefined（画骨架占位） */
   cell: (row: number) => CellValue[] | undefined
   /** 分类汇总的小计行：返回各列显示的文字（已格式化）；不是小计行返回 null */
-  subtotal?: (row: number) => (string | null)[] | null
+  /** 小计行：各列的文字，outer 为它外面还有几级（0 是最内层；越往外底色越深） */
+  subtotal?: (row: number) => { cells: (string | null)[], outer: number } | null
   /** 行号列的文字（分类汇总时数据行显示数据行号、小计行空着）；省略为 row + 1 */
   rowLabel?: (row: number) => string
 }
 
 /** 当前可视范围内的列序号 */
+/** 小计行的底色：最内层最浅 */
+function subBg(outer: number): string {
+  return outer > 0 ? COLORS.subBgOuter : COLORS.subBg
+}
+
 function visibleCols(st: DrawState): number[] {
   const left = st.scrollLeft
   const right = left + st.width - st.numW
@@ -82,9 +88,9 @@ export function drawGrid(ctx: CanvasRenderingContext2D, st: DrawState) {
       const y = yOf(r)
       const sub = st.subtotal?.(r)
       if (sub) {
-        ctx.fillStyle = COLORS.subBg
+        ctx.fillStyle = subBg(sub.outer)
         ctx.fillRect(x, y, col.width, ROW_H)
-        const text = sub[c]
+        const text = sub.cells[c]
         if (text) {
           ctx.fillStyle = COLORS.subText
           ctx.font = `600 ${FONT}`
@@ -156,9 +162,9 @@ export function drawGrid(ctx: CanvasRenderingContext2D, st: DrawState) {
         const v = sub ? null : st.cell(f.row)?.[f.col]
         const col = st.columns[f.col]!
         const hit = col.style?.(v) ?? null
-        ctx.fillStyle = sub ? COLORS.subBg : hit?.bg ?? '#FFFFFF'
+        ctx.fillStyle = sub ? subBg(sub.outer) : hit?.bg ?? '#FFFFFF'
         ctx.fillRect(fx + 1, fy + 1, st.columns[f.col]!.width - 1, ROW_H - 1)
-        const text = sub ? sub[f.col] : formatCell(v ?? null, col)
+        const text = sub ? sub.cells[f.col] : formatCell(v ?? null, col)
         if (text) {
           ctx.beginPath()
           ctx.rect(fx, fy, col.width, ROW_H)

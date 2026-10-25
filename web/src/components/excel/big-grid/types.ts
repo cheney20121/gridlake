@@ -41,8 +41,10 @@ export interface GridSelection {
 
 /** 分类汇总：每组的行数（按数据表的顺序）与小计行各列的文字 */
 export interface GridGroups {
-  sizes: number[]
-  cells: (group: number) => (string | null)[]
-  /** 折叠的组只显示小计行 */
-  collapsed?: boolean[]
+  /** 每一级每组的行数（外层在前；内层的组依次嵌在外层的组里） */
+  levels: number[][]
+  /** 第 level 级第 group 组的小计行 */
+  cells: (level: number, group: number) => (string | null)[]
+  /** 每一级折叠的组：只显示小计行 */
+  collapsed?: boolean[][]
 }

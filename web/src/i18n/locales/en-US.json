@@ -3270,5 +3270,11 @@
   "取消分类汇总": "Remove subtotals",
   "只看各组的小计；点小计行的行号展开一组": "Show only each group's subtotal; click a subtotal row's number to expand that group",
   "（含「汇总」页签和分类汇总，可在 Excel 里折叠）": " (with a Summary sheet and subtotals you can collapse in Excel)",
-  "Excel（.xlsx，含分类汇总，在 Excel 里可折叠）": "Excel (.xlsx, with subtotals you can collapse in Excel)"
+  "Excel（.xlsx，含分类汇总，在 Excel 里可折叠）": "Excel (.xlsx, with subtotals you can collapse in Excel)",
+  "只看到「{0}」这一级的小计；点小计行的行号展开一组": "Show subtotals down to the “{0}” level only; click a subtotal row's number to expand that group",
+  "折叠到": "Collapse to",
+  "只按此列分类汇总（替换现在的）": "Subtotal by this column only (replace current)",
+  "添加为第 {0} 级分类汇总（在现有的每组里再按此列分组）": "Add as subtotal level {0} (group each existing group by this column)",
+  "取消这一级分类汇总（第 {0} 级）": "Remove this subtotal level (level {0})",
+  "取消全部分类汇总": "Remove all subtotals"
 }

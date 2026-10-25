@@ -9,16 +9,41 @@ use std::path::Path;
 
 use crate::error::AppResult;
 
-/// 分级：data 为属于某一组的数据行区间（Excel 行号，从 1 数，含两端，按顺序且不重叠），collapsed 为折叠组下面的小计行
+/// 分级：每行的级别（Excel 左侧的 1 / 2 / 3 按钮）和折叠组下面的小计行
 pub struct Outline {
-    pub data: Vec<(u32, u32)>,
-    pub collapsed: Vec<u32>,
+    /// (起始行, 级别)：从这一行起到下一项之前的行都是这一级，按行号排序
+    steps: Vec<(u32, u8)>,
+    collapsed: Vec<u32>,
+    max: u8,
 }
 
 impl Outline {
-    fn level(&self, row: u32) -> bool {
-        let i = self.data.partition_point(|&(_, last)| last < row);
-        self.data.get(i).is_some_and(|&(first, _)| first <= row)
+    /// ranges：每一组的明细行区间（Excel 行号，从 1 数，含两端；可以嵌套，一行的级别 = 包含它的区间个数），
+    /// collapsed：折叠的组下面那一行（小计行）
+    pub fn new(ranges: &[(u32, u32)], mut collapsed: Vec<u32>) -> Self {
+        let mut ev: Vec<(u32, i32)> = ranges.iter().flat_map(|&(a, b)| [(a, 1), (b + 1, -1)]).collect();
+        ev.sort_unstable();
+        let (mut steps, mut level, mut max, mut i) = (Vec::<(u32, u8)>::new(), 0i32, 0u8, 0);
+        while i < ev.len() {
+            let row = ev[i].0;
+            while i < ev.len() && ev[i].0 == row {
+                level += ev[i].1;
+                i += 1;
+            }
+            // Excel 最多 7 级
+            let l = level.clamp(0, 7) as u8;
+            if steps.last().map(|s| s.1) != Some(l) {
+                steps.push((row, l));
+            }
+            max = max.max(l);
+        }
+        collapsed.sort_unstable();
+        collapsed.dedup();
+        Outline { steps, collapsed, max }
+    }
+    fn level(&self, row: u32) -> u8 {
+        let i = self.steps.partition_point(|&(r, _)| r <= row);
+        if i == 0 { 0 } else { self.steps[i - 1].1 }
     }
     fn is_collapsed(&self, row: u32) -> bool {
         self.collapsed.binary_search(&row).is_ok()
@@ -31,12 +56,13 @@ fn rewrite_tag(tag: &[u8], outline: &Outline, out: &mut Vec<u8>) {
     let head = &tag[..close];
     let mut extra = String::new();
     if tag.starts_with(b"<sheetFormatPr") {
-        if !contains(head, b"outlineLevelRow=") {
-            extra.push_str(" outlineLevelRow=\"1\"");
+        if outline.max > 0 && !contains(head, b"outlineLevelRow=") {
+            extra.push_str(&format!(" outlineLevelRow=\"{}\"", outline.max));
         }
     } else if let Some(row) = attr(head, b" r=\"").and_then(|v| std::str::from_utf8(v).ok()?.parse::<u32>().ok()) {
-        if outline.level(row) && !contains(head, b"outlineLevel=") {
-            extra.push_str(" outlineLevel=\"1\"");
+        let level = outline.level(row);
+        if level > 0 && !contains(head, b"outlineLevel=") {
+            extra.push_str(&format!(" outlineLevel=\"{level}\""));
         }
         if outline.is_collapsed(row) && !contains(head, b"collapsed=") {
             extra.push_str(" collapsed=\"1\"");
@@ -176,9 +202,22 @@ mod tests {
     #[test]
     fn adds_levels_and_collapsed() {
         let xml = r#"<worksheet><sheetFormatPr defaultRowHeight="15"/><sheetData><row r="1"><c r="A1"/></row><row r="2" hidden="1"><c r="A2"/></row><row r="3"><c r="A3"/></row><row r="4"/><row r="5"><c r="A5"/></row></sheetData></worksheet>"#;
-        let o = Outline { data: vec![(2, 2), (4, 4)], collapsed: vec![3] };
+        let o = Outline::new(&[(2, 2), (4, 4)], vec![3]);
         let want = r#"<worksheet><sheetFormatPr defaultRowHeight="15" outlineLevelRow="1"/><sheetData><row r="1"><c r="A1"/></row><row r="2" hidden="1" outlineLevel="1"><c r="A2"/></row><row r="3" collapsed="1"><c r="A3"/></row><row r="4" outlineLevel="1"/><row r="5"><c r="A5"/></row></sheetData></worksheet>"#;
         assert_eq!(run(xml, &o, false), want);
         assert_eq!(run(xml, &o, true), want, "按块读取、标签被切开时结果一样");
+    }
+
+    #[test]
+    fn nested_levels() {
+        // 2 ~ 6 是外层的组，里面 2 ~ 3、5 两个内层的组（4、6 是内层小计）；7 是外层小计
+        let o = Outline::new(&[(2, 6), (2, 3), (5, 5)], vec![4]);
+        let levels: Vec<u8> = (1..=8).map(|r| o.level(r)).collect();
+        assert_eq!(levels, [0, 2, 2, 1, 2, 1, 0, 0]);
+        let xml = r#"<sheetFormatPr defaultRowHeight="15"/><row r="2"/><row r="4"/><row r="7"/>"#;
+        assert_eq!(
+            run(xml, &o, false),
+            r#"<sheetFormatPr defaultRowHeight="15" outlineLevelRow="2"/><row r="2" outlineLevel="2"/><row r="4" outlineLevel="1" collapsed="1"/><row r="7"/>"#
+        );
     }
 }
