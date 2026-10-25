@@ -3268,5 +3268,7 @@
   "按「{0}」分类汇总": "Subtotals by “{0}”",
   "按此列分类汇总（每组后面加一行小计）": "Subtotal by this column (a subtotal row after each group)",
   "取消分类汇总": "Remove subtotals",
-  "只看各组的小计；点小计行的行号展开一组": "Show only each group's subtotal; click a subtotal row's number to expand that group"
+  "只看各组的小计；点小计行的行号展开一组": "Show only each group's subtotal; click a subtotal row's number to expand that group",
+  "（含「汇总」页签和分类汇总，可在 Excel 里折叠）": " (with a Summary sheet and subtotals you can collapse in Excel)",
+  "Excel（.xlsx，含分类汇总，在 Excel 里可折叠）": "Excel (.xlsx, with subtotals you can collapse in Excel)"
 }

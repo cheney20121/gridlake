@@ -1452,6 +1452,35 @@ fn excel_col(i: usize) -> String {
 }
 
 /// 按游标导出 .xlsx：「汇总」页签（数值列用 SUBTOTAL 公式引用数据，Excel 里筛选后自动按可见行重算）+「数据」页签（常量内存流式写入）
+/// 导出 Excel 时带上分类汇总：每组后面一行小计（SUBTOTAL 公式），并设成 Excel 的分级显示（可折叠）
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct GroupExport {
+    /// 分组的列（游标已按它排好序）
+    pub column: String,
+    pub desc: bool,
+    /// 每列的小计方式（与汇总行相同）
+    pub items: Vec<TotalItem>,
+    /// 折叠的组（按顺序的序号）
+    pub collapsed: Vec<usize>,
+    /// 全部折叠
+    pub all_collapsed: bool,
+}
+
+/// 小计方式对应的 Excel SUBTOTAL 函数号（9 求和、1 平均、3 非空计数、5 最小、4 最大）；
+/// 不忽略隐藏行（折叠的组也算），但会忽略区域里别的 SUBTOTAL（不会把小计再加一遍）。没有对应的函数时写算好的值
+fn subtotal_code(func: &str, kind: &str) -> Option<u8> {
+    match func {
+        "sum" => Some(9),
+        "average" => Some(1),
+        "count" => Some(3),
+        "min" if kinds::is_numeric(kind) => Some(5),
+        "max" if kinds::is_numeric(kind) => Some(4),
+        _ => None,
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
 pub fn export_xlsx(
     conn: &Connection,
     cache: &CursorCache,
@@ -1459,9 +1488,10 @@ pub fn export_xlsx(
     cursor_id: &str,
     columns: &[String],
     desc: &str,
+    group: Option<&GroupExport>,
     dir: &std::path::Path,
 ) -> AppResult<(std::path::PathBuf, i64)> {
-    use rust_xlsxwriter::{Color, Format, FormatAlign, FormatBorder, Formula, Workbook};
+    use rust_xlsxwriter::{Color, Format, FormatAlign, FormatBorder, Formula, Workbook, Worksheet};
 
     let def = dataset(conn, dataset_id)?;
     let Some(cur) = find_cursor(cache, cursor_id)? else {
@@ -1474,6 +1504,7 @@ pub fn export_xlsx(
 
     // 导出列（含贡献列）
     struct Col {
+        key: String,
         title: String,
         kind: &'static str,
         width: u32,
@@ -1492,7 +1523,7 @@ pub fn export_xlsx(
     for key in &keys {
         if key == CONTRIBUTION_KEY {
             if has_c {
-                cols.push(Col { title: "贡献金额".into(), kind: "money", width: 120, expr: "c.c".into() });
+                cols.push(Col { key: CONTRIBUTION_KEY.into(), title: "贡献金额".into(), kind: "money", width: 120, expr: "c.c".into() });
             }
             continue;
         }
@@ -1503,11 +1534,54 @@ pub fn export_xlsx(
             "boolean" => format!("{base}::BOOLEAN"),
             _ => format!("CAST({base} AS VARCHAR)"),
         };
-        cols.push(Col { title: col.title.clone(), kind: col.kind, width: col.width, expr });
+        cols.push(Col { key: col.key.clone(), title: col.title.clone(), kind: col.kind, width: col.width, expr });
     }
     if cols.is_empty() {
         return Err(AppError::bad("没有可导出的列"));
     }
+
+    // ── 分类汇总：每组的行数与小计（按游标算，分组顺序与游标一致），以及总计 ──
+    struct Grp {
+        key: Json,
+        count: i64,
+        values: Vec<Json>,
+    }
+    let grouped: Option<(&GroupExport, Vec<Grp>, Vec<Json>, &ColumnDef)> = match group {
+        Some(g) => {
+            let gcol = check_column(&def, &g.column)?;
+            let exprs = g.items.iter().map(|it| total_expr(&def, it, has_c)).collect::<AppResult<Vec<_>>>()?;
+            let n = exprs.len();
+            let mut sel = vec![format!("({}) AS __k", column_sql(gcol)), "count(*)".to_string()];
+            sel.extend(exprs.iter().cloned());
+            let sql = format!("SELECT {} FROM {} GROUP BY __k ORDER BY __k {} NULLS LAST LIMIT {}", sel.join(", "), cur.from_sql(&def), if g.desc { "DESC" } else { "ASC" }, MAX_GROUPS + 1);
+            let mut st = conn.prepare(&sql)?;
+            let groups: Vec<Grp> = st
+                .query_map([], |r| Ok(Grp { key: to_json(r.get_ref(0)?), count: r.get(1)?, values: (0..n).map(|i| Ok(clean_zero(to_json(r.get_ref(i + 2)?)))).collect::<duckdb::Result<Vec<_>>>()? }))?
+                .collect::<Result<_, _>>()?;
+            if groups.len() > MAX_GROUPS {
+                return Err(AppError::bad(format!("「{}」的取值超过 {} 种，分类汇总看不过来：请换一列，或先筛选缩小范围", gcol.title, MAX_GROUPS)));
+            }
+            if groups.iter().map(|g| g.count).sum::<i64>() != total {
+                return Err(AppError::bad("数据已更新，请刷新后重新导出"));
+            }
+            // 小计行和总计行也占行：加起来不能超过 Excel 的上限
+            if total + groups.len() as i64 + 1 > MAX_XLSX_ROWS {
+                return Err(AppError::bad(format!("当前结果 {total} 行，加上 {} 行小计超过 Excel 单表上限 {MAX_XLSX_ROWS} 行，请先筛选或取消分类汇总", groups.len() + 1)));
+            }
+            let grand: Vec<Json> = if exprs.is_empty() {
+                vec![]
+            } else {
+                conn.query_row(&format!("SELECT {} FROM {}", exprs.join(", "), cur.from_sql(&def)), [], |r| (0..n).map(|i| Ok(clean_zero(to_json(r.get_ref(i)?)))).collect::<duckdb::Result<Vec<_>>>())?
+            };
+            Some((g, groups, grand, gcol))
+        }
+        None => None,
+    };
+    // 数据页签最后一行（Excel 行号，从 1 数）：表头 + 数据 + 每组小计 + 总计
+    let data_last = match &grouped {
+        Some((_, groups, ..)) => total + groups.len() as i64 + 2,
+        None => total + 1,
+    };
 
     let header = Format::new().set_bold().set_background_color(Color::RGB(0x107C41)).set_font_color(Color::White).set_align(FormatAlign::Center).set_border_bottom(FormatBorder::Thin);
     let money = Format::new().set_num_format("#,##0.00;-#,##0.00;\"-\"");
@@ -1557,10 +1631,14 @@ pub fn export_xlsx(
             ws.write_number_with_format(3, 1, total as f64, &integer).map_err(e)?;
             ws.write_string_with_format(4, 0, "说明", &label).map_err(e)?;
             ws.write_string(4, 1, "下表用 SUBTOTAL 公式引用「数据」页签：在「数据」页签中筛选后，合计 / 平均 / 最小 / 最大按可见行自动重算").map_err(e)?;
+            if let Some((_, groups, _, gcol)) = &grouped {
+                ws.write_string_with_format(5, 0, "分类汇总", &label).map_err(e)?;
+                ws.write_string(5, 1, format!("「数据」页签按「{}」分为 {} 组，每组后面一行小计、最后一行总计；用左侧的分级按钮（1 / 2）折叠或展开", gcol.title, groups.len())).map_err(e)?;
+            }
             for (i, h) in ["列", "合计", "平均", "最小", "最大"].iter().enumerate() {
                 ws.write_string_with_format(6, i as u16, *h, &header).map_err(e)?;
             }
-            let last = total + 1;
+            let last = data_last;
             for (k, (ci, c)) in numeric.iter().enumerate() {
                 let row = 7 + k as u32;
                 ws.write_string(row, 0, &c.title).map_err(e)?;
@@ -1580,7 +1658,7 @@ pub fn export_xlsx(
     }
 
     // ── 数据页签（常量内存：逐行顺序写入）──
-    {
+    let outline = {
         let ws = book.add_worksheet_with_constant_memory();
         ws.set_name("数据").map_err(|e| anyhow::anyhow!("{e}"))?;
         for (i, c) in cols.iter().enumerate() {
@@ -1588,7 +1666,57 @@ pub fn export_xlsx(
             ws.write_string_with_format(0, i as u16, &c.title, &header).map_err(|e| anyhow::anyhow!("{e}"))?;
         }
         ws.set_freeze_panes(1, 0).map_err(|e| anyhow::anyhow!("{e}"))?;
-        ws.autofilter(0, 0, total.max(1) as u32, (cols.len() - 1) as u16).map_err(|e| anyhow::anyhow!("{e}"))?;
+        // 筛选范围不含最后的总计行
+        let filter_last = if grouped.is_some() { data_last - 2 } else { total.max(1) };
+        ws.autofilter(0, 0, filter_last.max(1) as u32, (cols.len() - 1) as u16).map_err(|e| anyhow::anyhow!("{e}"))?;
+        // 小计 / 总计行：加粗、浅绿底；列序号 → 小计方式
+        let sub = Format::new().set_bold().set_background_color(Color::RGB(0xEEF6F1)).set_font_color(Color::RGB(0x0B5A2E));
+        let sub_money = sub.clone().set_num_format("#,##0.00;-#,##0.00;\"-\"");
+        let sub_int = sub.clone().set_num_format("#,##0");
+        let item_at: HashMap<usize, usize> = match &grouped {
+            Some((g, ..)) => cols.iter().enumerate().filter_map(|(ci, c)| g.items.iter().position(|it| it.column == c.key || it.column == c.title).map(|ii| (ci, ii))).collect(),
+            None => HashMap::new(),
+        };
+        let label_col = grouped.as_ref().and_then(|(_, _, _, gcol)| cols.iter().position(|c| c.key == gcol.key)).unwrap_or(0);
+        // 写一行小计 / 总计：rows 为它汇总的数据行区间（0 起的行号，含两端）
+        let write_total = |ws: &mut Worksheet, r: u32, rows: (u32, u32), label: &str, values: &[Json], items: &[TotalItem]| -> anyhow::Result<()> {
+            for (ci, c) in cols.iter().enumerate() {
+                let c16 = ci as u16;
+                let fmt = if c.kind == "money" { &sub_money } else if kinds::is_numeric(c.kind) { &sub_int } else { &sub };
+                if ci == label_col {
+                    ws.write_string_with_format(r, c16, label, &sub)?;
+                    continue;
+                }
+                let Some(&ii) = item_at.get(&ci) else {
+                    ws.write_blank(r, c16, &sub)?;
+                    continue;
+                };
+                let v = values.get(ii).cloned().unwrap_or(Json::Null);
+                match subtotal_code(&items[ii].func, c.kind) {
+                    Some(code) => {
+                        let col = excel_col(ci);
+                        let mut f = Formula::new(format!("=SUBTOTAL({code},{col}{}:{col}{})", rows.0 + 1, rows.1 + 1));
+                        if !v.is_null() {
+                            f = f.set_result(v.as_f64().map(|x| x.to_string()).unwrap_or_else(|| v.to_string()));
+                        }
+                        let fmt = if items[ii].func == "count" { &sub_int } else { fmt };
+                        ws.write_formula_with_format(r, c16, f, fmt)?;
+                    }
+                    None => match &v {
+                        Json::Number(n) => {
+                            ws.write_number_with_format(r, c16, n.as_f64().unwrap_or(0.0), if matches!(items[ii].func.as_str(), "count" | "empty" | "distinct" | "trues") { &sub_int } else { fmt })?;
+                        }
+                        Json::Null => {
+                            ws.write_blank(r, c16, &sub)?;
+                        }
+                        other => {
+                            ws.write_string_with_format(r, c16, other.as_str().map(String::from).unwrap_or_else(|| other.to_string()), &sub)?;
+                        }
+                    },
+                }
+            }
+            Ok(())
+        };
         let select = cols.iter().map(|c| c.expr.clone()).collect::<Vec<_>>().join(", ");
         let mut stmt = conn.prepare(&format!(
             "SELECT {select} FROM {} ORDER BY {}",
@@ -1597,7 +1725,23 @@ pub fn export_xlsx(
         ))?;
         let mut rows = stmt.query([])?;
         let mut r: u32 = 1;
+        // 分类汇总：当前是第几组、这一组已写了几行、这一组从哪一行开始
+        let (mut gi, mut in_group, mut gstart) = (0usize, 0i64, 1u32);
+        // 分级（Excel 行号）：常量内存模式写不出来，保存后补（见 xlsx_outline）
+        let mut outline = crate::xlsx_outline::Outline { data: Vec::new(), collapsed: Vec::new() };
         while let Some(row) = rows.next()? {
+            if let Some((g, groups, ..)) = &grouped
+                && in_group == 0
+            {
+                // 常量内存模式下行的属性要在写这一行之前设好：一组开始时把整组设成一个分级
+                let n = groups[gi].count as u32;
+                if g.all_collapsed || g.collapsed.contains(&gi) {
+                    ws.group_rows_collapsed(r, r + n - 1).map_err(|e| anyhow::anyhow!("{e}"))?;
+                } else {
+                    ws.group_rows(r, r + n - 1).map_err(|e| anyhow::anyhow!("{e}"))?;
+                }
+                gstart = r;
+            }
             for (i, c) in cols.iter().enumerate() {
                 let i16 = i as u16;
                 if kinds::is_numeric(c.kind) {
@@ -1615,11 +1759,39 @@ pub fn export_xlsx(
                 }
             }
             r += 1;
+            if let Some((g, groups, ..)) = &grouped {
+                in_group += 1;
+                if in_group == groups[gi].count {
+                    let key = &groups[gi].key;
+                    let name = match key {
+                        Json::Null => "（空）".to_string(),
+                        Json::String(s) if s.is_empty() => "（空）".to_string(),
+                        Json::String(s) => s.clone(),
+                        other => other.to_string(),
+                    };
+                    write_total(ws, r, (gstart, r - 1), &format!("{name} 小计"), &groups[gi].values, &g.items)?;
+                    outline.data.push((gstart + 1, r));
+                    if g.all_collapsed || g.collapsed.contains(&gi) {
+                        outline.collapsed.push(r + 1);
+                    }
+                    r += 1;
+                    gi += 1;
+                    in_group = 0;
+                }
+            }
         }
-    }
+        if let Some((g, _, grand, _)) = &grouped {
+            write_total(ws, r, (1, r - 1), "总计", grand, &g.items)?;
+        }
+        outline
+    };
 
     let path = dir.join(format!("export-{}-{}.xlsx", cursor_id, std::process::id()));
     book.save(&path).map_err(|e| anyhow::anyhow!("生成 Excel 失败：{e}"))?;
+    if grouped.is_some() {
+        // 「数据」是第二个页签
+        crate::xlsx_outline::apply(&path, "xl/worksheets/sheet2.xml", &outline)?;
+    }
     Ok((path, total))
 }
 

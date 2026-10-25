@@ -356,8 +356,20 @@ export const MAX_EXPORT_ROWS = 1_000_000
 export const MAX_XLSX_ROWS = 1_048_575
 
 /** 导出地址：用浏览器原生下载（流式写盘），百万行也不占页面内存 */
-export function exportUrl(datasetId: string, cursorId: string, columns: string[], name: string, format: 'csv' | 'xlsx' = 'csv', desc = '') {
+/** 导出 xlsx 时带上分类汇总：每组后面一行小计（SUBTOTAL 公式），设成 Excel 的分级显示，折叠的组导出后也折叠 */
+export interface ExportGroup {
+  column: string
+  desc: boolean
+  items: { column: string, func: TotalFunc }[]
+  /** 折叠的组（按顺序的序号） */
+  collapsed: number[]
+  allCollapsed: boolean
+}
+
+export function exportUrl(datasetId: string, cursorId: string, columns: string[], name: string, format: 'csv' | 'xlsx' = 'csv', desc = '', group?: ExportGroup | null) {
   const params = new URLSearchParams({ cursor: cursorId, columns: columns.join(','), name, format, desc })
+  if (group && format === 'xlsx')
+    params.set('group', JSON.stringify(group))
   return url(`/${datasetId}/export?${params}`)
 }
 

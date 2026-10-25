@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { DatasetDrill } from './drill'
 import type { GridColumn, GridFooter, GridGroups, GridSelection } from './types'
-import type { CellValue, DatasetColumnKind, DatasetCursor, DatasetFilter, DatasetInfo, DatasetQuery, ExternalRefreshOutcome, SelectionStats, TotalFunc, ValidationRule } from '@/api/dataset'
+import type { CellValue, DatasetColumnKind, DatasetCursor, DatasetFilter, DatasetInfo, DatasetQuery, ExportGroup, ExternalRefreshOutcome, SelectionStats, TotalFunc, ValidationRule } from '@/api/dataset'
 import { onClickOutside, useDebounceFn, useLocalStorage } from '@vueuse/core'
 import { isCancel } from 'axios'
 import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
@@ -655,6 +655,16 @@ const queryDesc = computed(() => [
   sort.value ? t('按「{0}」{1}', [columns.value.find(c => c.key === sort.value!.column)?.title ?? sort.value.column, sort.value.desc ? t('降序') : t('升序')]) : '',
 ].filter(Boolean).join('；'))
 
+/** 分类汇总时导出 Excel：带上分组、小计方式和折叠的组（折叠的太多时只在全部折叠时带上） */
+function exportGroup(): ExportGroup | null {
+  const g = groups.value
+  if (!gridGroups.value || !g)
+    return null
+  const collapsed = g.rows.map((r, i) => collapsedKeys.value.has(groupKey(r.key)) ? i : -1).filter(i => i >= 0)
+  const all = collapsed.length === g.rows.length
+  return { column: g.column, desc: groupSort.value?.desc ?? false, items: g.items, collapsed: all || collapsed.length > 1000 ? [] : collapsed, allCollapsed: all }
+}
+
 function exportData(format: 'csv' | 'xlsx') {
   const cur = cursor.value
   if (!cur)
@@ -668,7 +678,7 @@ function exportData(format: 'csv' | 'xlsx') {
   }
   const name = props.drill ? `${props.dataset.name}_${props.drill.title.replace(/[\\/:*?"<>|\s]+/g, '_')}` : props.dataset.name
   const a = document.createElement('a')
-  a.href = exportUrl(props.dataset.id, cur.cursorId, columns.value.map(c => c.key), name, format, queryDesc.value)
+  a.href = exportUrl(props.dataset.id, cur.cursorId, columns.value.map(c => c.key), name, format, queryDesc.value, exportGroup())
   a.click()
   // 浏览器要等服务端开始返回才会出现下载条：行数多时先说清楚在等什么，免得用户以为没反应又点一次
   const big = cur.total > (format === 'xlsx' ? 100_000 : 1_000_000)
@@ -676,7 +686,7 @@ function exportData(format: 'csv' | 'xlsx') {
     type: big ? 'info' : 'success',
     message: big
       ? t('正在生成 {0} 行的{1}，需要几十秒到几分钟；生成完成后浏览器会自动开始下载，请不要重复点击', [cur.total.toLocaleString(), format === 'xlsx' ? t(' Excel 文件') : t(' CSV 文件')])
-      : t('开始导出 {0} 行{1}', [cur.total.toLocaleString(), format === 'xlsx' ? t('（含「汇总」页签）') : '']),
+      : t('开始导出 {0} 行{1}', [cur.total.toLocaleString(), format === 'xlsx' ? (gridGroups.value ? t('（含「汇总」页签和分类汇总，可在 Excel 里折叠）') : t('（含「汇总」页签）')) : '']),
     duration: big ? 10_000 : 3000,
     showClose: big,
   })
@@ -790,7 +800,7 @@ function exportData(format: 'csv' | 'xlsx') {
           <template #dropdown>
             <el-dropdown-menu>
               <el-dropdown-item command="xlsx">
-                {{ $t('Excel（.xlsx，含汇总页签）') }}
+                {{ gridGroups ? $t('Excel（.xlsx，含分类汇总，在 Excel 里可折叠）') : $t('Excel（.xlsx，含汇总页签）') }}
               </el-dropdown-item>
               <el-dropdown-item command="csv">
                 {{ $t('CSV（最多 100 万行）') }}

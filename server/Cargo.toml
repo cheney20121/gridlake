@@ -34,6 +34,8 @@ tokio-util = { version = "0.7.19", features = ["io"] }
 tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6", features = ["cors", "trace", "fs", "compression-gzip"] }
 tracing = "0.1"
+# 改写导出的 xlsx（rust_xlsxwriter 常量内存模式不写行的分级），与 rust_xlsxwriter 用的同一个版本
+zip = { version = "8", default-features = false, features = ["deflate"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
 [profile.dev.package.duckdb]

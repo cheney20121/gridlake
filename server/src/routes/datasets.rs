@@ -98,6 +98,9 @@ pub struct ExportQuery {
     /// 筛选条件描述（写入 xlsx 汇总页签）
     #[serde(default)]
     pub desc: String,
+    /// 分类汇总（JSON：{ column, desc, items, collapsed, allCollapsed }，只用于 xlsx）
+    #[serde(default)]
+    pub group: String,
 }
 
 /// GET /api/ledger/datasets/{id}/export?cursor=&columns=&name=&format=csv|xlsx&desc=  按当前筛选 / 排序导出（流式下载）
@@ -111,9 +114,10 @@ pub async fn dataset_export(State(db): State<AppState>, Path(id): Path<String>, 
     let cursor = q.cursor.clone();
     let xlsx = q.format == "xlsx";
     let desc = q.desc.clone();
+    let group: Option<dataset::GroupExport> = if q.group.trim().is_empty() { None } else { Some(serde_json::from_str(&q.group).map_err(|e| AppError::bad(format!("分类汇总参数不正确：{e}")))?) };
     let (path, rows) = blocking(&db, move |conn| {
         if xlsx {
-            dataset::export_xlsx(conn, &db2.cursors, &id, &cursor, &columns, &desc, &dir)
+            dataset::export_xlsx(conn, &db2.cursors, &id, &cursor, &columns, &desc, group.as_ref(), &dir)
         } else {
             dataset::export_csv(conn, &db2.cursors, &id, &cursor, &columns, &dir)
         }

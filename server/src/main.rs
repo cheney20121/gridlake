@@ -69,6 +69,7 @@ mod views;
 mod web;
 mod webhook;
 mod window;
+mod xlsx_outline;
 mod workbook;
 mod writeback;
 mod xref;

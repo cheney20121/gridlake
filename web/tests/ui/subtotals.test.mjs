@@ -1,11 +1,12 @@
 // 分类汇总（界面）：列头菜单「按此列分类汇总」→ 数据按店铺排好、每组后面一行小计（画布上出现小计行的底色）→
 // 全部折叠 / 点小计行的行号展开一组 / 全部展开 → 全选时只数数据行 → 标签上显示几组 → 取消
 import assert from 'node:assert/strict'
+import { Buffer } from 'node:buffer'
 import path from 'node:path'
 import { after, before, describe, it } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { findChrome, launchChrome } from './cdp.mjs'
-import { api, startServices, TOKEN, WEB } from './infra.mjs'
+import { API, api, startServices, TOKEN, WEB } from './infra.mjs'
 
 const ARTIFACTS = path.join(path.dirname(fileURLToPath(import.meta.url)), '.artifacts')
 const skip = findChrome() ? false : '本机没有 Chrome / Chromium（可用 CHROME_BIN 指定）'
@@ -68,6 +69,25 @@ describe('分类汇总（界面）', { skip }, () => {
       assert.equal(await pattern(7), 'SdddSSS')
       await page.click('[data-testid="expand-all"]')
       await page.waitFor(`!${isSub(0)} && ${isSub(2)}`, { what: '全部展开', timeout: 30_000 })
+
+      // 导出 Excel：链接里带上分类汇总和折叠的组（北京店折叠），下载得到的是 xlsx
+      await page.click('[data-testid="collapse-all"]')
+      await page.mouseClick(canvas[0] + 20, canvas[1] + 48 + 24 * 0 + 12)
+      await page.waitFor(`!${isSub(0)} && ${isSub(2)} && ${isSub(3)}`, { what: '只展开上海店', timeout: 30_000 })
+      await page.eval(`(() => { const orig = HTMLAnchorElement.prototype.click; HTMLAnchorElement.prototype.click = function () { if (this.href.includes('/export?')) { window.__lastExport = this.href; return } return orig.call(this) } })(); 0`)
+      await page.click('button', '导出 ▾')
+      await page.waitFor(`[...document.querySelectorAll('.ec-dropdown-menu__item')].some(e => e.offsetParent && e.innerText.includes('含分类汇总'))`, { what: '导出菜单写明含分类汇总' })
+      await page.click('.ec-dropdown-menu__item', '含分类汇总')
+      await page.waitFor(`!!window.__lastExport`, { what: '导出链接' })
+      const group = JSON.parse(new URL(await page.eval(`window.__lastExport`)).searchParams.get('group'))
+      assert.deepEqual([group.column, group.collapsed, group.allCollapsed], ['店铺', [1, 2, 3], false], JSON.stringify(group))
+      // 用同一个链接下载（测试里页面的登录不走 cookie，这里带上令牌直接请求接口）
+      const href = new URL(await page.eval(`window.__lastExport`))
+      const res = await fetch(API + href.pathname.slice(href.pathname.indexOf('/ledger/datasets')) + href.search, { headers: { 'x-user-token': TOKEN.alice } })
+      const bytes = Buffer.from(await res.arrayBuffer())
+      assert.ok(res.ok && res.headers.get('content-type').includes('spreadsheetml') && bytes.subarray(0, 2).toString() === 'PK', `下载到 xlsx（${res.status}，${bytes.length} 字节）`)
+      await page.click('[data-testid="expand-all"]')
+      await page.waitFor(`!${isSub(0)} && ${isSub(2)} && !${isSub(3)}`, { what: '再全部展开', timeout: 30_000 })
 
       // 全选：7 个数据行（不含 4 行小计）
       await page.mouseClick(canvas[0] + 48 + 20, canvas[1] + 48 + 24 * 1 + 12)
