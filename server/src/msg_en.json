@@ -932,5 +932,12 @@
   "数空值": "count empty values",
   "数不同值": "count distinct values",
   "数「是」": "count “yes” values",
-  "这样汇总": "be totaled this way"
+  "这样汇总": "be totaled this way",
+  "参数应为对象": "Arguments must be an object",
+  "filters 格式不正确：{0}": "filters is not in the right format: {0}",
+  "delete_rows 要给 filters（删除哪些行）": "delete_rows needs filters (which rows to delete)",
+  "清洗参数不正确：{0}": "The cleaning arguments are not valid: {0}",
+  "当前用户的数据范围受限，不能{0}": "Your data scope is restricted, so you cannot {0}",
+  "清洗数据": "clean data",
+  "生成数据集": "create datasets"
 }

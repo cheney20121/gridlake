@@ -115,6 +115,12 @@ FROM read_parquet([<文件列表>], union_by_name = true, hive_partitioning = �
 
 `server/src/profile.rs`。概况把所有列要算的统计拼进**一条** `SELECT`（每列十来个聚合：`count`、`approx_count_distinct`、`min` / `max`、数值列的 `sum` / `avg` / `stddev_samp` / `approx_quantile`、`count(*) FILTER (WHERE …)` 数零、负数、空白、认不出的日期），DuckDB 一次扫描、多核并行算完；第二条 `SELECT` 只对估计不同值不超过 10 万的列做精确的 `count(DISTINCT …)`（HyperLogLog 在取值很少时误差反而大，而这些列的哈希表很小）。数据来源用 `dataset::dataset()`（数据范围受限时已换成带过滤的子查询），条件用 `dataset::rows_sql()`（与游标同一套筛选、关键字和汇总项规则），所以概况看到的行和数据表一致。单列分布是两三条按分档 / 日期前缀 / 取值的 `GROUP BY`。两个接口都走重计算并发闸门（`blocking_heavy`）。
 
+## AI 助手的数据工具
+
+`ai/tools.rs`。AI 工具分两类：查询类直接执行、结果回给模型；产出类只生成「建议」（kind + 参数 + 预览），用户在卡片上点「应用」后由前端调用与手动操作相同的接口（`features/excel/ai/workbook.ts`），权限检查也就和手动操作一致。数据概况 `profile_dataset` 是查询类，复用 `profile::overview`，同时开放给 MCP。清洗 `propose_clean` 和窗口计算 `create_window_dataset` 是产出类：服务端先用 `clean::preview` / `window::preview` 算出受影响行数、改前改后或新列的前几行放进卡片，模型给错参数时把错误回给它修正；因为会修改 / 新建服务端数据，不能放进方案卡（方案卡要能整体撤回），也不对 MCP 开放（MCP 没有人工确认）。数据范围受限的用户不能提这两种建议（`scope::restricted_now`），与对应接口对受限用户关闭一致。
+
+清洗只能撤销最近一次，所以撤销卡片前先读 `GET …/clean`，确认最近一次的说明和时间与应用时记下的一致，否则拒绝，避免撤销到后来的另一次清洗。应用 / 撤销后调用 `markDataChanged`（`features/excel/dataset/data-changes.ts`），打开着的数据表据此重新建游标——查找替换不改行数，不能靠数据集列表里的行数判断。
+
 ## 汇总行
 
 `dataset::totals`。汇总行用的是表格已经建好的游标（筛选、搜索、规则都已经物化成位置表，或是直通游标），对游标覆盖的整个结果集算，所以和表格显示的行严格一致，也自动带上数据范围过滤（游标的 `from_sql` 连接的是按用户过滤后的表）。每列一种汇总方式，所有列拼进**一条** `SELECT`（`sum` / `avg` / `median` / `min` / `max` / `count(*) FILTER (…)` / `count(DISTINCT …)`），一次扫描；可选的方式按列类型限定（`dataset::total_funcs`，前端 `big-grid/totals.ts` 与之一致），不适用时报错而不是返回无意义的值。日期列存的是文本，最早 / 最晚只在符合日期格式的值里取（与数据概况的 `DATE_RE` 一致）。

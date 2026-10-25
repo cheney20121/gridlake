@@ -3181,5 +3181,18 @@
   "最晚": "Latest",
   "非空": "Filled",
   "不同值": "Distinct",
-  "「是」": "Yes"
+  "「是」": "Yes",
+  "数据清洗建议": "Cleaning proposal",
+  "窗口计算建议": "Window calculation proposal",
+  "数据清洗": "Data cleaning",
+  "窗口计算": "Window calculation",
+  "订单表的数据有没有问题？帮我清理一下": "Is anything wrong with the orders data? Help me clean it up",
+  "每家店铺销售额最高的 10 天，生成一个数据集": "Create a dataset with each shop's 10 best sales days",
+  "将从「{0}」删除 {1} 行（{2}），之后可以撤销。继续？": "This deletes {1} rows from “{0}” ({2}). You can undo it afterwards. Continue?",
+  "已清洗「{0}」：{1}，删除 {2} 行": "Cleaned “{0}”: {1}; deleted {2} rows",
+  "已清洗「{0}」：{1}，修改 {2} 行": "Cleaned “{0}”: {1}; changed {2} rows",
+  "已用窗口计算生成数据集「{0}」{1}": "Created dataset “{0}” with a window calculation{1}",
+  "已撤销对「{0}」的清洗（{1}）": "Undid the cleaning of “{0}” ({1})",
+  "「{0}」之后又做过别的清洗，只能撤销最近一次": "“{0}” has been cleaned again since; only the most recent cleaning can be undone",
+  "不能撤销": "Cannot be undone"
 }

@@ -138,7 +138,8 @@ const uiStore = useExcelUIStore()
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  z-index: 10;
+  /* 高于覆盖在工作簿上的大数据表 / 对账工作台（z-20），否则在数据集页面打开面板会被挡住 */
+  z-index: 30;
 }
 
 .panel-header {

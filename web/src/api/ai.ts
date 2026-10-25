@@ -39,7 +39,7 @@ export interface AiPreview {
   note: string
 }
 
-export type AiActionKind = 'pivot' | 'chart' | 'formula' | 'calc' | 'table_view' | 'column_format' | 'table_create' | 'dataset_save' | 'plan'
+export type AiActionKind = 'pivot' | 'chart' | 'formula' | 'calc' | 'table_view' | 'column_format' | 'table_create' | 'dataset_save' | 'clean' | 'window' | 'plan'
 
 export interface AiAction {
   id: string

@@ -9,6 +9,7 @@ import { CONTRIBUTION_KEY, exportUrl, getStatsApi, MAX_EXPORT_ROWS, MAX_XLSX_ROW
 import BusyOverlay from '@/components/excel/common/BusyOverlay.vue'
 import ExternalDatasetDialog from '@/components/excel/dataset-import/ExternalDatasetDialog.vue'
 import { formatBool } from '@/features/excel/dataset/column-kinds'
+import { dataVersion } from '@/features/excel/dataset/data-changes'
 import { t } from '@/i18n'
 import { useLedgerUserStore } from '@/stores/ledger-user'
 import { errorText } from '@/utils/busy-hint'
@@ -480,6 +481,9 @@ const canClean = computed(() => {
   const owner = !ledgerUser.authRequired || ledgerUser.isAdmin || (!!d.ownerId && d.ownerId === ledgerUser.user?.id)
   return d.kind === 'table' && owner && !ledgerUser.restricted
 })
+
+// 别处（AI 助手）改了这个数据集的数据：重新取数
+watch(() => dataVersion(props.dataset.id), () => openCursor(true))
 
 /** 清洗改了数据（行数可能没变）：数据表重新取数，外层刷新数据集列表 */
 function onCleaned() {

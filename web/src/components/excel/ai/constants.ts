@@ -15,9 +15,12 @@ export const TOOL_LABEL: Record<string, string> = {
   set_column_format: t('列样式建议'),
   create_data_table: t('新建数据表建议'),
   save_query_as_dataset: t('另存数据集建议'),
+  profile_dataset: t('数据概况'),
+  propose_clean: t('数据清洗建议'),
+  create_window_dataset: t('窗口计算建议'),
 }
 
-export const KIND_LABEL: Record<string, string> = { pivot: t('透视表'), chart: t('图表'), formula: '公式', calc: t('计算列'), table_view: t('数据表'), column_format: t('列样式'), table_create: t('新建数据表'), dataset_save: t('另存数据集'), plan: t('方案') }
+export const KIND_LABEL: Record<string, string> = { pivot: t('透视表'), chart: t('图表'), formula: '公式', calc: t('计算列'), table_view: t('数据表'), column_format: t('列样式'), table_create: t('新建数据表'), dataset_save: t('另存数据集'), clean: t('数据清洗'), window: t('窗口计算'), plan: t('方案') }
 
 export const EXAMPLES = [
   t('本月销售额比上月变化了多少？主要是哪些店铺造成的？'),
@@ -28,6 +31,8 @@ export const EXAMPLES = [
   t('订单表的金额用万元显示，超过10万的标红'),
   t('把9月的退款订单放成一张表'),
   t('把各店铺的月度销售汇总存成一个数据集'),
+  t('订单表的数据有没有问题？帮我清理一下'),
+  t('每家店铺销售额最高的 10 天，生成一个数据集'),
 ]
 
 /** 方案里某一步的标题 */

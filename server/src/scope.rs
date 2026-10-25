@@ -141,6 +141,11 @@ fn ambient() -> Option<Arc<Scope>> {
     AMBIENT.with(|a| a.borrow().clone()).filter(|s| s.restricted)
 }
 
+/// 阻塞线程里当前请求的用户数据范围受限吗（AI 工具判断能不能给出清洗 / 生成数据集的建议）
+pub fn restricted_now() -> bool {
+    ambient().is_some()
+}
+
 // ── 规则 ──────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
