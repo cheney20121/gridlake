@@ -954,5 +954,6 @@
   "「{0}」的最小值不能大于最大值": "The minimum of “{0}” cannot be greater than the maximum",
   "「{0}」的正则表达式写得不对：{1}": "The regular expression for “{0}” is invalid: {1}",
   "「{0}」允许的取值最多 {1} 个": "“{0}” can have at most {1} allowed values",
-  "「{0}」还没有设置校验规则": "“{0}” has no validation rules yet"
+  "「{0}」还没有设置校验规则": "“{0}” has no validation rules yet",
+  "「{0}」的取值超过 {1} 种，分类汇总看不过来：请换一列，或先筛选缩小范围": "“{0}” has more than {1} distinct values, too many to subtotal: pick another column or filter first"
 }

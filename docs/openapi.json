@@ -4612,6 +4612,52 @@
         ]
       }
     },
+    "/ledger/datasets/{id}/groups": {
+      "post": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "{ filters?, keyword?, rule?, violation?, column, desc?, items: [] } 分类汇总：按某列分组，每",
+        "description": "{ filters?, keyword?, rule?, violation?, column, desc?, items: [{ column, func }] }  分类汇总：按某列分组，每组的行数与汇总（顺序与按该列排序的数据表一致）",
+        "operationId": "post_ledger_datasets_by_id_groups",
+        "x-permission": "登录用户",
+        "x-restricted-users": true,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupsRequest"
+              }
+            }
+          }
+        }
+      }
+    },
     "/ledger/datasets/{id}/pivot": {
       "post": {
         "tags": [
@@ -10642,6 +10688,36 @@
         "required": [
           "path",
           "pattern"
+        ]
+      },
+      "GroupsRequest": {
+        "allOf": [
+          {
+            "type": "object",
+            "properties": {
+              "column": {
+                "type": "string",
+                "description": "分组的列"
+              },
+              "desc": {
+                "type": "boolean",
+                "description": "分组降序（与数据表按这一列排序的方向一致）"
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/TotalItem"
+                },
+                "description": "每组要算的汇总（与汇总行相同的方式）"
+              }
+            },
+            "required": [
+              "column"
+            ]
+          },
+          {
+            "$ref": "#/components/schemas/QuerySpec"
+          }
         ]
       },
       "Guard": {

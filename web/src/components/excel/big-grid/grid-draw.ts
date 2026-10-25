@@ -35,6 +35,10 @@ export interface DrawState {
   filtered?: Set<string>
   /** 取已加载的行；还没加载出来时返回 undefined（画骨架占位） */
   cell: (row: number) => CellValue[] | undefined
+  /** 分类汇总的小计行：返回各列显示的文字（已格式化）；不是小计行返回 null */
+  subtotal?: (row: number) => (string | null)[] | null
+  /** 行号列的文字（分类汇总时数据行显示数据行号、小计行空着）；省略为 row + 1 */
+  rowLabel?: (row: number) => string
 }
 
 /** 当前可视范围内的列序号 */
@@ -75,8 +79,20 @@ export function drawGrid(ctx: CanvasRenderingContext2D, st: DrawState) {
     const right = isNumericKind(col.kind)
     ctx.textAlign = right ? 'right' : 'left'
     for (let r = first; r <= last; r++) {
-      const row = st.cell(r)
       const y = yOf(r)
+      const sub = st.subtotal?.(r)
+      if (sub) {
+        ctx.fillStyle = COLORS.subBg
+        ctx.fillRect(x, y, col.width, ROW_H)
+        const text = sub[c]
+        if (text) {
+          ctx.fillStyle = COLORS.subText
+          ctx.font = `600 ${FONT}`
+          ctx.fillText(text, right ? x + col.width - 6 : x + 6, y + ROW_H / 2 + 1)
+        }
+        continue
+      }
+      const row = st.cell(r)
       if (!row) {
         ctx.fillStyle = COLORS.skeleton
         ctx.fillRect(x + 6, y + 8, Math.min(col.width - 12, 60 + ((r * 7 + c * 13) % 40)), 8)
@@ -136,20 +152,21 @@ export function drawGrid(ctx: CanvasRenderingContext2D, st: DrawState) {
         ctx.rect(st.numW, st.headH, st.width, st.height)
         ctx.clip()
         ctx.clearRect(fx + 1, fy + 1, st.columns[f.col]!.width - 1, ROW_H - 1)
-        const v = st.cell(f.row)?.[f.col]
+        const sub = st.subtotal?.(f.row)
+        const v = sub ? null : st.cell(f.row)?.[f.col]
         const col = st.columns[f.col]!
         const hit = col.style?.(v) ?? null
-        ctx.fillStyle = hit?.bg ?? '#FFFFFF'
+        ctx.fillStyle = sub ? COLORS.subBg : hit?.bg ?? '#FFFFFF'
         ctx.fillRect(fx + 1, fy + 1, st.columns[f.col]!.width - 1, ROW_H - 1)
-        const text = formatCell(v ?? null, col)
+        const text = sub ? sub[f.col] : formatCell(v ?? null, col)
         if (text) {
           ctx.beginPath()
           ctx.rect(fx, fy, col.width, ROW_H)
           ctx.clip()
           const right = isNumericKind(col.kind)
           ctx.textAlign = right ? 'right' : 'left'
-          ctx.fillStyle = hit?.color ?? (typeof v === 'number' && v < 0 ? COLORS.negative : COLORS.text)
-          ctx.font = col.emphasis || hit?.bold ? `600 ${FONT}` : FONT
+          ctx.fillStyle = sub ? COLORS.subText : hit?.color ?? (typeof v === 'number' && v < 0 ? COLORS.negative : COLORS.text)
+          ctx.font = sub || col.emphasis || hit?.bold ? `600 ${FONT}` : FONT
           ctx.fillText(text, right ? fx + col.width - 6 : fx + 6, fy + ROW_H / 2 + 1)
         }
         ctx.restore()
@@ -253,7 +270,7 @@ export function drawGrid(ctx: CanvasRenderingContext2D, st: DrawState) {
       ctx.fillRect(0, y, st.numW, ROW_H)
     }
     ctx.fillStyle = selected ? COLORS.selHeadText : COLORS.headText
-    ctx.fillText(integer.format(r + 1), st.numW - 6, y + ROW_H / 2 + 1)
+    ctx.fillText(st.rowLabel ? st.rowLabel(r) : integer.format(r + 1), st.numW - 6, y + ROW_H / 2 + 1)
   }
   ctx.beginPath()
   ctx.strokeStyle = COLORS.grid

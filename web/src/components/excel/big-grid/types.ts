@@ -35,4 +35,12 @@ export interface GridCell {
 export interface GridSelection {
   anchor: GridCell
   focus: GridCell
+  /** 分类汇总时：选区里的数据行区间（行号是数据行，不含小计行）；只选了小计行时为 null。没有分类汇总时省略 */
+  dataRows?: [number, number] | null
+}
+
+/** 分类汇总：每组的行数（按数据表的顺序）与小计行各列的文字 */
+export interface GridGroups {
+  sizes: number[]
+  cells: (group: number) => (string | null)[]
 }

@@ -190,6 +190,16 @@ export interface TotalsResult {
   elapsedMs: number
 }
 
+/** 分类汇总：每组的取值、行数与汇总（与 items 一一对应），顺序与按分组列排序的数据表一致 */
+export interface GroupsResult {
+  groups: { key: CellValue, count: number, values: CellValue[] }[]
+  elapsedMs: number
+}
+
+export function groupsApi(datasetId: string, data: DatasetQuery & { column: string, desc: boolean, items: { column: string, func: TotalFunc }[] }, signal?: AbortSignal) {
+  return request<GroupsResult>({ url: url(`/${datasetId}/groups`), method: 'post', data, signal, timeout: 5 * 60 * 1000 })
+}
+
 /** 汇总行：按游标（当前筛选 / 搜索）对整个结果集算每列的汇总 */
 export function totalsApi(datasetId: string, data: { cursorId: string, items: { column: string, func: TotalFunc }[] }, signal?: AbortSignal) {
   return request<TotalsResult>({ url: url(`/${datasetId}/totals`), method: 'post', data, signal, timeout: 5 * 60 * 1000 })

@@ -1195,42 +1195,118 @@ pub fn totals(conn: &Connection, cache: &CursorCache, dataset_id: &str, req: &To
     if req.items.is_empty() {
         return Ok(TotalsResult::default());
     }
-    let mut exprs = Vec::new();
-    for it in &req.items {
-        let (c, kind, title) = if it.column == CONTRIBUTION_KEY {
-            if !cur.has_c {
-                return Err(AppError::bad("当前没有汇总项规则，没有贡献金额列"));
-            }
-            ("c.c".to_string(), "money", "贡献金额")
-        } else {
-            let col = check_column(&def, &it.column)?;
-            (format!("({})", column_sql(col)), col.kind, col.title.as_str())
-        };
-        if !total_funcs(kind).contains(&it.func.as_str()) {
-            return Err(AppError::bad(format!("「{title}」是{}列，不能{}", kinds::label(kind), total_label(&it.func))));
-        }
-        let blank = if kinds::is_numeric(kind) || kind == "boolean" { format!("{c} IS NULL") } else { format!("({c} IS NULL OR trim(CAST({c} AS VARCHAR)) = '')") };
-        let money = kind == "money";
-        let round = |e: String| if money { format!("round({e}, 2)") } else { e };
-        exprs.push(match it.func.as_str() {
-            "sum" if kind == "integer" => format!("sum({c})::BIGINT"),
-            "sum" => round(format!("sum({c})::DOUBLE")),
-            "average" => round(format!("avg({c})::DOUBLE")),
-            "median" => round(format!("median({c})::DOUBLE")),
-            "min" | "max" if kind == "datetime" => format!("{}(CAST({c} AS VARCHAR)) FILTER (WHERE regexp_full_match(CAST({c} AS VARCHAR), '{}'))", it.func, crate::profile::DATE_RE),
-            "min" | "max" => format!("{}({c})", it.func),
-            "count" => format!("count(*) FILTER (WHERE NOT {blank})"),
-            "empty" => format!("count(*) FILTER (WHERE {blank})"),
-            "distinct" => format!("count(DISTINCT {c}) FILTER (WHERE NOT {blank})"),
-            _ => format!("count(*) FILTER (WHERE {c})"),
-        });
-    }
+    let exprs = req.items.iter().map(|it| total_expr(&def, it, cur.has_c)).collect::<AppResult<Vec<_>>>()?;
     let sql = format!("SELECT {} FROM {} WHERE {}", exprs.join(", "), cur.from_sql(&def), cur.range(&def, 0, cur.total));
     let n = exprs.len();
     let values = conn.query_row(&sql, [], |r| (0..n).map(|i| Ok(to_json(r.get_ref(i)?))).collect::<duckdb::Result<Vec<_>>>())?;
-    // -0.0 显示成 0
-    let values = values.into_iter().map(|v| if v.as_f64() == Some(0.0) && v.is_f64() { Json::from(0.0) } else { v }).collect();
+    let values = values.into_iter().map(clean_zero).collect();
     Ok(TotalsResult { expired: false, values, elapsed_ms: started.elapsed().as_millis() as i64 })
+}
+
+/// 一列的汇总表达式（汇总行、分类汇总共用）；has_c：有贡献金额列（只有游标上才有，表达式为 c.c）
+fn total_expr(def: &DatasetDef, it: &TotalItem, has_c: bool) -> AppResult<String> {
+    let (c, kind, title) = if it.column == CONTRIBUTION_KEY {
+        if !has_c {
+            return Err(AppError::bad("当前没有汇总项规则，没有贡献金额列"));
+        }
+        ("c.c".to_string(), "money", "贡献金额")
+    } else {
+        let col = check_column(def, &it.column)?;
+        (format!("({})", column_sql(col)), col.kind, col.title.as_str())
+    };
+    if !total_funcs(kind).contains(&it.func.as_str()) {
+        return Err(AppError::bad(format!("「{title}」是{}列，不能{}", kinds::label(kind), total_label(&it.func))));
+    }
+    let blank = if kinds::is_numeric(kind) || kind == "boolean" { format!("{c} IS NULL") } else { format!("({c} IS NULL OR trim(CAST({c} AS VARCHAR)) = '')") };
+    let money = kind == "money";
+    let round = |e: String| if money { format!("round({e}, 2)") } else { e };
+    Ok(match it.func.as_str() {
+        "sum" if kind == "integer" => format!("sum({c})::BIGINT"),
+        "sum" => round(format!("sum({c})::DOUBLE")),
+        "average" => round(format!("avg({c})::DOUBLE")),
+        "median" => round(format!("median({c})::DOUBLE")),
+        "min" | "max" if kind == "datetime" => format!("{}(CAST({c} AS VARCHAR)) FILTER (WHERE regexp_full_match(CAST({c} AS VARCHAR), '{}'))", it.func, crate::profile::DATE_RE),
+        "min" | "max" => format!("{}({c})", it.func),
+        "count" => format!("count(*) FILTER (WHERE NOT {blank})"),
+        "empty" => format!("count(*) FILTER (WHERE {blank})"),
+        "distinct" => format!("count(DISTINCT {c}) FILTER (WHERE NOT {blank})"),
+        _ => format!("count(*) FILTER (WHERE {c})"),
+    })
+}
+
+/// -0.0 显示成 0
+fn clean_zero(v: Json) -> Json {
+    if v.as_f64() == Some(0.0) && v.is_f64() { Json::from(0.0) } else { v }
+}
+
+// ── 分类汇总（数据表按某列分组，每组后面插一行小计）──────────
+
+/// 分组太多时不做分类汇总（每组一行小计，再多就没法看了）
+pub const MAX_GROUPS: usize = 10_000;
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GroupsRequest {
+    #[serde(flatten)]
+    pub spec: QuerySpec,
+    /// 分组的列
+    pub column: String,
+    /// 分组降序（与数据表按这一列排序的方向一致）
+    #[serde(default)]
+    pub desc: bool,
+    /// 每组要算的汇总（与汇总行相同的方式）
+    #[serde(default)]
+    pub items: Vec<TotalItem>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GroupRow {
+    pub key: Json,
+    pub count: i64,
+    pub values: Vec<Json>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GroupsResult {
+    /// 按数据表的排序先后（分组列 ASC / DESC NULLS LAST），每组的行数与汇总
+    pub groups: Vec<GroupRow>,
+    pub elapsed_ms: i64,
+}
+
+/// 每组的行数与汇总：分组和顺序与按「分组列」排序的游标完全一致（同一个表达式、同样的 NULLS LAST），
+/// 前端据此在每组最后一行后面插入小计
+pub fn groups(conn: &Connection, dataset_id: &str, req: &GroupsRequest) -> AppResult<GroupsResult> {
+    let started = Instant::now();
+    if req.items.len() > MAX_TOTALS {
+        return Err(AppError::bad(format!("一次最多汇总 {MAX_TOTALS} 列")));
+    }
+    let def = dataset(conn, dataset_id)?;
+    let col = check_column(&def, &req.column)?;
+    let exprs = req.items.iter().map(|it| total_expr(&def, it, false)).collect::<AppResult<Vec<_>>>()?;
+    let (where_sql, args) = rows_sql(&def, &req.spec)?;
+    let mut selects = vec!["__k".to_string(), "count(*)".to_string()];
+    selects.extend(exprs);
+    let sql = format!(
+        "SELECT {} FROM (SELECT *, ({}) AS __k FROM {} WHERE {where_sql}) GROUP BY __k ORDER BY __k {} NULLS LAST LIMIT {}",
+        selects.join(", "),
+        column_sql(col),
+        def.table,
+        if req.desc { "DESC" } else { "ASC" },
+        MAX_GROUPS + 1
+    );
+    let n = req.items.len();
+    let mut st = conn.prepare(&sql)?;
+    let groups: Vec<GroupRow> = st
+        .query_map(params_from_iter(args.iter()), |r| {
+            Ok(GroupRow { key: to_json(r.get_ref(0)?), count: r.get(1)?, values: (0..n).map(|i| Ok(clean_zero(to_json(r.get_ref(i + 2)?)))).collect::<duckdb::Result<Vec<_>>>()? })
+        })?
+        .collect::<Result<_, _>>()?;
+    if groups.len() > MAX_GROUPS {
+        return Err(AppError::bad(format!("「{}」的取值超过 {} 种，分类汇总看不过来：请换一列，或先筛选缩小范围", col.title, MAX_GROUPS)));
+    }
+    Ok(GroupsResult { groups, elapsed_ms: started.elapsed().as_millis() as i64 })
 }
 
 fn total_label(func: &str) -> &'static str {

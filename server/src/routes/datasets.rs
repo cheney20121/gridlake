@@ -60,6 +60,12 @@ pub async fn dataset_totals(State(db): State<AppState>, Path(id): Path<String>, 
     Ok(ok(blocking_heavy(&db, move |conn| dataset::totals(conn, &db2.cursors, &id, &req)).await?))
 }
 
+/// POST /api/ledger/datasets/{id}/groups  { filters?, keyword?, rule?, violation?, column, desc?, items: [{ column, func }] }  分类汇总：按某列分组，每组的行数与汇总（顺序与按该列排序的数据表一致）
+pub async fn dataset_groups(State(db): State<AppState>, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Envelope<dataset::GroupsResult>>> {
+    let req: dataset::GroupsRequest = parse_json(&body)?;
+    Ok(ok(blocking_heavy(&db, move |conn| dataset::groups(conn, &id, &req)).await?))
+}
+
 /// POST /api/ledger/datasets/{id}/distinct  列值分面（筛选下拉）
 pub async fn dataset_distinct(State(db): State<AppState>, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Envelope<DistinctResult>>> {
     let req: DistinctRequest = parse_json(&body)?;

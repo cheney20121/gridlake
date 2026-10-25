@@ -21,6 +21,8 @@ const props = defineProps<{
   hideSort?: boolean
   /** 显示「更改列类型」（数据表的所有者与管理员） */
   canChangeKind?: boolean
+  /** 分类汇总：this 已按这一列分类汇总，other 按别的列，none 没有；不传则不显示（嵌在工作表里的数据表） */
+  groupState?: 'none' | 'this' | 'other'
 }>()
 
 const emit = defineEmits<{
@@ -28,6 +30,8 @@ const emit = defineEmits<{
   (e: 'sort', desc: boolean | null): void
   (e: 'close'): void
   (e: 'changeKind'): void
+  /** 按这一列分类汇总（true）/ 取消（false） */
+  (e: 'group', on: boolean): void
 }>()
 
 const numeric = computed(() => isNumericKind(props.column.kind))
@@ -161,6 +165,12 @@ onBeforeUnmount(() => {
       </button>
       <button v-if="sortDesc != null" class="item text-gray-500" @click="emit('sort', null)">
         {{ $t('清除排序') }}
+      </button>
+      <button v-if="groupState && groupState !== 'this' && !isContribution" class="item" data-testid="group-by-column" @click="emit('group', true)">
+        {{ $t('按此列分类汇总（每组后面加一行小计）') }}
+      </button>
+      <button v-if="groupState === 'this'" class="item" data-testid="ungroup" @click="emit('group', false)">
+        {{ $t('取消分类汇总') }}
       </button>
       <button v-if="canChangeKind" class="item" data-testid="change-column-kind" @click="emit('changeKind')">
         {{ $t('更改列类型（现在是{0}）…', [kindLabel(column.kind)]) }}

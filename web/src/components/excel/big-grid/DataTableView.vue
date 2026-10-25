@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import type { DatasetDrill } from './drill'
-import type { GridColumn, GridFooter, GridSelection } from './types'
+import type { GridColumn, GridFooter, GridGroups, GridSelection } from './types'
 import type { CellValue, DatasetColumnKind, DatasetCursor, DatasetFilter, DatasetInfo, DatasetQuery, ExternalRefreshOutcome, SelectionStats, TotalFunc, ValidationRule } from '@/api/dataset'
 import { onClickOutside, useDebounceFn, useLocalStorage } from '@vueuse/core'
 import { isCancel } from 'axios'
 import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
-import { CONTRIBUTION_KEY, exportUrl, getStatsApi, MAX_EXPORT_ROWS, MAX_XLSX_ROWS, openCursorApi, refreshExternalApi, totalsApi } from '@/api/dataset'
+import { CONTRIBUTION_KEY, exportUrl, getStatsApi, groupsApi, MAX_EXPORT_ROWS, MAX_XLSX_ROWS, openCursorApi, refreshExternalApi, totalsApi } from '@/api/dataset'
 import BusyOverlay from '@/components/excel/common/BusyOverlay.vue'
 import ExternalDatasetDialog from '@/components/excel/dataset-import/ExternalDatasetDialog.vue'
 import { clearDatasetView, publishDatasetView } from '@/features/excel/dataset/active-view'
@@ -19,6 +19,7 @@ import BigGrid from './BigGrid.vue'
 import CleanDialog from './CleanDialog.vue'
 import ColumnKindDialog from './ColumnKindDialog.vue'
 import FilterMenu from './FilterMenu.vue'
+import { formatCell } from './grid-format'
 import ProfileDrawer from './ProfileDrawer.vue'
 import SplitMergeDialog from './SplitMergeDialog.vue'
 import { formatTotal, pickTotal, totalFuncs, totalLabel } from './totals'
@@ -139,11 +140,14 @@ const sort = ref<{ column: string, desc: boolean } | null>(null)
 const useRule = ref(true)
 /** 只看不符合某条校验规则的行（label 是规则的说明，显示在筛选标签上） */
 const violation = shallowRef<{ rule: ValidationRule, label: string } | null>(null)
+/** 分类汇总的列（列键）：数据先按它排序，每组后面插一行小计；按这一列排序时用那个方向 */
+const groupBy = ref<string | null>(null)
+const groupSort = computed(() => groupBy.value ? { column: groupBy.value, desc: sort.value?.column === groupBy.value ? sort.value.desc : false } : null)
 
 const query = computed<DatasetQuery>(() => ({
   filters: [...(props.drill?.filters ?? []), ...userFilters.value],
   keyword: keyword.value.trim() || undefined,
-  sort: sort.value ? [sort.value] : [],
+  sort: groupSort.value ? [groupSort.value, ...(sort.value && sort.value.column !== groupBy.value ? [sort.value] : [])] : sort.value ? [sort.value] : [],
   rule: useRule.value ? props.drill?.rule : undefined,
   violation: violation.value?.rule,
 }))
@@ -162,7 +166,7 @@ const error = ref('')
 let controller: AbortController | null = null
 
 /** 上一次成功的查询条件：取消 / 失败后还原到它，界面上的筛选标签、排序箭头才和表格里的数据一致 */
-let lastGood: { key: string, filters: DatasetFilter[], keyword: string, sort: { column: string, desc: boolean } | null, useRule: boolean, violation: typeof violation.value } | null = null
+let lastGood: { key: string, filters: DatasetFilter[], keyword: string, sort: { column: string, desc: boolean } | null, useRule: boolean, violation: typeof violation.value, groupBy: string | null } | null = null
 const queryKey = () => JSON.stringify(query.value)
 
 /** force：条件没变也重新取（下钻切换、列定义变化、游标失效）；否则条件与当前游标相同就不重复请求 */
@@ -177,7 +181,7 @@ async function openCursor(force = false) {
   const c = new AbortController()
   controller = c
   const key = queryKey()
-  const snapshot = { filters: JSON.parse(JSON.stringify(userFilters.value)), keyword: keyword.value, sort: sort.value ? { ...sort.value } : null, useRule: useRule.value, violation: violation.value }
+  const snapshot = { filters: JSON.parse(JSON.stringify(userFilters.value)), keyword: keyword.value, sort: sort.value ? { ...sort.value } : null, useRule: useRule.value, violation: violation.value, groupBy: groupBy.value }
   loading.value = true
   error.value = ''
   try {
@@ -238,6 +242,7 @@ function revertQuery() {
   sort.value = g.sort
   useRule.value = g.useRule
   violation.value = g.violation
+  groupBy.value = g.groupBy
 }
 
 watch(() => props.drill, () => {
@@ -246,9 +251,10 @@ watch(() => props.drill, () => {
   sort.value = null
   useRule.value = true
   violation.value = null
+  groupBy.value = null
   openCursor(true)
 }, { immediate: true })
-watch(() => [userFilters.value, sort.value, useRule.value, violation.value], () => openCursor(), { deep: true })
+watch(() => [userFilters.value, sort.value, useRule.value, violation.value, groupBy.value], () => openCursor(), { deep: true })
 watch(keyword, debouncedOpen)
 // 新增 / 修改 / 删除计算列、修改关联定义后：重新建游标取数（列名不变但值变了也要刷新）
 watch(() => JSON.stringify([props.dataset.columns.map(c => [c.key, c.kind, c.formula]), props.dataset.view]), (now, before) => {
@@ -275,6 +281,11 @@ function onApplyFilter(filter: DatasetFilter | null) {
 function onSort(desc: boolean | null) {
   const col = menu.value!.column.key
   sort.value = desc == null ? null : { column: col, desc }
+  menu.value = null
+}
+
+function onGroup(on: boolean) {
+  groupBy.value = on ? menu.value!.column.key : null
   menu.value = null
 }
 
@@ -341,8 +352,9 @@ const selectionSize = computed(() => {
   const s = selection.value
   if (!s)
     return null
+  // 分类汇总时只数数据行（不含小计行）
   return {
-    rows: Math.abs(s.focus.row - s.anchor.row) + 1,
+    rows: s.dataRows !== undefined ? (s.dataRows ? s.dataRows[1] - s.dataRows[0] + 1 : 0) : Math.abs(s.focus.row - s.anchor.row) + 1,
     cols: Math.abs(s.focus.col - s.anchor.col) + 1,
   }
 })
@@ -351,7 +363,7 @@ const loadStats = useDebounceFn(async () => {
   const s = selection.value
   const cur = cursor.value
   statsController?.abort()
-  if (!s || !cur || (selectionSize.value!.rows === 1 && selectionSize.value!.cols === 1)) {
+  if (!s || !cur || s.dataRows === null || (selectionSize.value!.rows <= 1 && selectionSize.value!.cols === 1)) {
     stats.value = null
     return
   }
@@ -362,8 +374,8 @@ const loadStats = useDebounceFn(async () => {
   try {
     const result = await getStatsApi(props.dataset.id, {
       cursorId: cur.cursorId,
-      from: Math.min(s.anchor.row, s.focus.row),
-      to: Math.max(s.anchor.row, s.focus.row),
+      from: s.dataRows ? s.dataRows[0] : Math.min(s.anchor.row, s.focus.row),
+      to: s.dataRows ? s.dataRows[1] : Math.max(s.anchor.row, s.focus.row),
       columns: columns.value.slice(c1, c2 + 1).map(col => col.key),
     }, c.signal)
     if (c === statsController)
@@ -447,6 +459,62 @@ const footer = computed<GridFooter | null>(() => {
     }),
   }
 })
+
+// ── 分类汇总：按分组列每组一行小计，汇总方式与汇总行相同（默认数值列求和）──
+const groups = shallowRef<{ cursorId: string, column: string, items: { column: string, func: TotalFunc }[], rows: { key: CellValue, count: number, values: CellValue[] }[] } | null>(null)
+let groupsController: AbortController | null = null
+
+const loadGroups = useDebounceFn(async () => {
+  groupsController?.abort()
+  const cur = cursor.value
+  const column = groupBy.value
+  if (!cur || !column || loading.value)
+    return
+  const items = totalItems.value.filter(it => it.column !== CONTRIBUTION_KEY)
+  const c = new AbortController()
+  groupsController = c
+  try {
+    const q = query.value
+    const r = await groupsApi(props.dataset.id, { filters: q.filters, keyword: q.keyword, rule: q.rule, violation: q.violation, column, desc: groupSort.value?.desc ?? false, items }, c.signal)
+    if (c === groupsController)
+      groups.value = { cursorId: cur.cursorId, column, items, rows: r.groups }
+  }
+  catch (e) {
+    if (!isCancel(e) && c === groupsController) {
+      ElMessage.warning(errorText(e))
+      groupBy.value = null
+    }
+  }
+}, 100)
+
+watch(() => groupBy.value && cursor.value && !loading.value ? JSON.stringify([cursor.value.cursorId, groupBy.value, totalItems.value]) : '', (key) => {
+  if (key)
+    loadGroups()
+  else if (!groupBy.value)
+    groups.value = null
+})
+
+/** 交给表格的分组：只用和当前游标、当前分组列对得上的那一份 */
+const gridGroups = computed<GridGroups | null>(() => {
+  const g = groups.value
+  if (!g || !groupBy.value || g.column !== groupBy.value || g.cursorId !== cursor.value?.cursorId)
+    return null
+  const cols = columns.value
+  const at = new Map(g.items.map((it, i) => [it.column, i]))
+  return {
+    sizes: g.rows.map(r => r.count),
+    cells: (gi) => {
+      const row = g.rows[gi]!
+      return cols.map((c) => {
+        if (c.key === g.column)
+          return t('{0} 小计（{1} 行）', [row.key == null || row.key === '' ? t('（空）') : formatCell(row.key, c) || String(row.key), row.count.toLocaleString()])
+        const i = at.get(c.key)
+        return i == null ? null : formatTotal(row.values[i] ?? null, g.items[i]!.func, c)
+      })
+    },
+  }
+})
+const groupInfo = computed(() => gridGroups.value ? t('（{0} 组）', [gridGroups.value.sizes.length.toLocaleString()]) : '')
 
 const totalMenu = shallowRef<{ column: GridColumn, rect: DOMRect } | null>(null)
 const totalMenuRef = ref<HTMLElement>()
@@ -626,6 +694,9 @@ function exportData(format: 'csv' | 'xlsx') {
         <el-tag v-if="dataset.validation" size="small" :type="dataset.validation.failed ? 'danger' : 'success'" effect="plain" class="cursor-pointer" data-testid="validation-badge" :title="dataset.validation.checkedAt ? $t('检查于 {0}', [dataset.validation.checkedAt]) : ''" @click="validationVisible = true">
           {{ dataset.validation.failed ? $t('校验：{0} 项不通过（{1} 行）', [dataset.validation.failed, dataset.validation.badRows.toLocaleString()]) : $t('校验通过') }}
         </el-tag>
+        <el-tag v-if="groupBy" size="small" type="success" closable data-testid="group-tag" @close="groupBy = null">
+          {{ $t('按「{0}」分类汇总', [columns.find(c => c.key === groupBy)?.title ?? groupBy]) }}{{ groupInfo }}
+        </el-tag>
         <el-tag v-if="violation" size="small" type="warning" closable data-testid="violation-tag" @close="violation = null">
           {{ $t('只看不合格：{0}', [violation.label]) }}
         </el-tag>
@@ -727,6 +798,7 @@ function exportData(format: 'csv' | 'xlsx') {
         :sort="sort"
         :filtered="filteredColumns"
         :footer="footer"
+        :groups="gridGroups"
         @selection-change="onSelection"
         @footer-click="(column, rect) => totalMenu = { column, rect }"
         @header-menu="(column, rect) => menu = { column, rect }"
@@ -800,8 +872,10 @@ function exportData(format: 'csv' | 'xlsx') {
       :sort-desc="sort?.column === menu.column.key ? sort.desc : null"
       :anchor="menu.rect"
       :can-change-kind="canChangeKind(menu.column)"
+      :group-state="groupBy === menu.column.key ? 'this' : groupBy ? 'other' : 'none'"
       @apply="onApplyFilter"
       @sort="onSort"
+      @group="onGroup"
       @close="menu = null"
       @change-kind="kindColumn = { title: menu!.column.title, kind: menu!.column.kind }; menu = null"
     />

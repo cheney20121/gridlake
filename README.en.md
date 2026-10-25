@@ -36,6 +36,7 @@ Measured on 100M rows × 8 columns of synthetic order data (MacBook, 8 cores, 16
 ## Features
 
 - **Large datasets** — import CSV / Excel / Parquet / JSON; connect ClickHouse, MySQL / PostgreSQL, HTTP APIs; filter, sort, search, computed columns, joined views, trash.
+- **Subtotals** — group by a column with a subtotal row after each group (same functions as the totals row), even on tens of millions of rows.
 - **Totals row** — a footer showing each column's sum, average, median, earliest / latest, distinct count and more over all rows matching the current filters, computed on the server in one query.
 - **Split / merge columns** — split a column by a separator (with a preview of how many parts each row has) or join several columns into one, as computed columns that also apply to rows imported later.
 - **Validation rules** — required, unique, range, format (mobile number / email / regex…) and allowed values; re-checked after every import or sync, with one click to show only the failing rows.

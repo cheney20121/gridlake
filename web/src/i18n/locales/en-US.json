@@ -3263,5 +3263,9 @@
   "邮箱": "Email",
   "纯数字": "Digits only",
   "身份证号": "ID number",
-  "自定义正则": "Custom regex"
+  "自定义正则": "Custom regex",
+  "{0} 小计（{1} 行）": "{0} subtotal ({1} rows)",
+  "按「{0}」分类汇总": "Subtotals by “{0}”",
+  "按此列分类汇总（每组后面加一行小计）": "Subtotal by this column (a subtotal row after each group)",
+  "取消分类汇总": "Remove subtotals"
 }

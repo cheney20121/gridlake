@@ -123,6 +123,10 @@ FROM read_parquet([<文件列表>], union_by_name = true, hive_partitioning = �
 
 清洗只能撤销最近一次，所以撤销卡片前先读 `GET …/clean`，确认最近一次的说明和时间与应用时记下的一致，否则拒绝，避免撤销到后来的另一次清洗。应用 / 撤销后调用 `markDataChanged`（`features/excel/dataset/data-changes.ts`），打开着的数据表据此重新建游标——查找替换不改行数，不能靠数据集列表里的行数判断。
 
+## 分类汇总
+
+数据不重排、不复制：游标按「分组列, 原来的排序」排好，每组的行就连在一起；`dataset::groups` 用同一个分组表达式、同样的 `ASC / DESC NULLS LAST` 一条 `GROUP BY` 返回每组的行数和汇总（汇总表达式与汇总行共用 `total_expr`），前端按各组行数在「显示行」（数据行 + 每组一行小计）和数据行之间换算（`big-grid/group-map.ts`，前缀和 + 二分查找），取数、选区统计、复制都换算回数据行号。各组行数之和和游标总行数对不上时（换游标的瞬间）先不显示小计。超过 1 万组拒绝。
+
 ## 汇总行
 
 `dataset::totals`。汇总行用的是表格已经建好的游标（筛选、搜索、规则都已经物化成位置表，或是直通游标），对游标覆盖的整个结果集算，所以和表格显示的行严格一致，也自动带上数据范围过滤（游标的 `from_sql` 连接的是按用户过滤后的表）。每列一种汇总方式，所有列拼进**一条** `SELECT`（`sum` / `avg` / `median` / `min` / `max` / `count(*) FILTER (…)` / `count(DISTINCT …)`），一次扫描；可选的方式按列类型限定（`dataset::total_funcs`，前端 `big-grid/totals.ts` 与之一致），不适用时报错而不是返回无意义的值。日期列存的是文本，最早 / 最晚只在符合日期格式的值里取（与数据概况的 `DATE_RE` 一致）。
