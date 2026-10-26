@@ -1,5 +1,5 @@
 // 数据校验（界面）：「更多 → 数据校验」→ 添加「编号不能重复」「手机号是手机号格式」→ 保存并检查 → 每条规则的不合格行数和样例 →
-// 「只看这些行」在数据表上筛出来 → 数据表上显示「校验：2 项不通过」
+// 「只看这些行」在数据表上筛出来 → 数据表上显示「校验：2 项不通过」；「推荐规则」按数据推荐、勾选后加进列表
 import assert from 'node:assert/strict'
 import path from 'node:path'
 import { after, before, describe, it } from 'node:test'
@@ -12,6 +12,11 @@ const skip = findChrome() ? false : '本机没有 Chrome / Chromium（可用 CHR
 const COOKIE = 'gridlake-token'
 const ALLOWED = [/command "formula\.mutation\.set-trigger-formula-calculation-start" is not registered/]
 const CSV = '编号,手机号,等级\nA1,13800000000,金卡\nA2,1380000,银卡\nA2,13900000000,金卡\nA3,abc,金卡\n'
+// 30 行：单号 D001 重复一次；手机号一个位数不对、一个空；等级「钻石」只出现一次；金额一个负数
+const MEMBERS = `单号,手机号,等级,金额\n${Array.from({ length: 30 }, (_, k) => {
+  const i = k + 1
+  return [i === 30 ? 'D001' : `D${String(i).padStart(3, '0')}`, i === 5 ? '1380000' : i === 6 ? '' : `138${String(i).padStart(8, '0')}`, i === 9 ? '钻石' : ['金卡', '银卡', '普通'][i % 3], i === 8 ? -5 : i * 10].join(',')
+}).join('\n')}\n`
 
 /**
  * 点开 Element 下拉（真实鼠标点在中间，位置稳定后再点，没弹出来就重试）并在**它自己的**下拉列表里选文字完全一致的选项
@@ -50,12 +55,14 @@ describe('数据校验（界面）', { skip }, () => {
   let services
   let browser
   let datasetId
+  let membersId
 
   before(async () => {
     services = await startServices()
     browser = await launchChrome()
     await api.registerUsers()
     datasetId = await api.importDataset(TOKEN.alice, '会员', CSV)
+    membersId = await api.importDataset(TOKEN.alice, '推荐会员', MEMBERS)
   }, { timeout: 300_000 })
 
   after(async () => {
@@ -102,6 +109,42 @@ describe('数据校验（界面）', { skip }, () => {
     }
     catch (e) {
       await page.screenshot(path.join(ARTIFACTS, 'validation-failed.png')).catch(() => {})
+      throw e
+    }
+  }, { timeout: 240_000 })
+
+  it('推荐规则：按数据推荐 → 去掉一条 → 加进列表 → 保存并检查', async () => {
+    const page = await browser.newPage()
+    const report = `(document.querySelector('[data-testid="validation-report"]')?.innerText ?? '')`
+    const panel = `(document.querySelector('[data-testid="suggestions"]')?.innerText ?? '')`
+    try {
+      await page.clearCookies()
+      await page.setCookie(COOKIE, TOKEN.alice, WEB)
+      await page.goto(`${WEB}/excel?ds=${membersId}&lang=zh-CN`)
+      await page.waitFor(`document.body.innerText.includes('30 行')`, { timeout: 90_000, what: '打开数据表' })
+      await page.click('button', '更多 ▾')
+      await page.waitFor(`!!document.querySelector('[data-testid="open-validation"]')?.offsetParent`, { what: '更多菜单里的数据校验' })
+      await page.click('[data-testid="open-validation"]')
+      await page.waitFor(`document.querySelector('[data-testid="validation-dialog"]')?.innerText.includes('还没有校验规则')`, { what: '还没有规则' })
+      await page.click('[data-testid="suggest-rules"]')
+      await page.waitFor(`${panel}.includes('按现有数据推荐了 5 条规则')`, { what: '推荐了 5 条（导入时手机号被认成了数字列，不推荐格式）', timeout: 30_000 })
+      const text = await page.eval(panel)
+      assert.match(text, /「单号」不能重复\s*像是编号，但有 1 个值重复出现\s*现在 2 行不合格/)
+      assert.match(text, /「等级」只能是 普通 \/ 银卡 \/ 金卡[\s\S]*「钻石」/)
+      assert.match(text, /「金额」不小于 0\s*只有 1 个负数/)
+      await page.screenshot(path.join(ARTIFACTS, 'validation-suggest.png')).catch(() => {})
+      // 不要「金额不小于 0」
+      await page.click('[data-testid="suggestion-4"] .ec-checkbox')
+      await page.waitFor(`document.querySelector('[data-testid="add-suggestions"]')?.innerText.includes('添加选中的 4 条')`, { what: '只选 4 条' })
+      await page.click('[data-testid="add-suggestions"]')
+      await page.waitFor(`!document.querySelector('[data-testid="suggestions"]') && !!document.querySelector('[data-testid="rule-3"]') && !document.querySelector('[data-testid="rule-4"]')`, { what: '加进列表' })
+      await page.click('[data-testid="validation-save"]')
+      await page.waitFor(`${report}.includes('共 30 行，4 行至少有一项不合格（3 条规则不通过）')`, { what: '检查结果', timeout: 30_000 })
+      assert.equal((await api.call('GET', `/ledger/datasets/${membersId}/validation`, TOKEN.alice)).data.rules.length, 4)
+      assert.deepEqual(page.errors.filter(e => !ALLOWED.some(re => re.test(e))), [], '没有控制台报错')
+    }
+    catch (e) {
+      await page.screenshot(path.join(ARTIFACTS, 'validation-suggest-failed.png')).catch(() => {})
       throw e
     }
   }, { timeout: 240_000 })

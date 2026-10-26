@@ -134,6 +134,22 @@ fn data_tool_definitions() -> Json {
         {
             "type": "function",
             "function": {
+                "name": "propose_validation",
+                "description": "建议给数据集设校验规则（用户看过每条规则现在有几行不合格、确认后才保存；之后每次导入、同步后自动检查，可以只看不合格的行）。rules 不填时按数据本身的样子自动推荐（手机号 / 邮箱 / 身份证格式、编号不能重复、差不多都填了的列必填、取值很少的列只能是这几个值、金额数量不小于 0）。rules 的每一项：column 列名，kind：required 必填 / unique 不能重复 / range 取值范围（min、max，数值列写数字，日期列写 2026-01-01，只写一端也行）/ format 格式（format：phone、email、date、digits、idcard，或 regex 加 pattern 整格匹配）/ allowed 只能是这几个值（values）。默认加在已有规则后面，replace=true 时替换全部已有规则。只有数据集所有者或管理员能保存",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "dataset": dataset_param(),
+                        "rules": { "type": "array", "items": { "type": "object", "properties": { "column": { "type": "string" }, "kind": { "type": "string", "enum": ["required", "unique", "range", "format", "allowed"] }, "min": {}, "max": {}, "format": { "type": "string", "enum": ["phone", "email", "date", "digits", "idcard", "regex"] }, "pattern": { "type": "string" }, "values": { "type": "array", "items": { "type": "string" } } }, "required": ["column", "kind"] }, "description": "不填为自动推荐" },
+                        "replace": { "type": "boolean", "description": "替换全部已有规则（默认加在后面）" }
+                    },
+                    "required": ["dataset"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
                 "name": "create_window_dataset",
                 "description": "建议用窗口计算生成一个新数据集（用户确认后创建；源数据集更新后自动重算）：在每一行旁边加累计、排名、和上一行比、移动平均、组内合计 / 占比等列，或每组只留前 N 行。用户要「每家店铺销售额最高的 10 天」「每个商品的累计销量」「环比变化率序列」并想保留结果时用；只是回答一个数字用 query_data / run_sql。calcs 的 func：running_sum 累计 / row_number 序号 / rank 排名（大的在前）/ rank_asc 排名（小的在前）/ prev 上一行的值 / diff 与上一行的差 / pct_change 较上一行的变化率 / moving_avg 移动平均（rows 行，默认 7）/ group_sum 组内合计 / group_avg 组内平均 / group_count 组内行数 / share 占组内合计的比例；除 row_number、group_count 外都要 column（数值列）。累计、序号、排名、上一行、移动平均、topN 需要 orderBy",
                 "parameters": {
@@ -720,6 +736,7 @@ pub fn execute_scoped(conn: &Connection, name: &str, args: &str, scope: Option<&
         "run_sql" => run_sql(conn, args, scope),
         "profile_dataset" => profile_dataset(conn, &catalog, args),
         "propose_clean" => propose_clean(conn, &catalog, args),
+        "propose_validation" => propose_validation(conn, &catalog, args),
         "create_window_dataset" => create_window_dataset(conn, &catalog, args),
         other => Err(AppError::bad(format!("没有工具 {other}"))),
     };
@@ -1924,6 +1941,78 @@ fn propose_clean(conn: &Connection, catalog: &[DatasetDef], args: &str) -> AppRe
     Ok(o)
 }
 
+fn propose_validation(conn: &Connection, catalog: &[DatasetDef], args: &str) -> AppResult<Outcome> {
+    #[derive(Deserialize)]
+    struct Arg {
+        dataset: String,
+        #[serde(default)]
+        rules: Option<Vec<crate::validation::Rule>>,
+        #[serde(default)]
+        replace: bool,
+    }
+    let a: Arg = parse(args)?;
+    let def = resolve(catalog, &a.dataset)?;
+    no_restricted("设置校验规则")?;
+    let previous = crate::validation::rules_of(conn, &def.id)?;
+    // 没给规则：按数据自动推荐，原因一起给模型
+    let (proposed, reasons): (Vec<crate::validation::Rule>, Vec<String>) = match a.rules.filter(|r| !r.is_empty()) {
+        Some(r) => {
+            let n = r.len();
+            (r, vec![String::new(); n])
+        }
+        None => crate::validation::suggest(conn, &def.id)?.suggestions.into_iter().map(|s| (s.rule, s.reason)).unzip(),
+    };
+    if proposed.is_empty() {
+        return Ok(Outcome::ok(format!("「{}」没有可推荐的校验规则（数据太少，或者该设的规则都已经有了）", def.name), format!("「{}」没有可推荐的规则", def.name)));
+    }
+    let (proposed, report) = crate::validation::preview(conn, &def, proposed)?;
+    // 加在已有规则后面：已经有的一模一样的规则不重复加
+    let mut rules = if a.replace { Vec::new() } else { previous.clone() };
+    let mut added = 0;
+    for r in &proposed {
+        if !rules.contains(r) {
+            rules.push(r.clone());
+            added += 1;
+        }
+    }
+    if added == 0 && !a.replace {
+        return Ok(Outcome::ok(format!("「{}」已经有这些规则了", def.name), format!("「{}」已经有这些规则了", def.name)));
+    }
+    let header = vec!["规则".to_string(), "不合格的行".to_string(), "样例".to_string(), "原因".to_string()];
+    let rows: Vec<Vec<String>> = report
+        .results
+        .iter()
+        .zip(&reasons)
+        .map(|(r, why)| vec![r.label.clone(), group_digits(r.violations), r.samples.iter().map(|s| if s.is_empty() { "（空）".to_string() } else { format!("「{s}」") }).collect::<Vec<_>>().join("、"), why.clone()])
+        .collect();
+    let failing = report.results.iter().filter(|r| r.violations > 0).count();
+    let note = format!(
+        "{} 行中 {} 行至少有一项不合格；{}{} 条规则，保存后每次导入、同步后自动检查",
+        group_digits(report.rows),
+        group_digits(report.bad_rows),
+        if a.replace { "替换已有规则，共 " } else { "新增 " },
+        if a.replace { rules.len() } else { added }
+    );
+    let title = format!("给「{}」设 {} 条校验规则", def.name, proposed.len());
+    let action = json!({
+        "kind": "validation",
+        "title": title,
+        "datasetId": def.id,
+        "datasetName": def.name,
+        "rules": rules,
+        "previous": previous,
+        "failed": failing,
+        "badRows": report.bad_rows,
+        "preview": preview_json(header.clone(), rows.clone(), note.clone()),
+    });
+    let mut o = Outcome::ok(
+        format!("已生成校验规则建议「{title}」，{note}，等待用户确认（确认后才保存）：\n{}", render_table(&header, &rows, "")),
+        format!("建议给「{}」设 {} 条校验规则（{} 条现在有不合格的行）", def.name, proposed.len(), failing),
+    );
+    o.action = Some(action);
+    Ok(o)
+}
+
 #[derive(Deserialize)]
 struct WindowArg {
     dataset: String,
@@ -2023,8 +2112,8 @@ mod tests {
     fn definitions_are_valid() {
         let d = definitions();
         let names: Vec<&str> = d.as_array().unwrap().iter().map(|t| t["function"]["name"].as_str().unwrap()).collect();
-        assert_eq!(names.len(), 18);
-        assert!(names.contains(&"profile_dataset") && names.contains(&"propose_clean") && names.contains(&"create_window_dataset"));
+        assert_eq!(names.len(), 19);
+        assert!(names.contains(&"profile_dataset") && names.contains(&"propose_clean") && names.contains(&"propose_validation") && names.contains(&"create_window_dataset"));
         assert!(names.contains(&"set_table_view") && names.contains(&"set_column_format") && names.contains(&"create_data_table") && names.contains(&"save_query_as_dataset"));
         for t in d.as_array().unwrap() {
             assert_eq!(t["function"]["parameters"]["type"], "object");

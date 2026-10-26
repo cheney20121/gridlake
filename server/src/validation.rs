@@ -322,19 +322,36 @@ fn store_report(conn: &Connection, id: &str, report: &Report) -> AppResult<()> {
     Ok(())
 }
 
-/// 保存规则并立即检查一遍
-pub fn save(conn: &Connection, id: &str, rules: Vec<Rule>, user: &CurrentUser) -> AppResult<Validation> {
-    let def = dataset::dataset(conn, id)?;
-    let rules: Vec<Rule> = rules
+/// 列名统一成列标题
+fn normalize(def: &DatasetDef, rules: Vec<Rule>) -> Vec<Rule> {
+    rules
         .into_iter()
         .map(|mut r| {
-            // 列名统一成列标题
-            if let Ok(c) = dataset::find_column(&def, &r.column) {
+            if let Ok(c) = dataset::find_column(def, &r.column) {
                 r.column = c.title.clone();
             }
             r
         })
-        .collect();
+        .collect()
+}
+
+/// 试一下这些规则（不保存）：检查写得对不对，数出每条不合格的行数（AI 建议规则时的预览）
+pub fn preview(conn: &Connection, def: &DatasetDef, rules: Vec<Rule>) -> AppResult<(Vec<Rule>, Report)> {
+    let rules = normalize(def, rules);
+    check_rules(conn, def, &rules)?;
+    let report = run(conn, def, &rules)?;
+    Ok((rules, report))
+}
+
+/// 已保存的规则（没有时为空）
+pub fn rules_of(conn: &Connection, id: &str) -> AppResult<Vec<Rule>> {
+    Ok(load(conn, id)?.map(|x| x.0).unwrap_or_default())
+}
+
+/// 保存规则并立即检查一遍
+pub fn save(conn: &Connection, id: &str, rules: Vec<Rule>, user: &CurrentUser) -> AppResult<Validation> {
+    let def = dataset::dataset(conn, id)?;
+    let rules = normalize(&def, rules);
     check_rules(conn, &def, &rules)?;
     let operator = if user.name.is_empty() { None } else { Some(user.name.clone()) };
     conn.execute(
@@ -381,6 +398,166 @@ pub fn recheck(conn: &Connection, id: &str) -> AppResult<Option<(DatasetDef, Rep
 pub fn forget(conn: &Connection, id: &str) -> AppResult<()> {
     conn.execute("DELETE FROM ledger_validation WHERE dataset_id = ?", params![id])?;
     Ok(())
+}
+
+// ── 推荐规则：按数据本身的样子猜哪些列该设什么规则（不用 AI）──────────
+
+/// 推荐的一条规则：为什么推荐，按它现在有几行不合格
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Suggestion {
+    pub rule: Rule,
+    pub label: String,
+    pub reason: String,
+    pub violations: i64,
+    pub samples: Vec<String>,
+}
+
+#[derive(Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Suggestions {
+    pub rows: i64,
+    pub suggestions: Vec<Suggestion>,
+    pub elapsed_ms: i64,
+}
+
+const MAX_SUGGESTIONS: usize = 20;
+/// 行数太少看不出规律
+const MIN_ROWS: i64 = 5;
+/// 取值列表最多几个值
+const MAX_ALLOWED: i64 = 12;
+
+/// 看列名像不像编号
+fn id_like(title: &str) -> bool {
+    let t = title.trim().to_lowercase();
+    ["单号", "编号", "订单号", "流水号", "工号", "学号", "身份证", "条码", "sku", "uuid"].iter().any(|k| t.contains(k)) || t == "id" || t.ends_with("_id") || t.ends_with(" id")
+}
+
+/// 看列名像不像不该是负数的量
+fn amount_like(title: &str) -> bool {
+    let t = title.trim().to_lowercase();
+    ["金额", "数量", "价", "成本", "件数", "库存", "销量", "费", "qty", "amount", "price", "quantity"].iter().any(|k| t.contains(k))
+}
+
+fn pct(n: i64, of: i64) -> String {
+    if of <= 0 { "0%".into() } else { format!("{:.0}%", n as f64 * 100.0 / of as f64) }
+}
+
+/// 推荐规则：数据概况一次扫描 + 文本列格式匹配一次扫描 + 少数取值的列各数一次，再把推荐的规则一起检查一遍。
+/// 已经有的规则（同一列同一种）不再推荐。数据范围受限的用户按自己能看到的行推荐
+pub fn suggest(conn: &Connection, id: &str) -> AppResult<Suggestions> {
+    let started = std::time::Instant::now();
+    let def = dataset::dataset(conn, id)?;
+    let prof = crate::profile::overview(conn, &def.id, &crate::profile::ProfileRequest::default())?;
+    let rows = prof.rows;
+    let existing = rules_of(conn, &def.id)?;
+    let empty = Suggestions { rows, suggestions: vec![], elapsed_ms: started.elapsed().as_millis() as i64 };
+    if rows < MIN_ROWS {
+        return Ok(empty);
+    }
+    let cols: Vec<(&crate::profile::ColumnProfile, &ColumnDef)> = prof.columns.iter().filter(|p| !p.computed).filter_map(|p| dataset::find_column(&def, &p.key).ok().map(|c| (p, c))).collect();
+
+    // 文本 / 编号列：手机号、邮箱、身份证号各匹配了几个（非空）
+    const PATTERNS: [&str; 3] = ["phone", "email", "idcard"];
+    let text_cols: Vec<usize> = cols.iter().enumerate().filter(|(_, (p, _))| matches!(p.kind, "text" | "id")).map(|(i, _)| i).collect();
+    let mut matched: Vec<[i64; 3]> = vec![[0; 3]; cols.len()];
+    if !text_cols.is_empty() {
+        let mut selects = Vec::new();
+        for &i in &text_cols {
+            let c = format!("trim(CAST(({}) AS VARCHAR))", dataset::column_sql(cols[i].1));
+            for f in PATTERNS {
+                // 正则是内置的常量，没有引号
+                let (_, re) = format_of(f, None)?;
+                selects.push(format!("count(*) FILTER (WHERE regexp_full_match({c}, '{re}'))"));
+            }
+        }
+        let counts: Vec<i64> = conn.query_row(&format!("SELECT {} FROM {}", selects.join(", "), def.table), [], |r| (0..selects.len()).map(|k| r.get(k)).collect())?;
+        for (n, &i) in text_cols.iter().enumerate() {
+            matched[i] = [counts[n * 3], counts[n * 3 + 1], counts[n * 3 + 2]];
+        }
+    }
+
+    let mut out: Vec<(Rule, String)> = Vec::new();
+    for (i, (p, col)) in cols.iter().enumerate() {
+        let title = col.title.clone();
+        let missing = p.nulls + p.blanks.unwrap_or(0);
+        let filled = rows - missing;
+        let mut picked: Vec<(Check, String)> = Vec::new();
+        // 格式
+        if matches!(p.kind, "text" | "id") && filled >= MIN_ROWS {
+            for (k, f) in PATTERNS.iter().enumerate() {
+                let m = matched[i][k];
+                if m * 10 >= filled * 9 {
+                    let (name, _) = format_of(f, None)?;
+                    let reason = if m == filled { format!("非空的值都是{name}格式") } else { format!("{} 的值是{name}格式，另有 {} 个不是", pct(m, filled), filled - m) };
+                    picked.push((Check::Format { format: f.to_string(), pattern: None }, reason));
+                    break;
+                }
+            }
+        }
+        if p.kind == "datetime"
+            && let Some(bad) = p.invalid
+            && bad > 0
+            && bad * 10 <= p.non_null
+        {
+            picked.push((Check::Format { format: "date".into(), pattern: None }, format!("有 {bad} 个值不是日期写法")));
+        }
+        // 不能重复
+        if matches!(p.kind, "text" | "id" | "integer") && p.distinct_exact && p.non_null >= MIN_ROWS {
+            let all_distinct = p.distinct == p.non_null;
+            if id_like(&title) && p.distinct * 10 >= p.non_null * 9 {
+                picked.push((Check::Unique, if all_distinct { "像是编号，每个值都不重复".into() } else { format!("像是编号，但有 {} 个值重复出现", p.non_null - p.distinct) }));
+            } else if p.kind == "id" && all_distinct && p.non_null >= 20 {
+                picked.push((Check::Unique, "每个值都不重复".into()));
+            }
+        }
+        // 只能是这几个值：取值很少的文本列；只出现一两次的少见写法不放进去（多半是写错了）
+        if p.kind == "text" && p.distinct_exact && (2..=MAX_ALLOWED).contains(&p.distinct) && filled >= 20 && p.distinct * 5 <= filled && picked.is_empty() {
+            let c = format!("trim(CAST(({}) AS VARCHAR))", dataset::column_sql(col));
+            let mut st = conn.prepare(&format!("SELECT {c} AS v, count(*) AS n FROM {} WHERE NOT {} GROUP BY v ORDER BY n DESC, v LIMIT {}", def.table, blank(col, &format!("({})", dataset::column_sql(col))), MAX_ALLOWED + 1))?;
+            let values: Vec<(String, i64)> = st.query_map([], |r| Ok((r.get::<_, Option<String>>(0)?.unwrap_or_default(), r.get(1)?)))?.collect::<Result<_, _>>()?;
+            let (common, rare): (Vec<_>, Vec<_>) = values.into_iter().partition(|(_, n)| !(*n <= 2 && n * 10 <= filled));
+            if common.len() >= 2 {
+                let names: Vec<String> = common.iter().map(|(v, _)| v.clone()).collect();
+                let reason = if rare.is_empty() {
+                    format!("只有 {} 种取值", names.len())
+                } else {
+                    format!("常见的取值只有 {} 种，{} 只出现过一两次，可能是写错了", names.len(), rare.iter().map(|(v, _)| format!("「{v}」")).collect::<Vec<_>>().join("、"))
+                };
+                picked.push((Check::Allowed { values: names }, reason));
+            }
+        }
+        // 不小于 0
+        if matches!(p.kind, "money" | "number" | "integer")
+            && p.non_null >= MIN_ROWS
+            && let Some(neg) = p.negatives
+        {
+            if neg == 0 && amount_like(&title) {
+                picked.push((Check::Range { min: Some(Json::from(0)), max: None }, "没有负数".into()));
+            } else if neg > 0 && neg * 20 <= p.non_null {
+                picked.push((Check::Range { min: Some(Json::from(0)), max: None }, format!("只有 {neg} 个负数，可能是录错了")));
+            }
+        }
+        // 必填：差不多都填了的列，或者已经推荐了别的规则的编号列
+        if missing > 0 && missing * 20 <= rows {
+            picked.insert(0, (Check::Required, format!("{rows} 行里只有 {missing} 行是空的", rows = rows, missing = missing)));
+        } else if missing == 0 && id_like(&title) {
+            picked.insert(0, (Check::Required, "没有空值，像是编号".into()));
+        }
+        for (check, reason) in picked {
+            let same = |r: &Rule| r.column == title && std::mem::discriminant(&r.check) == std::mem::discriminant(&check);
+            if !existing.iter().any(same) {
+                out.push((Rule { column: title.clone(), check }, reason));
+            }
+        }
+    }
+    out.truncate(MAX_SUGGESTIONS);
+    if out.is_empty() {
+        return Ok(Suggestions { elapsed_ms: started.elapsed().as_millis() as i64, ..empty });
+    }
+    let report = run(conn, &def, &out.iter().map(|(r, _)| r.clone()).collect::<Vec<_>>())?;
+    let suggestions = out.into_iter().zip(report.results).map(|((rule, reason), res)| Suggestion { label: res.label, rule, reason, violations: res.violations, samples: res.samples }).collect();
+    Ok(Suggestions { rows, suggestions, elapsed_ms: started.elapsed().as_millis() as i64 })
 }
 
 #[cfg(test)]
@@ -437,6 +614,15 @@ mod tests {
         assert_eq!(r.results[2].label, "「金额」在 0 ~ 10000 之间");
         assert_eq!(r.results[3].label, "「手机号」是手机号格式");
         assert_eq!(r.results[4].label, "「等级」只能是 金卡 / 银卡");
+    }
+
+    #[test]
+    fn guesses_from_column_names() {
+        assert!(id_like("订单号") && id_like("会员编号") && id_like("user_id") && id_like("ID") && !id_like("手机号") && !id_like("店铺"));
+        assert!(amount_like("实付金额") && amount_like("单价") && amount_like("库存数量") && !amount_like("温度") && !amount_like("利润率变化"));
+        assert_eq!(pct(29, 30), "97%");
+        let (conn, id) = setup();
+        assert!(suggest(&conn, &id).unwrap().suggestions.is_empty(), "只有 4 行：看不出规律，不推荐");
     }
 
     #[test]

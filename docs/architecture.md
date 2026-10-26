@@ -141,6 +141,8 @@ FROM read_parquet([<文件列表>], union_by_name = true, hive_partitioning = �
 
 同一个条件也是查询条件的一部分：`QuerySpec::violation` 放一条规则，`where_clause` 把它和其他筛选一起拼进 WHERE，所以「只看不合格的行」对游标、透视、导出、数据清洗都一样有效（直通游标的判断也要看它）。数据变了以后（`sqlq::on_data_changed`：导入、同步、外部刷新、清洗）在后台重新检查，有不合格的发 `dataset.validation_failed`。数据范围受限的用户手动检查时，数据集定义已经换成带过滤的子查询，结果只代表他能看到的行，所以不保存。
 
+推荐规则（`validation::suggest`）不用模型：数据概况一次扫描（空值、只有空白、不同值、负数、认不出的日期），文本 / 编号列再一次扫描数出匹配手机号、邮箱、身份证号正则的个数（内置正则直接写进 SQL，没有用户输入），取值很少（≤ 12 种）的文本列各做一次 `GROUP BY` 拿到每种取值的次数，按阈值（九成匹配、列名像编号、空值 ≤ 5%、负数 ≤ 5%、只出现一两次且不到一成的算写错）推荐，最后把推荐的规则一起 `run` 一遍得到「现在有几行不合格」。AI 的 `propose_validation` 不给规则时用它，给了就先 `preview`（与保存相同的检查，不写库）；建议卡记下原来的规则，前端应用时调保存接口，撤销前确认规则没被别人改过再写回原来的。
+
 ## 拆分 / 合并列
 
 拆分 / 合并不改存储的数据，而是生成计算列（`calc.rs` 的 `SPLITPART` / `TEXTAFTER` / `TEXTJOIN` / `CONCAT`，翻译成 DuckDB 的 `split_part` / `string_split` / `concat_ws`）：导入追加、数据连接同步时只写登记过来源的列，物理上拆出来的新列在新行里会是空的，而计算列对每一行（包括以后进来的）都有效，删掉就回到原样，也不用另做撤销。`column_split.rs` 只负责预览：一条 `GROUP BY len(string_split(列, 分隔符))` 数出各段数的行数，再取几个样例（最常见段数的在前），前端据此定列数、起列名，按 `features/excel/dataset/split-merge.ts` 生成公式后逐个加计算列，中途失败把已加的撤回。

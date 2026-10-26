@@ -2,10 +2,10 @@ import type { FUniver } from '@univerjs/core/facade'
 import type { DatasetSavePayload, DatasetSaveUndo } from './workbook-dataset'
 import type { ColumnFormatPayload, ColumnFormatUndo, TableCreatePayload, TableCreateUndo, TableViewPayload, TableViewUndo } from './workbook-table'
 import type { AiAction, AiContext } from '@/api/ai'
-import type { CleanOp, DatasetColumnKind, WindowSpec } from '@/api/dataset'
+import type { CleanOp, DatasetColumnKind, ValidationRule, WindowSpec } from '@/api/dataset'
 import type { ChartSpec } from '@/features/excel/chart/types'
 import type { PivotSpec } from '@/features/excel/pivot/pivot-sheet'
-import { addCalcApi, applyCleanApi, createWindowApi, lastCleanApi, removeCalcApi, undoCleanApi } from '@/api/dataset'
+import { addCalcApi, applyCleanApi, createWindowApi, getValidationApi, lastCleanApi, removeCalcApi, saveValidationApi, undoCleanApi } from '@/api/dataset'
 import { colName } from '@/features/excel/chart/chart-defaults'
 import { insertChart, newChartId, removeChart } from '@/features/excel/chart/chart-manager'
 import { currentDatasetView } from '@/features/excel/dataset/active-view'
@@ -82,6 +82,7 @@ export type UndoStep
     | TableCreateUndo
     | DatasetSaveUndo
     | { kind: 'clean', datasetId: string, datasetName: string, summary: string, at: string | null }
+    | { kind: 'validation', datasetId: string, datasetName: string, previous: ValidationRule[], applied: ValidationRule[] }
     | { kind: 'plan', steps: UndoStep[] }
 
 export interface Applied {
@@ -90,7 +91,7 @@ export interface Applied {
   undo: UndoStep
 }
 
-const KIND_NAME: Record<string, string> = { pivot: t('透视表'), chart: t('图表'), formula: t('公式'), calc: t('计算列'), table_view: t('数据表视图'), column_format: t('列样式'), table_create: t('新建数据表'), dataset_save: t('另存数据集'), clean: t('数据清洗'), window: t('窗口计算') }
+const KIND_NAME: Record<string, string> = { pivot: t('透视表'), chart: t('图表'), formula: t('公式'), calc: t('计算列'), table_view: t('数据表视图'), column_format: t('列样式'), table_create: t('新建数据表'), dataset_save: t('另存数据集'), clean: t('数据清洗'), window: t('窗口计算'), validation: t('校验规则') }
 
 async function applyOne(api: FUniver, kind: string, p: Record<string, any>, onDatasetsChanged: () => void, operator?: string): Promise<Applied> {
   switch (kind) {
@@ -156,6 +157,18 @@ async function applyOne(api: FUniver, kind: string, p: Record<string, any>, onDa
           ? t('已清洗「{0}」：{1}，删除 {2} 行', [p.datasetName, r.summary, r.affected.toLocaleString()])
           : t('已清洗「{0}」：{1}，修改 {2} 行', [p.datasetName, r.summary, r.affected.toLocaleString()]),
         undo: { kind: 'clean', datasetId: p.datasetId, datasetName: p.datasetName, summary: r.summary, at: last?.createdAt ?? null },
+      }
+    }
+    case 'validation': {
+      // 与「数据校验」对话框同一个接口：保存规则并立即检查；撤销时恢复原来的规则
+      const v = await saveValidationApi(p.datasetId, p.rules as ValidationRule[])
+      onDatasetsChanged()
+      const failed = v.report?.failed ?? 0
+      return {
+        message: failed
+          ? t('已给「{0}」保存 {1} 条校验规则，{2} 条有不合格的行', [p.datasetName, v.rules.length, failed])
+          : t('已给「{0}」保存 {1} 条校验规则，全部通过', [p.datasetName, v.rules.length]),
+        undo: { kind: 'validation', datasetId: p.datasetId, datasetName: p.datasetName, previous: (p.previous ?? []) as ValidationRule[], applied: v.rules },
       }
     }
     case 'window': {
@@ -268,6 +281,15 @@ export async function undoApplied(api: FUniver, undo: UndoStep, onDatasetsChange
       markDataChanged(undo.datasetId)
       onDatasetsChanged()
       return t('已撤销对「{0}」的清洗（{1}）', [undo.datasetName, undo.summary])
+    }
+    case 'validation': {
+      // 之后在对话框里又改过规则：不覆盖别人的修改
+      const now = await getValidationApi(undo.datasetId)
+      if (JSON.stringify(now.rules) !== JSON.stringify(undo.applied))
+        throw new Error(t('「{0}」的校验规则之后又改过，没有撤销', [undo.datasetName]))
+      await saveValidationApi(undo.datasetId, undo.previous)
+      onDatasetsChanged()
+      return t('已恢复「{0}」原来的校验规则（{1} 条）', [undo.datasetName, undo.previous.length])
     }
   }
 }

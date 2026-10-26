@@ -5231,6 +5231,42 @@
         ]
       }
     },
+    "/ledger/datasets/{id}/validation/suggest": {
+      "get": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "推荐校验规则：按数据本身的样子（格式、取值、空值、重复）推荐，附原因和不合格的行数",
+        "description": "推荐校验规则：按数据本身的样子（格式、取值、空值、重复）推荐，附原因和不合格的行数；不保存",
+        "operationId": "get_ledger_datasets_by_id_validation_suggest",
+        "x-permission": "登录用户",
+        "x-restricted-users": true,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
     "/ledger/datasets/{id}/window": {
       "post": {
         "tags": [

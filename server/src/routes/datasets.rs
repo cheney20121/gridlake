@@ -349,6 +349,11 @@ pub async fn validation_save(State(db): State<AppState>, Extension(user): Extens
     Ok(ok(blocking_heavy(&db, move |conn| crate::validation::save(conn, &id, req.rules, &user)).await?))
 }
 
+/// GET /api/ledger/datasets/{id}/validation/suggest  推荐校验规则：按数据本身的样子（格式、取值、空值、重复）推荐，附原因和不合格的行数；不保存
+pub async fn validation_suggest(State(db): State<AppState>, Path(id): Path<String>) -> AppResult<Json<Envelope<crate::validation::Suggestions>>> {
+    Ok(ok(blocking_heavy(&db, move |conn| crate::validation::suggest(conn, &id)).await?))
+}
+
 /// POST /api/ledger/datasets/{id}/validation/check  按规则重新检查（数据范围受限的用户只检查自己能看到的行）
 pub async fn validation_check(State(db): State<AppState>, Path(id): Path<String>) -> AppResult<Json<Envelope<crate::validation::Report>>> {
     Ok(ok(blocking_heavy(&db, move |conn| crate::validation::check(conn, &id)).await?))

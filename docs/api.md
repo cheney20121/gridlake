@@ -17,7 +17,7 @@
 - **数据范围受限的用户**（管理员给用户设置了「只能看某些店铺」）：只能调用下表「受限用户」列为 ✓ 的接口，其余一律返回 403；✓ 的接口读取的数据也已按范围过滤。
 - **审计**：「审计」列非空的接口会记入操作审计，列里是审计里显示的操作名。
 
-共 241 个接口。
+共 242 个接口。
 
 ## 存活检查与运维
 
@@ -135,6 +135,7 @@
 | GET | `/api/ledger/datasets/{id}/validation` | 数据校验规则与最近一次检查结果 | 登录用户 | ✓ |  |
 | PUT | `/api/ledger/datasets/{id}/validation` | { rules: [{ column, kind: required / unique / range / format / allowed, … }] }  保存校验规则并立即检查 | 数据集所有者或管理员 | ✗ | 设置数据校验规则 |
 | POST | `/api/ledger/datasets/{id}/validation/check` | 按规则重新检查（数据范围受限的用户只检查自己能看到的行） | 登录用户 | ✓ |  |
+| GET | `/api/ledger/datasets/{id}/validation/suggest` | 推荐校验规则：按数据本身的样子（格式、取值、空值、重复）推荐，附原因和不合格的行数；不保存 | 登录用户 | ✓ |  |
 | POST | `/api/ledger/datasets/{id}/window` | { calcs, partitionBy?, orderBy?, topN?, name, autoRefresh? } 窗口计算：保存为 SQL 查询并另存为新数据集（默认源数据集更新后自动重算），返回保存的查询 | 登录用户 | ✗ | 窗口计算生成数据集 |
 | POST | `/api/ledger/datasets/{id}/window/preview` | { calcs, partitionBy?, orderBy?, topN? }  窗口计算预览：生成的 SQL 与前 100 行 | 登录用户 | ✓ |  |
 | POST | `/api/ledger/datasets/{id}/writeback` | { mode: upsert\|append, columns, rows, keys?, operator?, source? } 整批校验，有错误时不写入并返回出错的格子（errors） | 登录用户 | ✓ | 填报提交 |

@@ -3276,5 +3276,18 @@
   "只按此列分类汇总（替换现在的）": "Subtotal by this column only (replace current)",
   "添加为第 {0} 级分类汇总（在现有的每组里再按此列分组）": "Add as subtotal level {0} (group each existing group by this column)",
   "取消这一级分类汇总（第 {0} 级）": "Remove this subtotal level (level {0})",
-  "取消全部分类汇总": "Remove all subtotals"
+  "取消全部分类汇总": "Remove all subtotals",
+  "没有可推荐的规则（数据太少，或者该设的规则都有了）": "Nothing to suggest (too little data, or the rules are already in place)",
+  "按数据本身的样子推荐：手机号 / 邮箱格式、编号不能重复、差不多都填了的列必填、取值很少的列只能是这几个值、金额不小于 0": "Suggest rules from the data itself: phone / email formats, unique IDs, required for nearly-complete columns, allowed values for columns with few values, amounts not below 0",
+  "推荐规则": "Suggest rules",
+  "按现有数据推荐了 {0} 条规则，勾选后加进上面的列表，保存后才生效": "{0} rules suggested from the current data. Tick the ones you want to add them to the list above; they take effect once saved",
+  "现在 {0} 行不合格": "{0} rows fail now",
+  "现在全部合格": "All rows pass now",
+  "添加选中的 {0} 条": "Add {0} selected",
+  "不用了": "Dismiss",
+  "校验规则": "Validation rules",
+  "已给「{0}」保存 {1} 条校验规则，{2} 条有不合格的行": "Saved {1} validation rules for “{0}”; {2} of them have failing rows",
+  "已给「{0}」保存 {1} 条校验规则，全部通过": "Saved {1} validation rules for “{0}”; all rows pass",
+  "「{0}」的校验规则之后又改过，没有撤销": "The validation rules of “{0}” were changed afterwards, so nothing was undone",
+  "已恢复「{0}」原来的校验规则（{1} 条）": "Restored the previous validation rules of “{0}” ({1})"
 }

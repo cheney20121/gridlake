@@ -1,5 +1,6 @@
 // AI 助手的数据清洗 / 窗口计算建议（界面）：在数据表页面让 AI 体检并给出清洗建议 → 卡片预览改前改后 → 应用（删除行要确认）→
-// 打开着的数据表自动刷新（行数不变的查找替换也刷新）→ 撤销；窗口计算建议应用后生成数据集、撤销后移入回收站
+// 打开着的数据表自动刷新（行数不变的查找替换也刷新）→ 撤销；窗口计算建议应用后生成数据集、撤销后移入回收站；
+// 校验规则建议应用后数据表上显示校验结果、撤销后恢复原来的规则
 import assert from 'node:assert/strict'
 import path from 'node:path'
 import { after, before, describe, it } from 'node:test'
@@ -153,4 +154,41 @@ describe('AI 数据清洗 / 窗口计算建议（界面）', { skip }, () => {
       throw e
     }
   }, { timeout: 300_000 })
+
+  it('校验规则建议：按数据推荐 → 预览 → 应用后数据表上显示校验结果 → 撤销', async () => {
+    const page = await browser.newPage()
+    const members = `单号,手机号,等级,金额\n${Array.from({ length: 30 }, (_, k) => {
+      const i = k + 1
+      return [i === 30 ? 'D001' : `D${String(i).padStart(3, '0')}`, i === 6 ? '' : `138${String(i).padStart(8, '0')}`, i === 9 ? '钻石' : ['金卡', '银卡', '普通'][i % 3], i === 8 ? -5 : i * 10].join(',')
+    }).join('\n')}\n`
+    const id = await api.importDataset(TOKEN.alice, 'AI会员', members)
+    const rules = async () => (await api.call('GET', `/ledger/datasets/${id}/validation`, TOKEN.alice)).data.rules
+    const badge = `(document.querySelector('[data-testid="validation-badge"]')?.innerText ?? '')`
+    llm.reset()
+    llm.say({ calls: [{ name: 'propose_validation', args: { dataset: 'AI会员' } }] })
+    llm.say({ text: '校验规则建议已生成。' })
+    try {
+      await page.clearCookies()
+      await page.setCookie(COOKIE, TOKEN.alice, WEB)
+      await page.goto(`${WEB}/excel?ds=${id}&lang=zh-CN`)
+      await page.waitFor(`document.body.innerText.includes('30 行')`, { timeout: 90_000, what: '打开数据表' })
+      await ask(page, '帮我给这张表设一些校验规则，以后导入时自动检查', '校验规则建议已生成')
+      await page.waitFor(`${card}.includes('给「AI会员」设 5 条校验规则') && ${card}.includes('30 行中 5 行至少有一项不合格')`, { what: '校验规则建议卡' })
+      assert.match(await page.eval(card), /「单号」不能重复/)
+      assert.deepEqual(await rules(), [], '确认之前不保存')
+      await page.screenshot(path.join(ARTIFACTS, 'ai-validation-card.png')).catch(() => {})
+      await clickLast(page, '应用')
+      await page.waitFor(`${card}.includes('已给「AI会员」保存 5 条校验规则，4 条有不合格的行')`, { what: '已应用', timeout: 60_000 })
+      assert.equal((await rules()).length, 5)
+      await page.waitFor(`${badge}.includes('校验：4 项不通过（5 行）')`, { what: '数据表上的校验结果', timeout: 30_000 })
+      await clickLast(page, '撤销')
+      await page.waitFor(`${card}.includes('已恢复「AI会员」原来的校验规则（0 条）')`, { what: '已撤销', timeout: 60_000 })
+      assert.deepEqual(await rules(), [], '撤销后回到没有规则')
+      assert.deepEqual(page.errors.filter(e => !ALLOWED.some(re => re.test(e))), [], '没有控制台报错')
+    }
+    catch (e) {
+      await page.screenshot(path.join(ARTIFACTS, 'ai-validation-failed.png')).catch(() => {})
+      throw e
+    }
+  }, { timeout: 240_000 })
 })

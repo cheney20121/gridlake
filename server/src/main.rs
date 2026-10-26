@@ -312,6 +312,7 @@ async fn serve(config: config::Config, ready: Option<Ready>) -> anyhow::Result<(
         .route("/ledger/datasets/{id}/split/preview", post(routes::split_preview))
         .route("/ledger/datasets/{id}/validation", get(routes::validation_get).put(routes::validation_save))
         .route("/ledger/datasets/{id}/validation/check", post(routes::validation_check))
+        .route("/ledger/datasets/{id}/validation/suggest", get(routes::validation_suggest))
         .route("/ledger/datasets/{id}/calc", post(routes::add_calc))
         .route("/ledger/datasets/{id}/calc/{name}", put(routes::update_calc).delete(routes::remove_calc))
         .route(

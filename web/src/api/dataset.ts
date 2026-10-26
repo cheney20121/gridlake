@@ -120,6 +120,20 @@ export function saveValidationApi(datasetId: string, rules: ValidationRule[]) {
   return request<DatasetValidation>({ url: url(`/${datasetId}/validation`), method: 'put', data: { rules }, timeout: 5 * 60 * 1000 })
 }
 
+/** 推荐的一条校验规则：为什么推荐，按它现在有几行不合格 */
+export interface ValidationSuggestion {
+  rule: ValidationRule
+  label: string
+  reason: string
+  violations: number
+  samples: string[]
+}
+
+/** 推荐校验规则（按数据本身的样子，不保存；已有的规则不再推荐） */
+export function suggestValidationApi(datasetId: string) {
+  return request<{ rows: number, suggestions: ValidationSuggestion[], elapsedMs: number }>({ url: url(`/${datasetId}/validation/suggest`), method: 'get', timeout: 5 * 60 * 1000 })
+}
+
 export function checkValidationApi(datasetId: string) {
   return request<ValidationReport>({ url: url(`/${datasetId}/validation/check`), method: 'post', timeout: 5 * 60 * 1000 })
 }

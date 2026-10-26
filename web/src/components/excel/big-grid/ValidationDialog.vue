@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { DatasetInfo, DatasetValidation, ValidationReport, ValidationRule } from '@/api/dataset'
+import type { DatasetInfo, DatasetValidation, ValidationReport, ValidationRule, ValidationSuggestion } from '@/api/dataset'
 import type { DraftRule } from '@/features/excel/dataset/validation-rules'
 import { computed, ref, watch } from 'vue'
-import { checkValidationApi, getValidationApi, saveValidationApi } from '@/api/dataset'
+import { checkValidationApi, getValidationApi, saveValidationApi, suggestValidationApi } from '@/api/dataset'
 import { emptyDraft, FORMATS, fromRule, RULE_KINDS, toRule } from '@/features/excel/dataset/validation-rules'
 import { t } from '@/i18n'
 import { errorText } from '@/utils/busy-hint'
@@ -54,14 +54,46 @@ async function load() {
   }
 }
 
-watch(() => props.visible, (v) => {
-  if (v)
-    load()
-})
-
 function addRule() {
   drafts.value.push(emptyDraft(columns.value[0]?.title ?? ''))
 }
+
+// ── 推荐规则：服务端按数据本身的样子推荐（不用 AI），勾选后加进草稿，保存时才生效 ──
+const suggestions = ref<ValidationSuggestion[] | null>(null)
+const picked = ref<boolean[]>([])
+const suggesting = ref(false)
+
+async function suggest() {
+  suggesting.value = true
+  try {
+    const r = await suggestValidationApi(props.dataset.id)
+    // 草稿里已经有的（还没保存的）也不再推荐
+    const have = new Set(drafts.value.map(d => JSON.stringify(toRule(d))))
+    suggestions.value = r.suggestions.filter(x => !have.has(JSON.stringify(toRule(fromRule(x.rule)))))
+    picked.value = suggestions.value.map(() => true)
+    if (!suggestions.value.length)
+      ElMessage.info(t('没有可推荐的规则（数据太少，或者该设的规则都有了）'))
+  }
+  catch (e) {
+    ElMessage.error(errorText(e))
+  }
+  finally {
+    suggesting.value = false
+  }
+}
+
+function addPicked() {
+  const list = suggestions.value ?? []
+  drafts.value.push(...list.filter((_, i) => picked.value[i]).map(x => fromRule(x.rule)))
+  suggestions.value = null
+}
+
+watch(() => props.visible, (v) => {
+  if (v) {
+    suggestions.value = null
+    load()
+  }
+})
 
 async function save() {
   saving.value = true
@@ -139,6 +171,30 @@ function only(rule: ValidationRule, label: string) {
           <el-button size="small" data-testid="add-rule" @click="addRule">
             {{ $t('+ 添加规则') }}
           </el-button>
+          <el-button size="small" :loading="suggesting" data-testid="suggest-rules" :title="$t('按数据本身的样子推荐：手机号 / 邮箱格式、编号不能重复、差不多都填了的列必填、取值很少的列只能是这几个值、金额不小于 0')" @click="suggest">
+            {{ $t('推荐规则') }}
+          </el-button>
+        </div>
+        <div v-if="suggestions?.length" class="rounded bg-[#F6FAF7] px-3 py-2" data-testid="suggestions">
+          <div class="mb-1 text-xs text-gray-500">
+            {{ $t('按现有数据推荐了 {0} 条规则，勾选后加进上面的列表，保存后才生效', [suggestions.length]) }}
+          </div>
+          <div v-for="(x, i) in suggestions" :key="i" class="flex items-center gap-2 py-0.5" :data-testid="`suggestion-${i}`">
+            <el-checkbox v-model="picked[i]" size="small" />
+            <span class="shrink-0">{{ x.label }}</span>
+            <span class="min-w-0 truncate text-xs text-gray-500" :title="x.reason">{{ x.reason }}</span>
+            <span class="ml-auto shrink-0 text-xs" :class="x.violations ? 'text-[#B91C1C]' : 'text-[#0B5A2E]'">
+              {{ x.violations ? $t('现在 {0} 行不合格', [x.violations.toLocaleString()]) : $t('现在全部合格') }}
+            </span>
+          </div>
+          <div class="mt-1 flex gap-2">
+            <el-button size="small" type="primary" :disabled="!picked.some(Boolean)" data-testid="add-suggestions" @click="addPicked">
+              {{ $t('添加选中的 {0} 条', [picked.filter(Boolean).length]) }}
+            </el-button>
+            <el-button size="small" link @click="suggestions = null">
+              {{ $t('不用了') }}
+            </el-button>
+          </div>
         </div>
       </div>
 
