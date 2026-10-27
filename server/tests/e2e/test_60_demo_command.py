@@ -17,10 +17,16 @@ os.makedirs(TMP, exist_ok=True)
 PORT = 18798
 DB = os.path.join(TMP, "demo.duckdb")
 API = f"http://127.0.0.1:{PORT}/api"
+# 前端页面：CI 里没有构建前端（web/dist），给一个只有 index.html 的目录，结果不依赖本机有没有构建过
+WEB = os.path.join(TMP, "web")
+os.makedirs(WEB, exist_ok=True)
+with open(os.path.join(WEB, "index.html"), "w") as f:
+    f.write("<!doctype html><title>Gridlake</title>")
 
 
 def start(*extra):
     env = {k: v for k, v in os.environ.items() if not k.startswith("LEDGER_")}
+    env["LEDGER_WEB_DIR"] = WEB
     p = subprocess.Popen([BIN, "demo", "--rows", "20000", "--port", str(PORT), "--db", DB, "--no-browser", *extra], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env)
     lines = []
     for line in p.stdout:
