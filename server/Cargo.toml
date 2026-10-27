@@ -12,7 +12,7 @@ aes-gcm = "0.10"
 anyhow = "1"
 base64 = "0.22"
 axum = { version = "0.8", features = ["multipart"] }
-calamine = { version = "0.26", features = ["dates"] }
+calamine = { version = "0.37", features = ["dates"] }
 chrono = { version = "0.4.45", default-features = false, features = ["std", "clock"] }
 csv = "1.4.0"
 # json / parquet 扩展静态编进程序：SQL 检查要用 json，Parquet 导入要用 parquet；不编进来时 DuckDB 会在运行时联网下载，离线部署直接不可用
