@@ -12,6 +12,39 @@ const COOKIE = 'gridlake-token'
 const ALLOWED = [/command "formula\.mutation\.set-trigger-formula-calculation-start" is not registered/]
 const CSV = '单号,店铺,金额\n1,北京店,10\n1,北京店,10\n2,北京,20\n3,上海店,30\n3,上海店,30\n4,上海店,40\n'
 
+/**
+ * 点开 Element 下拉（真实鼠标点在中间，位置稳定后再点，没弹出来就重试）并在**它自己的**下拉列表里选文字完全一致的选项
+ * （同一页上有好几个下拉时，只认这个下拉的输入框 aria-controls 指向的列表）
+ */
+async function pick(page, selector, text) {
+  const list = `document.getElementById(document.querySelector(${JSON.stringify(selector)}).querySelector('input')?.getAttribute('aria-controls') ?? '')`
+  const visible = `[...(${list}?.querySelectorAll('.ec-select-dropdown__item') ?? [])].find(e => e.getBoundingClientRect().width > 0 && e.innerText.trim() === ${JSON.stringify(text)})`
+  const rect = `(() => { const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top), r.width, r.height] })()`
+  let last = ''
+  for (let i = 0; i < 20; i++) {
+    const now = JSON.stringify(await page.eval(rect))
+    if (now === last)
+      break
+    last = now
+    await new Promise(r => setTimeout(r, 100))
+  }
+  for (let attempt = 0; ; attempt++) {
+    const [x, y, w, h] = await page.eval(rect)
+    await page.mouseClick(x + w / 2, y + h / 2)
+    try {
+      await page.waitFor(`!!${visible}`, { what: `选项「${text}」`, timeout: 4000 })
+      break
+    }
+    catch (e) {
+      if (attempt >= 2)
+        throw e
+    }
+  }
+  await page.eval(`${visible}.click()`)
+  // 等下拉收起，免得下一次点到它上面
+  await page.waitFor(`!(${list}?.getBoundingClientRect().width > 0) || ${list}?.closest('.ec-popper')?.style.display === 'none'`, { what: '下拉收起', timeout: 5000 }).catch(() => {})
+}
+
 describe('数据清洗（界面）', { skip }, () => {
   let services
   let browser
@@ -61,6 +94,8 @@ describe('数据清洗（界面）', { skip }, () => {
       assert.equal(await rows(), 6, '撤销后 6 行')
 
       await page.click('[data-testid="clean-op"] label', '查找替换')
+      // 单号是编号列（文本），默认选中的是它：换成店铺
+      await pick(page, '[data-testid="clean-column"]', '店铺')
       await page.fill('input[data-testid="clean-find"]', '北京')
       await page.fill('input[data-testid="clean-replace"]', '北京店')
       await page.waitFor(`(${previewText}).includes('将修改 1 行') && (${previewText}).includes('北京店')`, { what: '替换预览：1 行，改后是北京店', timeout: 30_000 })

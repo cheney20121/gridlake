@@ -206,7 +206,7 @@ function cell(v: CellValue | undefined): string {
         </el-form-item>
         <template v-else-if="form.op === 'replace'">
           <el-form-item :label="$t('列')">
-            <el-select v-model="form.column" filterable class="!w-56">
+            <el-select v-model="form.column" filterable class="!w-56" data-testid="clean-column">
               <el-option v-for="c in textColumns" :key="c.key" :label="c.title" :value="c.title" />
             </el-select>
             <el-radio-group v-model="form.whole" class="ml-3">

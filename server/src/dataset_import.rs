@@ -148,18 +148,33 @@ pub(crate) fn detect_header(rows: &[Vec<String>]) -> usize {
         .unwrap_or(0)
 }
 
+/// 列名说明这一列是编号 / 号码（不是数量）。「序号」不算：它要按数字排序
+fn id_title(title: &str) -> bool {
+    let t = title.trim().to_lowercase();
+    !t.contains("序号")
+        && ["手机", "电话", "联系方式", "身份证", "证件号", "编号", "编码", "代码", "单号", "流水号", "邮编", "邮政编码", "条码", "卡号", "账号", "帐号", "工号", "学号", "会员号", "sku", "phone", "mobile", "zip"]
+            .iter()
+            .any(|k| t.contains(k))
+}
+
 pub(crate) fn infer_kind(title: &str, values: &[&str]) -> String {
     let non_empty: Vec<&str> = values.iter().copied().filter(|v| !v.is_empty()).collect();
     if non_empty.is_empty() {
         return "text".into();
     }
     let ratio = |pred: &dyn Fn(&str) -> bool| non_empty.iter().filter(|v| pred(v)).count() as f64 / non_empty.len() as f64;
-    // 长数字串 / 前导零：编号（订单号、手机号），不能当数值（会丢精度、丢前导零）
+    // 长数字串 / 前导零 / 手机号 / 身份证号：编号，不能当数值（会丢精度、丢前导零、显示成 13,800,138,000）
+    let digits = |v: &str| !v.is_empty() && v.chars().all(|c| c.is_ascii_digit());
     let id_like = |v: &str| {
-        let digits = v.chars().all(|c| c.is_ascii_digit());
-        digits && (v.len() >= 12 || (v.len() > 1 && v.starts_with('0')))
+        let phone = v.len() == 11 && v.starts_with('1') && digits(v);
+        let idcard = v.len() == 18 && v.is_ascii() && digits(&v[..17]) && v[17..].chars().all(|c| c.is_ascii_digit() || c == 'X' || c == 'x');
+        phone || idcard || (digits(v) && (v.len() >= 12 || (v.len() > 1 && v.starts_with('0'))))
     };
     if ratio(&id_like) >= 0.6 {
+        return "id".into();
+    }
+    // 列名说明是编号（手机号、邮编、工号…）、值都是纯数字：也按编号保存（不加千分位、按原样比较）
+    if id_title(title) && ratio(&digits) >= 0.9 {
         return "id".into();
     }
     if ratio(&|v| is_numeric_text(v)) >= 0.98 {
@@ -700,6 +715,24 @@ mod tests {
         assert_eq!(infer_kind("已付款", &["TRUE", "false", ""]), "boolean");
         // 中文的是 / 否保留原样，需要时手动改成是否列
         assert_eq!(infer_kind("已付款", &["是", "否"]), "text");
+    }
+
+    #[test]
+    fn phone_idcard_and_codes_are_ids() {
+        // 手机号不论列名都按编号；身份证号末位可以是 X
+        assert_eq!(infer_kind("联系人", &["13800000001", "13912345678", ""]), "id");
+        assert_eq!(infer_kind("证件", &["11010119900101123X", "110101199001011234"]), "id");
+        // 列名说明是编号、值是短的纯数字
+        assert_eq!(infer_kind("工号", &["1001", "1002", "1003"]), "id");
+        assert_eq!(infer_kind("邮编", &["100000", "200000"]), "id");
+        assert_eq!(infer_kind("会员编号", &["7", "15", "N/A"]), "text");
+        // 序号、数量、11 位但不是 1 开头的数字仍是数
+        assert_eq!(infer_kind("序号", &["1", "2", "3"]), "integer");
+        assert_eq!(infer_kind("数量", &["1001", "1002"]), "integer");
+        assert_eq!(infer_kind("销售额", &["23800000001", "5"]), "money");
+        assert_eq!(infer_kind("电话", &["010-12345678", "021-87654321"]), "text");
+        // 18 个字节的中文不会被当成身份证号（也不会在切字节时出错）
+        assert_eq!(infer_kind("地址", &["北京市朝阳区", "上海市浦东区"]), "text");
     }
 
     #[test]

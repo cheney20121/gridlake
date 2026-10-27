@@ -507,7 +507,8 @@ pub fn suggest(conn: &Connection, id: &str) -> AppResult<Suggestions> {
             let all_distinct = p.distinct == p.non_null;
             if id_like(&title) && p.distinct * 10 >= p.non_null * 9 {
                 picked.push((Check::Unique, if all_distinct { "像是编号，每个值都不重复".into() } else { format!("像是编号，但有 {} 个值重复出现", p.non_null - p.distinct) }));
-            } else if p.kind == "id" && all_distinct && p.non_null >= 20 {
+            } else if p.kind == "id" && all_distinct && p.non_null >= 20 && picked.is_empty() {
+                // 已经认出是手机号 / 邮箱这类格式的列不推荐：订单表里同一个手机号本来就会出现多次
                 picked.push((Check::Unique, "每个值都不重复".into()));
             }
         }

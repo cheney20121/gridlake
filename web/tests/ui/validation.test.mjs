@@ -127,20 +127,22 @@ describe('数据校验（界面）', { skip }, () => {
       await page.click('[data-testid="open-validation"]')
       await page.waitFor(`document.querySelector('[data-testid="validation-dialog"]')?.innerText.includes('还没有校验规则')`, { what: '还没有规则' })
       await page.click('[data-testid="suggest-rules"]')
-      await page.waitFor(`${panel}.includes('按现有数据推荐了 5 条规则')`, { what: '推荐了 5 条（导入时手机号被认成了数字列，不推荐格式）', timeout: 30_000 })
+      await page.waitFor(`${panel}.includes('按现有数据推荐了 6 条规则')`, { what: '推荐了 6 条', timeout: 30_000 })
       const text = await page.eval(panel)
       assert.match(text, /「单号」不能重复\s*像是编号，但有 1 个值重复出现\s*现在 2 行不合格/)
       assert.match(text, /「等级」只能是 普通 \/ 银卡 \/ 金卡[\s\S]*「钻石」/)
       assert.match(text, /「金额」不小于 0\s*只有 1 个负数/)
+      // 导入时手机号认成了编号列（不是数字列），所以也推荐手机号格式
+      assert.match(text, /「手机号」是手机号格式\s*\S+ 的值是手机号格式，另有 1 个不是\s*现在 1 行不合格/)
       await page.screenshot(path.join(ARTIFACTS, 'validation-suggest.png')).catch(() => {})
       // 不要「金额不小于 0」
-      await page.click('[data-testid="suggestion-4"] .ec-checkbox')
-      await page.waitFor(`document.querySelector('[data-testid="add-suggestions"]')?.innerText.includes('添加选中的 4 条')`, { what: '只选 4 条' })
+      await page.click('[data-testid="suggestion-5"] .ec-checkbox')
+      await page.waitFor(`document.querySelector('[data-testid="add-suggestions"]')?.innerText.includes('添加选中的 5 条')`, { what: '只选 5 条' })
       await page.click('[data-testid="add-suggestions"]')
-      await page.waitFor(`!document.querySelector('[data-testid="suggestions"]') && !!document.querySelector('[data-testid="rule-3"]') && !document.querySelector('[data-testid="rule-4"]')`, { what: '加进列表' })
+      await page.waitFor(`!document.querySelector('[data-testid="suggestions"]') && !!document.querySelector('[data-testid="rule-4"]') && !document.querySelector('[data-testid="rule-5"]')`, { what: '加进列表' })
       await page.click('[data-testid="validation-save"]')
-      await page.waitFor(`${report}.includes('共 30 行，4 行至少有一项不合格（3 条规则不通过）')`, { what: '检查结果', timeout: 30_000 })
-      assert.equal((await api.call('GET', `/ledger/datasets/${membersId}/validation`, TOKEN.alice)).data.rules.length, 4)
+      await page.waitFor(`${report}.includes('共 30 行，5 行至少有一项不合格（4 条规则不通过）')`, { what: '检查结果', timeout: 30_000 })
+      assert.equal((await api.call('GET', `/ledger/datasets/${membersId}/validation`, TOKEN.alice)).data.rules.length, 5)
       assert.deepEqual(page.errors.filter(e => !ALLOWED.some(re => re.test(e))), [], '没有控制台报错')
     }
     catch (e) {
