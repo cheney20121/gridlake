@@ -53,10 +53,35 @@ pub async fn dataset_stats(State(db): State<AppState>, Path(id): Path<String>, b
     Ok(ok(blocking_read(&db, move |conn| dataset::stats(conn, &db2.cursors, &id, &req)).await?))
 }
 
+/// POST /api/ledger/datasets/{id}/totals  { cursorId, items: [{ column, func }] }  汇总行：按当前筛选对整个结果集算每列的合计 / 平均 / 计数等
+pub async fn dataset_totals(State(db): State<AppState>, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Envelope<dataset::TotalsResult>>> {
+    let req: dataset::TotalsRequest = parse_json(&body)?;
+    let db2 = db.clone();
+    Ok(ok(blocking_heavy(&db, move |conn| dataset::totals(conn, &db2.cursors, &id, &req)).await?))
+}
+
+/// POST /api/ledger/datasets/{id}/groups  { filters?, keyword?, rule?, violation?, levels: [{ column, desc? }]（或只有一级时 column, desc?）, items: [{ column, func }] }  分类汇总：按一到三列逐级分组，每一级每组的行数与汇总（顺序与依次按这些列排序的数据表一致）
+pub async fn dataset_groups(State(db): State<AppState>, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Envelope<dataset::GroupsResult>>> {
+    let req: dataset::GroupsRequest = parse_json(&body)?;
+    Ok(ok(blocking_heavy(&db, move |conn| dataset::groups(conn, &id, &req)).await?))
+}
+
 /// POST /api/ledger/datasets/{id}/distinct  列值分面（筛选下拉）
 pub async fn dataset_distinct(State(db): State<AppState>, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Envelope<DistinctResult>>> {
     let req: DistinctRequest = parse_json(&body)?;
     Ok(ok(blocking_read(&db, move |conn| dataset::distinct(conn, &id, &req)).await?))
+}
+
+/// POST /api/ledger/datasets/{id}/profile  { filters?, keyword?, rule?, columns? }  数据概况：按当前筛选，每列的空值、近似去重数、范围、数值分布（一次扫描）
+pub async fn dataset_profile(State(db): State<AppState>, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Envelope<crate::profile::Profile>>> {
+    let req: crate::profile::ProfileRequest = if body.is_empty() { Default::default() } else { parse_json(&body)? };
+    Ok(ok(blocking_heavy(&db, move |conn| crate::profile::overview(conn, &id, &req)).await?))
+}
+
+/// POST /api/ledger/datasets/{id}/profile/column  { column, filters?, keyword?, rule? }  一列的分布：直方图（数值分箱 / 日期按日月年）与最常见的取值
+pub async fn dataset_profile_column(State(db): State<AppState>, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Envelope<crate::profile::ColumnDetail>>> {
+    let req: crate::profile::ColumnRequest = parse_json(&body)?;
+    Ok(ok(blocking_heavy(&db, move |conn| crate::profile::column(conn, &id, &req)).await?))
 }
 
 #[derive(Deserialize)]
@@ -73,6 +98,9 @@ pub struct ExportQuery {
     /// 筛选条件描述（写入 xlsx 汇总页签）
     #[serde(default)]
     pub desc: String,
+    /// 分类汇总（JSON：{ column, desc, items, collapsed, allCollapsed }，只用于 xlsx）
+    #[serde(default)]
+    pub group: String,
 }
 
 /// GET /api/ledger/datasets/{id}/export?cursor=&columns=&name=&format=csv|xlsx&desc=  按当前筛选 / 排序导出（流式下载）
@@ -86,9 +114,10 @@ pub async fn dataset_export(State(db): State<AppState>, Path(id): Path<String>, 
     let cursor = q.cursor.clone();
     let xlsx = q.format == "xlsx";
     let desc = q.desc.clone();
+    let group: Option<dataset::GroupExport> = if q.group.trim().is_empty() { None } else { Some(serde_json::from_str(&q.group).map_err(|e| AppError::bad(format!("分类汇总参数不正确：{e}")))?) };
     let (path, rows) = blocking(&db, move |conn| {
         if xlsx {
-            dataset::export_xlsx(conn, &db2.cursors, &id, &cursor, &columns, &desc, &dir)
+            dataset::export_xlsx(conn, &db2.cursors, &id, &cursor, &columns, &desc, group.as_ref(), &dir)
         } else {
             dataset::export_csv(conn, &db2.cursors, &id, &cursor, &columns, &dir)
         }
@@ -189,6 +218,7 @@ async fn preview_uploads(db: &AppState, token: String, uploads: Vec<crate::impor
         });
         if r.is_err() {
             let _ = std::fs::remove_file(&path);
+            let _ = std::fs::remove_file(crate::import_source::hints_path(&path));
         }
         r
     })
@@ -218,6 +248,8 @@ pub async fn dataset_import_commit(State(db): State<AppState>, Extension(user): 
         return Err(AppError::bad("预览已过期，请重新选择文件"));
     }
     let dir = db.tmp_dir.clone();
+    let (mode, file_name) = (req.mode, req.file_name.clone());
+    let actor = user.clone();
     let _guard = db.import_lock.lock().await;
     let result = blocking(&db, move |conn| {
         // 整体替换已有数据集：和改结构一样，只有所有者与管理员
@@ -227,6 +259,7 @@ pub async fn dataset_import_commit(State(db): State<AppState>, Extension(user): 
         let r = crate::dataset_import::commit(conn, &path, &req, &dir);
         if let Ok(o) = &r {
             let _ = std::fs::remove_file(&path);
+            let _ = std::fs::remove_file(crate::import_source::hints_path(&path));
             crate::dataset::set_owner(conn, &o.dataset_id, &user)?;
         }
         r
@@ -235,6 +268,19 @@ pub async fn dataset_import_commit(State(db): State<AppState>, Extension(user): 
     tracing::info!(dataset = %result.dataset_id, rows = result.rows_read, inserted = result.inserted, ms = result.elapsed_ms, "dataset import");
     db.cursors.invalidate();
     db.checkpoint();
+    let created = matches!(mode, crate::dataset_import::Mode::Create);
+    crate::webhook::emit(
+        &db,
+        if created { "dataset.created" } else { "dataset.imported" },
+        Some(&actor),
+        serde_json::json!({
+            "datasetId": result.dataset_id, "name": result.name, "source": "import", "mode": mode, "fileName": file_name,
+            "rowsRead": result.rows_read, "inserted": result.inserted, "updated": result.updated, "replaced": result.replaced, "skipped": result.skipped,
+        }),
+    );
+    if !created {
+        crate::sqlq::on_data_changed(&db, &result.dataset_id);
+    }
     Ok(ok(result))
 }
 
@@ -253,12 +299,93 @@ pub async fn rename_dataset(State(db): State<AppState>, Path(id): Path<String>, 
     Ok(ok(true))
 }
 
-/// DELETE /api/ledger/datasets/{id}?operator=  删除数据集：移到回收站（数据保留，可恢复）
-pub async fn delete_dataset(State(db): State<AppState>, Path(id): Path<String>, Query(q): Query<OperatorQuery>) -> AppResult<Json<Envelope<i64>>> {
+/// POST /api/ledger/datasets/{id}/columns/kind/preview  { column, kind }  预览修改列类型：多少个值转不过来、举例、转换前后的样子
+pub async fn column_kind_preview(State(db): State<AppState>, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Envelope<crate::dataset_alter::KindPreview>>> {
+    let req: crate::dataset_alter::KindChange = parse_json(&body)?;
+    Ok(ok(blocking(&db, move |conn| crate::dataset_alter::preview(conn, &id, &req)).await?))
+}
+
+/// PUT /api/ledger/datasets/{id}/columns/kind  { column, kind, acceptLoss? }  修改列类型（就地转换；有值转不过来时要 acceptLoss）
+pub async fn column_kind_apply(State(db): State<AppState>, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Envelope<crate::dataset_alter::KindPreview>>> {
+    let req: crate::dataset_alter::KindChange = parse_json(&body)?;
     let _guard = db.import_lock.lock().await;
-    let n = blocking(&db, move |conn| dataset::delete(conn, &id, &q.operator)).await?;
+    let r = blocking(&db, move |conn| crate::dataset_alter::apply(conn, &id, &req)).await?;
     db.cursors.invalidate();
     db.checkpoint();
+    Ok(ok(r))
+}
+
+/// POST /api/ledger/datasets/{id}/clean/preview  { op: dedupe|trim|replace|fill|delete_rows, … }  数据清洗预览：多少行受影响、改之前 / 之后的样例
+pub async fn clean_preview(State(db): State<AppState>, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Envelope<crate::clean::CleanPreview>>> {
+    let op: crate::clean::CleanOp = parse_json(&body)?;
+    Ok(ok(blocking_heavy(&db, move |conn| crate::clean::preview(conn, &id, &op)).await?))
+}
+
+/// POST /api/ledger/datasets/{id}/clean  { op, … }  执行数据清洗（可撤销最近一次）
+pub async fn clean_apply(State(db): State<AppState>, Extension(user): Extension<CurrentUser>, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Envelope<crate::clean::CleanPreview>>> {
+    let op: crate::clean::CleanOp = parse_json(&body)?;
+    let (did, operator) = (id.clone(), user.name.clone());
+    let _guard = db.import_lock.lock().await;
+    let r = blocking(&db, move |conn| crate::clean::apply(conn, &did, &op, &operator)).await?;
+    db.cursors.invalidate();
+    db.checkpoint();
+    crate::sqlq::on_data_changed(&db, &id);
+    Ok(ok(r))
+}
+
+/// GET /api/ledger/datasets/{id}/validation  数据校验规则与最近一次检查结果
+pub async fn validation_get(State(db): State<AppState>, Path(id): Path<String>) -> AppResult<Json<Envelope<crate::validation::Validation>>> {
+    Ok(ok(blocking(&db, move |conn| crate::validation::get(conn, &id)).await?))
+}
+
+#[derive(Deserialize)]
+pub struct ValidationBody {
+    pub rules: Vec<crate::validation::Rule>,
+}
+
+/// PUT /api/ledger/datasets/{id}/validation  { rules: [{ column, kind: required / unique / range / format / allowed, … }] }  保存校验规则并立即检查
+pub async fn validation_save(State(db): State<AppState>, Extension(user): Extension<CurrentUser>, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Envelope<crate::validation::Validation>>> {
+    let req: ValidationBody = parse_json(&body)?;
+    Ok(ok(blocking_heavy(&db, move |conn| crate::validation::save(conn, &id, req.rules, &user)).await?))
+}
+
+/// GET /api/ledger/datasets/{id}/validation/suggest  推荐校验规则：按数据本身的样子（格式、取值、空值、重复）推荐，附原因和不合格的行数；不保存
+pub async fn validation_suggest(State(db): State<AppState>, Path(id): Path<String>) -> AppResult<Json<Envelope<crate::validation::Suggestions>>> {
+    Ok(ok(blocking_heavy(&db, move |conn| crate::validation::suggest(conn, &id)).await?))
+}
+
+/// POST /api/ledger/datasets/{id}/validation/check  按规则重新检查（数据范围受限的用户只检查自己能看到的行）
+pub async fn validation_check(State(db): State<AppState>, Path(id): Path<String>) -> AppResult<Json<Envelope<crate::validation::Report>>> {
+    Ok(ok(blocking_heavy(&db, move |conn| crate::validation::check(conn, &id)).await?))
+}
+
+/// GET /api/ledger/datasets/{id}/clean  最近一次清洗与能否撤销（没有时为 null）
+pub async fn clean_last(State(db): State<AppState>, Path(id): Path<String>) -> AppResult<Json<Envelope<Option<crate::clean::LastClean>>>> {
+    Ok(ok(blocking(&db, move |conn| crate::clean::last(conn, &id)).await?))
+}
+
+/// POST /api/ledger/datasets/{id}/clean/undo  撤销最近一次清洗（之后数据集没有别的改动时）
+pub async fn clean_undo(State(db): State<AppState>, Extension(user): Extension<CurrentUser>, Path(id): Path<String>) -> AppResult<Json<Envelope<crate::clean::LastClean>>> {
+    let (did, operator) = (id.clone(), user.name.clone());
+    let _guard = db.import_lock.lock().await;
+    let r = blocking(&db, move |conn| crate::clean::undo(conn, &did, &operator)).await?;
+    db.cursors.invalidate();
+    db.checkpoint();
+    crate::sqlq::on_data_changed(&db, &id);
+    Ok(ok(r))
+}
+
+/// DELETE /api/ledger/datasets/{id}?operator=  删除数据集：移到回收站（数据保留，可恢复）
+pub async fn delete_dataset(State(db): State<AppState>, Extension(user): Extension<CurrentUser>, Path(id): Path<String>, Query(q): Query<OperatorQuery>) -> AppResult<Json<Envelope<i64>>> {
+    let _guard = db.import_lock.lock().await;
+    let (n, id, name) = blocking(&db, move |conn| {
+        let name = dataset::datasets(conn)?.into_iter().find(|d| d.id == id).map(|d| d.name);
+        Ok((dataset::delete(conn, &id, &q.operator)?, id, name))
+    })
+    .await?;
+    db.cursors.invalidate();
+    db.checkpoint();
+    crate::webhook::emit(&db, "dataset.deleted", Some(&user), serde_json::json!({ "datasetId": id, "name": name }));
     Ok(ok(n))
 }
 

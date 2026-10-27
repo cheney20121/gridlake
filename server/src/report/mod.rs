@@ -231,6 +231,9 @@ pub enum Schedule {
     /// 数据连接同步成功（有新数据）后
     #[serde(rename_all = "camelCase")]
     AfterSync { connector_id: String },
+    /// 某个数据集有新数据后：导入、数据连接同步、外部文件有变化、SQL 查询重算写入（见 `sqlq::on_data_changed`）
+    #[serde(rename_all = "camelCase")]
+    AfterData { dataset_id: String },
 }
 
 fn parse_at(at: &str) -> AppResult<NaiveTime> {
@@ -263,13 +266,14 @@ impl Schedule {
                 }
                 Ok(())
             }
+            Schedule::AfterData { dataset_id } => crate::sqlq::check_trigger_dataset(conn, dataset_id),
         }
     }
 
     /// base（上次定时推送或任务修改的时间）之后的第一个计划时间点
     fn next_run(&self, base: NaiveDateTime) -> Option<NaiveDateTime> {
         let (at, matches): (&str, Box<dyn Fn(NaiveDate) -> bool>) = match self {
-            Schedule::Manual | Schedule::AfterSync { .. } => return None,
+            Schedule::Manual | Schedule::AfterSync { .. } | Schedule::AfterData { .. } => return None,
             Schedule::Daily { at } => (at, Box::new(|_| true)),
             Schedule::Weekly { weekday, at } => {
                 let w = *weekday;
@@ -943,6 +947,20 @@ pub fn on_connector_synced(state: &AppState, connector_id: &str) {
     match due {
         Ok(due) => due.into_iter().for_each(|(id, name)| spawn_send(state, id, name, "after_sync")),
         Err(e) => tracing::warn!("检查同步后推送失败：{}", e.message()),
+    }
+}
+
+/// 数据集有新数据后：触发「数据集更新后推送」的任务
+pub fn on_data_changed(state: &AppState, dataset_id: &str) {
+    let due = state.connection().map_err(AppError::from).and_then(|conn| Ok((load_reports(&conn)?, conn))).map(|(list, conn)| {
+        list.into_iter()
+            .filter(|r| r.enabled && matches!(&r.schedule, Schedule::AfterData { dataset_id: d } if d == dataset_id) && crate::workbook::is_alive(&conn, &r.workbook_id))
+            .map(|r| (r.id, r.name))
+            .collect::<Vec<_>>()
+    });
+    match due {
+        Ok(due) => due.into_iter().for_each(|(id, name)| spawn_send(state, id, name, "after_data")),
+        Err(e) => tracing::warn!("检查数据集更新后推送失败：{}", e.message()),
     }
 }
 

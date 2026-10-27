@@ -17,7 +17,7 @@
 - **数据范围受限的用户**（管理员给用户设置了「只能看某些店铺」）：只能调用下表「受限用户」列为 ✓ 的接口，其余一律返回 403；✓ 的接口读取的数据也已按范围过滤。
 - **审计**：「审计」列非空的接口会记入操作审计，列里是审计里显示的操作名。
 
-共 213 个接口。
+共 242 个接口。
 
 ## 存活检查与运维
 
@@ -90,6 +90,8 @@
 | 方法 | 路径 | 说明 | 权限 | 受限用户 | 审计 |
 |---|---|---|---|---|---|
 | GET | `/api/ledger/datasets` | 数据集与列定义 | 登录用户 | ✓ |  |
+| POST | `/api/ledger/datasets/external` | { name, path, pattern, recursive, hive }  新建外部数据集（只读，不导入） | 仅管理员 | — | 新建外部数据集 |
+| POST | `/api/ledger/datasets/external/preview` | { path, pattern, recursive, hive }  预览外部 Parquet 文件：匹配的文件、总行数、列与类型、前几行 | 仅管理员 | — |  |
 | POST | `/api/ledger/datasets/import/commit` | { token, mode: create \| append \| replace, datasetId?, name?, columns, primaryKey, fileName } | 登录用户 | ✗ | 导入数据集 |
 | POST | `/api/ledger/datasets/import/preview` | multipart: file（CSV / XLS / XLSX） | 登录用户 | ✗ |  |
 | POST | `/api/ledger/datasets/import/preview-url` | { url }  从网址下载文件并预览（http / https，不访问本机地址） | 登录用户 | ✗ |  |
@@ -108,15 +110,34 @@
 | POST | `/api/ledger/datasets/{id}/calc/preview` | { formula }  计算列预览（类型、样例、空值行数） | 登录用户 | ✓ |  |
 | PUT | `/api/ledger/datasets/{id}/calc/{name}` | { formula, kind? }  修改计算列 | 数据集所有者或管理员 | ✗ | 修改计算列 |
 | DELETE | `/api/ledger/datasets/{id}/calc/{name}` |  | 数据集所有者或管理员 | ✗ | 删除计算列 |
+| GET | `/api/ledger/datasets/{id}/clean` | 最近一次清洗与能否撤销（没有时为 null） | 数据集所有者或管理员 | ✗ |  |
+| POST | `/api/ledger/datasets/{id}/clean` | { op, … }  执行数据清洗（可撤销最近一次） | 数据集所有者或管理员 | ✗ | 数据清洗 |
+| POST | `/api/ledger/datasets/{id}/clean/preview` | { op: dedupe\|trim\|replace\|fill\|delete_rows, … }  数据清洗预览：多少行受影响、改之前 / 之后的样例 | 数据集所有者或管理员 | ✗ |  |
+| POST | `/api/ledger/datasets/{id}/clean/undo` | 撤销最近一次清洗（之后数据集没有别的改动时） | 数据集所有者或管理员 | ✗ | 撤销数据清洗 |
+| PUT | `/api/ledger/datasets/{id}/columns/kind` | { column, kind, acceptLoss? }  修改列类型（就地转换；有值转不过来时要 acceptLoss） | 数据集所有者或管理员 | ✗ | 修改列类型 |
+| POST | `/api/ledger/datasets/{id}/columns/kind/preview` | { column, kind }  预览修改列类型：多少个值转不过来、举例、转换前后的样子 | 数据集所有者或管理员 | ✗ |  |
 | POST | `/api/ledger/datasets/{id}/cursor` | QuerySpec → 游标（筛选 + 排序物化，按条件缓存） | 登录用户 | ✓ |  |
 | POST | `/api/ledger/datasets/{id}/distinct` | 列值分面（筛选下拉） | 登录用户 | ✓ |  |
 | GET | `/api/ledger/datasets/{id}/export` | 按当前筛选 / 排序导出（流式下载） 查询参数：`cursor=&columns=&name=&format=csv\|xlsx&desc=` | 登录用户 | ✓ | 导出数据集 |
+| PUT | `/api/ledger/datasets/{id}/external` | { path, pattern, recursive, hive, refreshMinutes? } 修改读取方式（变了就按新规则重新读取，会让计算列 / 关联视图失效时整体取消）或自动检查的间隔（分钟，不填表示只手动刷新） | 仅管理员 | — | 修改外部数据集 |
+| POST | `/api/ledger/datasets/{id}/external/refresh` | 重新查找文件、读取结构（文件有增减或结构变化后）；没有变化时视图不动（changed = false） | 仅管理员 | — | 刷新外部数据集 |
+| POST | `/api/ledger/datasets/{id}/groups` | { filters?, keyword?, rule?, violation?, levels: [{ column, desc? }]（或只有一级时 column, desc?）, items: [{ column, func }] }  分类汇总：按一到三列逐级分组，每一级每组的行数与汇总（顺序与依次按这些列排序的数据表一致） | 登录用户 | ✓ |  |
 | POST | `/api/ledger/datasets/{id}/pivot` | 数据透视表（rows / columns / values / filters / sort / top / subtotals / grandTotals） | 登录用户 | ✓ |  |
+| POST | `/api/ledger/datasets/{id}/profile` | { filters?, keyword?, rule?, columns? }  数据概况：按当前筛选，每列的空值、近似去重数、范围、数值分布（一次扫描） | 登录用户 | ✓ |  |
+| POST | `/api/ledger/datasets/{id}/profile/column` | { column, filters?, keyword?, rule? }  一列的分布：直方图（数值分箱 / 日期按日月年）与最常见的取值 | 登录用户 | ✓ |  |
 | DELETE | `/api/ledger/datasets/{id}/purge` | 彻底删除（连同回收站里基于它的关联视图），返回删除的名称 | 数据集所有者或管理员 | ✗ | 彻底删除数据集 |
 | GET | `/api/ledger/datasets/{id}/rows` | 按位置取一段 查询参数：`cursor=&offset=&limit=&columns=` | 登录用户 | ✓ |  |
+| POST | `/api/ledger/datasets/{id}/split/preview` | { column, separator }  拆分列预览：每行能拆成几段、样例（拆分本身是加计算列） | 登录用户 | ✓ |  |
 | POST | `/api/ledger/datasets/{id}/stats` | 选区统计 | 登录用户 | ✓ |  |
+| POST | `/api/ledger/datasets/{id}/totals` | { cursorId, items: [{ column, func }] }  汇总行：按当前筛选对整个结果集算每列的合计 / 平均 / 计数等 | 登录用户 | ✓ |  |
 | POST | `/api/ledger/datasets/{id}/untrash` | 从回收站恢复 | 数据集所有者或管理员 | ✗ | 恢复数据集 |
 | GET | `/api/ledger/datasets/{id}/usage` | 使用情况：引用它的工作簿 / 模板 / 视图 / SQL / 连接 / 推送，近 30 天访问次数 | 登录用户 | ✗ |  |
+| GET | `/api/ledger/datasets/{id}/validation` | 数据校验规则与最近一次检查结果 | 登录用户 | ✓ |  |
+| PUT | `/api/ledger/datasets/{id}/validation` | { rules: [{ column, kind: required / unique / range / format / allowed, … }] }  保存校验规则并立即检查 | 数据集所有者或管理员 | ✗ | 设置数据校验规则 |
+| POST | `/api/ledger/datasets/{id}/validation/check` | 按规则重新检查（数据范围受限的用户只检查自己能看到的行） | 登录用户 | ✓ |  |
+| GET | `/api/ledger/datasets/{id}/validation/suggest` | 推荐校验规则：按数据本身的样子（格式、取值、空值、重复）推荐，附原因和不合格的行数；不保存 | 登录用户 | ✓ |  |
+| POST | `/api/ledger/datasets/{id}/window` | { calcs, partitionBy?, orderBy?, topN?, name, autoRefresh? } 窗口计算：保存为 SQL 查询并另存为新数据集（默认源数据集更新后自动重算），返回保存的查询 | 登录用户 | ✗ | 窗口计算生成数据集 |
+| POST | `/api/ledger/datasets/{id}/window/preview` | { calcs, partitionBy?, orderBy?, topN? }  窗口计算预览：生成的 SQL 与前 100 行 | 登录用户 | ✓ |  |
 | POST | `/api/ledger/datasets/{id}/writeback` | { mode: upsert\|append, columns, rows, keys?, operator?, source? } 整批校验，有错误时不写入并返回出错的格子（errors） | 登录用户 | ✓ | 填报提交 |
 | GET | `/api/ledger/writebacks` | 提交记录（新的在前），附带能否撤销 查询参数：`datasetId=&limit=` | 登录用户 | ✗ |  |
 | POST | `/api/ledger/writebacks/{id}/undo` | 撤销一次提交（数据集之后没有别的改动时） 查询参数：`operator=` | 登录用户 | ✗ | 撤销填报提交 |
@@ -131,7 +152,7 @@
 | DELETE | `/api/ledger/sql/queries/{id}` | 删除查询（另存的数据集保留） | 登录用户 | ✗ | 删除 SQL 查询 |
 | POST | `/api/ledger/sql/queries/{id}/instances` | { values, name?, operator? }  用一组参数值生成实例（独立的查询 + 新数据集） | 登录用户 | ✗ | 生成参数化查询的实例 |
 | POST | `/api/ledger/sql/queries/{id}/refresh` | { datasetName? }  立即重算并写入数据集 | 登录用户 | ✗ | 重算 SQL 查询 |
-| POST | `/api/ledger/sql/run` | { sql, limit?, params?, values? }  执行只读查询（最多返回 1000 行） | 登录用户 | ✓ | 执行 SQL 查询 |
+| POST | `/api/ledger/sql/run` | { sql, limit?, params?, values? }  执行只读查询（最多返回 1000 行；分享链接只能查被分享工作簿用到的数据集） | 登录用户 | ✓ | 执行 SQL 查询 |
 
 ## 逐笔对账
 
@@ -316,3 +337,11 @@
 | GET | `/api/ledger/tokens` | 我的访问令牌（不含令牌本身） | 登录用户 | ✓ |  |
 | POST | `/api/ledger/tokens` | { name, days?, readOnly?, datasets? }  新建访问令牌；响应里的 token 只显示这一次 | 登录用户 | ✓ | 创建访问令牌 |
 | DELETE | `/api/ledger/tokens/{id}` | 吊销我的访问令牌（立即生效） | 登录用户 | ✓ | 吊销访问令牌 |
+| GET | `/api/ledger/webhooks` | Webhook 列表与可订阅的事件 | 仅管理员 | — |  |
+| POST | `/api/ledger/webhooks` | { name, url, events, enabled? }  新建 Webhook，返回 id 和签名密钥（只显示这一次） | 仅管理员 | — | 新建 Webhook |
+| POST | `/api/ledger/webhooks/deliveries/{id}/redeliver` | 重新发送一条记录（同一个请求体与 X-Gridlake-Delivery，签名时间戳是新的） | 仅管理员 | — | 重新发送 Webhook |
+| PUT | `/api/ledger/webhooks/{id}` | { name, url?, events, enabled }  修改（地址不填表示不变；停用时取消排队中的发送） | 仅管理员 | — | 修改 Webhook |
+| DELETE | `/api/ledger/webhooks/{id}` | 删除（连同发送记录） | 仅管理员 | — | 删除 Webhook |
+| GET | `/api/ledger/webhooks/{id}/deliveries` | 最近的发送记录（新的在前，含请求体与对方响应） 查询参数：`limit=` | 仅管理员 | — |  |
+| POST | `/api/ledger/webhooks/{id}/secret` | 重置签名密钥，返回新密钥（只显示这一次；旧密钥立即失效） | 仅管理员 | — | 重置 Webhook 签名密钥 |
+| POST | `/api/ledger/webhooks/{id}/test` | 立即发一个 ping 事件（不重试），返回这次发送的结果；停用的也能测试 | 仅管理员 | — | 测试 Webhook |

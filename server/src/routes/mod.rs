@@ -46,7 +46,7 @@ where
 
 /// 请求体里的查询条件是否为空（无筛选 / 搜索 / 排序 / 规则）
 fn spec_is_plain(body: &[u8]) -> bool {
-    serde_json::from_slice::<QuerySpec>(body).is_ok_and(|s| s.filters.is_empty() && s.keyword.as_deref().is_none_or(|k| k.trim().is_empty()) && s.sort.is_empty() && s.rule.as_ref().is_none_or(Vec::is_empty))
+    serde_json::from_slice::<QuerySpec>(body).is_ok_and(|s| s.filters.is_empty() && s.keyword.as_deref().is_none_or(|k| k.trim().is_empty()) && s.sort.is_empty() && s.rule.as_ref().is_none_or(Vec::is_empty) && s.violation.is_none())
 }
 
 /// 重计算：先过并发闸门（同时进行的个数有限，其余排队），再作为可取消的只读查询执行。排队中客户端断开会自动退出队列
@@ -171,6 +171,7 @@ mod ecommerce;
 mod datasets;
 mod workbooks;
 mod views;
+mod external;
 mod connector;
 mod alert;
 mod collect;
@@ -187,6 +188,7 @@ pub use ecommerce::*;
 pub use datasets::*;
 pub use workbooks::*;
 pub use views::*;
+pub use external::*;
 pub use connector::*;
 pub use alert::*;
 pub use collect::*;

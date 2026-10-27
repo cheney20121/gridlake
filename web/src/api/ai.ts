@@ -1,5 +1,6 @@
 import type { DatasetFilter, DatasetSort } from '@/api/dataset'
 import type { ColumnStyle } from '@/components/excel/big-grid/column-style'
+import type { DatasetViewContext } from '@/features/excel/dataset/active-view'
 import { LEDGER_BASE } from '@/api/ledger-base'
 import { t } from '@/i18n'
 import { getToken } from '@/utils/auth'
@@ -39,7 +40,7 @@ export interface AiPreview {
   note: string
 }
 
-export type AiActionKind = 'pivot' | 'chart' | 'formula' | 'calc' | 'table_view' | 'column_format' | 'table_create' | 'dataset_save' | 'plan'
+export type AiActionKind = 'pivot' | 'chart' | 'formula' | 'calc' | 'table_view' | 'column_format' | 'table_create' | 'dataset_save' | 'clean' | 'window' | 'validation' | 'plan'
 
 export interface AiAction {
   id: string
@@ -88,6 +89,8 @@ export interface AiContext {
   selectionValues?: unknown[][]
   pivot?: unknown
   tables?: AiTableContext[]
+  /** 数据集页面正在看的数据集（此时不带工作表、选区，那些在后面看不见） */
+  dataset?: Omit<DatasetViewContext, 'id'>
 }
 
 export type AiEvent

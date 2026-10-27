@@ -1,5 +1,6 @@
 import type { DatasetInfo } from '@/api/dataset'
 import type { ColumnKind, TemplateColumn, TemplateDataset } from '@/api/template'
+import { isNumericKind } from '@/features/excel/dataset/column-kinds'
 
 /**
  * 使用模板时自动对应：为模板需要的数据集挑选最像的数据集，为每一列挑选最像的列
@@ -21,8 +22,10 @@ const SYNONYMS: string[][] = [
 export function compatible(need: ColumnKind, have: string) {
   if (need === 'datetime')
     return have === 'datetime'
-  if (need === 'money' || need === 'number')
-    return have === 'money' || have === 'number'
+  if (need === 'boolean')
+    return have === 'boolean'
+  if (isNumericKind(need))
+    return isNumericKind(have)
   return true
 }
 

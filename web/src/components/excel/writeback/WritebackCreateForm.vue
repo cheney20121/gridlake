@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { DatasetColumn, DatasetColumnKind, DatasetInfo, WritebackMode } from '@/api/dataset'
 import { watch } from 'vue'
+import { kindOptions } from '@/features/excel/dataset/column-kinds'
 import { cellName } from '@/features/excel/writeback/input-table'
-import { t } from '@/i18n'
 
 /** 新建填报区的表单：写入已有数据集（选填报列、方式、主键）或新建数据集（定义列与主键） */
 export interface CreateForm {
@@ -36,13 +36,7 @@ const emit = defineEmits<{
 
 const form = defineModel<CreateForm>({ required: true })
 
-const KIND_OPTIONS: { value: DatasetColumnKind, label: string }[] = [
-  { value: 'text', label: t('文本') },
-  { value: 'id', label: t('编号') },
-  { value: 'money', label: t('金额') },
-  { value: 'number', label: t('数值') },
-  { value: 'datetime', label: t('日期时间') },
-]
+const KIND_OPTIONS: { value: DatasetColumnKind, label: string }[] = kindOptions()
 
 watch(() => form.value.datasetId, () => {
   const ds = props.formDataset

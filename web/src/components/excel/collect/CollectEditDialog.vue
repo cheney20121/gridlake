@@ -28,7 +28,7 @@ interface UnitRow {
   userId: string | null
 }
 
-const KIND_LABEL: Partial<Record<DatasetColumnKind, string>> = { money: t('金额'), number: t('数字'), text: t('文本'), datetime: t('日期') }
+const KIND_LABEL: Partial<Record<DatasetColumnKind, string>> = { money: t('金额'), number: t('数字'), integer: t('整数'), text: t('文本'), datetime: t('日期'), boolean: t('是/否') }
 const ledgerUser = useLedgerUserStore()
 
 const datasets = ref<DatasetInfo[]>([])

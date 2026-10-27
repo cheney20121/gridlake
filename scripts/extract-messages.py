@@ -20,7 +20,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 SRC = ROOT / "server" / "src"
 CATALOG = SRC / "msg_en.json"
 CJK = re.compile(r"[一-鿿]")
-SKIP = {"msg_i18n.rs", "config.rs"}  # 本模块自己的示例；启动期的配置错误不走接口
+SKIP = {"msg_i18n.rs", "config.rs", "open.rs"}  # 本模块自己的示例；启动期的配置错误、gridlake open 的命令行提示不走接口
 CALLS = re.compile(
     r"(?:AppError::(?:bad|forbidden|unauthorized|unavailable|BadRequest|Forbidden|Unauthorized|Unavailable)"
     r"|Self::(?:BadRequest|Forbidden|Unauthorized|Unavailable)|\bbail!|\banyhow!|\.context|\.with_context|\bErr)\s*\(\s*(?:\|\|\s*)?"

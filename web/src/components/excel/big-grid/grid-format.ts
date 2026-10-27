@@ -1,5 +1,6 @@
 import type { GridColumn } from './types'
 import type { CellValue } from '@/api/dataset'
+import { formatBool } from '@/features/excel/dataset/column-kinds'
 import { formatNumber } from './column-style'
 
 /** 单元格与行号、列字母的显示格式 */
@@ -17,7 +18,9 @@ export function formatCell(v: CellValue, col: GridColumn): string {
       return custom
   }
   if (typeof v === 'number')
-    return col.kind === 'money' ? money.format(v) : col.kind === 'number' ? decimal.format(v) : String(v)
+    return col.kind === 'money' ? money.format(v) : col.kind === 'number' ? decimal.format(v) : col.kind === 'integer' ? integer.format(v) : String(v)
+  if (typeof v === 'boolean')
+    return formatBool(v)
   return v
 }
 

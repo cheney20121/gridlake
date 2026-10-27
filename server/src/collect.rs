@@ -708,7 +708,7 @@ fn workbook_name(task: &str, unit: &str, period: &str) -> String {
 
 /// 数据集里这个单位这一期已有的行（只取要填的列，数字列取数字，其他取文本）
 fn existing_rows(conn: &Connection, def: &DatasetDef, fields: &[&ColumnDef], unit_col: &ColumnDef, period_col: &ColumnDef, unit: &str, period: &str) -> AppResult<Vec<Vec<Json>>> {
-    let numeric: Vec<bool> = fields.iter().map(|c| matches!(c.kind, "money" | "number")).collect();
+    let numeric: Vec<bool> = fields.iter().map(|c| crate::kinds::is_numeric(c.kind)).collect();
     let select: Vec<String> = fields.iter().zip(&numeric).map(|(c, n)| if *n { format!("TRY_CAST(({}) AS DOUBLE)", column_sql(c)) } else { format!("CAST(({}) AS VARCHAR)", column_sql(c)) }).collect();
     let sql = format!(
         "SELECT {} FROM {} WHERE CAST(({}) AS VARCHAR) = ? AND CAST(({}) AS VARCHAR) = ? LIMIT {PREFILL_ROWS}",

@@ -4,7 +4,9 @@ import { computed, reactive, ref, watch } from 'vue'
 import { commitDatasetImportApi, previewDatasetImportApi, previewDatasetImportUrlApi } from '@/api/dataset'
 import BusyInline from '@/components/excel/common/BusyInline.vue'
 import { t as tr } from '@/i18n'
+import { useLedgerUserStore } from '@/stores/ledger-user'
 import { errorText } from '@/utils/busy-hint'
+import ExternalDatasetDialog from './ExternalDatasetDialog.vue'
 
 /** 通用数据导入：任意 CSV / XLSX → 数据集（大数据表 + DSUMIFS 公式可用） */
 const props = defineProps<{
@@ -21,12 +23,22 @@ const emit = defineEmits<{
 const KIND_OPTIONS: { value: DatasetColumnKind, label: string, hint: string }[] = [
   { value: 'text', label: tr('文本'), hint: tr('名称、状态等') },
   { value: 'id', label: tr('编号'), hint: tr('订单号、手机号：保留前导零与全部位数') },
+  { value: 'integer', label: tr('整数'), hint: tr('数量、件数：精确到个位，可求和') },
   { value: 'money', label: tr('金额'), hint: tr('两位小数，可求和') },
-  { value: 'number', label: tr('数值'), hint: tr('数量、次数，可求和') },
+  { value: 'number', label: tr('数值'), hint: tr('比率、小数，可求和') },
   { value: 'datetime', label: tr('日期时间'), hint: tr('统一为 YYYY-MM-DD HH:MM:SS') },
+  { value: 'boolean', label: tr('是/否'), hint: tr('TRUE / FALSE、是 / 否、1 / 0') },
 ]
 
 const step = ref<'pick' | 'map' | 'done'>('pick')
+const ledgerUser = useLedgerUserStore()
+/** 不导入、直接查询服务器上的 Parquet 文件（只有管理员） */
+const externalVisible = ref(false)
+
+function onExternalCreated(id: string) {
+  emit('imported', id, true)
+  emit('update:visible', false)
+}
 const uploading = ref(false)
 const committing = ref(false)
 const preview = ref<ImportPreview | null>(null)
@@ -283,6 +295,12 @@ const sizeText = (n: number) => n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Mat
             {{ $t('读取') }}
           </el-button>
         </div>
+        <div v-if="ledgerUser.isAdmin" class="mt-1 text-xs text-gray-500">
+          {{ $t('文件很大、在服务器上？') }}
+          <el-button link type="primary" size="small" @click="externalVisible = true">
+            {{ $t('直接查询服务器上的 Parquet 文件（不导入）…') }}
+          </el-button>
+        </div>
       </template>
     </div>
 
@@ -422,7 +440,10 @@ const sizeText = (n: number) => n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Mat
         <span class="text-gray-400">{{ $t('（{0} 秒）', [(outcome.elapsedMs / 1000).toFixed(1)]) }}</span>
       </div>
       <div v-for="x in outcome.invalid" :key="x.column" class="text-[#92400E]">
-        {{ $t('「{0}」有 {1} 个值无法识别为数字，已按空值入库', [x.column, x.count.toLocaleString()]) }}
+        {{ $t('「{0}」有 {1} 个值与列类型不符，已按空值入库', [x.column, x.count.toLocaleString()]) }}
+      </div>
+      <div v-if="outcome.widened?.length" class="text-[#92400E]">
+        {{ $t('「{0}」在样本之后出现了小数或其他写法，已改为数值 / 文本列，没有丢数据', [outcome.widened.join('、')]) }}
       </div>
       <div class="mt-1 rounded bg-[#F7F8FA] px-3 py-2 text-xs text-gray-600">
         {{ $t('在任意单元格使用：') }}<code>{{ $t('=DSUMIFS("{0}", "求和列", "条件列", 条件)', [outcome.name]) }}</code>
@@ -453,6 +474,7 @@ const sizeText = (n: number) => n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Mat
         </el-button>
       </template>
     </template>
+    <ExternalDatasetDialog v-model:visible="externalVisible" @created="onExternalCreated" />
   </el-dialog>
 </template>
 

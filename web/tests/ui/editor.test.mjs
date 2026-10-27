@@ -895,6 +895,18 @@ describe('在线表格编辑器（界面）', { skip }, () => {
   const PIVOT_STEP = { tool: 'create_pivot', args: { dataset: '订单', rows: [{ column: '店铺' }], values: [{ agg: 'sum', column: '金额' }] } }
   const CHART_STEP = { tool: 'create_chart', args: { title: '各店铺金额', type: 'column', dataset: '订单', x: { column: '店铺' }, values: [{ agg: 'sum', column: '金额' }] } }
   const sheetNames = page => page.eval(`window.__univerAPI.getActiveWorkbook().getSheets().map(s => s.getSheetName())`)
+  /** 页签列表稳定下来（前面用例留下的页签可能在打开后才同步过来）再读 */
+  async function settledSheetNames(page) {
+    let last = JSON.stringify(await sheetNames(page))
+    for (let i = 0; i < 20; i++) {
+      await new Promise(r => setTimeout(r, 500))
+      const now = JSON.stringify(await sheetNames(page))
+      if (now === last && i >= 2)
+        break
+      last = now
+    }
+    return JSON.parse(last)
+  }
 
   it('AI 方案卡：预览多步 → 一次应用（新建透视表页签 + 图表）→ 一次撤销，刷新后状态仍在', async () => {
     llm.reset()
@@ -902,7 +914,7 @@ describe('在线表格编辑器（界面）', { skip }, () => {
     llm.say({ text: '方案已生成：先做各店铺金额透视表，再配一张柱形图。' })
     await withPage('ai-plan', 'alice', `/excel?wb=${wb.alice}`, async (page) => {
       await editorReady(page)
-      const before = await sheetNames(page)
+      const before = await settledSheetNames(page)
       await askAi(page, '按店铺汇总金额并配一张图')
       // 一张方案卡，两个步骤各带预览
       await page.waitFor(`document.querySelectorAll('.ai .card').length === 1 && document.querySelectorAll('.ai .plan-steps li').length === 2`, { what: '一张方案卡、两个步骤' })
@@ -1476,7 +1488,7 @@ describe('在线表格编辑器（界面）', { skip }, () => {
       assert.equal(await read('库存月报', 18, 4), 100 + 50 - 30 + 20 - 5 + 10, '合计行的期末库存')
       // 透视页签：计算项「期末库存」= 期初 + 入库 - 出库（P2、P3 没有出库 / 入库记录的格子按 0 算）
       await page.eval(`window.__univerAPI.getActiveWorkbook().getSheetByName('商品 × 单据类型').activate(); 0`)
-      await page.waitFor(`JSON.stringify(window.__univerAPI.getActiveWorkbook().getSheetByName('商品 × 单据类型').getRange(0, 0, 8, 8).getValues()).includes('期末库存')`, { what: '透视表出现「期末库存」列', timeout: 90_000 })
+      await page.waitFor(`window.__univerAPI.getActiveWorkbook().getSheetByName('商品 × 单据类型').getRange(0, 0, 8, 8).getValues().some(r => r.includes('期末库存'))`, { what: '透视表出现「期末库存」列（标题里也有这几个字，要等到列头格子）', timeout: 90_000 })
       const grid = JSON.parse(await page.eval(`JSON.stringify(window.__univerAPI.getActiveWorkbook().getSheetByName('商品 × 单据类型').getRange(0, 0, 8, 8).getValues())`))
       const col = grid.find(r => r.includes('期末库存')).indexOf('期末库存')
       const stock = Object.fromEntries(['P1', 'P2', 'P3'].map(p => [p, parseMoney(grid.find(r => r[0] === p)[col])]))

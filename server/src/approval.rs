@@ -409,12 +409,23 @@ pub async fn count(State(db): State<AppState>, Extension(user): Extension<Curren
     Ok(ok(serde_json::json!({ "todo": n })))
 }
 
+/// 审批事件发给 Webhook 的内容（不含页面统计的概况）
+fn webhook_data(a: &Approval) -> Value {
+    serde_json::json!({
+        "approvalId": a.id, "workbookId": a.workbook_id, "workbookName": a.workbook_name, "workbookVersion": a.workbook_version,
+        "status": a.status, "initiator": { "id": a.initiator_id, "name": a.initiator_name }, "approver": { "id": a.approver_id, "name": a.approver_name },
+        "comment": a.comment, "decidedBy": a.decided_by, "decisionComment": a.decision_comment,
+    })
+}
+
 /// POST /api/ledger/approvals  { workbookId, approverId, comment, summary }  发起审批（审批的是工作簿当前已保存的版本）
 pub async fn create_approval(State(db): State<AppState>, Extension(user): Extension<CurrentUser>, Json(input): Json<NewApproval>) -> AppResult<Json<Envelope<Approval>>> {
     let allow = db.config.allow_self_approve;
     let _guard = db.import_lock.lock().await;
+    let actor = user.clone();
     let a = run(&db, move |c| create(c, &user, &input, allow)).await?;
     db.checkpoint();
+    crate::webhook::emit(&db, "approval.created", Some(&actor), webhook_data(&a));
     Ok(ok(a))
 }
 
@@ -437,8 +448,10 @@ pub struct DecideBody {
 pub async fn decide_approval(State(db): State<AppState>, Extension(user): Extension<CurrentUser>, Path(id): Path<String>, Json(b): Json<DecideBody>) -> AppResult<Json<Envelope<Approval>>> {
     let allow = db.config.allow_self_approve;
     let _guard = db.import_lock.lock().await;
+    let actor = user.clone();
     let a = run(&db, move |c| decide(c, &user, &id, b.approve, &b.comment, &b.operator, allow)).await?;
     db.checkpoint();
+    crate::webhook::emit(&db, "approval.decided", Some(&actor), webhook_data(&a));
     Ok(ok(a))
 }
 
@@ -454,8 +467,10 @@ pub struct CancelBody {
 pub async fn cancel_approval(State(db): State<AppState>, Extension(user): Extension<CurrentUser>, Path(id): Path<String>, Json(b): Json<CancelBody>) -> AppResult<Json<Envelope<Approval>>> {
     let allow = db.config.allow_self_approve;
     let _guard = db.import_lock.lock().await;
+    let actor = user.clone();
     let a = run(&db, move |c| cancel(c, &user, &id, &b.comment, &b.operator, allow)).await?;
     db.checkpoint();
+    crate::webhook::emit(&db, "approval.decided", Some(&actor), webhook_data(&a));
     Ok(ok(a))
 }
 

@@ -5,6 +5,8 @@
 //! - 列引用：`[列名]`（可引用已有的计算列）
 //! - 运算：+ - * /（除数为 0 得空值）、& 文本连接、比较 = <> > >= < <=
 //! - 函数：ROUND ABS IF IFNULL MAX MIN LEFT RIGHT MID LEN UPPER LOWER TRIM YEAR MONTH DAY
+//! - 文本拆分 / 合并：FIND SUBSTITUTE SPLITPART（按分隔符取第 N 段，负数从后往前数）TEXTBEFORE TEXTAFTER（第 N 个分隔符之前 / 之后，
+//!   负数从后往前数；找不到分隔符为空值）CONCAT TEXTJOIN（分隔符，是否忽略空值，文本…）。数字拼进文本时整数不带「.0」
 //! - 文本用双引号，数字直接写
 
 use crate::error::{AppError, AppResult};
@@ -362,6 +364,56 @@ impl Parser<'_> {
                 need(1, 1)?;
                 (format!("{}({})", f.to_lowercase(), text(&a[0])), Ty::Text)
             }
+            "FIND" => {
+                // 区分大小写，从 1 数起；找不到为空值（Excel 为 #VALUE!）
+                need(2, 3)?;
+                match a.get(2) {
+                    None => (format!("NULLIF(strpos({}, {}), 0)", text(&a[1]), text(&a[0])), Ty::Num),
+                    Some(start) => {
+                        let s = format!("greatest(CAST({} AS INTEGER), 1)", num(start)?);
+                        (format!("NULLIF(strpos(substr({}, {s}), {}), 0) + {s} - 1", text(&a[1]), text(&a[0])), Ty::Num)
+                    }
+                }
+            }
+            "SUBSTITUTE" => {
+                need(3, 3)?;
+                (format!("replace({}, {}, {})", text(&a[0]), text(&a[1]), text(&a[2])), Ty::Text)
+            }
+            "SPLITPART" => {
+                // 按分隔符取第 N 段（负数从后往前数）；没有这一段为空值
+                need(3, 3)?;
+                let d = delimiter(&a[1])?;
+                (format!("NULLIF(split_part({}, {d}, CAST({} AS INTEGER)), '')", text(&a[0]), num(&a[2])?), Ty::Text)
+            }
+            "TEXTBEFORE" | "TEXTAFTER" => {
+                // 第 N 个分隔符之前 / 之后（默认第 1 个，负数从后往前数）；分隔符不够 N 个为空值
+                need(2, 3)?;
+                let d = delimiter(&a[1])?;
+                let n = match a.get(2) {
+                    Some(x) => format!("CAST({} AS INTEGER)", num(x)?),
+                    None => "1".into(),
+                };
+                let parts = format!("string_split({}, {d})", text(&a[0]));
+                let m = format!("(CASE WHEN {n} < 0 THEN len({parts}) + {n} ELSE {n} END)");
+                let piece = if f == "TEXTBEFORE" { format!("{parts}[1:{m}]") } else { format!("{parts}[{m} + 1:]") };
+                (format!("(CASE WHEN {n} <> 0 AND {m} >= 1 AND {m} < len({parts}) THEN array_to_string({piece}, {d}) END)"), Ty::Text)
+            }
+            "CONCAT" => {
+                // 空值按空字符串
+                need(1, 32)?;
+                (format!("concat({})", a.iter().map(as_text).collect::<Vec<_>>().join(", ")), Ty::Text)
+            }
+            "TEXTJOIN" => {
+                // TEXTJOIN(分隔符, 是否忽略空值, 文本…)：忽略空值时空值和空字符串都不占位
+                need(3, 33)?;
+                let skip = match a[1].0.as_str() {
+                    "TRUE" | "1" => true,
+                    "FALSE" | "0" => false,
+                    _ => return Err(AppError::bad("TEXTJOIN 的第二个参数要写 TRUE（忽略空值）或 FALSE")),
+                };
+                let items = a[2..].iter().map(|x| if skip { format!("NULLIF({}, '')", as_text(x)) } else { format!("COALESCE({}, '')", as_text(x)) });
+                (format!("concat_ws({}, {})", text(&a[0]), items.collect::<Vec<_>>().join(", ")), Ty::Text)
+            }
             "YEAR" | "MONTH" | "DAY" => {
                 need(1, 1)?;
                 let (start, len) = match f {
@@ -371,9 +423,26 @@ impl Parser<'_> {
                 };
                 (format!("TRY_CAST(substr({}, {start}, {len}) AS INTEGER)", text(&a[0])), Ty::Num)
             }
-            other => return Err(AppError::bad(format!("不支持的函数：{other}（可用：ROUND ABS IF IFNULL MAX MIN LEFT RIGHT MID LEN UPPER LOWER TRIM YEAR MONTH DAY）"))),
+            other => return Err(AppError::bad(format!("不支持的函数：{other}（可用：ROUND ABS IF IFNULL MAX MIN LEFT RIGHT MID LEN UPPER LOWER TRIM FIND SUBSTITUTE SPLITPART TEXTBEFORE TEXTAFTER CONCAT TEXTJOIN YEAR MONTH DAY）"))),
         })
     }
+}
+
+/// 拼进文本的值：整数形式的数字不带「.0」（12 而不是 12.0），是否写成 TRUE / FALSE
+fn as_text(n: &Node) -> String {
+    match n.1 {
+        Ty::Num => format!("(CASE WHEN ({x}) = trunc({x}) AND abs({x}) < 1e15 THEN CAST(CAST({x} AS BIGINT) AS VARCHAR) ELSE CAST({x} AS VARCHAR) END)", x = n.0),
+        Ty::Bool => format!("(CASE WHEN {} THEN 'TRUE' ELSE 'FALSE' END)", n.0),
+        Ty::Text => format!("CAST({} AS VARCHAR)", n.0),
+    }
+}
+
+/// 分隔符：不能是空字符串（按单个字符拆分不是这几个函数的用意）
+fn delimiter(n: &Node) -> AppResult<String> {
+    if n.0 == "''" {
+        return Err(AppError::bad("分隔符不能为空"));
+    }
+    Ok(format!("CAST({} AS VARCHAR)", n.0))
 }
 
 /// 参与运算的数值。空值保持为空（结果也为空），不按 0 处理：
@@ -438,5 +507,53 @@ mod tests {
         // 引号转义：字面量走 literal()，不可能逃逸出字符串
         let c = compile("=IF([方向]=\"a'b\",1,0)+[金额]", &R).unwrap();
         assert!(c.sql.contains("'a''b'"));
+    }
+
+    /// 拆分 / 合并文本的函数：在 DuckDB 里真的算一遍
+    #[test]
+    fn text_functions() {
+        struct V;
+        impl Resolver for V {
+            fn column(&self, name: &str) -> Option<(String, bool)> {
+                match name {
+                    "地址" => Some(("'广东-深圳-南山'".into(), false)),
+                    "省" => Some(("'广东'".into(), false)),
+                    "空" => Some(("NULL::VARCHAR".into(), false)),
+                    "金额" => Some(("12.0::DOUBLE".into(), true)),
+                    "单价" => Some(("12.5::DOUBLE".into(), true)),
+                    "路径" => Some(("'a/b/c.txt'".into(), false)),
+                    _ => None,
+                }
+            }
+        }
+        let conn = duckdb::Connection::open_in_memory().unwrap();
+        let eval = |f: &str| -> Option<String> {
+            let c = compile(f, &V).unwrap_or_else(|e| panic!("{f}: {}", e.message()));
+            conn.query_row(&format!("SELECT CAST(({}) AS VARCHAR)", c.sql), [], |r| r.get(0)).unwrap()
+        };
+        let s = |v: &str| Some(v.to_string());
+        assert_eq!(eval("=SPLITPART([地址],\"-\",1)"), s("广东"));
+        assert_eq!(eval("=SPLITPART([地址],\"-\",3)"), s("南山"));
+        assert_eq!(eval("=SPLITPART([地址],\"-\",-1)"), s("南山"));
+        assert_eq!(eval("=SPLITPART([地址],\"-\",4)"), None, "没有第 4 段");
+        assert_eq!(eval("=SPLITPART([省],\"-\",1)"), s("广东"), "没有分隔符时第 1 段是整个文本");
+        assert_eq!(eval("=SPLITPART([空],\"-\",1)"), None);
+        assert_eq!(eval("=TEXTBEFORE([地址],\"-\")"), s("广东"));
+        assert_eq!(eval("=TEXTBEFORE([地址],\"-\",2)"), s("广东-深圳"));
+        assert_eq!(eval("=TEXTAFTER([地址],\"-\")"), s("深圳-南山"));
+        assert_eq!(eval("=TEXTAFTER([路径],\"/\",-1)"), s("c.txt"));
+        assert_eq!(eval("=TEXTBEFORE([路径],\"/\",-1)"), s("a/b"));
+        assert_eq!(eval("=TEXTAFTER([地址],\"-\",3)"), None, "只有 2 个分隔符");
+        assert_eq!(eval("=TEXTAFTER([省],\"-\")"), None, "找不到分隔符");
+        assert_eq!(eval("=FIND(\"-\",[地址])"), s("3"));
+        assert_eq!(eval("=FIND(\"-\",[地址],4)"), s("6"));
+        assert_eq!(eval("=FIND(\"x\",[地址])"), None);
+        assert_eq!(eval("=SUBSTITUTE([地址],\"-\",\"/\")"), s("广东/深圳/南山"));
+        assert_eq!(eval("=CONCAT([省],\"：\",[金额],[空])"), s("广东：12"), "整数不带 .0，空值按空字符串");
+        assert_eq!(eval("=TEXTJOIN(\"-\",TRUE,[省],[空],[单价])"), s("广东-12.5"));
+        assert_eq!(eval("=TEXTJOIN(\"-\",FALSE,[省],[空],[单价])"), s("广东--12.5"));
+        assert!(compile("=SPLITPART([地址],\"\",1)", &V).is_err(), "分隔符不能为空");
+        assert!(compile("=TEXTJOIN(\"-\",[省],[地址])", &V).is_err(), "第二个参数要是 TRUE / FALSE");
+        assert!(compile("=SPLITPART([地址],\"-\")", &V).is_err());
     }
 }

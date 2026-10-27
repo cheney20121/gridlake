@@ -3,7 +3,7 @@ import type { HomeSection } from './components/HomeNav.vue'
 import type { MyTask } from '@/api/collect'
 import type { DatasetInfo } from '@/api/dataset'
 import type { WorkbookMeta } from '@/api/workbook'
-import { Bell, Collection, Connection, Cpu, Delete, Document, EditPen, Finished, Lock, Plus, Refresh, Tickets, Timer, Upload, User } from '@element-plus/icons-vue'
+import { Bell, Collection, Connection, Cpu, Delete, Document, EditPen, Finished, Link, Lock, Plus, Refresh, Tickets, Timer, Upload, User } from '@element-plus/icons-vue'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { myCollectsApi } from '@/api/collect'
@@ -23,6 +23,7 @@ import McpAccessDialog from '@/components/excel/mcp/McpAccessDialog.vue'
 import ReportManagerDialog from '@/components/excel/report/ReportManagerDialog.vue'
 import SqlWorkbench from '@/components/excel/sql/SqlWorkbench.vue'
 import TemplateGalleryDialog from '@/components/excel/template/TemplateGalleryDialog.vue'
+import WebhookDialog from '@/components/excel/webhook/WebhookDialog.vue'
 import { useBodyClass } from '@/composables/useBodyClass'
 import { blankWorkbookJson } from '@/features/excel/persistence/workbook-session'
 import { useLedgerOperator } from '@/features/excel/workspace/use-operator'
@@ -148,6 +149,7 @@ onMounted(() => {
 })
 const mcpVisible = ref(false)
 const auditVisible = ref(false)
+const webhookVisible = ref(false)
 const accountVisible = ref(false)
 const dataScopeVisible = ref(false)
 const usageVisible = ref(false)
@@ -240,6 +242,7 @@ function onPublishHint() {
               <HomeCard v-if="!ledgerUser.restricted" :title="$t('阈值告警')" :desc="$t('指标超过阈值（如退款率偏高）时通知到群或邮箱，同一个问题不重复打扰')" :icon="Bell" tone="amber" @click="alertVisible = true" />
               <HomeCard v-if="!ledgerUser.restricted" :title="$t('数据同步')" :desc="$t('数据连接按计划拉取，看板与公式自动更新')" :icon="Refresh" tone="blue" :badge="connectorFailures ? $t('{0} 个失败', [connectorFailures]) : undefined" @click="connectorVisible = true" />
               <HomeCard v-if="ledgerUser.isAdmin" :title="$t('外部 AI 接入（MCP）')" :desc="$t('让 Claude 等 AI 助手按令牌权限查询数据集')" :icon="Cpu" tone="violet" @click="mcpVisible = true" />
+              <HomeCard v-if="ledgerUser.isAdmin" :title="$t('事件 Webhook')" :desc="$t('导入、同步、填报、审批、告警时通知外部系统（数据管道、工单、自己的脚本）')" :icon="Link" tone="slate" data-testid="home-webhooks" @click="webhookVisible = true" />
               <HomeCard v-if="ledgerUser.authRequired && ledgerUser.isAdmin" :title="$t('数据权限（行级）')" :desc="$t('按某一列的取值（如店铺、地区、部门）限制用户能看到的行；数据集按哪一列过滤')" :icon="Lock" tone="amber" @click="dataScopeVisible = true" />
               <HomeCard v-if="ledgerUser.mode === 'local' && ledgerUser.isAdmin" :title="$t('账号管理')" :desc="$t('新建账号、设为管理员、停用、重置密码')" :icon="User" tone="green" data-testid="home-accounts" @click="accountVisible = true" />
               <HomeCard v-if="ledgerUser.authRequired && ledgerUser.isAdmin" :title="$t('操作审计')" :desc="$t('谁在什么时候改了什么：写操作、导出，含被拒绝的')" :icon="Document" tone="slate" @click="auditVisible = true" />
@@ -281,6 +284,7 @@ function onPublishHint() {
     <MyCollectDialog v-model:visible="myCollectVisible" @open="openFillWorkbook" @changed="loadMyTasks" />
     <McpAccessDialog v-model:visible="mcpVisible" :datasets="datasets" :operator="operatorName()" />
     <AuditLogDialog v-model:visible="auditVisible" />
+    <WebhookDialog v-model:visible="webhookVisible" />
     <AccountDialog v-model:visible="accountVisible" />
     <DataScopeDialog v-model:visible="dataScopeVisible" />
   </div>

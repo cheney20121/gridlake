@@ -241,11 +241,11 @@ function createContext(colIndex: number): FormulaContext {
   return { cell: label => `${col}${rowNumber(label)}`, sum, net, flow }
 }
 
-/** 默认主体简称：去掉公司类型和常见行业后缀、城市前缀，如「长沙某某电子商务服务有限公司」→「某某电子」 */
+/** 默认主体简称：去掉公司类型和常见行业后缀、城市前缀，如「上海某某电子商务服务有限公司」→「某某电子」 */
 export function shortEntityName(full: string): string {
   let s = full.replace(/(股份)?有限(责任)?公司$/, '')
   s = s.replace(/(健康科技|网络科技|信息技术|科技|商务服务|电子商务|贸易|实业|发展|服务)$/, '')
-  const city = s.match(/^(北京|上海|天津|重庆|广州|深圳|杭州|南京|苏州|成都|武汉|长沙|西安|郑州|合肥|福州|厦门|济南|青岛|淮安|宁波|东莞|佛山|昆明|南昌|沈阳|大连|哈尔滨|长春|石家庄|太原|南宁|贵阳|海口|兰州|银川|西宁|乌鲁木齐|呼和浩特|拉萨)/)
+  const city = s.match(/^(北京|上海|天津|重庆|广州|深圳|杭州|南京|苏州|成都|武汉|长沙|西安|郑州|合肥|福州|厦门|济南|青岛|宁波|东莞|佛山|昆明|南昌|沈阳|大连|哈尔滨|长春|石家庄|太原|南宁|贵阳|海口|兰州|银川|西宁|乌鲁木齐|呼和浩特|拉萨)/)
   if (city && s.length - city[0].length >= 3)
     s = s.slice(city[0].length)
   return s || full

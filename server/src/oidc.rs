@@ -98,7 +98,7 @@ fn b64(bytes: &[u8]) -> String {
     URL_SAFE_NO_PAD.encode(bytes)
 }
 
-/// 只允许回到本站内的路径（不能是 //evil.com 或带协议的地址）
+/// 只允许回到本站内的路径（不能是 //evil.example 或带协议的地址）
 fn safe_return(v: Option<&str>) -> String {
     match v.map(str::trim) {
         Some(p) if p.starts_with('/') && !p.starts_with("//") && !p.contains('\\') && !p.contains('\n') && !p.contains('\r') && p.len() <= 500 => p.to_string(),
@@ -519,7 +519,7 @@ mod tests {
     #[test]
     fn return_path_must_stay_on_this_site() {
         assert_eq!(safe_return(Some("/workbook/abc?x=1")), "/workbook/abc?x=1");
-        for bad in ["//evil.com", "https://evil.com", "/\\evil.com", "evil", "", "/a\nb"] {
+        for bad in ["//evil.example", "https://evil.example", "/\\evil.example", "evil", "", "/a\nb"] {
             assert_eq!(safe_return(Some(bad)), "/", "{bad}");
         }
         assert_eq!(safe_return(None), "/");
@@ -557,7 +557,7 @@ mod tests {
         let who = Identity::from_claims(&c, &json!({"sub": "s1", "preferred_username": "zhang.san", "name": "张三", "groups": ["dev", "gridlake-admins"]})).unwrap();
         assert_eq!((who.username.as_str(), who.name.as_str(), who.admin), ("zhang.san", "张三", Some(true)));
         // 缺登录名：回退到邮箱 @ 之前，再回退到 sub；中文等非法字符换成下划线
-        let who = Identity::from_claims(&c, &json!({"sub": "s2", "email": "li.si@corp.com"})).unwrap();
+        let who = Identity::from_claims(&c, &json!({"sub": "s2", "email": "li.si@corp.test"})).unwrap();
         assert_eq!((who.username.as_str(), who.name.as_str(), who.admin), ("li.si", "li.si", Some(false)));
         assert_eq!(Identity::from_claims(&c, &json!({"sub": "abc-123"})).unwrap().username, "abc-123");
         assert_eq!(sanitize_username("王五 wu"), "___wu");

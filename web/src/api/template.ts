@@ -7,7 +7,7 @@ import request from '@/utils/request'
 /** 模板：工作簿发布为模板；使用时把模板引用的数据集换成自己的数据集，生成新工作簿 */
 const url = (path: string) => `${LEDGER_BASE}/api/ledger/templates${path}`
 
-export type ColumnKind = 'text' | 'id' | 'money' | 'number' | 'datetime'
+export type ColumnKind = 'text' | 'id' | 'integer' | 'money' | 'number' | 'datetime' | 'boolean'
 
 export interface TemplateColumn {
   title: string
@@ -102,9 +102,11 @@ export const PART_LABEL: Record<string, string> = {
 export const KIND_LABEL: Record<ColumnKind, string> = {
   text: t('文本'),
   id: t('编号'),
+  integer: t('整数'),
   money: t('金额'),
   number: t('数值'),
   datetime: t('日期时间'),
+  boolean: t('是/否'),
 }
 
 export function listTemplatesApi() {

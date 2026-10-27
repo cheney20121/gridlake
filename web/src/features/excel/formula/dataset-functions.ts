@@ -7,6 +7,7 @@ import { datasetById } from '@/features/excel/dashboard/slicer'
 import { findDataTable, hasDataTables, tableQuery } from '@/features/excel/datatable/types'
 import { t } from '@/i18n'
 import request from '@/utils/request'
+import { clearSqlCache, registerSqlFunctions, sqlFormulasBusy } from './sql-functions'
 
 /**
  * 公式下推：DSUMIFS / DCOUNTIFS / DAVERAGEIFS / DMAXIFS / DMINIFS / DCOUNTDISTINCTIFS 在服务端对大数据表（千万行）计算
@@ -228,13 +229,14 @@ async function flush() {
 /** 数据变更（导入、删除、改名）或重新加载汇总时调用：清空结果缓存并重算 */
 export function invalidateDatasetFormulas(recalculate = true) {
   cache.clear()
+  clearSqlCache()
   if (recalculate)
     api?.getFormula().executeCalculation()
 }
 
 /** 是否还有未完成的下推计算（加载汇总时等待用） */
 export function datasetFormulasBusy() {
-  return inFlight > 0 || pending.size > 0 || flushTimer != null
+  return inFlight > 0 || pending.size > 0 || flushTimer != null || sqlFormulasBusy()
 }
 
 const DESCRIPTIONS: Record<string, string> = {
@@ -286,6 +288,7 @@ export function registerDatasetFunctions(univerAPI: FUniver) {
   formula.registerFunction('TMIN', (...args) => evaluateTable('min', args), DESCRIPTIONS.TMIN)
   formula.registerFunction('TMAX', (...args) => evaluateTable('max', args), DESCRIPTIONS.TMAX)
   formula.registerFunction('TVALUE', (...args) => evaluateTable('nth', args), DESCRIPTIONS.TVALUE)
+  registerSqlFunctions(univerAPI)
   chartBus.on('spec', (s: { kind?: string }) => {
     if (s?.kind === 'datatable')
       recalcTables()

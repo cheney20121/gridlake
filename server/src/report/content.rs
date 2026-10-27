@@ -465,7 +465,7 @@ fn datatable(conn: &Connection, spec: &Json, extra: Vec<Filter>) -> AppResult<Ta
     }
     let sort: Vec<dataset::SortSpec> = spec.get("sort").and_then(|v| serde_json::from_value(v.clone()).ok()).unwrap_or_default();
     let keyword = spec.get("keyword").and_then(Json::as_str).filter(|s| !s.trim().is_empty()).map(String::from);
-    let q = QuerySpec { filters, keyword, sort, rule: None };
+    let q = QuerySpec { filters, keyword, sort, rule: None, violation: None };
     let fields: Vec<String> = spec.get("fields").and_then(|v| serde_json::from_value(v.clone()).ok()).unwrap_or_default();
     let cols: Vec<&dataset::ColumnDef> = if fields.is_empty() {
         def.columns.iter().collect()
@@ -487,7 +487,7 @@ fn datatable(conn: &Connection, spec: &Json, extra: Vec<Filter>) -> AppResult<Ta
     let data: Vec<Vec<Json>> = stmt
         .query_map(duckdb::params_from_iter(args.iter()), |r| (0..n).map(|i| Ok(crate::tabular::to_json(r.get_ref(i)?))).collect::<duckdb::Result<Vec<_>>>())?
         .collect::<Result<_, _>>()?;
-    let kinds: Vec<String> = cols.iter().map(|c| if matches!(c.kind, "money" | "number") { c.kind.to_string() } else { "text".to_string() }).collect();
+    let kinds: Vec<String> = cols.iter().map(|c| if crate::kinds::is_numeric(c.kind) { c.kind.to_string() } else { "text".to_string() }).collect();
     let show = |v: &Json, kind: &str| -> String {
         match v {
             Json::Null => String::new(),

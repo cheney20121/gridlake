@@ -8,7 +8,8 @@ import request from '@/utils/request'
  */
 const url = (path: string) => `${LEDGER_BASE}/api/ledger/datasets${path}`
 
-export type DatasetColumnKind = 'text' | 'id' | 'money' | 'number' | 'datetime'
+/** 列类型，见 features/excel/dataset/column-kinds.ts */
+export type DatasetColumnKind = 'text' | 'id' | 'integer' | 'money' | 'number' | 'datetime' | 'boolean'
 
 export interface DatasetColumn {
   key: string
@@ -32,14 +33,17 @@ export interface DatasetInfo {
   /** 内置数据集（如资金流水）由专门的导入流程维护，不能改名 / 删除 */
   builtin: boolean
   primaryKey: string[]
-  /** builtin / table / view（关联视图）/ recon（对账结果）/ summary（透视表转成的汇总数据集） */
-  kind: 'builtin' | 'table' | 'view' | 'recon' | 'summary'
+  /** builtin / table / view（关联视图）/ recon（对账结果）/ summary（透视表转成的汇总数据集）/ external（直接查询 Parquet 文件） */
+  kind: 'builtin' | 'table' | 'view' | 'recon' | 'summary' | 'external'
   view?: ViewDef
   summary?: SummaryDef
+  external?: ExternalInfo
   rowCount: number
   /** 所有者（内置与登录校验启用前创建的没有所有者，只有管理员能改名 / 删除 / 改结构） */
   ownerId?: string | null
   ownerName?: string | null
+  /** 设了校验规则时的小结 */
+  validation?: ValidationSummary
 }
 
 /** 筛选条件；In 的 "" 表示空值 */
@@ -61,6 +65,77 @@ export interface DatasetQuery {
   sort?: DatasetSort[]
   /** 汇总项规则：只保留有贡献的行，并提供贡献列 */
   rule?: RuleTerm[]
+  /** 只看不符合这条校验规则的行 */
+  violation?: ValidationRule
+}
+
+// ── 数据校验 ──
+
+export type ValidationFormat = 'phone' | 'email' | 'date' | 'digits' | 'idcard' | 'regex'
+
+/** 校验规则：必填 / 不能重复 / 取值范围 / 格式 / 只能是某几个值 */
+export type ValidationRule
+  = | { column: string, kind: 'required' }
+    | { column: string, kind: 'unique' }
+    | { column: string, kind: 'range', min?: number | string | null, max?: number | string | null }
+    | { column: string, kind: 'format', format: ValidationFormat, pattern?: string }
+    | { column: string, kind: 'allowed', values: string[] }
+
+export interface ValidationResult {
+  rule: ValidationRule
+  label: string
+  violations: number
+  samples: string[]
+}
+
+export interface ValidationReport {
+  rows: number
+  badRows: number
+  failed: number
+  results: ValidationResult[]
+  checkedAt: string
+  elapsedMs: number
+}
+
+export interface DatasetValidation {
+  rules: ValidationRule[]
+  report: ValidationReport | null
+  updatedBy: string | null
+  updatedAt: string | null
+}
+
+export interface ValidationSummary {
+  rules: number
+  failed: number
+  badRows: number
+  checkedAt: string | null
+}
+
+export function getValidationApi(datasetId: string) {
+  return request<DatasetValidation>({ url: url(`/${datasetId}/validation`), method: 'get' })
+}
+
+/** 保存规则并立即检查 */
+export function saveValidationApi(datasetId: string, rules: ValidationRule[]) {
+  return request<DatasetValidation>({ url: url(`/${datasetId}/validation`), method: 'put', data: { rules }, timeout: 5 * 60 * 1000 })
+}
+
+/** 推荐的一条校验规则：为什么推荐，按它现在有几行不合格 */
+export interface ValidationSuggestion {
+  rule: ValidationRule
+  label: string
+  reason: string
+  violations: number
+  samples: string[]
+}
+
+/** 推荐校验规则（按数据本身的样子，不保存；已有的规则不再推荐） */
+export function suggestValidationApi(datasetId: string) {
+  return request<{ rows: number, suggestions: ValidationSuggestion[], elapsedMs: number }>({ url: url(`/${datasetId}/validation/suggest`), method: 'get', timeout: 5 * 60 * 1000 })
+}
+
+export function checkValidationApi(datasetId: string) {
+  return request<ValidationReport>({ url: url(`/${datasetId}/validation/check`), method: 'post', timeout: 5 * 60 * 1000 })
 }
 
 /** 规则贡献列在排序 / 统计中的键 */
@@ -75,7 +150,7 @@ export interface DatasetCursor {
   elapsedMs: number
 }
 
-export type CellValue = string | number | null
+export type CellValue = string | number | boolean | null
 
 export interface DatasetRows {
   /** 游标失效（数据变更或被淘汰）：需重新建游标 */
@@ -119,6 +194,181 @@ export function getStatsApi(datasetId: string, data: { cursorId: string, from: n
   return request<SelectionStats>({ url: url(`/${datasetId}/stats`), method: 'post', data, signal })
 }
 
+/** 汇总行的汇总方式：合计 / 平均 / 中位数 / 最小 / 最大 / 非空 / 空值 / 不同值 / 「是」的个数 */
+export type TotalFunc = 'sum' | 'average' | 'median' | 'min' | 'max' | 'count' | 'empty' | 'distinct' | 'trues'
+
+export interface TotalsResult {
+  expired: boolean
+  /** 与 items 一一对应；超出 JS 安全整数的整数合计是文本 */
+  values: CellValue[]
+  elapsedMs: number
+}
+
+/** 一级分类汇总：按哪一列分组、是否降序 */
+export interface GroupLevel {
+  column: string
+  desc: boolean
+}
+
+/**
+ * 分类汇总：每一级每组的取值、行数与汇总（与 items 一一对应），顺序与依次按各级分组列排序的数据表一致；
+ * 内层的组按行数依次落在外层的组里。groups 为最外层
+ */
+export interface GroupsResult {
+  groups: { key: CellValue, count: number, values: CellValue[] }[]
+  levels: { key: CellValue, count: number, values: CellValue[] }[][]
+  elapsedMs: number
+}
+
+export function groupsApi(datasetId: string, data: DatasetQuery & { levels: GroupLevel[], items: { column: string, func: TotalFunc }[] }, signal?: AbortSignal) {
+  return request<GroupsResult>({ url: url(`/${datasetId}/groups`), method: 'post', data, signal, timeout: 5 * 60 * 1000 })
+}
+
+/** 汇总行：按游标（当前筛选 / 搜索）对整个结果集算每列的汇总 */
+export function totalsApi(datasetId: string, data: { cursorId: string, items: { column: string, func: TotalFunc }[] }, signal?: AbortSignal) {
+  return request<TotalsResult>({ url: url(`/${datasetId}/totals`), method: 'post', data, signal, timeout: 5 * 60 * 1000 })
+}
+
+/** 数据概况：按当前筛选，每列的空值、不同值个数、范围与数值统计（服务端一次扫描） */
+export interface ColumnProfile {
+  key: string
+  title: string
+  kind: DatasetColumnKind
+  computed: boolean
+  nonNull: number
+  nulls: number
+  distinct: number
+  /** false 时 distinct 是估计值（取值很多的列） */
+  distinctExact: boolean
+  min: CellValue
+  max: CellValue
+  blanks?: number
+  minLen?: number
+  avgLen?: number
+  maxLen?: number
+  sum?: number
+  mean?: number
+  std?: number
+  q1?: number
+  median?: number
+  q3?: number
+  zeros?: number
+  negatives?: number
+  /** 日期时间列里认不出的写法 */
+  invalid?: number
+  /** 是否列里「是」的个数 */
+  trues?: number
+}
+
+export interface DatasetProfile {
+  rows: number
+  columns: ColumnProfile[]
+  elapsedMs: number
+}
+
+/** 直方图的一档：数值用 from / to 区间筛选，日期用 prefix 前缀筛选 */
+export interface ProfileBucket {
+  label: string
+  from?: number
+  to?: number
+  prefix?: string
+  count: number
+}
+
+export interface ColumnDetail {
+  key: string
+  title: string
+  kind: DatasetColumnKind
+  rows: number
+  nulls: number
+  granularity?: 'bin' | 'value' | 'day' | 'month' | 'year'
+  histogram: ProfileBucket[]
+  top: { value: string, count: number }[]
+  /** 最常见的取值之外的其余非空值个数 */
+  others: number
+  elapsedMs: number
+}
+
+export function profileDatasetApi(datasetId: string, query: DatasetQuery, signal?: AbortSignal) {
+  return request<DatasetProfile>({ url: url(`/${datasetId}/profile`), method: 'post', data: { ...query, sort: [] }, signal, timeout: 5 * 60 * 1000 })
+}
+
+export function profileColumnApi(datasetId: string, query: DatasetQuery, column: string, signal?: AbortSignal) {
+  return request<ColumnDetail>({ url: url(`/${datasetId}/profile/column`), method: 'post', data: { ...query, sort: [], column }, signal, timeout: 5 * 60 * 1000 })
+}
+
+/** 窗口计算：累计、排名、上一行、移动平均、组内合计 / 占比……（服务端生成 SQL，另存为派生数据集） */
+export type WindowFunc = 'running_sum' | 'row_number' | 'rank' | 'rank_asc' | 'prev' | 'diff' | 'pct_change' | 'moving_avg' | 'group_sum' | 'group_avg' | 'group_count' | 'share'
+
+export interface WindowCalc {
+  func: WindowFunc
+  column?: string
+  name: string
+  /** 移动平均的行数 */
+  rows?: number
+}
+
+export interface WindowSpec {
+  calcs: WindowCalc[]
+  partitionBy: string[]
+  orderBy: { column: string, desc: boolean }[]
+  topN?: number | null
+}
+
+export function previewWindowApi(datasetId: string, spec: WindowSpec) {
+  return request<{ sql: string, result: { columns: { name: string, kind: string }[], rows: CellValue[][], elapsedMs: number } }>({ url: url(`/${datasetId}/window/preview`), method: 'post', data: spec, timeout: 5 * 60 * 1000 })
+}
+
+/** 返回保存的 SQL 查询（datasetId 是新数据集） */
+export function createWindowApi(datasetId: string, spec: WindowSpec & { name: string, autoRefresh: boolean }) {
+  return request<{ id: string, datasetId: string | null, lastRows: number | null }>({ url: url(`/${datasetId}/window`), method: 'post', data: spec, timeout: 10 * 60 * 1000 })
+}
+
+/** 数据清洗：服务端整表执行，可撤销最近一次（只限数据表的所有者 / 管理员） */
+export type CleanOp
+  = | { op: 'dedupe', columns: string[] }
+    | { op: 'trim', columns: string[] }
+    | { op: 'replace', column: string, find: string, replace: string, whole: boolean }
+    | { op: 'fill', column: string, value?: string, down: boolean }
+    | { op: 'delete_rows', spec: DatasetQuery }
+
+export interface CleanPreview {
+  summary: string
+  affected: number
+  rows: number
+  /** 删除行（否则是修改格子） */
+  deletes: boolean
+  columns: string[]
+  samples: { before: CellValue[], after?: CellValue[] }[]
+  applied: boolean
+}
+
+export interface LastClean {
+  summary: string
+  affected: number
+  deletes: boolean
+  operator: string
+  createdAt: string
+  canUndo: boolean
+  reason?: string
+}
+
+export function previewCleanApi(datasetId: string, op: CleanOp, signal?: AbortSignal) {
+  return request<CleanPreview>({ url: url(`/${datasetId}/clean/preview`), method: 'post', data: op, signal, timeout: 5 * 60 * 1000 })
+}
+
+export function applyCleanApi(datasetId: string, op: CleanOp) {
+  return request<CleanPreview>({ url: url(`/${datasetId}/clean`), method: 'post', data: op, timeout: 10 * 60 * 1000 })
+}
+
+export function lastCleanApi(datasetId: string) {
+  return request<LastClean | null>({ url: url(`/${datasetId}/clean`), method: 'get' })
+}
+
+export function undoCleanApi(datasetId: string) {
+  return request<LastClean>({ url: url(`/${datasetId}/clean/undo`), method: 'post', timeout: 10 * 60 * 1000 })
+}
+
 export function getDistinctApi(datasetId: string, data: DatasetQuery & { column: string, search?: string }, signal?: AbortSignal) {
   return request<DistinctResult>({ url: url(`/${datasetId}/distinct`), method: 'post', data, signal })
 }
@@ -130,8 +380,20 @@ export const MAX_EXPORT_ROWS = 1_000_000
 export const MAX_XLSX_ROWS = 1_048_575
 
 /** 导出地址：用浏览器原生下载（流式写盘），百万行也不占页面内存 */
-export function exportUrl(datasetId: string, cursorId: string, columns: string[], name: string, format: 'csv' | 'xlsx' = 'csv', desc = '') {
+/** 导出 xlsx 时带上分类汇总：每组后面一行小计（SUBTOTAL 公式），设成 Excel 的分级显示，折叠的组导出后也折叠 */
+export interface ExportGroup {
+  levels: GroupLevel[]
+  items: { column: string, func: TotalFunc }[]
+  /** 每一级折叠的组（按这一级的顺序的序号） */
+  collapsed: number[][]
+  /** 这一级的组全部折叠 */
+  collapseLevel: number | null
+}
+
+export function exportUrl(datasetId: string, cursorId: string, columns: string[], name: string, format: 'csv' | 'xlsx' = 'csv', desc = '', group?: ExportGroup | null) {
   const params = new URLSearchParams({ cursor: cursorId, columns: columns.join(','), name, format, desc })
+  if (group && format === 'xlsx')
+    params.set('group', JSON.stringify(group))
   return url(`/${datasetId}/export?${params}`)
 }
 
@@ -170,6 +432,8 @@ export interface ImportOutcome {
   skipped: number
   replaced: number
   invalid: { column: string, count: number }[]
+  /** 新建时按样本推断的整数 / 是否列，全量数据里有放不下的值，已改成数值 / 文本列 */
+  widened?: string[]
   elapsedMs: number
 }
 
@@ -205,6 +469,34 @@ export function commitDatasetImportApi(data: {
   return request<ImportOutcome>({ url: url('/import/commit'), method: 'post', data, timeout: 30 * 60 * 1000 })
 }
 
+/** 修改列类型的预览 / 结果 */
+export interface ColumnKindPreview {
+  column: string
+  from: DatasetColumnKind
+  to: DatasetColumnKind
+  /** 非空值个数 */
+  values: number
+  /** 转不过来、会变成空值的个数与例子 */
+  lost: number
+  lostSamples: string[]
+  /** 认不出、按原文保留的个数（改成日期时间时） */
+  kept: number
+  /** [转换前, 转换后] */
+  samples: [string, CellValue][]
+  warnings: string[]
+  applied: boolean
+}
+
+/** 预览把某一列改成另一种类型（不改数据） */
+export function previewColumnKindApi(id: string, column: string, kind: DatasetColumnKind) {
+  return request<ColumnKindPreview>({ url: url(`/${id}/columns/kind/preview`), method: 'post', data: { column, kind }, timeout: 5 * 60 * 1000 })
+}
+
+/** 修改列类型（就地转换）；有值转不过来时要 acceptLoss；会让计算列、关联视图失效时服务端整体取消并说明原因 */
+export function changeColumnKindApi(id: string, column: string, kind: DatasetColumnKind, acceptLoss: boolean) {
+  return request<ColumnKindPreview>({ url: url(`/${id}/columns/kind`), method: 'put', data: { column, kind, acceptLoss }, timeout: 30 * 60 * 1000 })
+}
+
 export function renameDatasetApi(id: string, name: string) {
   return request<boolean>({ url: url(`/${id}`), method: 'put', data: { name } })
 }
@@ -217,7 +509,7 @@ export function deleteDatasetApi(id: string, operator: string) {
 export interface TrashedDataset {
   id: string
   name: string
-  kind: 'table' | 'view' | 'recon' | 'summary'
+  kind: 'table' | 'view' | 'recon' | 'summary' | 'external'
   /** 行数（关联视图、对账为空） */
   rowCount: number | null
   deletedAt: string
@@ -372,6 +664,69 @@ export function createSummaryApi(name: string, def: SummaryDef) {
   return request<string>({ url: url('/summaries'), method: 'post', data: { name, def } })
 }
 
+/** 外部数据集：直接查询服务器收件目录（LEDGER_INBOX_ROOTS）里的 Parquet 文件，不导入；只有管理员能建 / 刷新 */
+export interface ExternalInput {
+  /** 目录：绝对路径，或相对于第一个收件目录 */
+  path: string
+  /** 文件名通配符，多个用 ; 分隔 */
+  pattern: string
+  /** 包含子目录 */
+  recursive: boolean
+  /** 把 key=value 形式的目录名读成列（Hive 分区） */
+  hive: boolean
+  /** 每隔多少分钟自动检查文件变化（有变化才重新读取）；null 表示只手动刷新 */
+  refreshMinutes?: number | null
+}
+
+export interface ExternalInfo extends ExternalInput {
+  fileCount: number
+  rows: number
+  size: number
+  refreshedAt: string
+  /** 最近一次检查（自动检查或手动刷新）的时间与失败原因 */
+  checkedAt: string | null
+  checkError: string | null
+}
+
+export interface ExternalPreview {
+  fileCount: number
+  /** 前几个文件（相对于目录） */
+  files: string[]
+  rows: number
+  size: number
+  columns: { title: string, source: string, kind: DatasetColumnKind, sqlType: string }[]
+  sampleRows: CellValue[][]
+}
+
+export interface ExternalRefreshOutcome {
+  fileCount: number
+  rows: number
+  addedFiles: number
+  removedFiles: number
+  addedColumns: string[]
+  removedColumns: string[]
+  /** 文件、列或读取方式有没有变化（没有变化时什么都没动） */
+  changed: boolean
+}
+
+export function previewExternalApi(input: ExternalInput) {
+  return request<ExternalPreview>({ url: url('/external/preview'), method: 'post', data: input, timeout: 5 * 60 * 1000 })
+}
+
+export function createExternalApi(name: string, input: ExternalInput) {
+  return request<string>({ url: url('/external'), method: 'post', data: { name, ...input }, timeout: 5 * 60 * 1000 })
+}
+
+/** 修改读取方式（变了就按新规则重新读取）或自动检查的间隔 */
+export function updateExternalApi(id: string, input: ExternalInput) {
+  return request<ExternalRefreshOutcome>({ url: url(`/${id}/external`), method: 'put', data: input, timeout: 5 * 60 * 1000 })
+}
+
+/** 文件有增减或结构变化后重新读取；会让计算列、关联视图失效时服务端整体取消并说明原因 */
+export function refreshExternalApi(id: string) {
+  return request<ExternalRefreshOutcome>({ url: url(`/${id}/external/refresh`), method: 'post', timeout: 5 * 60 * 1000 })
+}
+
 export function createViewApi(name: string, def: ViewDef) {
   return request<string>({ url: url('/views'), method: 'post', data: { name, ...def } })
 }
@@ -390,6 +745,20 @@ export interface CalcPreview {
 
 export function previewCalcApi(datasetId: string, formula: string, signal?: AbortSignal) {
   return request<CalcPreview>({ url: url(`/${datasetId}/calc/preview`), method: 'post', data: { formula }, signal, timeout: 5 * 60 * 1000 })
+}
+
+/** 拆分列预览：每行能拆成几段、样例 */
+export interface SplitPreview {
+  rows: number
+  nonEmpty: number
+  counts: { parts: number, rows: number }[]
+  maxParts: number
+  commonParts: number
+  samples: [string, string[]][]
+}
+
+export function previewSplitApi(datasetId: string, column: string, separator: string, signal?: AbortSignal) {
+  return request<SplitPreview>({ url: url(`/${datasetId}/split/preview`), method: 'post', data: { column, separator }, signal, timeout: 5 * 60 * 1000 })
 }
 
 export function addCalcApi(datasetId: string, name: string, formula: string, kind?: DatasetColumnKind | null) {

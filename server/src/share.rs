@@ -4,7 +4,7 @@
 //!   可以设有效期，随时吊销；工作簿进回收站、被彻底删除、创建人账号被停用后链接立即失效。
 //! - **只读，且只能读这个工作簿**：带 `x-share-token` 的请求不走普通的登录与权限表，只能调用 [`ALLOWED`] 里登记的接口——
 //!   工作簿的内容 / 元信息、以及这个工作簿用到的数据集的只读查询（游标、取行、统计、取值、聚合、透视）。
-//!   不能导出、不能写入、不能 SQL、不能 AI、不能评论、不能进协作。
+//!   不能导出、不能写入、不能在 SQL 工作台写查询（单元格里的 SQL / SQLVALUE 公式照常计算，但只能查这个工作簿用到的数据集）、不能 AI、不能评论、不能进协作。
 //! - **只能读这个工作簿用到的数据集**：每次打开分享页（读取工作簿内容）时，按当前内容重新计算引用了哪些数据集（图表、透视、
 //!   指标卡、数据表、公式里的数据集名）并记下；分享链接访问其他数据集一律拒绝。
 //! - **数据范围跟随创建人**：分享出去的数据不会比创建人自己能看到的更多——请求在创建人的数据范围内执行
@@ -55,7 +55,13 @@ pub const ALLOWED: &[(&str, &str)] = &[
     ("POST", "/ledger/datasets/{id}/distinct"),
     ("POST", "/ledger/datasets/{id}/aggregate"),
     ("POST", "/ledger/datasets/{id}/pivot"),
+    // 单元格里的 SQL / SQLVALUE 公式：只能查被分享工作簿用到的数据集（见 ShareDatasets）
+    ("POST", "/ledger/sql/run"),
 ];
+
+/// 分享链接请求能查的数据集（ID）：SQL 接口按它限定范围
+#[derive(Clone, Debug)]
+pub struct ShareDatasets(pub std::collections::HashSet<String>);
 
 /// 一条有效的分享链接
 #[derive(Clone, Debug)]
@@ -286,6 +292,10 @@ pub fn referenced_datasets(conn: &Connection, workbook_json: &serde_json::Value)
             out.extend(catalog.iter().filter(|d| d.name == *name).map(|d| d.id.clone()));
         }
     }
+    // 单元格里的 SQL / SQLVALUE：查询里写到的数据集
+    for sql in crate::template::refs::sql_queries(workbook_json) {
+        out.extend(crate::sqlq::referenced(conn, &sql));
+    }
     // 公式下推按数据集名称请求（路径里是名称而不是 id）：被允许的数据集的名称也算
     let names: Vec<String> = catalog.iter().filter(|d| out.contains(&d.id)).map(|d| d.name.clone()).collect();
     out.extend(names);
@@ -505,13 +515,14 @@ mod tests {
         assert_eq!(allowed(&post, "/ledger/datasets/ds_1/pivot"), Some(("/ledger/datasets/{id}/pivot", Some("ds_1".into()))));
         assert_eq!(allowed(&get, "/ledger/me"), Some(("/ledger/me", None)));
         assert_eq!(allowed(&Method::HEAD, "/ledger/datasets"), Some(("/ledger/datasets", None)));
+        // SQL 只放给单元格公式用，处理时按工作簿用到的数据集限定范围
+        assert_eq!(allowed(&post, "/ledger/sql/run"), Some(("/ledger/sql/run", None)));
         // 写、导出、SQL、AI、评论、协作、别的工作簿的接口：都不在白名单里
         for (m, p) in [
             (Method::PUT, "/ledger/workbooks/wb1/content"),
             (Method::DELETE, "/ledger/workbooks/wb1"),
             (Method::POST, "/ledger/datasets/ds_1/writeback"),
             (Method::GET, "/ledger/datasets/ds_1/export"),
-            (Method::POST, "/ledger/sql/run"),
             (Method::POST, "/ledger/ai/threads"),
             (Method::GET, "/ledger/workbooks/wb1/comments"),
             (Method::GET, "/ledger/collab/wb1/events"),

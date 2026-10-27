@@ -37,7 +37,15 @@ pub async fn collect_detail(State(db): State<AppState>, Extension(user): Extensi
 /// POST /api/ledger/collects/{id}/review  { period, units: [..], action: confirm | return | reopen, reason? }
 /// 确认人（或管理员）确认并锁定 / 退回重填（要写原因）/ 撤销确认；一次要么全部成功要么都不变
 pub async fn review_collect(State(db): State<AppState>, Extension(user): Extension<CurrentUser>, Path(id): Path<String>, Json(b): Json<crate::collect::ReviewInput>) -> AppResult<Json<Envelope<crate::collect::ReviewOutcome>>> {
-    Ok(ok(blocking(&db, move |conn| crate::collect::review(conn, &user, &id, b)).await?))
+    let actor = user.clone();
+    let event = serde_json::json!({ "collectId": id, "period": b.period, "units": b.units, "action": b.action, "reason": b.reason });
+    let r = blocking(&db, move |conn| crate::collect::review(conn, &user, &id, b)).await?;
+    if r.changed > 0 {
+        let mut data = event;
+        data["changed"] = serde_json::json!(r.changed);
+        crate::webhook::emit(&db, "collect.reviewed", Some(&actor), data);
+    }
+    Ok(ok(r))
 }
 
 /// PUT /api/ledger/collects/{id}  { name, units }  改名、整体替换填报单位与负责人

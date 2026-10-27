@@ -24,6 +24,7 @@ use serde_json::{Value as Json, json};
 use crate::dataset::{self, DatasetDef, StoredColumn};
 use crate::db::now_local;
 use crate::error::{AppError, AppResult};
+use crate::kinds;
 use crate::routes::AppState;
 use crate::schema::ident;
 
@@ -142,12 +143,12 @@ fn to_json(v: Value) -> Json {
         Value::TinyInt(x) => json!(x),
         Value::SmallInt(x) => json!(x),
         Value::Int(x) => json!(x),
-        Value::BigInt(x) => json!(x),
-        Value::HugeInt(x) => json!(x as f64),
+        Value::BigInt(x) => crate::tabular::int_json(x as i128),
+        Value::HugeInt(x) => crate::tabular::int_json(x),
         Value::UTinyInt(x) => json!(x),
         Value::USmallInt(x) => json!(x),
         Value::UInt(x) => json!(x),
-        Value::UBigInt(x) => json!(x),
+        Value::UBigInt(x) => crate::tabular::int_json(x as i128),
         Value::Double(x) => clean(x),
         Value::Float(x) => clean(x as f64),
         Value::Decimal(d) => d.to_string().parse::<f64>().map(|x| json!(x)).unwrap_or(Json::Null),
@@ -174,15 +175,30 @@ fn money_hint(name: &str) -> bool {
 /// 结果列类型：与来源数据集同名的列沿用其类型；否则按 SQL 类型推断（数值列名像金额的记为金额）
 fn kind_of(name: &str, sql_type: &str, used: &[DatasetDef]) -> String {
     let t = sql_type.to_uppercase();
-    let numeric = ["DOUBLE", "FLOAT", "REAL", "DECIMAL", "INTEGER", "BIGINT", "SMALLINT", "TINYINT", "HUGEINT", "UBIGINT", "UINTEGER", "USMALLINT", "UTINYINT"].iter().any(|n| t.starts_with(n));
+    let integral = ["INTEGER", "BIGINT", "SMALLINT", "TINYINT", "HUGEINT", "UBIGINT", "UINTEGER", "USMALLINT", "UTINYINT"].iter().any(|n| t == *n);
+    let numeric = integral || ["DOUBLE", "FLOAT", "REAL", "DECIMAL"].iter().any(|n| t.starts_with(n));
+    let boolean = t == "BOOLEAN";
     if let Some(c) = used.iter().flat_map(|d| d.columns.iter()).find(|c| c.title == name) {
         let k = c.kind;
-        if (numeric && matches!(k, "money" | "number")) || (!numeric && !matches!(k, "money" | "number")) {
+        // 同名列沿用来源类型，但要和结果的 SQL 类型对得上：整数列求平均后是小数，不能再存成整数
+        let fits = match k {
+            "integer" => integral,
+            "boolean" => boolean,
+            k if kinds::is_numeric(k) => numeric,
+            _ => !numeric && !boolean,
+        };
+        if fits {
             return if k == "id" { "text".into() } else { k.into() };
         }
     }
     if numeric {
-        return if money_hint(name) { "money".into() } else { "number".into() };
+        if money_hint(name) {
+            return "money".into();
+        }
+        return if integral { "integer".into() } else { "number".into() };
+    }
+    if boolean {
+        return "boolean".into();
     }
     if t.starts_with("TIMESTAMP") || t == "DATE" {
         return "datetime".into();
@@ -198,14 +214,36 @@ fn describe(conn: &Connection, sql: &str) -> AppResult<Vec<(String, String)>> {
 }
 
 /// 执行查询（预览）：最多返回 limit 行
-pub fn run(conn: &Connection, sql: &str, limit: usize) -> AppResult<RunResult> {
-    run_scoped(conn, sql, limit, None)
+/// 带参数的运行：先把参数值安全地代入；scope 限定能查的数据集（分享链接只能查被分享工作簿用到的）
+pub fn run_with_params(conn: &Connection, sql: &str, limit: usize, defs: &[params::ParamDef], values: &HashMap<String, String>, scope: Option<&HashSet<String>>) -> AppResult<RunResult> {
+    let bound = params::bind(sql, defs, values)?;
+    run_scoped(conn, &bound, limit, scope)
 }
 
-/// 带参数的运行：先把参数值安全地代入
-pub fn run_with_params(conn: &Connection, sql: &str, limit: usize, defs: &[params::ParamDef], values: &HashMap<String, String>) -> AppResult<RunResult> {
-    let bound = params::bind(sql, defs, values)?;
-    run(conn, &bound, limit)
+/// 一段 SQL 用到的数据集（ID）：参数占位符 {{…}} 当作 NULL 再解析；解析不了的返回空
+pub fn referenced(conn: &Connection, sql: &str) -> Vec<String> {
+    let mut text = String::with_capacity(sql.len());
+    let mut rest = sql;
+    while let Some(i) = rest.find("{{") {
+        text.push_str(&rest[..i]);
+        match rest[i..].find("}}") {
+            Some(j) => {
+                text.push_str("NULL");
+                rest = &rest[i + j + 2..];
+            }
+            None => {
+                rest = &rest[i..];
+                break;
+            }
+        }
+    }
+    text.push_str(rest);
+    let Ok(catalog) = dataset::datasets(conn) else { return vec![] };
+    let names: HashSet<String> = catalog.iter().map(|d| d.name.clone()).collect();
+    match guard::check(conn, &text, &|t| names.contains(t)) {
+        Ok(checked) => catalog.into_iter().filter(|d| checked.tables.contains(&d.name)).map(|d| d.id).collect(),
+        Err(_) => vec![],
+    }
 }
 
 /// 执行查询，只能读 scope 内的数据集（外部接入按令牌授权范围）
@@ -277,11 +315,14 @@ fn plan_columns(desc: &[(String, String)], used: &[DatasetDef], overrides: &Hash
         if matches!(title.to_lowercase().as_str(), "search_text" | "rowid" | "__rid") || title == "资金净额" {
             return Err(AppError::bad(format!("「{title}」是保留列名，请用 AS 改名")));
         }
-        let kind = overrides.get(name).cloned().filter(|k| matches!(k.as_str(), "text" | "id" | "number" | "money" | "datetime")).unwrap_or_else(|| kind_of(name, ty, used));
+        let kind = overrides.get(name).and_then(|k| kinds::parse(k)).map(String::from).unwrap_or_else(|| kind_of(name, ty, used));
         let src = format!("q.{}", ident(name));
         let t = ty.to_uppercase();
         let expr = match kind.as_str() {
             "number" | "money" => format!("TRY_CAST({src} AS DOUBLE)"),
+            "integer" => format!("TRY_CAST({src} AS BIGINT)"),
+            "boolean" if t == "BOOLEAN" => src.clone(),
+            "boolean" => kinds::bool_sql(&format!("trim(CAST({src} AS VARCHAR))")),
             "datetime" if t.starts_with("TIMESTAMP") => format!("strftime({src}, '%Y-%m-%d %H:%M:%S')"),
             "datetime" if t == "DATE" => format!("strftime({src}, '%Y-%m-%d')"),
             _ => format!("CAST({src} AS VARCHAR)"),
@@ -289,7 +330,7 @@ fn plan_columns(desc: &[(String, String)], used: &[DatasetDef], overrides: &Hash
         let width = match kind.as_str() {
             "money" | "number" => 120,
             "datetime" => 160,
-            _ => 140,
+            k => kinds::default_width(k).min(140),
         };
         out.push((StoredColumn { key: title.clone(), title, kind, width, source: name.clone() }, expr));
     }
@@ -322,11 +363,11 @@ fn materialize(conn: &Connection, sql: &str, name: &str, target: Option<&str>, o
     let desc = with_timeout(conn, || describe(conn, &checked.sql))?;
     let cols = plan_columns(&desc, &used, overrides)?;
     let stored: Vec<StoredColumn> = cols.iter().map(|(c, _)| c.clone()).collect();
-    let text_cols: Vec<String> = stored.iter().filter(|c| matches!(c.kind.as_str(), "text" | "id")).map(|c| ident(&c.title)).collect();
+    let text_cols: Vec<String> = stored.iter().filter(|c| kinds::is_textual(&c.kind)).map(|c| ident(&c.title)).collect();
     let search = if text_cols.is_empty() { "NULL".into() } else { format!("lower(concat_ws(' ', {}))", text_cols.join(", ")) };
     let select = cols.iter().map(|(c, e)| format!("{e} AS {}", ident(&c.title))).collect::<Vec<_>>().join(", ");
     let col_list = stored.iter().map(|c| ident(&c.title)).collect::<Vec<_>>().join(", ");
-    let defs = stored.iter().map(|c| format!("{} {}", ident(&c.title), if matches!(c.kind.as_str(), "number" | "money") { "DOUBLE" } else { "VARCHAR" })).collect::<Vec<_>>().join(", ");
+    let defs = stored.iter().map(|c| format!("{} {}", ident(&c.title), kinds::sql_type(&c.kind))).collect::<Vec<_>>().join(", ");
     // 写入：先算到临时表（受时限约束，超行数直接报错），再在事务里替换
     with_timeout(conn, || {
         conn.execute_batch(&format!("CREATE OR REPLACE TEMP TABLE sqlq_result AS SELECT {select} FROM (\n{}\n) q LIMIT {}", checked.sql, max_rows + 1))?;
@@ -413,6 +454,9 @@ pub enum Schedule {
     Daily { at: String },
     #[serde(rename_all = "camelCase")]
     AfterSync { connector_id: String },
+    /// 某个数据集有新数据后（导入、数据连接同步、外部文件有变化）；SQL 查询自己写入的数据集不会再触发别的查询重算，免得互相触发
+    #[serde(rename_all = "camelCase")]
+    AfterData { dataset_id: String },
 }
 
 impl Schedule {
@@ -555,6 +599,9 @@ fn validate(conn: &Connection, input: &QueryInput) -> AppResult<()> {
     {
         return Err(AppError::bad("请选择数据连接"));
     }
+    if let Schedule::AfterData { dataset_id } = &input.schedule {
+        check_trigger_dataset(conn, dataset_id)?;
+    }
     // 只检查语法与引用（不执行）
     let catalog = dataset::datasets(conn)?;
     let names: HashSet<String> = catalog.iter().map(|d| d.name.clone()).collect();
@@ -670,6 +717,15 @@ pub fn delete(conn: &Connection, id: &str) -> AppResult<()> {
     Ok(())
 }
 
+/// 「数据集更新后」触发用的数据集要存在（不在回收站里）
+pub fn check_trigger_dataset(conn: &Connection, dataset_id: &str) -> AppResult<()> {
+    if dataset::datasets(conn)?.iter().any(|d| d.id == dataset_id) {
+        Ok(())
+    } else {
+        Err(AppError::bad("请选择数据集（可能已被删除）"))
+    }
+}
+
 /// 立即重算（写入关联数据集；没有关联时需给出新数据集名称）
 pub fn refresh_now(state: &AppState, conn: &Connection, id: &str, new_dataset: Option<&str>) -> AppResult<Materialized> {
     {
@@ -701,14 +757,24 @@ pub fn refresh_now(state: &AppState, conn: &Connection, id: &str, new_dataset: O
                 )?;
             }
         }
+        let data = match &r {
+            Ok(m) => serde_json::json!({ "queryId": id, "name": q.name, "status": "success", "datasetId": m.dataset_id, "datasetName": m.dataset_name, "rows": m.rows, "rebuilt": m.rebuilt }),
+            Err(e) => serde_json::json!({ "queryId": id, "name": q.name, "status": "failed", "datasetId": target, "message": e.message() }),
+        };
+        crate::webhook::emit_with(conn, &state.webhooks, "sql.refreshed", None, data);
         r
     })();
     if let Ok(mut r) = running().lock() {
         r.remove(id);
     }
-    if result.is_ok() {
+    if let Ok(m) = &result {
         state.cursors.invalidate();
         state.checkpoint();
+        // 结果数据集更新了：触发「数据集更新后」的推送和告警（不触发别的 SQL 查询，免得互相触发停不下来）
+        if tokio::runtime::Handle::try_current().is_ok() {
+            crate::report::on_data_changed(state, &m.dataset_id);
+            crate::report::alert::on_data_changed(state, &m.dataset_id);
+        }
     }
     result
 }
@@ -778,6 +844,42 @@ pub fn on_connector_synced(state: &AppState, connector_id: &str) {
     });
 }
 
+/// 数据集有新数据后（导入、数据连接同步、外部文件有变化）：先重算设为「这个数据集更新后」的 SQL 查询（它们写入的结果数据集
+/// 会再触发推送和告警，见 [`refresh_now`]），再触发这个数据集本身的推送和告警
+pub fn on_data_changed(state: &AppState, dataset_id: &str) {
+    let due = state.connection().map_err(AppError::from).and_then(|conn| list(&conn)).map(|l| {
+        l.into_iter()
+            .filter(|q| q.dataset_id.is_some() && q.dataset_id.as_deref() != Some(dataset_id) && matches!(&q.schedule, Schedule::AfterData { dataset_id: d } if d == dataset_id))
+            .map(|q| (q.id, q.name))
+            .collect::<Vec<_>>()
+    });
+    let st = state.clone();
+    let did = dataset_id.to_string();
+    tokio::spawn(async move {
+        match due {
+            Ok(due) => {
+                for (id, name) in due {
+                    refresh_bg(&st, id, name, "数据集更新后").await;
+                }
+            }
+            Err(e) => tracing::warn!("检查数据集更新后的 SQL 重算失败：{}", e.message()),
+        }
+        crate::report::on_data_changed(&st, &did);
+        crate::report::alert::on_data_changed(&st, &did);
+        // 数据校验：按规则重新检查，有不合格的发事件
+        let st2 = st.clone();
+        let checked = tokio::task::spawn_blocking(move || st2.connection().map_err(AppError::from).and_then(|conn| crate::validation::recheck(&conn, &did))).await;
+        match checked {
+            Ok(Ok(Some((def, report)))) if report.failed > 0 => {
+                let failed: Vec<serde_json::Value> = report.results.iter().filter(|r| r.violations > 0).map(|r| serde_json::json!({ "rule": r.label, "violations": r.violations })).collect();
+                crate::webhook::emit(&st, "dataset.validation_failed", None, serde_json::json!({ "datasetId": def.id, "datasetName": def.name, "rows": report.rows, "badRows": report.bad_rows, "failed": failed }));
+            }
+            Ok(Err(e)) => tracing::warn!("数据更新后的校验失败：{}", e.message()),
+            _ => {}
+        }
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -785,7 +887,10 @@ mod tests {
     #[test]
     fn kinds_and_values() {
         assert_eq!(kind_of("订单金额", "DOUBLE", &[]), "money");
-        assert_eq!(kind_of("订单数", "BIGINT", &[]), "number");
+        assert_eq!(kind_of("订单数", "BIGINT", &[]), "integer");
+        assert_eq!(kind_of("均价", "DOUBLE", &[]), "money");
+        assert_eq!(kind_of("比例", "DECIMAL(18,3)", &[]), "number");
+        assert_eq!(kind_of("已付款", "BOOLEAN", &[]), "boolean");
         assert_eq!(kind_of("月份", "VARCHAR", &[]), "text");
         assert_eq!(kind_of("日期", "DATE", &[]), "datetime");
         assert_eq!(to_json(Value::Date32(0)), json!("1970-01-01"));
@@ -810,12 +915,33 @@ mod tests {
         let cols = r#"[{"key":"店铺","title":"店铺","kind":"text","width":100},{"key":"金额","title":"金额","kind":"money","width":100}]"#;
         conn.execute("INSERT INTO ledger_dataset (id, name, columns) VALUES ('ds_1', '订单', ?)", [cols]).unwrap();
         if dataset::datasets(&conn).map(|d| d.iter().any(|x| x.name == "订单")).unwrap_or(false) {
-            let r = run(&conn, "SELECT 店铺, sum(金额) AS 金额 FROM 订单 GROUP BY 店铺 ORDER BY 金额 DESC", 10).unwrap();
+            let r = run_scoped(&conn, "SELECT 店铺, sum(金额) AS 金额 FROM 订单 GROUP BY 店铺 ORDER BY 金额 DESC", 10, None).unwrap();
             assert_eq!(r.rows.len(), 2);
             assert_eq!(r.rows[0][0], json!("A"));
             assert_eq!(r.rows[0][1], json!(15.0));
             assert_eq!(r.columns[1].kind, "money");
-            assert!(run(&conn, "SELECT * FROM ds_1", 10).is_err());
+            assert!(run_scoped(&conn, "SELECT * FROM ds_1", 10, None).is_err());
         }
+    }
+
+    #[test]
+    fn referenced_datasets_and_scope() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(&crate::schema::create_tables_sql()).unwrap();
+        conn.execute_batch(&crate::schema::migrate_sql()).unwrap();
+        let a = crate::dataset_import::create_empty(&conn, "订单", &[("店铺".into(), "text".into()), ("金额".into(), "money".into())], &[]).unwrap();
+        let b = crate::dataset_import::create_empty(&conn, "成本", &[("店铺".into(), "text".into()), ("成本".into(), "money".into())], &[]).unwrap();
+        // 参数占位符当作 NULL 解析；关联两个数据集都算；解析不了的为空
+        let mut r = referenced(&conn, "SELECT o.店铺, sum(金额 - 成本) FROM 订单 o JOIN 成本 c USING (店铺) WHERE o.店铺 = {{店铺}} GROUP BY 1");
+        r.sort();
+        let mut want = vec![a.clone(), b.clone()];
+        want.sort();
+        assert_eq!(r, want);
+        assert!(referenced(&conn, "SELEC 乱写").is_empty());
+        assert!(referenced(&conn, "DELETE FROM 订单").is_empty());
+        // 限定范围：只能查范围内的数据集
+        let only_a: HashSet<String> = [a.clone()].into_iter().collect();
+        assert!(run_with_params(&conn, "SELECT count(*) FROM 订单", 10, &[], &HashMap::new(), Some(&only_a)).is_ok());
+        assert!(run_with_params(&conn, "SELECT count(*) FROM 成本", 10, &[], &HashMap::new(), Some(&only_a)).is_err());
     }
 }

@@ -25,6 +25,9 @@ mod approval;
 mod account;
 mod auth;
 mod calc;
+mod clean;
+mod validation;
+mod column_split;
 mod config;
 mod connector;
 mod comment;
@@ -32,19 +35,25 @@ mod collab;
 mod dataset;
 mod dataset_trash;
 mod dataset_import;
+mod dataset_alter;
 mod db;
+mod demo;
 mod ecommerce;
 mod error;
+mod external;
+mod kinds;
 mod import_source;
 mod mcp;
 mod metrics;
 mod msg_i18n;
 mod netguard;
 mod oidc;
+mod open;
 mod pat;
 mod share;
 mod pivot;
 mod pivot_calc;
+mod profile;
 mod recon;
 mod summary;
 mod collect;
@@ -58,6 +67,9 @@ mod template;
 mod totp;
 mod views;
 mod web;
+mod webhook;
+mod window;
+mod xlsx_outline;
 mod workbook;
 mod writeback;
 mod xref;
@@ -77,6 +89,8 @@ use tower_http::trace::TraceLayer;
 
 const USAGE: &str = "用法：
   gridlake                       启动服务
+  gridlake open [文件或目录...]    在本机打开数据文件（Parquet 直接查询、CSV / XLSX 导入），自动打开浏览器；--port、--db、--no-browser
+  gridlake demo                  一条命令体验：生成示例数据（订单 100 万行等）和三个示例工作簿，打开浏览器；--rows、--reset、--port、--db、--no-browser
   gridlake check                 离线检查数据文件（服务需停止）
   gridlake backup [目录]          离线备份（服务运行中请用 curl -X POST http://127.0.0.1:8787/api/admin/backup）
   gridlake restore <文件> [--yes]  从备份恢复（服务需停止；原文件改名保留）
@@ -86,7 +100,11 @@ const USAGE: &str = "用法：
   gridlake version               显示版本";
 
 fn main() -> anyhow::Result<()> {
-    let filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "gridlake=info,tower_http=info".into());
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let cmd = args.first().map(String::as_str).unwrap_or("serve");
+    // gridlake open 是给个人用的：默认只显示警告和错误，界面上只留打开了什么、去哪儿看（RUST_LOG 仍可改）
+    let default_filter = if matches!(cmd, "open" | "demo") { "gridlake=warn,tower_http=warn" } else { "gridlake=info,tower_http=info" };
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| default_filter.into());
     // LEDGER_LOG_FORMAT=json：每行一个 JSON，便于日志系统采集
     if std::env::var("LEDGER_LOG_FORMAT").is_ok_and(|v| v.trim().eq_ignore_ascii_case("json")) {
         tracing_subscriber::fmt().json().with_env_filter(filter).init();
@@ -94,8 +112,6 @@ fn main() -> anyhow::Result<()> {
         tracing_subscriber::fmt().with_env_filter(filter).init();
     }
 
-    let args: Vec<String> = std::env::args().skip(1).collect();
-    let cmd = args.first().map(String::as_str).unwrap_or("serve");
     if matches!(cmd, "version" | "--version" | "-V") {
         println!("gridlake {}", admin::VERSION);
         return Ok(());
@@ -108,9 +124,83 @@ fn main() -> anyhow::Result<()> {
     if cmd == "mcp-bridge" {
         return mcp::bridge::run(&args[1..]);
     }
-    let config = config::Config::from_env()?;
+    let mut config = config::Config::from_env()?;
     match cmd {
-        "serve" => tokio::runtime::Builder::new_multi_thread().enable_all().build()?.block_on(serve(config)),
+        "serve" => tokio::runtime::Builder::new_multi_thread().enable_all().build()?.block_on(serve(config, None)),
+        "open" => {
+            if args.iter().any(|a| a == "--help" || a == "-h") {
+                println!("{}", open::USAGE);
+                return Ok(());
+            }
+            let a = open::parse_args(&args[1..])?;
+            let sources = a.paths.iter().map(|p| open::classify(p)).collect::<anyhow::Result<Vec<_>>>()?;
+            open::configure(&mut config, &a, &sources)?;
+            let (roots, browser, has_web) = (config.inbox_roots.clone(), a.browser, config.web_dir.is_some());
+            if !has_web {
+                println!("没有找到前端页面（发布包里与 bin/ 同级的 web/ 目录，或用 LEDGER_WEB_DIR 指定）：只启动接口服务");
+            }
+            let ready: Ready = Box::new(move |state, addr| {
+                let conn = state.connection()?;
+                let mut opened = Vec::new();
+                for s in &sources {
+                    opened.push(open::register(&conn, s, &roots, &state.tmp_dir)?);
+                }
+                state.cursors.invalidate();
+                state.checkpoint();
+                for o in &opened {
+                    println!("  {}", o.summary);
+                }
+                // 打开最后一个文件对应的数据集；没给文件时打开首页
+                let url = match opened.last() {
+                    Some(o) => format!("http://{addr}/excel?ds={}", o.id),
+                    None => format!("http://{addr}/excel/home"),
+                };
+                if has_web {
+                    println!("在浏览器里打开：{url}\n按 Ctrl+C 退出");
+                    if browser {
+                        open::open_browser(&url);
+                    }
+                } else {
+                    println!("接口地址：http://{addr}/api\n按 Ctrl+C 退出");
+                }
+                Ok(())
+            });
+            tokio::runtime::Builder::new_multi_thread().enable_all().build()?.block_on(serve(config, Some(ready)))
+        }
+        "demo" => {
+            if args.iter().any(|a| a == "--help" || a == "-h") {
+                println!("{}", demo::USAGE);
+                return Ok(());
+            }
+            let a = demo::parse_args(&args[1..])?;
+            demo::configure(&mut config, &a)?;
+            let (rows, browser, has_web) = (a.rows, a.browser, config.web_dir.is_some());
+            if !has_web {
+                println!("没有找到前端页面（发布包里与 bin/ 同级的 web/ 目录，或用 LEDGER_WEB_DIR 指定）：只启动接口服务");
+            }
+            println!("演示库：{}", a.db.display());
+            let ready: Ready = Box::new(move |state, addr| {
+                let conn = state.connection()?;
+                println!("正在准备示例数据…");
+                let (workbook, lines) = demo::seed(state, &conn, rows)?;
+                state.cursors.invalidate();
+                state.checkpoint();
+                for l in &lines {
+                    println!("  {l}");
+                }
+                let url = format!("http://{addr}/excel?wb={workbook}");
+                if has_web {
+                    println!("在浏览器里打开：{url}\n首页（全部示例）：http://{addr}/excel/home\n按 Ctrl+C 退出");
+                    if browser {
+                        open::open_browser(&url);
+                    }
+                } else {
+                    println!("接口地址：http://{addr}/api\n按 Ctrl+C 退出");
+                }
+                Ok(())
+            });
+            tokio::runtime::Builder::new_multi_thread().enable_all().build()?.block_on(serve(config, Some(ready)))
+        }
         "check" => admin::cli_check(&config),
         "backup" => admin::cli_backup(&config, args.get(1).map(PathBuf::from)),
         "verify" => {
@@ -129,7 +219,10 @@ fn main() -> anyhow::Result<()> {
     }
 }
 
-async fn serve(config: config::Config) -> anyhow::Result<()> {
+/// 服务开始监听后要做的事（`gridlake open`：登记数据集、打开浏览器）；参数是状态和监听地址
+type Ready = Box<dyn FnOnce(&routes::AppState, &str) -> anyhow::Result<()> + Send>;
+
+async fn serve(config: config::Config, ready: Option<Ready>) -> anyhow::Result<()> {
     let addr = config.addr.clone();
     let max_upload_mb = config.max_upload_mb;
     tracing::info!("gridlake {} 配置：{}", admin::VERSION, config.summary());
@@ -157,6 +250,8 @@ async fn serve(config: config::Config) -> anyhow::Result<()> {
     tokio::spawn(purge_trash(state.clone()));
     tokio::spawn(flush_usage(state.clone()));
     tokio::spawn(auth::run_audit_writer(state.clone()));
+    tokio::spawn(webhook::run(state.clone()));
+    tokio::spawn(external::schedule(state.clone()));
 
     // 场景包的路由：没启用时不注册，访问得到 404（见 ecommerce/mod.rs）
     let api = Router::new()
@@ -171,6 +266,10 @@ async fn serve(config: config::Config) -> anyhow::Result<()> {
         .route("/ledger/datasets/views/preview", post(routes::view_preview))
         .route("/ledger/datasets/views", post(routes::create_view))
         .route("/ledger/datasets/views/{id}", put(routes::update_view))
+        .route("/ledger/datasets/external/preview", post(routes::external_preview))
+        .route("/ledger/datasets/external", post(routes::create_external))
+        .route("/ledger/datasets/{id}/external/refresh", post(routes::refresh_external))
+        .route("/ledger/datasets/{id}/external", put(routes::update_external))
         .route("/ledger/datasets/trash", get(routes::dataset_trash).delete(routes::empty_dataset_trash))
         .route("/ledger/datasets/input", post(routes::create_input_dataset))
         .route("/ledger/datasets/{id}/writeback", post(routes::dataset_writeback))
@@ -181,10 +280,21 @@ async fn serve(config: config::Config) -> anyhow::Result<()> {
         .route("/ledger/datasets/{id}/untrash", post(routes::untrash_dataset))
         .route("/ledger/datasets/{id}/purge", delete(routes::purge_dataset))
         .route("/ledger/datasets/{id}", axum::routing::put(routes::rename_dataset).delete(routes::delete_dataset))
+        .route("/ledger/datasets/{id}/columns/kind/preview", post(routes::column_kind_preview))
+        .route("/ledger/datasets/{id}/columns/kind", put(routes::column_kind_apply))
+        .route("/ledger/datasets/{id}/clean/preview", post(routes::clean_preview))
+        .route("/ledger/datasets/{id}/clean", get(routes::clean_last).post(routes::clean_apply))
+        .route("/ledger/datasets/{id}/clean/undo", post(routes::clean_undo))
         .route("/ledger/datasets/{id}/cursor", post(routes::open_cursor))
         .route("/ledger/datasets/{id}/rows", get(routes::dataset_rows))
         .route("/ledger/datasets/{id}/stats", post(routes::dataset_stats))
+        .route("/ledger/datasets/{id}/totals", post(routes::dataset_totals))
+        .route("/ledger/datasets/{id}/groups", post(routes::dataset_groups))
         .route("/ledger/datasets/{id}/distinct", post(routes::dataset_distinct))
+        .route("/ledger/datasets/{id}/profile", post(routes::dataset_profile))
+        .route("/ledger/datasets/{id}/profile/column", post(routes::dataset_profile_column))
+        .route("/ledger/datasets/{id}/window/preview", post(routes::window_preview))
+        .route("/ledger/datasets/{id}/window", post(routes::window_create))
         .route("/ledger/datasets/{id}/export", get(routes::dataset_export))
         .route("/ledger/datasets/{id}/aggregate", post(routes::dataset_aggregate))
         .route("/ledger/datasets/{id}/pivot", post(routes::dataset_pivot))
@@ -199,6 +309,10 @@ async fn serve(config: config::Config) -> anyhow::Result<()> {
         .route("/ledger/recons/{id}/match", post(routes::recon_match))
         .route("/ledger/recons/{id}/unmatch", post(routes::recon_unmatch))
         .route("/ledger/datasets/{id}/calc/preview", post(routes::calc_preview))
+        .route("/ledger/datasets/{id}/split/preview", post(routes::split_preview))
+        .route("/ledger/datasets/{id}/validation", get(routes::validation_get).put(routes::validation_save))
+        .route("/ledger/datasets/{id}/validation/check", post(routes::validation_check))
+        .route("/ledger/datasets/{id}/validation/suggest", get(routes::validation_suggest))
         .route("/ledger/datasets/{id}/calc", post(routes::add_calc))
         .route("/ledger/datasets/{id}/calc/{name}", put(routes::update_calc).delete(routes::remove_calc))
         .route(
@@ -271,6 +385,12 @@ async fn serve(config: config::Config) -> anyhow::Result<()> {
         .route("/ledger/report-channels", post(routes::create_report_channel))
         .route("/ledger/report-channels/{id}", put(routes::update_report_channel).delete(routes::delete_report_channel))
         .route("/ledger/report-channels/{id}/test", post(routes::test_report_channel))
+        .route("/ledger/webhooks", get(webhook::list_hooks).post(webhook::create_hook))
+        .route("/ledger/webhooks/{id}", put(webhook::update_hook).delete(webhook::delete_hook))
+        .route("/ledger/webhooks/{id}/secret", post(webhook::rotate_hook_secret))
+        .route("/ledger/webhooks/{id}/test", post(webhook::test_hook))
+        .route("/ledger/webhooks/{id}/deliveries", get(webhook::hook_deliveries))
+        .route("/ledger/webhooks/deliveries/{id}/redeliver", post(webhook::redeliver_hook))
         .route("/ledger/me", get(auth::me))
         .route("/ledger/auth/login", post(account::login_route))
         .route("/ledger/auth/oidc/login", get(oidc::login_route))
@@ -336,6 +456,9 @@ async fn serve(config: config::Config) -> anyhow::Result<()> {
 
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     tracing::info!("gridlake listening on http://{addr}");
+    if let Some(ready) = ready {
+        ready(&shutdown_state, &addr)?;
+    }
     axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).with_graceful_shutdown(shutdown_signal()).await?;
     // 退出前写入访问计数、合并 WAL，避免下次启动回放
     if let Ok(c) = shutdown_state.connection() {

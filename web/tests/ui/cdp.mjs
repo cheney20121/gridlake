@@ -78,7 +78,8 @@ export async function launchChrome({ headless = true } = {}) {
     ...(process.platform === 'linux' ? ['--no-sandbox'] : []),
     'about:blank',
   ]
-  const proc = spawn(bin, args, { stdio: 'ignore' })
+  // Linux 上的 Chrome 不看 --lang，界面语言（navigator.language）取环境变量 LANGUAGE / LANG：固定成中文，测试不随本机语言变
+  const proc = spawn(bin, args, { stdio: 'ignore', env: { ...process.env, LANGUAGE: 'zh_CN', LANG: 'zh_CN.UTF-8' } })
   const portFile = path.join(dir, 'DevToolsActivePort')
   let info = null
   for (let i = 0; i < 100 && !info; i++) {

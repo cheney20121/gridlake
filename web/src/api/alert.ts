@@ -94,7 +94,7 @@ export interface AlertInput {
 export interface AlertRun {
   id: string
   alertId: string
-  trigger: 'manual' | 'schedule' | 'after_sync'
+  trigger: 'manual' | 'schedule' | 'after_sync' | 'after_data'
   status: 'running' | 'success' | 'partial' | 'failed'
   startedAt: string
   finishedAt: string | null

@@ -3307,6 +3307,79 @@
         }
       }
     },
+    "/ledger/datasets/external": {
+      "post": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "新建外部数据集（只读，不导入）",
+        "description": "{ name, path, pattern, recursive, hive }  新建外部数据集（只读，不导入）",
+        "operationId": "post_ledger_datasets_external",
+        "x-permission": "仅管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-audit": "新建外部数据集",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateExternalBody"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ledger/datasets/external/preview": {
+      "post": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "预览外部 Parquet 文件：匹配的文件、总行数、列与类型、前几行",
+        "description": "{ path, pattern, recursive, hive }  预览外部 Parquet 文件：匹配的文件、总行数、列与类型、前几行",
+        "operationId": "post_ledger_datasets_external_preview",
+        "x-permission": "仅管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExternalInput"
+              }
+            }
+          }
+        }
+      }
+    },
     "/ledger/datasets/import/commit": {
       "post": {
         "tags": [
@@ -4029,6 +4102,263 @@
         ]
       }
     },
+    "/ledger/datasets/{id}/clean": {
+      "get": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "最近一次清洗与能否撤销（没有时为 null）",
+        "description": "最近一次清洗与能否撤销（没有时为 null）",
+        "operationId": "get_ledger_datasets_by_id_clean",
+        "x-permission": "数据集所有者或管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "执行数据清洗（可撤销最近一次）",
+        "description": "{ op, … }  执行数据清洗（可撤销最近一次）",
+        "operationId": "post_ledger_datasets_by_id_clean",
+        "x-permission": "数据集所有者或管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-audit": "数据清洗",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CleanOp"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ledger/datasets/{id}/clean/preview": {
+      "post": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "数据清洗预览：多少行受影响、改之前 / 之后的样例",
+        "description": "{ op: dedupe|trim|replace|fill|delete_rows, … }  数据清洗预览：多少行受影响、改之前 / 之后的样例",
+        "operationId": "post_ledger_datasets_by_id_clean_preview",
+        "x-permission": "数据集所有者或管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CleanOp"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ledger/datasets/{id}/clean/undo": {
+      "post": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "撤销最近一次清洗（之后数据集没有别的改动时）",
+        "description": "撤销最近一次清洗（之后数据集没有别的改动时）",
+        "operationId": "post_ledger_datasets_by_id_clean_undo",
+        "x-permission": "数据集所有者或管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-audit": "撤销数据清洗",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/ledger/datasets/{id}/columns/kind": {
+      "put": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "修改列类型（就地转换",
+        "description": "{ column, kind, acceptLoss? }  修改列类型（就地转换；有值转不过来时要 acceptLoss）",
+        "operationId": "put_ledger_datasets_by_id_columns_kind",
+        "x-permission": "数据集所有者或管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-audit": "修改列类型",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KindChange"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ledger/datasets/{id}/columns/kind/preview": {
+      "post": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "预览修改列类型：多少个值转不过来、举例、转换前后的样子",
+        "description": "{ column, kind }  预览修改列类型：多少个值转不过来、举例、转换前后的样子",
+        "operationId": "post_ledger_datasets_by_id_columns_kind_preview",
+        "x-permission": "数据集所有者或管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KindChange"
+              }
+            }
+          }
+        }
+      }
+    },
     "/ledger/datasets/{id}/cursor": {
       "post": {
         "tags": [
@@ -4198,6 +4528,136 @@
         ]
       }
     },
+    "/ledger/datasets/{id}/external": {
+      "put": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "修改读取方式（变了就按新规则重新读取，会让计算列 / 关联视图失效时整体取消）或自动检查的间隔（分钟，不填表示只手动刷新）",
+        "description": "{ path, pattern, recursive, hive, refreshMinutes? } 修改读取方式（变了就按新规则重新读取，会让计算列 / 关联视图失效时整体取消）或自动检查的间隔（分钟，不填表示只手动刷新）",
+        "operationId": "put_ledger_datasets_by_id_external",
+        "x-permission": "仅管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-audit": "修改外部数据集",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExternalInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ledger/datasets/{id}/external/refresh": {
+      "post": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "重新查找文件、读取结构（文件有增减或结构变化后）",
+        "description": "重新查找文件、读取结构（文件有增减或结构变化后）；没有变化时视图不动（changed = false）",
+        "operationId": "post_ledger_datasets_by_id_external_refresh",
+        "x-permission": "仅管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-audit": "刷新外部数据集",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/ledger/datasets/{id}/groups": {
+      "post": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "{ filters?, keyword?, rule?, violation?, levels: []（或只有一级时 column, desc?）, items",
+        "description": "{ filters?, keyword?, rule?, violation?, levels: [{ column, desc? }]（或只有一级时 column, desc?）, items: [{ column, func }] }  分类汇总：按一到三列逐级分组，每一级每组的行数与汇总（顺序与依次按这些列排序的数据表一致）",
+        "operationId": "post_ledger_datasets_by_id_groups",
+        "x-permission": "登录用户",
+        "x-restricted-users": true,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupsRequest"
+              }
+            }
+          }
+        }
+      }
+    },
     "/ledger/datasets/{id}/pivot": {
       "post": {
         "tags": [
@@ -4238,6 +4698,100 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/PivotRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ledger/datasets/{id}/profile": {
+      "post": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "数据概况：按当前筛选，每列的空值、近似去重数、范围、数值分布（一次扫描）",
+        "description": "{ filters?, keyword?, rule?, columns? }  数据概况：按当前筛选，每列的空值、近似去重数、范围、数值分布（一次扫描）",
+        "operationId": "post_ledger_datasets_by_id_profile",
+        "x-permission": "登录用户",
+        "x-restricted-users": true,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "字段见 description 里的概要，以后端对应的 Rust 代码为准"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ledger/datasets/{id}/profile/column": {
+      "post": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "一列的分布：直方图（数值分箱 / 日期按日月年）与最常见的取值",
+        "description": "{ column, filters?, keyword?, rule? }  一列的分布：直方图（数值分箱 / 日期按日月年）与最常见的取值",
+        "operationId": "post_ledger_datasets_by_id_profile_column",
+        "x-permission": "登录用户",
+        "x-restricted-users": true,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ColumnRequest"
               }
             }
           }
@@ -4349,6 +4903,52 @@
         ]
       }
     },
+    "/ledger/datasets/{id}/split/preview": {
+      "post": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "拆分列预览：每行能拆成几段、样例（拆分本身是加计算列）",
+        "description": "{ column, separator }  拆分列预览：每行能拆成几段、样例（拆分本身是加计算列）",
+        "operationId": "post_ledger_datasets_by_id_split_preview",
+        "x-permission": "登录用户",
+        "x-restricted-users": true,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SplitRequest"
+              }
+            }
+          }
+        }
+      }
+    },
     "/ledger/datasets/{id}/stats": {
       "post": {
         "tags": [
@@ -4389,6 +4989,52 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/StatsRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ledger/datasets/{id}/totals": {
+      "post": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "{ cursorId, items: [] } 汇总行：按当前筛选对整个结果集算每列的合计 / 平均 / 计数等",
+        "description": "{ cursorId, items: [{ column, func }] }  汇总行：按当前筛选对整个结果集算每列的合计 / 平均 / 计数等",
+        "operationId": "post_ledger_datasets_by_id_totals",
+        "x-permission": "登录用户",
+        "x-restricted-users": true,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TotalsRequest"
               }
             }
           }
@@ -4466,6 +5112,252 @@
             }
           }
         ]
+      }
+    },
+    "/ledger/datasets/{id}/validation": {
+      "get": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "数据校验规则与最近一次检查结果",
+        "description": "数据校验规则与最近一次检查结果",
+        "operationId": "get_ledger_datasets_by_id_validation",
+        "x-permission": "登录用户",
+        "x-restricted-users": true,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "{ rules: [] } 保存校验规则并立即检查",
+        "description": "{ rules: [{ column, kind: required / unique / range / format / allowed, … }] }  保存校验规则并立即检查",
+        "operationId": "put_ledger_datasets_by_id_validation",
+        "x-permission": "数据集所有者或管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-audit": "设置数据校验规则",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidationBody"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ledger/datasets/{id}/validation/check": {
+      "post": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "按规则重新检查（数据范围受限的用户只检查自己能看到的行）",
+        "description": "按规则重新检查（数据范围受限的用户只检查自己能看到的行）",
+        "operationId": "post_ledger_datasets_by_id_validation_check",
+        "x-permission": "登录用户",
+        "x-restricted-users": true,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/ledger/datasets/{id}/validation/suggest": {
+      "get": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "推荐校验规则：按数据本身的样子（格式、取值、空值、重复）推荐，附原因和不合格的行数",
+        "description": "推荐校验规则：按数据本身的样子（格式、取值、空值、重复）推荐，附原因和不合格的行数；不保存",
+        "operationId": "get_ledger_datasets_by_id_validation_suggest",
+        "x-permission": "登录用户",
+        "x-restricted-users": true,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/ledger/datasets/{id}/window": {
+      "post": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "窗口计算：保存为 SQL 查询并另存为新数据集（默认源数据集更新后自动重算），返回保存的查询",
+        "description": "{ calcs, partitionBy?, orderBy?, topN?, name, autoRefresh? } 窗口计算：保存为 SQL 查询并另存为新数据集（默认源数据集更新后自动重算），返回保存的查询",
+        "operationId": "post_ledger_datasets_by_id_window",
+        "x-permission": "登录用户",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-audit": "窗口计算生成数据集",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ledger/datasets/{id}/window/preview": {
+      "post": {
+        "tags": [
+          "数据集（导入、取数、透视、公式下推）"
+        ],
+        "summary": "窗口计算预览：生成的 SQL 与前 100 行",
+        "description": "{ calcs, partitionBy?, orderBy?, topN? }  窗口计算预览：生成的 SQL 与前 100 行",
+        "operationId": "post_ledger_datasets_by_id_window_preview",
+        "x-permission": "登录用户",
+        "x-restricted-users": true,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WindowSpec"
+              }
+            }
+          }
+        }
       }
     },
     "/ledger/datasets/{id}/writeback": {
@@ -6706,8 +7598,8 @@
         "tags": [
           "SQL 工作台"
         ],
-        "summary": "执行只读查询（最多返回 1000 行）",
-        "description": "{ sql, limit?, params?, values? }  执行只读查询（最多返回 1000 行）",
+        "summary": "执行只读查询（最多返回 1000 行",
+        "description": "{ sql, limit?, params?, values? }  执行只读查询（最多返回 1000 行；分享链接只能查被分享工作簿用到的数据集）",
         "operationId": "post_ledger_sql_run",
         "x-permission": "登录用户",
         "x-restricted-users": true,
@@ -7091,6 +7983,304 @@
             "name": "keyword",
             "in": "query",
             "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/ledger/webhooks": {
+      "get": {
+        "tags": [
+          "其他"
+        ],
+        "summary": "Webhook 列表与可订阅的事件",
+        "description": "Webhook 列表与可订阅的事件",
+        "operationId": "get_ledger_webhooks",
+        "x-permission": "仅管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "其他"
+        ],
+        "summary": "新建 Webhook，返回 id 和签名密钥（只显示这一次）",
+        "description": "{ name, url, events, enabled? }  新建 Webhook，返回 id 和签名密钥（只显示这一次）",
+        "operationId": "post_ledger_webhooks",
+        "x-permission": "仅管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-audit": "新建 Webhook",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HookInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ledger/webhooks/deliveries/{id}/redeliver": {
+      "post": {
+        "tags": [
+          "其他"
+        ],
+        "summary": "重新发送一条记录（同一个请求体与 X-Gridlake-Delivery，签名时间戳是新的）",
+        "description": "重新发送一条记录（同一个请求体与 X-Gridlake-Delivery，签名时间戳是新的）",
+        "operationId": "post_ledger_webhooks_deliveries_by_id_redeliver",
+        "x-permission": "仅管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-audit": "重新发送 Webhook",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/ledger/webhooks/{id}": {
+      "put": {
+        "tags": [
+          "其他"
+        ],
+        "summary": "修改（地址不填表示不变",
+        "description": "{ name, url?, events, enabled }  修改（地址不填表示不变；停用时取消排队中的发送）",
+        "operationId": "put_ledger_webhooks_by_id",
+        "x-permission": "仅管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-audit": "修改 Webhook",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HookInput"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "其他"
+        ],
+        "summary": "删除（连同发送记录）",
+        "description": "删除（连同发送记录）",
+        "operationId": "delete_ledger_webhooks_by_id",
+        "x-permission": "仅管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-audit": "删除 Webhook",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/ledger/webhooks/{id}/deliveries": {
+      "get": {
+        "tags": [
+          "其他"
+        ],
+        "summary": "最近的发送记录（新的在前，含请求体与对方响应） 查询参数：`limit=`",
+        "description": "最近的发送记录（新的在前，含请求体与对方响应） 查询参数：`limit=`",
+        "operationId": "get_ledger_webhooks_by_id_deliveries",
+        "x-permission": "仅管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/ledger/webhooks/{id}/secret": {
+      "post": {
+        "tags": [
+          "其他"
+        ],
+        "summary": "重置签名密钥，返回新密钥（只显示这一次",
+        "description": "重置签名密钥，返回新密钥（只显示这一次；旧密钥立即失效）",
+        "operationId": "post_ledger_webhooks_by_id_secret",
+        "x-permission": "仅管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-audit": "重置 Webhook 签名密钥",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/ledger/webhooks/{id}/test": {
+      "post": {
+        "tags": [
+          "其他"
+        ],
+        "summary": "立即发一个 ping 事件（不重试），返回这次发送的结果",
+        "description": "立即发一个 ping 事件（不重试），返回这次发送的结果；停用的也能测试",
+        "operationId": "post_ledger_webhooks_by_id_test",
+        "x-permission": "仅管理员",
+        "x-restricted-users": false,
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-audit": "测试 Webhook",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
             "schema": {
               "type": "string"
             }
@@ -8817,6 +10007,31 @@
           }
         }
       },
+      "Check": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string",
+            "description": "pass 通过 / warn 提示 / fail 不通过"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "level",
+          "message"
+        ]
+      },
+      "CleanOp": {},
       "CloseAction": {
         "type": "object",
         "properties": {
@@ -8914,6 +10129,24 @@
         "required": [
           "name",
           "units"
+        ]
+      },
+      "ColumnRequest": {
+        "allOf": [
+          {
+            "type": "object",
+            "properties": {
+              "column": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "column"
+            ]
+          },
+          {
+            "$ref": "#/components/schemas/QuerySpec"
+          }
         ]
       },
       "CommitColumn": {
@@ -9050,10 +10283,62 @@
               "$ref": "#/components/schemas/TableCtx"
             },
             "description": "工作簿里的数据表（set_table_view 的对象）"
+          },
+          "dataset": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DatasetViewCtx"
+              }
+            ],
+            "description": "正在数据集页面看的数据集（当前筛选、搜索、排序）"
           }
         },
         "required": [
           "tables"
+        ]
+      },
+      "CreateExternalBody": {
+        "allOf": [
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name"
+            ]
+          },
+          {
+            "$ref": "#/components/schemas/ExternalInput"
+          }
+        ]
+      },
+      "CreateInput": {
+        "allOf": [
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "新数据集（也是 SQL 查询）的名称"
+              },
+              "autoRefresh": {
+                "type": "boolean",
+                "description": "源数据集更新后自动重算（默认是）"
+              },
+              "operator": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name"
+            ]
+          },
+          {
+            "$ref": "#/components/schemas/WindowSpec"
+          }
         ]
       },
       "CreateViewBody": {
@@ -9087,6 +10372,48 @@
         "required": [
           "column",
           "value"
+        ]
+      },
+      "DatasetViewCtx": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "ows": {
+            "type": "integer",
+            "description": "数据集总行数"
+          },
+          "matched": {
+            "type": "integer",
+            "description": "按当前筛选 / 搜索命中的行数"
+          },
+          "filters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Filter"
+            }
+          },
+          "sort": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SortSpec"
+            }
+          },
+          "keyword": {
+            "type": "string"
+          },
+          "drill": {
+            "type": "string",
+            "description": "从透视表 / 公式下钻过来时的说明"
+          },
+          "violation": {
+            "type": "string",
+            "description": "只看不符合这条校验规则的行（规则的说明）"
+          }
+        },
+        "required": [
+          "name"
         ]
       },
       "DbSource": {
@@ -9336,6 +10663,34 @@
           "filter"
         ]
       },
+      "ExternalInput": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "目录（绝对路径，或相对于第一个允许目录）"
+          },
+          "pattern": {
+            "type": "string",
+            "description": "文件名通配符，多个用 ; 分隔；默认 *.parquet"
+          },
+          "ecursive": {
+            "type": "boolean",
+            "description": "包含子目录（按 年=2026/月=09/ 这样分区存放的数据）"
+          },
+          "hive": {
+            "type": "boolean",
+            "description": "把 key=value 形式的目录名读成列（Hive 分区）"
+          },
+          "efreshMinutes": {
+            "type": "integer",
+            "description": "自动检查文件变化的间隔（分钟，1 ~ 1440）；不设表示只手动刷新"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
       "Filter": {},
       "FolderInput": {
         "type": "object",
@@ -9371,6 +10726,55 @@
           "pattern"
         ]
       },
+      "GroupLevel": {
+        "type": "object",
+        "properties": {
+          "column": {
+            "type": "string"
+          },
+          "desc": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "column",
+          "desc"
+        ]
+      },
+      "GroupsRequest": {
+        "allOf": [
+          {
+            "type": "object",
+            "properties": {
+              "column": {
+                "type": "string",
+                "description": "只有一级时：分组的列"
+              },
+              "desc": {
+                "type": "boolean",
+                "description": "只有一级时：分组降序（与数据表按这一列排序的方向一致）"
+              },
+              "levels": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/GroupLevel"
+                },
+                "description": "多级分组（外层在前，最多 3 级）；给了就不看 column / desc"
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/TotalItem"
+                },
+                "description": "每组要算的汇总（与汇总行相同的方式）"
+              }
+            }
+          },
+          {
+            "$ref": "#/components/schemas/QuerySpec"
+          }
+        ]
+      },
       "Guard": {
         "type": "object",
         "properties": {
@@ -9402,6 +10806,32 @@
         "required": [
           "name",
           "value"
+        ]
+      },
+      "HookInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "description": "接收地址（http / https）；修改时不填表示不变"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "订阅的事件名（见 `GET /ledger/webhooks` 的 events）；`*` 表示全部"
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "events"
         ]
       },
       "HttpSource": {
@@ -9466,6 +10896,25 @@
         "required": [
           "left",
           "ight"
+        ]
+      },
+      "KindChange": {
+        "type": "object",
+        "properties": {
+          "column": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "acceptLoss": {
+            "type": "boolean",
+            "description": "有值转不过来（会变成空值）时，确认仍然执行"
+          }
+        },
+        "required": [
+          "column",
+          "kind"
         ]
       },
       "LoginBody": {
@@ -9829,6 +11278,20 @@
           "period"
         ]
       },
+      "OrderSpec": {
+        "type": "object",
+        "properties": {
+          "column": {
+            "type": "string"
+          },
+          "desc": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "column"
+        ]
+      },
       "Pagination": {
         "type": "string",
         "enum": [
@@ -10141,6 +11604,14 @@
               "$ref": "#/components/schemas/RuleTerm"
             },
             "description": "汇总项规则：只保留贡献不为 0 的行，并提供贡献列（可按 __contribution 排序）"
+          },
+          "violation": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Rule"
+              }
+            ],
+            "description": "只看不符合这条校验规则的行（见 validation.rs）"
           }
         },
         "required": [
@@ -10395,6 +11866,24 @@
         },
         "required": [
           "filter"
+        ]
+      },
+      "Rule": {
+        "allOf": [
+          {
+            "type": "object",
+            "properties": {
+              "column": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "column"
+            ]
+          },
+          {
+            "$ref": "#/components/schemas/Check"
+          }
         ]
       },
       "RuleTerm": {},
@@ -10673,6 +12162,21 @@
           "propertyName": "kind"
         }
       },
+      "SplitRequest": {
+        "type": "object",
+        "properties": {
+          "column": {
+            "type": "string"
+          },
+          "separator": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "column",
+          "separator"
+        ]
+      },
       "SqlInstanceBody": {
         "type": "object",
         "properties": {
@@ -10923,6 +12427,41 @@
           "name"
         ]
       },
+      "TotalItem": {
+        "type": "object",
+        "properties": {
+          "column": {
+            "type": "string",
+            "description": "列名；可为 __contribution（下钻时的贡献金额）"
+          },
+          "func": {
+            "type": "string",
+            "description": "sum / average / median / min / max / count（非空） / empty（空） / distinct（不同值） / trues（「是」的个数）"
+          }
+        },
+        "required": [
+          "column",
+          "func"
+        ]
+      },
+      "TotalsRequest": {
+        "type": "object",
+        "properties": {
+          "cursorId": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TotalItem"
+            }
+          }
+        },
+        "required": [
+          "cursorId",
+          "items"
+        ]
+      },
       "UnitInput": {
         "type": "object",
         "properties": {
@@ -11044,6 +12583,20 @@
           "name"
         ]
       },
+      "ValidationBody": {
+        "type": "object",
+        "properties": {
+          "ules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Rule"
+            }
+          }
+        },
+        "required": [
+          "ules"
+        ]
+      },
       "ViewColumn": {
         "type": "object",
         "properties": {
@@ -11103,6 +12656,63 @@
         },
         "required": [
           "preset"
+        ]
+      },
+      "WindowCalc": {
+        "type": "object",
+        "properties": {
+          "func": {
+            "type": "string",
+            "description": "running_sum 累计 / row_number 序号 / rank 排名（大的在前）/ rank_asc 排名（小的在前）/ prev 上一行的值 / diff 与上一行的差 / pct_change 较上一行的变化率 / moving_avg 移动平均 / group_sum 组内合计 / group_avg 组内平均 / group_count 组内行数 / share 占组内合计的比例"
+          },
+          "column": {
+            "type": "string",
+            "description": "值列（序号、组内行数不需要）"
+          },
+          "name": {
+            "type": "string",
+            "description": "新列名"
+          },
+          "ows": {
+            "type": "integer",
+            "description": "移动平均的行数（含当前行，默认 7）"
+          }
+        },
+        "required": [
+          "func",
+          "name"
+        ]
+      },
+      "WindowSpec": {
+        "type": "object",
+        "properties": {
+          "calcs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WindowCalc"
+            }
+          },
+          "partitionBy": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "分组（为空表示整个数据集一组）"
+          },
+          "orderBy": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderSpec"
+            },
+            "description": "组内的先后顺序（累计、序号、上一行、移动平均、每组前 N 行要用）"
+          },
+          "topN": {
+            "type": "integer",
+            "description": "每组只保留按 order_by 排在前面的 N 行"
+          }
+        },
+        "required": [
+          "calcs"
         ]
       },
       "WorkbookNameBody": {

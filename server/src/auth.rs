@@ -342,6 +342,11 @@ const ROUTES: &[(&str, &str, Rule, &str)] = &[
     ("POST", "/ledger/datasets/views/preview", Open, ""),
     ("POST", "/ledger/datasets/views", Open, "创建关联视图"),
     ("PUT", "/ledger/datasets/views/{id}", Dataset, "修改关联视图"),
+    // 外部数据集读服务器上的文件：只有管理员
+    ("POST", "/ledger/datasets/external/preview", Admin, ""),
+    ("POST", "/ledger/datasets/external", Admin, "新建外部数据集"),
+    ("POST", "/ledger/datasets/{id}/external/refresh", Admin, "刷新外部数据集"),
+    ("PUT", "/ledger/datasets/{id}/external", Admin, "修改外部数据集"),
     ("DELETE", "/ledger/datasets/trash", Admin, "清空数据集回收站"),
     ("POST", "/ledger/datasets/input", Open, "新建填报数据集"),
     ("POST", "/ledger/datasets/{id}/writeback", Open, "填报提交"),
@@ -349,14 +354,29 @@ const ROUTES: &[(&str, &str, Rule, &str)] = &[
     ("POST", "/ledger/datasets/{id}/untrash", Dataset, "恢复数据集"),
     ("DELETE", "/ledger/datasets/{id}/purge", Dataset, "彻底删除数据集"),
     ("PUT", "/ledger/datasets/{id}", Dataset, "重命名数据集"),
+    ("POST", "/ledger/datasets/{id}/columns/kind/preview", Dataset, ""),
+    ("PUT", "/ledger/datasets/{id}/columns/kind", Dataset, "修改列类型"),
+    ("POST", "/ledger/datasets/{id}/clean/preview", Dataset, ""),
+    ("GET", "/ledger/datasets/{id}/clean", Dataset, ""),
+    ("GET", "/ledger/datasets/{id}/validation", Open, ""),
+    ("PUT", "/ledger/datasets/{id}/validation", Dataset, "设置数据校验规则"),
+    ("POST", "/ledger/datasets/{id}/validation/check", Open, ""),
+    ("GET", "/ledger/datasets/{id}/validation/suggest", Open, ""),
+    ("POST", "/ledger/datasets/{id}/clean", Dataset, "数据清洗"),
+    ("POST", "/ledger/datasets/{id}/clean/undo", Dataset, "撤销数据清洗"),
     ("DELETE", "/ledger/datasets/{id}", Dataset, "删除数据集"),
     ("POST", "/ledger/datasets/{id}/cursor", Open, ""),
     ("POST", "/ledger/datasets/{id}/stats", Open, ""),
+    ("POST", "/ledger/datasets/{id}/totals", Open, ""),
+    ("POST", "/ledger/datasets/{id}/groups", Open, ""),
     ("POST", "/ledger/datasets/{id}/distinct", Open, ""),
+    ("POST", "/ledger/datasets/{id}/profile", Open, ""),
+    ("POST", "/ledger/datasets/{id}/profile/column", Open, ""),
     ("GET", "/ledger/datasets/{id}/export", Open, "导出数据集"),
     ("POST", "/ledger/datasets/{id}/aggregate", Open, ""),
     ("POST", "/ledger/datasets/{id}/pivot", Open, ""),
     ("POST", "/ledger/datasets/{id}/calc/preview", Open, ""),
+    ("POST", "/ledger/datasets/{id}/split/preview", Open, ""),
     ("POST", "/ledger/datasets/{id}/calc", Dataset, "新增计算列"),
     ("PUT", "/ledger/datasets/{id}/calc/{name}", Dataset, "修改计算列"),
     ("DELETE", "/ledger/datasets/{id}/calc/{name}", Dataset, "删除计算列"),
@@ -403,6 +423,14 @@ const ROUTES: &[(&str, &str, Rule, &str)] = &[
     ("PUT", "/ledger/report-channels/{id}", Admin, "修改推送渠道"),
     ("DELETE", "/ledger/report-channels/{id}", Admin, "删除推送渠道"),
     ("POST", "/ledger/report-channels/{id}/test", Admin, "测试推送渠道"),
+    ("GET", "/ledger/webhooks", Admin, ""),
+    ("POST", "/ledger/webhooks", Admin, "新建 Webhook"),
+    ("PUT", "/ledger/webhooks/{id}", Admin, "修改 Webhook"),
+    ("DELETE", "/ledger/webhooks/{id}", Admin, "删除 Webhook"),
+    ("POST", "/ledger/webhooks/{id}/secret", Admin, "重置 Webhook 签名密钥"),
+    ("POST", "/ledger/webhooks/{id}/test", Admin, "测试 Webhook"),
+    ("GET", "/ledger/webhooks/{id}/deliveries", Admin, ""),
+    ("POST", "/ledger/webhooks/deliveries/{id}/redeliver", Admin, "重新发送 Webhook"),
     ("GET", "/ledger/mcp/tokens", Admin, ""),
     ("POST", "/ledger/mcp/tokens", Admin, "创建外部 AI 令牌"),
     ("PUT", "/ledger/mcp/tokens/{id}", Admin, "修改外部 AI 令牌"),
@@ -474,6 +502,8 @@ const ROUTES: &[(&str, &str, Rule, &str)] = &[
     ("POST", "/ledger/templates/{id}/use", Open, "使用模板创建工作簿"),
     ("POST", "/ledger/sql/run", Open, "执行 SQL 查询"),
     ("POST", "/ledger/sql/queries", Open, "保存 SQL 查询"),
+    ("POST", "/ledger/datasets/{id}/window/preview", Open, ""),
+    ("POST", "/ledger/datasets/{id}/window", Open, "窗口计算生成数据集"),
     ("PUT", "/ledger/sql/queries/{id}", Open, "修改 SQL 查询"),
     ("DELETE", "/ledger/sql/queries/{id}", Open, "删除 SQL 查询"),
     ("POST", "/ledger/sql/queries/{id}/refresh", Open, "重算 SQL 查询"),
@@ -870,6 +900,14 @@ async fn share_request(db: &AppState, peer: SocketAddr, mut req: Request, next: 
                 }))
             }
         }
+        // 单元格里的 SQL 公式：只能查这个工作簿用到的数据集，在创建人的数据范围内执行
+        "/ledger/sql/run" => {
+            req.extensions_mut().insert(principal.clone());
+            req.extensions_mut().insert(Identity(Some(principal)));
+            req.extensions_mut().insert(ScopeExt(scope.clone()));
+            req.extensions_mut().insert(share::ShareDatasets(info.datasets.iter().cloned().collect()));
+            crate::scope::CURRENT.scope(scope, next.run(req)).await
+        }
         // 数据集的只读查询
         _ => {
             if !id.as_deref().is_some_and(|d| info.may_read_dataset(d)) {
@@ -900,12 +938,13 @@ const RESTRICTED_OK: &[(&str, &str)] = &[
     ("GET", "/ledger/shops"),
     ("GET", "/ledger/periods"),
     ("GET", "/ledger/close"), ("POST", "/ledger/close"), ("GET", "/ledger/close/logs"), ("GET", "/ledger/close/locks"),
-    ("GET", "/ledger/datasets"), ("POST", "/ledger/datasets/{id}/writeback"), ("GET", "/ledger/datasets/{id}/anomalies"), ("POST", "/ledger/datasets/{id}/cursor"), ("GET", "/ledger/datasets/{id}/rows"), ("POST", "/ledger/datasets/{id}/stats"), ("POST", "/ledger/datasets/{id}/distinct"), ("GET", "/ledger/datasets/{id}/export"), ("POST", "/ledger/datasets/{id}/aggregate"), ("POST", "/ledger/datasets/{id}/pivot"), ("POST", "/ledger/datasets/{id}/calc/preview"),
+    ("GET", "/ledger/datasets"), ("POST", "/ledger/datasets/{id}/writeback"), ("GET", "/ledger/datasets/{id}/anomalies"), ("POST", "/ledger/datasets/{id}/cursor"), ("GET", "/ledger/datasets/{id}/rows"), ("POST", "/ledger/datasets/{id}/stats"), ("POST", "/ledger/datasets/{id}/totals"), ("POST", "/ledger/datasets/{id}/groups"), ("POST", "/ledger/datasets/{id}/distinct"), ("POST", "/ledger/datasets/{id}/profile"), ("POST", "/ledger/datasets/{id}/profile/column"), ("GET", "/ledger/datasets/{id}/export"), ("POST", "/ledger/datasets/{id}/aggregate"), ("POST", "/ledger/datasets/{id}/pivot"), ("POST", "/ledger/datasets/{id}/calc/preview"), ("POST", "/ledger/datasets/{id}/split/preview"), ("GET", "/ledger/datasets/{id}/validation"), ("POST", "/ledger/datasets/{id}/validation/check"), ("GET", "/ledger/datasets/{id}/validation/suggest"),
     ("POST", "/ledger/recons/preview"), ("POST", "/ledger/recons"), ("GET", "/ledger/recons/{id}"), ("PUT", "/ledger/recons/{id}"), ("GET", "/ledger/recons/{id}/summary"), ("GET", "/ledger/recons/{id}/items"), ("GET", "/ledger/recons/{id}/groups"), ("POST", "/ledger/recons/{id}/auto"), ("POST", "/ledger/recons/{id}/match"), ("POST", "/ledger/recons/{id}/unmatch"),
     ("GET", "/ledger/workbooks"), ("POST", "/ledger/workbooks"), ("GET", "/ledger/workbooks/trash"), ("POST", "/ledger/workbooks/move"), ("POST", "/ledger/workbooks/ranges"), ("GET", "/ledger/workbooks/{id}"), ("PUT", "/ledger/workbooks/{id}"), ("DELETE", "/ledger/workbooks/{id}"), ("POST", "/ledger/workbooks/{id}/untrash"), ("DELETE", "/ledger/workbooks/{id}/purge"), ("PUT", "/ledger/workbooks/{id}/star"), ("GET", "/ledger/workbooks/{id}/content"), ("PUT", "/ledger/workbooks/{id}/content"), ("POST", "/ledger/workbooks/{id}/duplicate"), ("GET", "/ledger/workbooks/{id}/versions"), ("GET", "/ledger/workbooks/{id}/versions/{version}/content"), ("POST", "/ledger/workbooks/{id}/restore"), ("GET", "/ledger/workbooks/{id}/comments"), ("POST", "/ledger/workbooks/{id}/comments"), ("PUT", "/ledger/workbooks/{id}/share"),
     ("GET", "/ledger/folders"), ("POST", "/ledger/folders"), ("PUT", "/ledger/folders/{id}"), ("DELETE", "/ledger/folders/{id}"),
     ("GET", "/ledger/reports/sheets"),
     ("POST", "/ledger/sql/run"),
+    ("POST", "/ledger/datasets/{id}/window/preview"),
     ("GET", "/ledger/ai/status"), ("GET", "/ledger/ai/threads"), ("POST", "/ledger/ai/threads"), ("GET", "/ledger/ai/threads/{id}"), ("DELETE", "/ledger/ai/threads/{id}"), ("PUT", "/ledger/ai/threads/{id}/summary"), ("POST", "/ledger/ai/threads/{id}/chat"), ("GET", "/ledger/ai/threads/{id}/events"), ("POST", "/ledger/ai/threads/{id}/stop"), ("POST", "/ledger/ai/actions/{id}"),
     ("GET", "/ledger/templates"), ("POST", "/ledger/templates/{id}/use"), ("GET", "/ledger/templates/{id}/uses"),
     ("POST", "/ledger/auth/logout"), ("POST", "/ledger/auth/password"),
@@ -938,13 +977,16 @@ const FULL_ONLY: &[(&str, &str)] = &[
     // 数据集：导入、建视图、新建填报数据集、改结构、回收站、使用情况（填报本身对受限用户开放，见 writeback::submit）
     ("POST", "/ledger/datasets/import/preview"), ("POST", "/ledger/datasets/import/preview-url"), ("POST", "/ledger/datasets/import/commit"),
     ("POST", "/ledger/datasets/views/preview"), ("POST", "/ledger/datasets/views"), ("POST", "/ledger/datasets/summaries"), ("PUT", "/ledger/datasets/views/{id}"),
+    ("POST", "/ledger/datasets/external/preview"), ("POST", "/ledger/datasets/external"), ("POST", "/ledger/datasets/{id}/external/refresh"),
     ("POST", "/ledger/datasets/input"), ("GET", "/ledger/writebacks"), ("POST", "/ledger/writebacks/{id}/undo"),
     ("GET", "/ledger/datasets/trash"), ("DELETE", "/ledger/datasets/trash"), ("POST", "/ledger/datasets/{id}/untrash"), ("DELETE", "/ledger/datasets/{id}/purge"),
-    ("PUT", "/ledger/datasets/{id}"), ("DELETE", "/ledger/datasets/{id}"),
+    ("PUT", "/ledger/datasets/{id}"), ("DELETE", "/ledger/datasets/{id}"), ("POST", "/ledger/datasets/{id}/columns/kind/preview"), ("PUT", "/ledger/datasets/{id}/columns/kind"),
+    // 数据清洗直接改整张表：数据范围受限的用户不能用（会改到范围外的行）
+    ("PUT", "/ledger/datasets/{id}/validation"), ("POST", "/ledger/datasets/{id}/clean/preview"), ("GET", "/ledger/datasets/{id}/clean"), ("POST", "/ledger/datasets/{id}/clean"), ("POST", "/ledger/datasets/{id}/clean/undo"),
     ("POST", "/ledger/datasets/{id}/calc"), ("PUT", "/ledger/datasets/{id}/calc/{name}"), ("DELETE", "/ledger/datasets/{id}/calc/{name}"),
     ("GET", "/ledger/datasets/{id}/usage"),
     // 保存的 SQL、定时推送、模板发布、数据连接、数据范围设置：按服务账号运行或会列出别人的配置
-    ("GET", "/ledger/sql/queries"), ("POST", "/ledger/sql/queries"), ("PUT", "/ledger/sql/queries/{id}"), ("DELETE", "/ledger/sql/queries/{id}"), ("POST", "/ledger/sql/queries/{id}/refresh"), ("POST", "/ledger/sql/queries/{id}/instances"),
+    ("GET", "/ledger/sql/queries"), ("POST", "/ledger/sql/queries"), ("PUT", "/ledger/sql/queries/{id}"), ("DELETE", "/ledger/sql/queries/{id}"), ("POST", "/ledger/sql/queries/{id}/refresh"), ("POST", "/ledger/sql/queries/{id}/instances"), ("POST", "/ledger/datasets/{id}/window"),
     ("GET", "/ledger/reports"), ("POST", "/ledger/reports"), ("POST", "/ledger/reports/preview"), ("PUT", "/ledger/reports/{id}"), ("DELETE", "/ledger/reports/{id}"),
     ("POST", "/ledger/reports/{id}/send"), ("GET", "/ledger/reports/{id}/runs"),
     // 告警按服务账号读数据、把结果推到群里：受限用户建告警等于绕过自己的数据范围
@@ -962,11 +1004,18 @@ const FULL_ONLY: &[(&str, &str)] = &[
 pub(crate) const READ_ONLY_POST: &[&str] = &[
     "/ledger/datasets/{id}/cursor",
     "/ledger/datasets/{id}/stats",
+    "/ledger/datasets/{id}/totals",
+    "/ledger/datasets/{id}/groups",
     "/ledger/datasets/{id}/distinct",
+    "/ledger/datasets/{id}/profile",
+    "/ledger/datasets/{id}/profile/column",
     "/ledger/datasets/{id}/aggregate",
     "/ledger/datasets/{id}/pivot",
     "/ledger/datasets/{id}/calc/preview",
+    "/ledger/datasets/{id}/split/preview",
+    "/ledger/datasets/{id}/validation/check",
     "/ledger/sql/run",
+    "/ledger/datasets/{id}/window/preview",
     "/ledger/workbooks/ranges",
 ];
 
@@ -976,7 +1025,11 @@ pub(crate) const DATASET_TOKEN_ROUTES: &[(&str, &str)] = &[
     ("GET", "/ledger/datasets/{id}/rows"),
     ("POST", "/ledger/datasets/{id}/cursor"),
     ("POST", "/ledger/datasets/{id}/stats"),
+    ("POST", "/ledger/datasets/{id}/totals"),
+    ("POST", "/ledger/datasets/{id}/groups"),
     ("POST", "/ledger/datasets/{id}/distinct"),
+    ("POST", "/ledger/datasets/{id}/profile"),
+    ("POST", "/ledger/datasets/{id}/profile/column"),
     ("POST", "/ledger/datasets/{id}/aggregate"),
     ("POST", "/ledger/datasets/{id}/pivot"),
     ("GET", "/ledger/datasets/{id}/export"),

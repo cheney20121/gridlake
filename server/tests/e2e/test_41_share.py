@@ -85,14 +85,17 @@ denied = [
     ("PUT", f"/ledger/workbooks/{WB}/content?baseVersion=1", None), ("DELETE", f"/ledger/workbooks/{WB}", None), ("PUT", f"/ledger/workbooks/{WB}", {"name": "x"}),
     ("POST", f"/ledger/datasets/{orders}/writeback", {"mode": "upsert", "columns": ["单号", "店铺", "金额"], "rows": [["9", "A", 1]]}),
     ("GET", f"/ledger/datasets/{orders}/export?cursor={cur['cursorId']}&format=csv", None),
-    ("POST", "/ledger/sql/run", {"sql": "SELECT * FROM 订单"}), ("POST", "/ledger/ai/threads", {"workbookId": WB}),
+    ("POST", "/ledger/ai/threads", {"workbookId": WB}),
     ("GET", f"/ledger/workbooks/{WB}/comments", None), ("GET", f"/ledger/collab/{WB}/events", None), ("GET", "/ledger/workbooks", None),
     ("GET", f"/ledger/workbooks/{WB}/versions", None), ("GET", f"/ledger/workbooks/{WB}/shares", None), ("POST", f"/ledger/workbooks/{WB}/shares", {}),
     ("DELETE", f"/ledger/shares/{SID}", None), ("GET", "/ledger/audit", None), ("GET", "/ledger/tokens", None), ("GET", "/ledger/accounts", None),
     ("POST", "/ledger/workbooks/ranges", {}), ("PUT", f"/ledger/workbooks/{WB}/share", {"visibility": "edit"}),
 ]
 bad = [(m, p) for m, p, b in denied if vcall(m, p, b)[0] != 403]
-check("访客的写入 / 导出 / SQL / AI / 评论 / 协作 / 管理接口全部 403", not bad, bad)
+check("访客的写入 / 导出 / AI / 评论 / 协作 / 管理接口全部 403", not bad, bad)
+# SQL 接口只给单元格里的 SQL 公式用：只能查这个工作簿用到的数据集（这里是「订单」「成本」），查不到「机密」
+s, r = vcall("POST", "/ledger/sql/run", {"sql": "SELECT * FROM 机密"})
+check("访客的 SQL 查不到工作簿没用到的数据集", s == 400 and "机密" in msg((s, r)), (s, r))
 
 # ── 无效令牌 ──
 for label, tok in [("随便编的令牌", "gls_" + "x" * 43), ("不是分享令牌", "glp_abc"), ("把登录令牌放进分享头", A)]:
@@ -151,7 +154,7 @@ pv = lambda m, pth, body=None: call(m, pth, None, body=body, headers={"x-share-t
 s, r = pv("GET", "/ledger/me"); check("带通行证：/me 给出工作簿", s == 200 and r["data"]["share"] == {"workbookId": WB, "workbookName": "销售看板"}, (s, r))
 s, raw = call("GET", f"/ledger/workbooks/{WB}/content", None, headers={"x-share-token": PT, "x-share-proof": PROOF}, binary=True); check("带通行证：能读内容", s == 200, s)
 s, r = pv("POST", f"/ledger/datasets/{orders}/cursor", spec); check("带通行证：能查数据集", s == 200 and r["data"]["total"] == 5, (s, r))
-s, r = pv("POST", "/ledger/sql/run", {"sql": "SELECT 1"}); check("带通行证也仍然只读（SQL 被拒）", s == 403, (s, r))
+s, r = pv("POST", "/ledger/sql/run", {"sql": "DELETE FROM 订单"}); check("带通行证也仍然只读（SQL 只能查询）", s == 400, (s, r))
 s, r = call("POST", f"/ledger/workbooks/{WB}/shares", A, body={"note": "同密码", "password": "open-sesame"}); T2 = r["data"]["token"]
 s, r = call("GET", f"/ledger/workbooks/{WB}/content", None, headers={"x-share-token": T2, "x-share-proof": PROOF}, binary=True); check("同一个密码的另一条链接：通行证不通用", s == 403, s)
 for _ in range(5):

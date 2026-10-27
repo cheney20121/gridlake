@@ -21,6 +21,7 @@ use crate::ecommerce::detail::{RuleTerm, contribution_sql};
 use crate::tabular::to_json;
 use crate::auth::CurrentUser;
 use crate::error::{AppError, AppResult};
+use crate::kinds;
 use crate::schema::{DETAIL_COLUMNS, ID_COLUMNS, ident, is_numeric};
 
 /// 同时保留的游标数（每个约占 数据行数 × 16 字节，千万行约 160 MB）
@@ -38,7 +39,7 @@ pub struct ColumnDef {
     /// 列名（SQL 列名，也是筛选 / 排序时引用的键）
     pub key: String,
     pub title: String,
-    /// text / id / money / number / datetime
+    /// 列类型，见 [`crate::kinds`]
     pub kind: &'static str,
     pub width: u32,
     /// 计算列的 SQL 表达式（如资金净额 = 入账为正、出账为负）；None 为表中的实际列
@@ -89,6 +90,9 @@ pub struct DatasetDef {
     /// 汇总数据集（透视表转为数据表）的定义
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<crate::summary::SummaryDef>,
+    /// 外部数据集（直接查询 Parquet 文件）的文件摘要
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub external: Option<crate::external::ExternalInfo>,
 }
 
 /// 用户导入的数据集在登记表中保存的列定义
@@ -102,16 +106,6 @@ pub struct StoredColumn {
     /// 文件中的原始列名（映射模板：同一来源的文件追加时按它对齐）
     #[serde(default)]
     pub source: String,
-}
-
-fn kind_static(k: &str) -> &'static str {
-    match k {
-        "id" => "id",
-        "number" => "number",
-        "money" => "money",
-        "datetime" => "datetime",
-        _ => "text",
-    }
 }
 
 /// 用户导入的数据集：(id, 名称, 列)
@@ -222,6 +216,7 @@ fn ledger_detail_def() -> DatasetDef {
         scope_sig: String::new(),
         view: None,
         summary: None,
+        external: None,
     }
 }
 
@@ -241,7 +236,7 @@ pub fn load(conn: &Connection) -> AppResult<(Vec<DatasetDef>, Vec<String>)> {
     let mut out = if crate::ecommerce::enabled() { vec![ledger_detail_def()] } else { Vec::new() };
     let mut problems = Vec::new();
     let calcs: Vec<CalcRow> = {
-        let mut stmt = conn.prepare("SELECT dataset_id, name, formula, kind FROM ledger_calc_column ORDER BY created_at, name")?;
+        let mut stmt = conn.prepare("SELECT dataset_id, name, formula, kind FROM ledger_calc_column ORDER BY created_at, rowid")?;
         stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?.collect::<Result<Vec<_>, _>>()?
     };
     let mut stmt = conn.prepare("SELECT id, name, columns, primary_key, kind, definition FROM ledger_dataset WHERE deleted_at IS NULL ORDER BY created_at")?;
@@ -264,6 +259,13 @@ pub fn load(conn: &Connection) -> AppResult<(Vec<DatasetDef>, Vec<String>)> {
             out.push(crate::recon::dataset_def(id, name));
             continue;
         }
+        if kind.as_deref() == Some("external") {
+            match crate::external::dataset_def(id, name.clone(), &cols, definition.as_deref()) {
+                Some(d) => out.push(d),
+                None => problems.push(format!("外部数据集「{name}」的定义损坏")),
+            }
+            continue;
+        }
         if kind.as_deref() == Some("view") {
             match definition.as_deref().and_then(|d| serde_json::from_str(d).ok()) {
                 Some(v) => views.push((id, name, v)),
@@ -276,10 +278,10 @@ pub fn load(conn: &Connection) -> AppResult<(Vec<DatasetDef>, Vec<String>)> {
             table: id.clone(),
             id,
             name,
-            searchable: cols.iter().any(|c| matches!(c.kind.as_str(), "text" | "id")),
+            searchable: cols.iter().any(|c| kinds::is_textual(&c.kind)),
             columns: cols
                 .into_iter()
-                .map(|c| ColumnDef { key: c.key, title: c.title, kind: kind_static(&c.kind), width: c.width, expr: None, computed: false, formula: None, origin: None })
+                .map(|c| ColumnDef { key: c.key, title: c.title, kind: kinds::normalize(&c.kind), width: c.width, expr: None, computed: false, formula: None, origin: None })
                 .collect(),
             supports_rule: false,
             builtin: false,
@@ -289,6 +291,7 @@ pub fn load(conn: &Connection) -> AppResult<(Vec<DatasetDef>, Vec<String>)> {
             scope_sig: String::new(),
             view: None,
             summary: None,
+            external: None,
         });
     }
     for def in out.iter_mut() {
@@ -342,6 +345,7 @@ pub fn load(conn: &Connection) -> AppResult<(Vec<DatasetDef>, Vec<String>)> {
                 scope_sig: String::new(),
                 view: Some(v),
                 summary: None,
+                external: None,
             };
             apply_calcs(&mut def, &calcs, &mut problems);
             out.push(def);
@@ -449,7 +453,11 @@ pub fn derived_views<'a>(defs: &'a [DatasetDef], id: &str) -> Vec<&'a DatasetDef
 struct DefResolver<'a>(&'a DatasetDef);
 impl crate::calc::Resolver for DefResolver<'_> {
     fn column(&self, name: &str) -> Option<(String, bool)> {
-        self.0.columns.iter().find(|c| c.title == name || c.key == name).map(|c| (column_sql(c), matches!(c.kind, "money" | "number")))
+        self.0.columns.iter().find(|c| c.title == name || c.key == name).map(|c| {
+            // 是否列在公式里当文本「是 / 否」用，与公式里比较运算结果的写法一致（如 =IF([已付款]="是", …)）
+            let sql = if c.kind == "boolean" { format!("(CASE WHEN {s} THEN '是' WHEN NOT {s} THEN '否' END)", s = column_sql(c)) } else { column_sql(c) };
+            (sql, kinds::is_numeric(c.kind))
+        })
     }
 }
 
@@ -503,9 +511,13 @@ pub struct DatasetInfo {
     /// 所有者（登录体系启用前创建的、内置的没有所有者，只有管理员能改名 / 删除 / 改结构）
     pub owner_id: Option<String>,
     pub owner_name: Option<String>,
+    /// 设了校验规则时：规则条数、不合格的规则条数与行数
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub validation: Option<crate::validation::Summary>,
 }
 
 pub fn list(conn: &Connection) -> AppResult<Vec<DatasetInfo>> {
+    let mut validation = crate::validation::summaries(conn)?;
     let owners: HashMap<String, (Option<String>, Option<String>)> = {
         let mut stmt = conn.prepare("SELECT id, owner_id, owner_name FROM ledger_dataset")?;
         stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, (r.get(1)?, r.get(2)?))))?.collect::<Result<_, _>>()?
@@ -513,9 +525,14 @@ pub fn list(conn: &Connection) -> AppResult<Vec<DatasetInfo>> {
     datasets(conn)?
         .into_iter()
         .map(|def| {
-            let row_count = conn.query_row(&format!("SELECT count(*) FROM {}", def.table), [], |r| r.get(0))?;
+            // 外部数据集的行数记在定义里：列数据集时不去读文件（文件暂时不在也不影响列表）
+            let row_count = match &def.external {
+                Some(x) => x.rows,
+                None => conn.query_row(&format!("SELECT count(*) FROM {}", def.table), [], |r| r.get(0))?,
+            };
             let (owner_id, owner_name) = owners.get(&def.id).cloned().unwrap_or((None, None));
-            Ok(DatasetInfo { def, row_count, owner_id, owner_name })
+            let validation = validation.remove(&def.id);
+            Ok(DatasetInfo { def, row_count, owner_id, owner_name, validation })
         })
         .collect()
 }
@@ -595,6 +612,9 @@ pub struct QuerySpec {
     pub sort: Vec<SortSpec>,
     /// 汇总项规则：只保留贡献不为 0 的行，并提供贡献列（可按 __contribution 排序）
     pub rule: Option<Vec<RuleTerm>>,
+    /// 只看不符合这条校验规则的行（见 validation.rs）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub violation: Option<crate::validation::Rule>,
 }
 
 fn escape_like(s: &str) -> String {
@@ -632,7 +652,7 @@ fn where_clause(def: &DatasetDef, spec: &QuerySpec, contribution: Option<&str>, 
                 conds.push(format!("({})", ors.join(" OR ")));
             }
             Filter::Between { min, max, .. } => {
-                let numeric = matches!(col.kind, "money" | "number");
+                let numeric = kinds::is_numeric(col.kind);
                 for (bound, op) in [(min, ">="), (max, "<=")] {
                     let Some(v) = bound.as_ref().filter(|v| !v.is_null()) else { continue };
                     if numeric {
@@ -685,6 +705,11 @@ fn where_clause(def: &DatasetDef, spec: &QuerySpec, contribution: Option<&str>, 
         conds.push("search_text LIKE ? ESCAPE '\\'".into());
         args.push(Value::Text(format!("%{}%", escape_like(&kw.to_lowercase()))));
     }
+    if let Some(rule) = &spec.violation {
+        let (c, a) = crate::validation::violation_sql(def, rule)?;
+        conds.push(c);
+        args.extend(a);
+    }
     if let Some(expr) = contribution {
         conds.push(format!("({expr}) <> 0"));
     }
@@ -694,6 +719,17 @@ fn where_clause(def: &DatasetDef, spec: &QuerySpec, contribution: Option<&str>, 
 /// 只含筛选与关键字的 WHERE（透视表等聚合查询使用）
 pub fn filter_sql(_conn: &Connection, def: &DatasetDef, spec: &QuerySpec) -> AppResult<(String, Vec<Value>)> {
     where_clause(def, spec, None, None)
+}
+
+/// 数据表当前看到的那些行的 WHERE：筛选、关键字，以及汇总项规则（只保留贡献不为 0 的行），与游标的行集合一致
+pub(crate) fn rows_sql(def: &DatasetDef, spec: &QuerySpec) -> AppResult<(String, Vec<Value>)> {
+    let contribution = contribution_of(def, spec)?;
+    where_clause(def, spec, contribution.as_deref(), None)
+}
+
+/// 按列名或标题找列
+pub(crate) fn find_column<'a>(def: &'a DatasetDef, key: &str) -> AppResult<&'a ColumnDef> {
+    check_column(def, key)
 }
 
 /// 同 filter_sql，不需要连接（汇总数据集加载时生成数据来源用）
@@ -728,8 +764,8 @@ fn order_clause(def: &DatasetDef, spec: &QuerySpec, contribution: Option<&str>) 
         };
         parts.push(format!("{expr} {}", if s.desc { "DESC NULLS LAST" } else { "ASC NULLS LAST" }));
     }
-    // 行号兜底：排序结果稳定（同值按入库顺序）
-    parts.push(def.rid.clone());
+    // 行号兜底：排序结果稳定（同值按入库顺序）；外部数据集用（文件序号, 行号），不用算出来的全局行号
+    parts.push(if def.external.is_some() { "__fi, __fr".into() } else { def.rid.clone() });
     Ok(parts.join(", "))
 }
 
@@ -854,13 +890,14 @@ pub fn open_cursor(conn: &Connection, cache: &CursorCache, dataset_id: &str, spe
     let order_by = if spec.sort.is_empty() && def.rid == "rowid" { String::new() } else { format!(" ORDER BY {}", order_clause(&def, spec, contribution.as_deref())?) };
     let table = format!("c_{}_{}", cache.seq.fetch_add(1, Ordering::SeqCst), cursor_id.get(0..8).unwrap_or("x"));
     let extra = contribution.as_deref().map(|e| format!(", ({e})::DOUBLE AS c")).unwrap_or_default();
+    // 外部数据集的位置表存（文件序号, 行号）：取数时按它关联，条件能下推到 Parquet 扫描
+    let row_key = if def.external.is_some() { "__fi AS fi, __fr AS fr".to_string() } else { format!("{} AS rid", def.rid) };
     conn.execute(
         &format!(
             "CREATE TABLE cursors.{table} AS
-             SELECT {rid} AS rid{extra}
+             SELECT {row_key}{extra}
              FROM {src} WHERE {where_sql}{order_by}",
             src = def.table,
-            rid = def.rid
         ),
         params_from_iter(args.iter()),
     )?;
@@ -906,8 +943,12 @@ fn drop_cursor_table(conn: &Connection, e: &CursorEntry) {
 /// （min / max / count 都是秒内的元数据级查询；删过行留下空洞时返回 None，由调用方物化）
 fn plain_total(conn: &Connection, def: &DatasetDef, spec: &QuerySpec, contribution: Option<&str>) -> AppResult<Option<i64>> {
     let no_keyword = spec.keyword.as_deref().is_none_or(|k| k.trim().is_empty());
-    if !(spec.filters.is_empty() && no_keyword && spec.sort.is_empty() && contribution.is_none() && def.scope_sig.is_empty() && def.rid == "rowid") {
+    if !(spec.filters.is_empty() && no_keyword && spec.sort.is_empty() && contribution.is_none() && spec.violation.is_none() && def.scope_sig.is_empty() && (def.rid == "rowid" || def.external.is_some())) {
         return Ok(None);
+    }
+    // 外部数据集：位置按文件顺序连续，总行数记在定义里
+    if let Some(x) = &def.external {
+        return Ok(Some(x.rows));
     }
     contiguous_rows(conn, &def.table)
 }
@@ -929,6 +970,7 @@ impl CursorRef {
     /// FROM 子句：数据表别名 t；位置表时别名 c 带 rid / c（位置是 c.rowid）
     fn from_sql(&self, def: &DatasetDef) -> String {
         match &self.table {
+            Some(t) if def.external.is_some() => format!("cursors.{t} c JOIN {} t ON t.__fi = c.fi AND t.__fr = c.fr", def.table),
             Some(t) => format!("cursors.{t} c JOIN {src} t ON t.{rid} = c.rid", src = def.table, rid = def.rid),
             None => format!("{} t", def.table),
         }
@@ -939,6 +981,23 @@ impl CursorRef {
         match &self.table {
             Some(_) => "c.rowid".into(),
             None => format!("t.{}", def.rid),
+        }
+    }
+
+    /// 位置在 [from, to) 的行（整数由服务端算出，直接写进 SQL）
+    fn range(&self, def: &DatasetDef, from: i64, to: i64) -> String {
+        match (&self.table, &def.external) {
+            // 外部数据集直通：换算成（文件序号, 行号）范围，下推到 Parquet 扫描
+            (None, Some(x)) => x.range_sql(from, to),
+            _ => format!("{p} >= {from} AND {p} < {to}", p = self.pos(def)),
+        }
+    }
+
+    /// 按位置排序
+    fn order(&self, def: &DatasetDef) -> String {
+        match (&self.table, &def.external) {
+            (None, Some(_)) => "t.__fi, t.__fr".into(),
+            _ => self.pos(def),
         }
     }
 }
@@ -993,12 +1052,11 @@ pub fn rows(conn: &Connection, cache: &CursorCache, dataset_id: &str, cursor_id:
     if cur.has_c {
         cols.insert(0, "c.c".into());
     }
-    let pos = cur.pos(&def);
-    let sql = format!("SELECT {} FROM {} WHERE {pos} >= ? AND {pos} < ? ORDER BY {pos}", cols.join(", "), cur.from_sql(&def));
+    let sql = format!("SELECT {} FROM {} WHERE {} ORDER BY {}", cols.join(", "), cur.from_sql(&def), cur.range(&def, offset, offset + limit), cur.order(&def));
     let mut stmt = conn.prepare(&sql)?;
     let n = cols.len();
     let rows = stmt
-        .query_map([offset, offset + limit], |r| (0..n).map(|i| Ok(to_json(r.get_ref(i)?))).collect::<duckdb::Result<Vec<_>>>())?
+        .query_map([], |r| (0..n).map(|i| Ok(to_json(r.get_ref(i)?))).collect::<duckdb::Result<Vec<_>>>())?
         .collect::<Result<Vec<_>, _>>()?;
     Ok(RowsWindow { expired: false, offset, rows })
 }
@@ -1049,7 +1107,7 @@ pub fn stats(conn: &Connection, cache: &CursorCache, dataset_id: &str, req: &Sta
         let col = check_column(&def, key)?;
         let c = format!("({})", column_sql(col));
         counts.push(format!("count({c})"));
-        if matches!(col.kind, "money" | "number") {
+        if kinds::is_numeric(col.kind) {
             numeric.push(format!("{c}::DOUBLE"));
         }
     }
@@ -1067,13 +1125,13 @@ pub fn stats(conn: &Connection, cache: &CursorCache, dataset_id: &str, req: &Sta
     };
     let sql = format!(
         "SELECT ({counts})::BIGINT, {numeric_sql}
-         FROM {from} WHERE {pos} BETWEEN ? AND ?",
+         FROM {from} WHERE {range}",
         counts = counts.iter().map(|c| format!("COALESCE({c}, 0)")).collect::<Vec<_>>().join(" + "),
         from = cur.from_sql(&def),
-        pos = cur.pos(&def)
+        range = cur.range(&def, req.from.max(0), req.to.saturating_add(1))
     );
     let (count, sum, numeric_count, min, max): (i64, Option<f64>, i64, Option<f64>, Option<f64>) =
-        conn.query_row(&sql, [req.from.max(0), req.to], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?;
+        conn.query_row(&sql, [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?;
     let round = |v: f64| (v * 100.0).round() / 100.0 + 0.0;
     Ok(SelectionStats {
         expired: false,
@@ -1084,6 +1142,233 @@ pub fn stats(conn: &Connection, cache: &CursorCache, dataset_id: &str, req: &Sta
         min: min.map(round),
         max: max.map(round),
     })
+}
+
+// ── 汇总行（数据表底部）──────────────────────────────
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TotalsRequest {
+    pub cursor_id: String,
+    pub items: Vec<TotalItem>,
+}
+
+#[derive(Deserialize)]
+pub struct TotalItem {
+    /// 列名；可为 __contribution（下钻时的贡献金额）
+    pub column: String,
+    /// sum / average / median / min / max / count（非空） / empty（空） / distinct（不同值） / trues（「是」的个数）
+    pub func: String,
+}
+
+#[derive(Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct TotalsResult {
+    pub expired: bool,
+    /// 与 items 一一对应
+    pub values: Vec<Json>,
+    pub elapsed_ms: i64,
+}
+
+/// 某种列类型能选的汇总方式（前端菜单按这个给选项）
+pub fn total_funcs(kind: &str) -> &'static [&'static str] {
+    match kind {
+        k if kinds::is_numeric(k) => &["sum", "average", "median", "min", "max", "count", "empty", "distinct"],
+        "datetime" => &["min", "max", "count", "empty", "distinct"],
+        "boolean" => &["trues", "count", "empty"],
+        _ => &["count", "empty", "distinct"],
+    }
+}
+
+const MAX_TOTALS: usize = 500;
+
+/// 汇总行：按游标（当前筛选 / 关键字 / 规则）对整个结果集算每列的汇总，一条 SQL
+pub fn totals(conn: &Connection, cache: &CursorCache, dataset_id: &str, req: &TotalsRequest) -> AppResult<TotalsResult> {
+    let started = Instant::now();
+    if req.items.len() > MAX_TOTALS {
+        return Err(AppError::bad(format!("一次最多汇总 {MAX_TOTALS} 列")));
+    }
+    let def = dataset(conn, dataset_id)?;
+    let Some(cur) = find_cursor(cache, &req.cursor_id)? else {
+        return Ok(TotalsResult { expired: true, ..Default::default() });
+    };
+    if req.items.is_empty() {
+        return Ok(TotalsResult::default());
+    }
+    let exprs = req.items.iter().map(|it| total_expr(&def, it, cur.has_c)).collect::<AppResult<Vec<_>>>()?;
+    let sql = format!("SELECT {} FROM {} WHERE {}", exprs.join(", "), cur.from_sql(&def), cur.range(&def, 0, cur.total));
+    let n = exprs.len();
+    let values = conn.query_row(&sql, [], |r| (0..n).map(|i| Ok(to_json(r.get_ref(i)?))).collect::<duckdb::Result<Vec<_>>>())?;
+    let values = values.into_iter().map(clean_zero).collect();
+    Ok(TotalsResult { expired: false, values, elapsed_ms: started.elapsed().as_millis() as i64 })
+}
+
+/// 一列的汇总表达式（汇总行、分类汇总共用）；has_c：有贡献金额列（只有游标上才有，表达式为 c.c）
+fn total_expr(def: &DatasetDef, it: &TotalItem, has_c: bool) -> AppResult<String> {
+    let (c, kind, title) = if it.column == CONTRIBUTION_KEY {
+        if !has_c {
+            return Err(AppError::bad("当前没有汇总项规则，没有贡献金额列"));
+        }
+        ("c.c".to_string(), "money", "贡献金额")
+    } else {
+        let col = check_column(def, &it.column)?;
+        (format!("({})", column_sql(col)), col.kind, col.title.as_str())
+    };
+    if !total_funcs(kind).contains(&it.func.as_str()) {
+        return Err(AppError::bad(format!("「{title}」是{}列，不能{}", kinds::label(kind), total_label(&it.func))));
+    }
+    let blank = if kinds::is_numeric(kind) || kind == "boolean" { format!("{c} IS NULL") } else { format!("({c} IS NULL OR trim(CAST({c} AS VARCHAR)) = '')") };
+    let money = kind == "money";
+    let round = |e: String| if money { format!("round({e}, 2)") } else { e };
+    Ok(match it.func.as_str() {
+        "sum" if kind == "integer" => format!("sum({c})::BIGINT"),
+        "sum" => round(format!("sum({c})::DOUBLE")),
+        "average" => round(format!("avg({c})::DOUBLE")),
+        "median" => round(format!("median({c})::DOUBLE")),
+        "min" | "max" if kind == "datetime" => format!("{}(CAST({c} AS VARCHAR)) FILTER (WHERE regexp_full_match(CAST({c} AS VARCHAR), '{}'))", it.func, crate::profile::DATE_RE),
+        "min" | "max" => format!("{}({c})", it.func),
+        "count" => format!("count(*) FILTER (WHERE NOT {blank})"),
+        "empty" => format!("count(*) FILTER (WHERE {blank})"),
+        "distinct" => format!("count(DISTINCT {c}) FILTER (WHERE NOT {blank})"),
+        _ => format!("count(*) FILTER (WHERE {c})"),
+    })
+}
+
+/// -0.0 显示成 0
+fn clean_zero(v: Json) -> Json {
+    if v.as_f64() == Some(0.0) && v.is_f64() { Json::from(0.0) } else { v }
+}
+
+// ── 分类汇总（数据表按某列分组，每组后面插一行小计）──────────
+
+/// 分组太多时不做分类汇总（每组一行小计，再多就没法看了）
+pub const MAX_GROUPS: usize = 10_000;
+
+/// 分类汇总最多几级（如 店铺 → 渠道 → 月份）
+pub const MAX_GROUP_LEVELS: usize = 3;
+
+/// 一级分类汇总：按哪一列分组、是否降序（与数据表按这一列排序的方向一致）
+#[derive(Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct GroupLevel {
+    pub column: String,
+    pub desc: bool,
+}
+
+/// 各级分组的列（外层在前）：levels 为空时用 column / desc（只有一级）
+fn group_levels<'a>(def: &'a DatasetDef, column: &str, desc: bool, levels: &[GroupLevel]) -> AppResult<Vec<(&'a ColumnDef, bool)>> {
+    let one = [GroupLevel { column: column.to_string(), desc }];
+    let levels = if levels.is_empty() { &one[..] } else { levels };
+    if levels.len() > MAX_GROUP_LEVELS {
+        return Err(AppError::bad(format!("分类汇总最多 {MAX_GROUP_LEVELS} 级")));
+    }
+    let mut out: Vec<(&ColumnDef, bool)> = Vec::new();
+    for l in levels {
+        let col = check_column(def, &l.column)?;
+        if out.iter().any(|(c, _)| c.key == col.key) {
+            return Err(AppError::bad(format!("「{}」已经是一级分类汇总了", col.title)));
+        }
+        out.push((col, l.desc));
+    }
+    Ok(out)
+}
+
+/// 多级分组：每一级的组（顺序与按各级分组列依次排序的游标一致：同样的表达式、同样的 NULLS LAST），
+/// 内层的组嵌在外层的组里，各级的行数加起来都是总行数。from 为 FROM 子句（可带 WHERE，参数为 args）
+fn nested_groups(conn: &Connection, levels: &[(&ColumnDef, bool)], exprs: &[String], from: &str, args: &[Value]) -> AppResult<Vec<Vec<GroupRow>>> {
+    let n = exprs.len();
+    let mut out = Vec::with_capacity(levels.len());
+    for depth in 1..=levels.len() {
+        let keys = &levels[..depth];
+        let mut selects: Vec<String> = keys.iter().map(|(c, _)| format!("({})", column_sql(c))).collect();
+        selects.push("count(*)".into());
+        selects.extend(exprs.iter().cloned());
+        let by = (1..=depth).map(|i| i.to_string()).collect::<Vec<_>>().join(", ");
+        let order = keys.iter().enumerate().map(|(i, (_, desc))| format!("{} {} NULLS LAST", i + 1, if *desc { "DESC" } else { "ASC" })).collect::<Vec<_>>().join(", ");
+        let sql = format!("SELECT {} FROM {from} GROUP BY {by} ORDER BY {order} LIMIT {}", selects.join(", "), MAX_GROUPS + 1);
+        let mut st = conn.prepare(&sql)?;
+        let rows: Vec<GroupRow> = st
+            .query_map(params_from_iter(args.iter()), |r| {
+                Ok(GroupRow { key: to_json(r.get_ref(depth - 1)?), count: r.get(depth)?, values: (0..n).map(|i| Ok(clean_zero(to_json(r.get_ref(depth + 1 + i)?)))).collect::<duckdb::Result<Vec<_>>>()? })
+            })?
+            .collect::<Result<_, _>>()?;
+        if rows.len() > MAX_GROUPS {
+            if depth == 1 {
+                return Err(AppError::bad(format!("「{}」的取值超过 {} 种，分类汇总看不过来：请换一列，或先筛选缩小范围", keys[0].0.title, MAX_GROUPS)));
+            }
+            let names = keys.iter().map(|(c, _)| c.title.as_str()).collect::<Vec<_>>().join(" × ");
+            return Err(AppError::bad(format!("「{names}」的组合超过 {MAX_GROUPS} 种，分类汇总看不过来：请少分一级，或先筛选缩小范围")));
+        }
+        out.push(rows);
+    }
+    Ok(out)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GroupsRequest {
+    #[serde(flatten)]
+    pub spec: QuerySpec,
+    /// 只有一级时：分组的列
+    #[serde(default)]
+    pub column: String,
+    /// 只有一级时：分组降序（与数据表按这一列排序的方向一致）
+    #[serde(default)]
+    pub desc: bool,
+    /// 多级分组（外层在前，最多 3 级）；给了就不看 column / desc
+    #[serde(default)]
+    pub levels: Vec<GroupLevel>,
+    /// 每组要算的汇总（与汇总行相同的方式）
+    #[serde(default)]
+    pub items: Vec<TotalItem>,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GroupRow {
+    /// 这一级分组列的取值
+    pub key: Json,
+    pub count: i64,
+    pub values: Vec<Json>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GroupsResult {
+    /// 最外层的组（只有一级时就是全部的组）
+    pub groups: Vec<GroupRow>,
+    /// 每一级的组（外层在前），按数据表的排序先后；第 i + 1 级的组依次嵌在第 i 级的组里
+    pub levels: Vec<Vec<GroupRow>>,
+    pub elapsed_ms: i64,
+}
+
+/// 每组的行数与汇总：分组和顺序与按各级分组列排序的游标完全一致，前端据此在每组最后一行后面插入小计
+pub fn groups(conn: &Connection, dataset_id: &str, req: &GroupsRequest) -> AppResult<GroupsResult> {
+    let started = Instant::now();
+    if req.items.len() > MAX_TOTALS {
+        return Err(AppError::bad(format!("一次最多汇总 {MAX_TOTALS} 列")));
+    }
+    let def = dataset(conn, dataset_id)?;
+    let levels = group_levels(&def, &req.column, req.desc, &req.levels)?;
+    let exprs = req.items.iter().map(|it| total_expr(&def, it, false)).collect::<AppResult<Vec<_>>>()?;
+    let (where_sql, args) = rows_sql(&def, &req.spec)?;
+    let levels = nested_groups(conn, &levels, &exprs, &format!("{} WHERE {where_sql}", def.table), &args)?;
+    Ok(GroupsResult { groups: levels[0].clone(), levels, elapsed_ms: started.elapsed().as_millis() as i64 })
+}
+
+fn total_label(func: &str) -> &'static str {
+    match func {
+        "sum" => "求和",
+        "average" => "求平均",
+        "median" => "求中位数",
+        "min" => "取最小值",
+        "max" => "取最大值",
+        "count" => "计数",
+        "empty" => "数空值",
+        "distinct" => "数不同值",
+        "trues" => "数「是」",
+        _ => "这样汇总",
+    }
 }
 
 // ── 列值分面（筛选下拉）──────────────────────────────
@@ -1182,6 +1467,7 @@ pub fn export_csv(conn: &Connection, cache: &CursorCache, dataset_id: &str, curs
         let c = format!("({})", column_sql(col));
         let expr = match col.kind {
             "money" | "number" => format!("{c}::DOUBLE"),
+            "integer" => format!("{c}::BIGINT"),
             "id" => format!("CASE WHEN {c} IS NULL THEN NULL ELSE chr(9) || {c} END"),
             _ => c,
         };
@@ -1193,7 +1479,7 @@ pub fn export_csv(conn: &Connection, cache: &CursorCache, dataset_id: &str, curs
         "COPY (SELECT {} FROM {} ORDER BY {}) TO '{path_sql}' (HEADER, DELIMITER ',')",
         selects.join(", "),
         cur.from_sql(&def),
-        cur.pos(&def)
+        cur.order(&def)
     ))?;
     Ok((path, total))
 }
@@ -1213,6 +1499,37 @@ fn excel_col(i: usize) -> String {
 }
 
 /// 按游标导出 .xlsx：「汇总」页签（数值列用 SUBTOTAL 公式引用数据，Excel 里筛选后自动按可见行重算）+「数据」页签（常量内存流式写入）
+/// 导出 Excel 时带上分类汇总：每组后面一行小计（SUBTOTAL 公式），并设成 Excel 的分级显示（可折叠）
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct GroupExport {
+    /// 只有一级时：分组的列（游标已按它排好序）
+    pub column: String,
+    pub desc: bool,
+    /// 多级分组（外层在前，游标已按各级依次排好序）；给了就不看 column / desc
+    pub levels: Vec<GroupLevel>,
+    /// 每列的小计方式（与汇总行相同）
+    pub items: Vec<TotalItem>,
+    /// 折叠的组：第 i 项为第 i 级折叠的组的序号（按这一级的顺序）
+    pub collapsed: Vec<Vec<usize>>,
+    /// 这一级的组全部折叠（组很多时代替 collapsed）
+    pub collapse_level: Option<usize>,
+}
+
+/// 小计方式对应的 Excel SUBTOTAL 函数号（9 求和、1 平均、3 非空计数、5 最小、4 最大）；
+/// 不忽略隐藏行（折叠的组也算），但会忽略区域里别的 SUBTOTAL（不会把小计再加一遍）。没有对应的函数时写算好的值
+fn subtotal_code(func: &str, kind: &str) -> Option<u8> {
+    match func {
+        "sum" => Some(9),
+        "average" => Some(1),
+        "count" => Some(3),
+        "min" if kinds::is_numeric(kind) => Some(5),
+        "max" if kinds::is_numeric(kind) => Some(4),
+        _ => None,
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
 pub fn export_xlsx(
     conn: &Connection,
     cache: &CursorCache,
@@ -1220,9 +1537,10 @@ pub fn export_xlsx(
     cursor_id: &str,
     columns: &[String],
     desc: &str,
+    group: Option<&GroupExport>,
     dir: &std::path::Path,
 ) -> AppResult<(std::path::PathBuf, i64)> {
-    use rust_xlsxwriter::{Color, Format, FormatAlign, FormatBorder, Formula, Workbook};
+    use rust_xlsxwriter::{Color, Format, FormatAlign, FormatBorder, Formula, Workbook, Worksheet};
 
     let def = dataset(conn, dataset_id)?;
     let Some(cur) = find_cursor(cache, cursor_id)? else {
@@ -1235,6 +1553,7 @@ pub fn export_xlsx(
 
     // 导出列（含贡献列）
     struct Col {
+        key: String,
         title: String,
         kind: &'static str,
         width: u32,
@@ -1253,18 +1572,93 @@ pub fn export_xlsx(
     for key in &keys {
         if key == CONTRIBUTION_KEY {
             if has_c {
-                cols.push(Col { title: "贡献金额".into(), kind: "money", width: 120, expr: "c.c".into() });
+                cols.push(Col { key: CONTRIBUTION_KEY.into(), title: "贡献金额".into(), kind: "money", width: 120, expr: "c.c".into() });
             }
             continue;
         }
         let col = check_column(&def, key)?;
         let base = format!("({})", column_sql(col));
-        let expr = if matches!(col.kind, "money" | "number") { format!("{base}::DOUBLE") } else { format!("CAST({base} AS VARCHAR)") };
-        cols.push(Col { title: col.title.clone(), kind: col.kind, width: col.width, expr });
+        let expr = match col.kind {
+            k if kinds::is_numeric(k) => format!("{base}::DOUBLE"),
+            "boolean" => format!("{base}::BOOLEAN"),
+            _ => format!("CAST({base} AS VARCHAR)"),
+        };
+        cols.push(Col { key: col.key.clone(), title: col.title.clone(), kind: col.kind, width: col.width, expr });
     }
     if cols.is_empty() {
         return Err(AppError::bad("没有可导出的列"));
     }
+
+    // ── 分类汇总：每一级每组的行数与小计（按游标算，分组顺序与游标一致），以及总计 ──
+    struct Grouped<'a> {
+        g: &'a GroupExport,
+        /// 各级分组列（外层在前）
+        cols: Vec<&'a ColumnDef>,
+        levels: Vec<Vec<GroupRow>>,
+        /// 每组在「数据」页签占的行数（含嵌在里面的小计行，不含自己的小计行）
+        spans: Vec<Vec<u32>>,
+        /// 折叠的组
+        folded: Vec<Vec<bool>>,
+        grand: Vec<Json>,
+    }
+    let grouped: Option<Grouped> = match group {
+        Some(g) => {
+            let lv = group_levels(&def, &g.column, g.desc, &g.levels)?;
+            let exprs = g.items.iter().map(|it| total_expr(&def, it, has_c)).collect::<AppResult<Vec<_>>>()?;
+            let n = exprs.len();
+            let levels = nested_groups(conn, &lv, &exprs, &cur.from_sql(&def), &[])?;
+            if levels.iter().any(|l| l.iter().map(|g| g.count).sum::<i64>() != total) {
+                return Err(AppError::bad("数据已更新，请刷新后重新导出"));
+            }
+            // 小计行和总计行也占行：加起来不能超过 Excel 的上限
+            let subs: usize = levels.iter().map(Vec::len).sum();
+            if total + subs as i64 + 1 > MAX_XLSX_ROWS {
+                return Err(AppError::bad(format!("当前结果 {total} 行，加上 {} 行小计超过 Excel 单表上限 {MAX_XLSX_ROWS} 行，请先筛选或取消分类汇总", subs + 1)));
+            }
+            // 从最内层往外算每组占的行数：内层的组依次落在外层的组里（按行数对齐）
+            let depth = levels.len();
+            let mut spans: Vec<Vec<u32>> = vec![Vec::new(); depth];
+            spans[depth - 1] = levels[depth - 1].iter().map(|g| g.count as u32).collect();
+            for d in (0..depth - 1).rev() {
+                let (mut j, mut out) = (0usize, Vec::with_capacity(levels[d].len()));
+                for grp in &levels[d] {
+                    let (mut rows, mut span) = (0i64, 0u32);
+                    while rows < grp.count && j < levels[d + 1].len() {
+                        rows += levels[d + 1][j].count;
+                        span += spans[d + 1][j] + 1;
+                        j += 1;
+                    }
+                    out.push(span);
+                }
+                spans[d] = out;
+            }
+            let folded = levels
+                .iter()
+                .enumerate()
+                .map(|(d, l)| {
+                    let mut f = vec![g.collapse_level == Some(d); l.len()];
+                    for &i in g.collapsed.get(d).map(Vec::as_slice).unwrap_or(&[]) {
+                        if let Some(x) = f.get_mut(i) {
+                            *x = true;
+                        }
+                    }
+                    f
+                })
+                .collect();
+            let grand: Vec<Json> = if exprs.is_empty() {
+                vec![]
+            } else {
+                conn.query_row(&format!("SELECT {} FROM {}", exprs.join(", "), cur.from_sql(&def)), [], |r| (0..n).map(|i| Ok(clean_zero(to_json(r.get_ref(i)?)))).collect::<duckdb::Result<Vec<_>>>())?
+            };
+            Some(Grouped { g, cols: lv.iter().map(|(c, _)| *c).collect(), levels, spans, folded, grand })
+        }
+        None => None,
+    };
+    // 数据页签最后一行（Excel 行号，从 1 数）：表头 + 数据 + 每组小计 + 总计
+    let data_last = match &grouped {
+        Some(gr) => total + gr.levels.iter().map(Vec::len).sum::<usize>() as i64 + 2,
+        None => total + 1,
+    };
 
     let header = Format::new().set_bold().set_background_color(Color::RGB(0x107C41)).set_font_color(Color::White).set_align(FormatAlign::Center).set_border_bottom(FormatBorder::Thin);
     let money = Format::new().set_num_format("#,##0.00;-#,##0.00;\"-\"");
@@ -1276,7 +1670,7 @@ pub fn export_xlsx(
     book.set_tempdir(dir).map_err(|e| anyhow::anyhow!("{e}"))?;
 
     // ── 汇总页签 ──
-    let numeric: Vec<(usize, &Col)> = cols.iter().enumerate().filter(|(_, c)| matches!(c.kind, "money" | "number")).collect();
+    let numeric: Vec<(usize, &Col)> = cols.iter().enumerate().filter(|(_, c)| kinds::is_numeric(c.kind)).collect();
     let agg_sql = if numeric.is_empty() {
         String::new()
     } else {
@@ -1314,10 +1708,16 @@ pub fn export_xlsx(
             ws.write_number_with_format(3, 1, total as f64, &integer).map_err(e)?;
             ws.write_string_with_format(4, 0, "说明", &label).map_err(e)?;
             ws.write_string(4, 1, "下表用 SUBTOTAL 公式引用「数据」页签：在「数据」页签中筛选后，合计 / 平均 / 最小 / 最大按可见行自动重算").map_err(e)?;
+            if let Some(gr) = &grouped {
+                let by = gr.cols.iter().zip(&gr.levels).map(|(c, l)| format!("「{}」（{} 组）", c.title, l.len())).collect::<Vec<_>>().join(" → ");
+                let buttons = (1..=gr.levels.len() + 1).map(|i| i.to_string()).collect::<Vec<_>>().join(" / ");
+                ws.write_string_with_format(5, 0, "分类汇总", &label).map_err(e)?;
+                ws.write_string(5, 1, format!("「数据」页签按{by}分类汇总，每组后面一行小计、最后一行总计；用左侧的分级按钮（{buttons}）折叠或展开")).map_err(e)?;
+            }
             for (i, h) in ["列", "合计", "平均", "最小", "最大"].iter().enumerate() {
                 ws.write_string_with_format(6, i as u16, *h, &header).map_err(e)?;
             }
-            let last = total + 1;
+            let last = data_last;
             for (k, (ci, c)) in numeric.iter().enumerate() {
                 let row = 7 + k as u32;
                 ws.write_string(row, 0, &c.title).map_err(e)?;
@@ -1337,7 +1737,7 @@ pub fn export_xlsx(
     }
 
     // ── 数据页签（常量内存：逐行顺序写入）──
-    {
+    let outline = {
         let ws = book.add_worksheet_with_constant_memory();
         ws.set_name("数据").map_err(|e| anyhow::anyhow!("{e}"))?;
         for (i, c) in cols.iter().enumerate() {
@@ -1345,22 +1745,98 @@ pub fn export_xlsx(
             ws.write_string_with_format(0, i as u16, &c.title, &header).map_err(|e| anyhow::anyhow!("{e}"))?;
         }
         ws.set_freeze_panes(1, 0).map_err(|e| anyhow::anyhow!("{e}"))?;
-        ws.autofilter(0, 0, total.max(1) as u32, (cols.len() - 1) as u16).map_err(|e| anyhow::anyhow!("{e}"))?;
+        // 筛选范围不含最后的总计行
+        let filter_last = if grouped.is_some() { data_last - 2 } else { total.max(1) };
+        ws.autofilter(0, 0, filter_last.max(1) as u32, (cols.len() - 1) as u16).map_err(|e| anyhow::anyhow!("{e}"))?;
+        // 小计 / 总计行：加粗、浅绿底；列序号 → 小计方式
+        let sub = Format::new().set_bold().set_background_color(Color::RGB(0xEEF6F1)).set_font_color(Color::RGB(0x0B5A2E));
+        let sub_money = sub.clone().set_num_format("#,##0.00;-#,##0.00;\"-\"");
+        let sub_int = sub.clone().set_num_format("#,##0");
+        let item_at: HashMap<usize, usize> = match &grouped {
+            Some(Grouped { g, .. }) => cols.iter().enumerate().filter_map(|(ci, c)| g.items.iter().position(|it| it.column == c.key || it.column == c.title).map(|ii| (ci, ii))).collect(),
+            None => HashMap::new(),
+        };
+        // 小计行的名字写在这一级分组列下面（没导出这一列时写在第一列）
+        let label_col = |d: usize| grouped.as_ref().and_then(|gr| cols.iter().position(|c| c.key == gr.cols[d].key)).unwrap_or(0);
+        let depth = grouped.as_ref().map_or(0, |gr| gr.levels.len());
+        // 写一行小计 / 总计：rows 为它汇总的行区间（0 起的行号，含两端），里面有第 inner 级及更内层的小计行
+        let write_total = |ws: &mut Worksheet, r: u32, rows: (u32, u32), (at, label): (usize, &str), inner: usize, values: &[Json], items: &[TotalItem]| -> anyhow::Result<()> {
+            for (ci, c) in cols.iter().enumerate() {
+                let c16 = ci as u16;
+                let fmt = if c.kind == "money" { &sub_money } else if kinds::is_numeric(c.kind) { &sub_int } else { &sub };
+                if ci == at {
+                    ws.write_string_with_format(r, c16, label, &sub)?;
+                    continue;
+                }
+                let Some(&ii) = item_at.get(&ci) else {
+                    ws.write_blank(r, c16, &sub)?;
+                    continue;
+                };
+                let v = values.get(ii).cloned().unwrap_or(Json::Null);
+                // 区域里有内层小计行的名字（这一列是内层的分组列）时，SUBTOTAL 计数会把名字也数进去：写算好的值
+                let names_inside = items[ii].func == "count" && (inner..depth).any(|d| label_col(d) == ci);
+                match subtotal_code(&items[ii].func, c.kind).filter(|_| !names_inside) {
+                    Some(code) => {
+                        let col = excel_col(ci);
+                        let mut f = Formula::new(format!("=SUBTOTAL({code},{col}{}:{col}{})", rows.0 + 1, rows.1 + 1));
+                        if !v.is_null() {
+                            f = f.set_result(v.as_f64().map(|x| x.to_string()).unwrap_or_else(|| v.to_string()));
+                        }
+                        let fmt = if items[ii].func == "count" { &sub_int } else { fmt };
+                        ws.write_formula_with_format(r, c16, f, fmt)?;
+                    }
+                    None => match &v {
+                        Json::Number(n) => {
+                            ws.write_number_with_format(r, c16, n.as_f64().unwrap_or(0.0), if matches!(items[ii].func.as_str(), "count" | "empty" | "distinct" | "trues") { &sub_int } else { fmt })?;
+                        }
+                        Json::Null => {
+                            ws.write_blank(r, c16, &sub)?;
+                        }
+                        other => {
+                            ws.write_string_with_format(r, c16, other.as_str().map(String::from).unwrap_or_else(|| other.to_string()), &sub)?;
+                        }
+                    },
+                }
+            }
+            Ok(())
+        };
         let select = cols.iter().map(|c| c.expr.clone()).collect::<Vec<_>>().join(", ");
         let mut stmt = conn.prepare(&format!(
             "SELECT {select} FROM {} ORDER BY {}",
             cur.from_sql(&def),
-            cur.pos(&def)
+            cur.order(&def)
         ))?;
         let mut rows = stmt.query([])?;
         let mut r: u32 = 1;
+        // 分类汇总：每一级当前是第几组、这一组已写了几行数据、这一组从哪一行开始
+        let (mut gi, mut in_group, mut gstart) = (vec![0usize; depth], vec![0i64; depth], vec![1u32; depth]);
+        // 分级（Excel 行号）：常量内存模式写不出来，保存后补（见 xlsx_outline）
+        let (mut ranges, mut collapsed) = (Vec::new(), Vec::new());
         while let Some(row) = rows.next()? {
+            if let Some(gr) = &grouped {
+                // 常量内存模式下行的属性要在写这一行之前设好：一组开始时把整组（含里面的小计行）设成一个分级，外层先设
+                for d in 0..depth {
+                    if in_group[d] == 0 {
+                        let span = gr.spans[d][gi[d]];
+                        if gr.folded[d][gi[d]] {
+                            ws.group_rows_collapsed(r, r + span - 1).map_err(|e| anyhow::anyhow!("{e}"))?;
+                        } else {
+                            ws.group_rows(r, r + span - 1).map_err(|e| anyhow::anyhow!("{e}"))?;
+                        }
+                        gstart[d] = r;
+                    }
+                }
+            }
             for (i, c) in cols.iter().enumerate() {
                 let i16 = i as u16;
-                if matches!(c.kind, "money" | "number") {
+                if kinds::is_numeric(c.kind) {
                     if let Some(v) = row.get::<_, Option<f64>>(i)? {
                         let fmt = if c.kind == "money" { &money } else { &integer };
                         ws.write_number_with_format(r, i16, v, fmt).map_err(|e| anyhow::anyhow!("{e}"))?;
+                    }
+                } else if c.kind == "boolean" {
+                    if let Some(v) = row.get::<_, Option<bool>>(i)? {
+                        ws.write_boolean(r, i16, v).map_err(|e| anyhow::anyhow!("{e}"))?;
                     }
                 } else if let Some(v) = row.get::<_, Option<String>>(i)? {
                     // 编号列按文本写入，Excel 不会转成科学计数法
@@ -1368,11 +1844,45 @@ pub fn export_xlsx(
                 }
             }
             r += 1;
+            if let Some(gr) = &grouped {
+                for n in in_group.iter_mut() {
+                    *n += 1;
+                }
+                // 由内往外：这一级的组写完了就写它的小计，外层的组只可能在内层的组结束时结束
+                for d in (0..depth).rev() {
+                    let grp = &gr.levels[d][gi[d]];
+                    if in_group[d] < grp.count {
+                        break;
+                    }
+                    let name = match &grp.key {
+                        Json::Null => "（空）".to_string(),
+                        Json::String(s) if s.is_empty() => "（空）".to_string(),
+                        Json::String(s) => s.clone(),
+                        other => other.to_string(),
+                    };
+                    write_total(ws, r, (gstart[d], r - 1), (label_col(d), &format!("{name} 小计")), d + 1, &grp.values, &gr.g.items)?;
+                    ranges.push((gstart[d] + 1, r));
+                    if gr.folded[d][gi[d]] {
+                        collapsed.push(r + 1);
+                    }
+                    r += 1;
+                    gi[d] += 1;
+                    in_group[d] = 0;
+                }
+            }
         }
-    }
+        if let Some(gr) = &grouped {
+            write_total(ws, r, (1, r - 1), (label_col(0), "总计"), 0, &gr.grand, &gr.g.items)?;
+        }
+        crate::xlsx_outline::Outline::new(&ranges, collapsed)
+    };
 
     let path = dir.join(format!("export-{}-{}.xlsx", cursor_id, std::process::id()));
     book.save(&path).map_err(|e| anyhow::anyhow!("生成 Excel 失败：{e}"))?;
+    if grouped.is_some() {
+        // 「数据」是第二个页签
+        crate::xlsx_outline::apply(&path, "xl/worksheets/sheet2.xml", &outline)?;
+    }
     Ok((path, total))
 }
 

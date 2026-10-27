@@ -15,6 +15,18 @@ export interface GridColumn {
   style?: RuleMatcher
 }
 
+/** 数据表底部汇总行 */
+export interface GridFooter {
+  /** 行号列里的文字 */
+  label: string
+  /** 悬停在行号列上的说明（按多少行计算、耗时） */
+  tip?: string
+  /** 计算出错的原因 */
+  error?: string
+  /** 与列一一对应；label 为空表示这一列不汇总 */
+  cells: { label: string, value: string }[]
+}
+
 export interface GridCell {
   row: number
   col: number
@@ -23,4 +35,16 @@ export interface GridCell {
 export interface GridSelection {
   anchor: GridCell
   focus: GridCell
+  /** 分类汇总时：选区里的数据行区间（行号是数据行，不含小计行）；只选了小计行时为 null。没有分类汇总时省略 */
+  dataRows?: [number, number] | null
+}
+
+/** 分类汇总：每组的行数（按数据表的顺序）与小计行各列的文字 */
+export interface GridGroups {
+  /** 每一级每组的行数（外层在前；内层的组依次嵌在外层的组里） */
+  levels: number[][]
+  /** 第 level 级第 group 组的小计行 */
+  cells: (level: number, group: number) => (string | null)[]
+  /** 每一级折叠的组：只显示小计行 */
+  collapsed?: boolean[][]
 }

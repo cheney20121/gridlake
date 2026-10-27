@@ -4,6 +4,7 @@ import type { DatasetFilter, DatasetQuery, DistinctResult } from '@/api/dataset'
 import { useDebounceFn } from '@vueuse/core'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { getDistinctApi } from '@/api/dataset'
+import { formatBool, isNumericKind, kindLabel } from '@/features/excel/dataset/column-kinds'
 import { t } from '@/i18n'
 
 /** 列头筛选菜单（Excel 自动筛选）：排序、按值勾选、包含文字、数值 / 日期区间 */
@@ -18,17 +19,26 @@ const props = defineProps<{
   anchor: DOMRect
   /** 不显示排序（透视表筛选只需要按值筛选） */
   hideSort?: boolean
+  /** 显示「更改列类型」（数据表的所有者与管理员） */
+  canChangeKind?: boolean
+  /** 分类汇总：现在有几级、这一列是第几级（从 0 数，不是分组列为 -1）；不传则不显示（嵌在工作表里的数据表） */
+  grouping?: { count: number, level: number }
 }>()
 
 const emit = defineEmits<{
   (e: 'apply', filter: DatasetFilter | null): void
   (e: 'sort', desc: boolean | null): void
   (e: 'close'): void
+  (e: 'changeKind'): void
+  /** 只按这一列分类汇总 / 加为下一级 / 取消这一级 / 全部取消 */
+  (e: 'group', action: 'replace' | 'add' | 'remove' | 'clear'): void
 }>()
 
-const numeric = computed(() => props.column.kind === 'money' || props.column.kind === 'number')
+const numeric = computed(() => isNumericKind(props.column.kind))
 const isDate = computed(() => props.column.kind === 'datetime')
 const isContribution = computed(() => props.column.key === '__contribution')
+/** 分类汇总最多几级（与服务端一致） */
+const MAX_GROUP_LEVELS = 3
 
 const menuRef = ref<HTMLDivElement>()
 const style = computed(() => {
@@ -99,7 +109,7 @@ function checkAll(all: boolean) {
   checked.value = all ? null : new Set()
 }
 
-const display = (v: string) => (v === '' ? t('（空白）') : v)
+const display = (v: string) => (v === '' ? t('（空白）') : props.column.kind === 'boolean' ? formatBool(v) : v)
 
 function apply() {
   if (numeric.value || isContribution.value) {
@@ -157,6 +167,27 @@ onBeforeUnmount(() => {
       </button>
       <button v-if="sortDesc != null" class="item text-gray-500" @click="emit('sort', null)">
         {{ $t('清除排序') }}
+      </button>
+      <template v-if="grouping && !isContribution">
+        <template v-if="grouping.level < 0">
+          <button class="item" data-testid="group-by-column" @click="emit('group', 'replace')">
+            {{ grouping.count ? $t('只按此列分类汇总（替换现在的）') : $t('按此列分类汇总（每组后面加一行小计）') }}
+          </button>
+          <button v-if="grouping.count && grouping.count < MAX_GROUP_LEVELS" class="item" data-testid="group-add-level" @click="emit('group', 'add')">
+            {{ $t('添加为第 {0} 级分类汇总（在现有的每组里再按此列分组）', [grouping.count + 1]) }}
+          </button>
+        </template>
+        <template v-else>
+          <button class="item" data-testid="ungroup" @click="emit('group', 'remove')">
+            {{ grouping.count > 1 ? $t('取消这一级分类汇总（第 {0} 级）', [grouping.level + 1]) : $t('取消分类汇总') }}
+          </button>
+          <button v-if="grouping.count > 1" class="item" data-testid="ungroup-all" @click="emit('group', 'clear')">
+            {{ $t('取消全部分类汇总') }}
+          </button>
+        </template>
+      </template>
+      <button v-if="canChangeKind" class="item" data-testid="change-column-kind" @click="emit('changeKind')">
+        {{ $t('更改列类型（现在是{0}）…', [kindLabel(column.kind)]) }}
       </button>
     </div>
 

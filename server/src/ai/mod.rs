@@ -491,6 +491,69 @@ pub struct Context {
     pub pivot: Option<Json>,
     /// 工作簿里的数据表（set_table_view 的对象）
     pub tables: Vec<TableCtx>,
+    /// 正在数据集页面看的数据集（当前筛选、搜索、排序）
+    pub dataset: Option<DatasetViewCtx>,
+}
+
+/// 数据集页面当前的视图：用户问「这些订单」「这张表」时指的就是它
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DatasetViewCtx {
+    pub name: String,
+    /// 数据集总行数
+    #[serde(default)]
+    pub rows: Option<i64>,
+    /// 按当前筛选 / 搜索命中的行数
+    #[serde(default)]
+    pub matched: Option<i64>,
+    #[serde(default)]
+    pub filters: Vec<crate::dataset::Filter>,
+    #[serde(default)]
+    pub sort: Vec<crate::dataset::SortSpec>,
+    #[serde(default)]
+    pub keyword: Option<String>,
+    /// 从透视表 / 公式下钻过来时的说明
+    #[serde(default)]
+    pub drill: Option<String>,
+    /// 只看不符合这条校验规则的行（规则的说明）
+    #[serde(default)]
+    pub violation: Option<String>,
+}
+
+fn dataset_view_text(d: &DatasetViewCtx) -> String {
+    let mut s = format!("正在看数据集「{}」", d.name);
+    let mut bits = Vec::new();
+    if let Some(n) = d.rows {
+        bits.push(format!("共 {n} 行"));
+    }
+    if let Some(t) = d.drill.as_deref().filter(|t| !t.is_empty()) {
+        bits.push(format!("从「{t}」下钻过来"));
+    }
+    if let Some(v) = d.violation.as_deref().filter(|v| !v.is_empty()) {
+        bits.push(format!("只看不符合校验规则 {v} 的行"));
+    }
+    if !d.filters.is_empty() {
+        bits.push(format!("筛选：{}", tools::filters_desc(&d.filters)));
+    }
+    if let Some(k) = d.keyword.as_deref().filter(|k| !k.is_empty()) {
+        bits.push(format!("搜索「{k}」"));
+    }
+    if !d.sort.is_empty() {
+        bits.push(format!("排序：{}", d.sort.iter().map(|x| format!("{}{}", x.column, if x.desc { "降序" } else { "升序" })).collect::<Vec<_>>().join("、")));
+    }
+    let narrowed = !d.filters.is_empty() || d.keyword.as_deref().is_some_and(|k| !k.is_empty()) || d.violation.as_deref().is_some_and(|v| !v.is_empty());
+    if let (Some(m), true) = (d.matched, narrowed) {
+        bits.push(format!("命中 {m} 行"));
+    }
+    if !bits.is_empty() {
+        s.push_str(&format!("（{}）", bits.join("；")));
+    }
+    s.push_str(if narrowed {
+        "。问题里没有指明数据集时就是指它；说「这些 / 当前 / 筛选出的」数据时，查询要带上同样的筛选条件（搜索词没法作为筛选条件时用 contains 筛对应的列，或说明口径）"
+    } else {
+        "。问题里没有指明数据集时就是指它"
+    });
+    s
 }
 
 /// 工作簿里一张数据表当前的视图
@@ -561,6 +624,9 @@ pub struct ChatInput {
 
 fn context_text(c: &Context) -> String {
     let mut parts = Vec::new();
+    if let Some(d) = &c.dataset {
+        parts.push(dataset_view_text(d));
+    }
     if let Some(s) = &c.sheet_name {
         parts.push(format!("当前工作表「{s}」"));
     }
@@ -585,7 +651,7 @@ fn context_text(c: &Context) -> String {
 fn system_prompt(conn: &Connection) -> AppResult<String> {
     let mut catalog = String::new();
     for d in crate::dataset::list(conn)? {
-        let cols: Vec<String> = d.def.columns.iter().take(60).map(|c| format!("{}({})", c.title, match c.kind { "money" => "金额", "number" => "数值", "datetime" => "日期", "id" => "编号", _ => "文本" })).collect();
+        let cols: Vec<String> = d.def.columns.iter().take(60).map(|c| format!("{}({})", c.title, crate::kinds::label(c.kind))).collect();
         catalog.push_str(&format!("- 「{}」{} 行：{}{}\n", d.def.name, d.row_count, cols.join("、"), if d.def.columns.len() > 60 { "…" } else { "" }));
     }
     Ok(format!(
@@ -605,7 +671,9 @@ fn system_prompt(conn: &Connection) -> AppResult<String> {
 9. 用户想「只看…」「按…排序」「隐藏某些列」「搜索某个词」，并且界面上下文里有对应的数据表时，用 set_table_view 调整那张数据表的视图（数据表里千万行也只取可视区域），不要把明细行贴进回答。filters / sort / fields / keyword 给了就整体替换该项：要在现有筛选上追加，把界面上下文里列出的现有条件和新条件一起写进 filters；筛选值先用 column_values 确认写法。
 10. 用户想让某一列「用万元显示」「显示成百分比」「超过某个值标红」「含某个词加粗」时，用 set_column_format（只改显示、不改数据）。rules 给了就整体替换该列的全部规则：要在现有规则上追加，把界面上下文里列出的现有规则一并写进去。阈值必须来自用户或查询结果；不确定时先用 query_data 看一下分布再定。条件格式只对浮动表格有效，界面上下文里标了「单元格模式」的数据表只能设数字格式（万元也不行）。
 11. 用户想「把…放成一张表」「在表格里看…的明细」，而界面上下文里没有合适的数据表时，用 create_data_table 新建（可直接带上筛选、排序、显示列）；已经有对应的数据表就用 set_table_view 调整它，不要重复新建。默认用浮动表格（mode=float）：命中行数很多也只取可视区域；只有用户明确要把数据铺进单元格（如要用 A:A 区域引用或做公式）且命中不超过 1 万行时才用 cells。要汇总用 create_pivot，不要用数据表。
-12. 用户想把一条查询的结果「存成数据集」「保存下来以后反复用」时：先用 run_sql 确认结果对、列名各不相同，再用 save_query_as_dataset（用户确认后才会创建）。名称不能与已有数据集重名。只是看一眼汇总、不需要长期保留时不要存，用 create_pivot。",
+12. 用户想把一条查询的结果「存成数据集」「保存下来以后反复用」时：先用 run_sql 确认结果对、列名各不相同，再用 save_query_as_dataset（用户确认后才会创建）。名称不能与已有数据集重名。只是看一眼汇总、不需要长期保留时不要存，用 create_pivot。
+13. 用户问「数据有没有问题 / 数据质量怎么样 / 哪些列缺数据」时先用 profile_dataset 体检，结论引用其中的数字。用户要清洗数据（删重复、去空白、统一写法、补空值、删掉某些行）时：先用 profile_dataset / column_values 找出问题和准确写法，再用 propose_clean 给出建议（会直接修改数据集，用户看过改前改后的预览、确认后才执行，可撤销最近一次）；一次只提一种清洗，多个问题分几次提，并说明先后顺序。清洗和 create_window_dataset 都不能放进方案。用户想「防止以后再出这些问题 / 设校验规则 / 自动检查数据」时用 propose_validation（不填 rules 就按数据自动推荐，也可以按用户说的写 rules），它也不能放进方案。
+14. 用户想要「每组前 N 名」「累计」「排名」「和上一行比」「移动平均」「占组内比例」这类逐行的结果并保留下来时，用 create_window_dataset 生成新数据集（源数据更新后自动重算）；只是回答一个数字用 query_data / run_sql。",
         today = {
             use chrono::Datelike;
             let now = chrono::Local::now();
@@ -912,8 +980,18 @@ mod tests {
         let h = history(&stored);
         assert_eq!(h.first().unwrap().role, "user");
         assert_eq!(h.iter().filter(|x| x.role == "user").count(), HISTORY_TURNS);
-        let ctx = Context { sheet_name: Some("透视表1".into()), selection: Some("B2:C3".into()), selection_values: Some(vec![vec![json!("店铺"), json!(12.5)]]), pivot: None, tables: vec![] };
+        let ctx = Context { sheet_name: Some("透视表1".into()), selection: Some("B2:C3".into()), selection_values: Some(vec![vec![json!("店铺"), json!(12.5)]]), pivot: None, tables: vec![], dataset: None };
         assert!(context_text(&ctx).contains("店铺\t12.5"));
+        // 数据集页面：说明正在看哪个数据集、当前筛选与命中行数；没有筛选时不提「带上同样的筛选」
+        let view = |filters: Vec<crate::dataset::Filter>, keyword: Option<&str>| Context {
+            dataset: Some(DatasetViewCtx { name: "订单".into(), rows: Some(1000), matched: Some(12), filters, sort: vec![], keyword: keyword.map(String::from), drill: None, violation: None }),
+            ..Default::default()
+        };
+        let t = context_text(&view(vec![crate::dataset::Filter::In { column: "店铺".into(), values: vec!["A".into()] }], Some("退款")));
+        assert!(t.starts_with("【界面上下文】正在看数据集「订单」（共 1000 行；筛选：店铺=A；搜索「退款」；命中 12 行）。问题里没有指明数据集时就是指它；说「这些"), "{t}");
+        let t = context_text(&view(vec![], None));
+        assert_eq!(t, "【界面上下文】正在看数据集「订单」（共 1000 行）。问题里没有指明数据集时就是指它\n【问题】");
+        assert!(!t.contains("命中") && !t.contains("同样的筛选"), "{t}");
         let ctx = Context {
             tables: vec![TableCtx {
                 name: "订单表".into(),

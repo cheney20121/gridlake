@@ -1289,6 +1289,21 @@ async fn evaluate_and_notify(state: &AppState, alert: &StoredAlert, chans: &[Sto
     if (to_notify > 0 || want_recovery) && chans.is_empty() {
         return Err(AppError::bad("告警没有可用的推送渠道（可能已被删除）"));
     }
+    if to_notify > 0 {
+        let hits: Vec<serde_json::Value> = plan
+            .hits
+            .iter()
+            .filter_map(|h| {
+                let kind = match h.notice.as_ref()? {
+                    Notice::New => "new",
+                    Notice::Reminder => "reminder",
+                };
+                Some(serde_json::json!({ "group": h.group.key, "value": h.group.value, "judged": h.group.judged, "note": h.group.note, "notice": kind }))
+            })
+            .collect();
+        let data = serde_json::json!({ "alertId": alert.id, "name": alert.input.name, "datasetId": alert.input.dataset_id, "hits": hits, "totalHits": plan.hits.len() });
+        crate::webhook::emit(state, "alert.triggered", None, data);
+    }
     let mut results = Vec::new();
     if to_notify > 0 {
         let content = build_content(alert, &plan, now);
@@ -1424,6 +1439,20 @@ pub fn on_connector_synced(state: &AppState, connector_id: &str) {
     match due {
         Ok(due) => due.into_iter().for_each(|(id, name)| spawn_run(state, id, name, "after_sync")),
         Err(e) => tracing::warn!("检查同步后告警失败：{}", e.message()),
+    }
+}
+
+/// 数据集有新数据后：评估设为「数据集更新后」的告警
+pub fn on_data_changed(state: &AppState, dataset_id: &str) {
+    let due = state.connection().map_err(AppError::from).and_then(|conn| load_alerts(&conn)).map(|list| {
+        list.into_iter()
+            .filter(|a| a.input.enabled && matches!(&a.input.schedule, Schedule::AfterData { dataset_id: d } if d == dataset_id))
+            .map(|a| (a.id, a.input.name))
+            .collect::<Vec<_>>()
+    });
+    match due {
+        Ok(due) => due.into_iter().for_each(|(id, name)| spawn_run(state, id, name, "after_data")),
+        Err(e) => tracing::warn!("检查数据集更新后告警失败：{}", e.message()),
     }
 }
 

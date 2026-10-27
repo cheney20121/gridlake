@@ -27,6 +27,9 @@ LLM_PORT="${LEDGER_E2E_LLM_PORT:-19002}"
 export LEDGER_E2E_BASE="http://127.0.0.1:${PORT}/api" LEDGER_E2E_GATEWAY="http://127.0.0.1:${GW_PORT}" LEDGER_E2E_LLM_PORT="$LLM_PORT"
 
 TMP="$(mktemp -d)"
+export LEDGER_E2E_TMP="$TMP"
+# 被测的服务程序（测试 gridlake open 这类子命令时自己启动）
+export LEDGER_E2E_BIN="$(cd "$(dirname "$BIN")" && pwd)/$(basename "$BIN")"
 # 一个最小的前端目录：测试里写 LEDGER_WEB_DIR=@WEB@ 就由服务直接提供这个页面（用来检查页面的响应头）
 mkdir -p "$TMP/web" && printf '<!doctype html><title>e2e</title>\n' > "$TMP/web/index.html"
 PIDS=()
@@ -66,6 +69,8 @@ for t in tests/e2e/test_*.py; do
   # 测试文件第一行 "# env: A=1 B=2" 可以给这个测试的服务加环境变量（如 test_09 把重计算并发限制为 1）
   EXTRA_ENV="$(sed -n '1s/^# env: *//p' "$t")"
   EXTRA_ENV="${EXTRA_ENV//@WEB@/$TMP/web}"
+  # @TMP@：这次运行的临时目录（测试里用环境变量 LEDGER_E2E_TMP 拿到同一个目录，比如往收件目录里放文件）
+  EXTRA_ENV="${EXTRA_ENV//@TMP@/$TMP}"
   # AI 助手指向本机的模拟模型（只有用到 AI 的测试会在这个端口上起模拟模型，见 test_06）
   # 测试文件里的环境变量放在最后，可以覆盖默认值（如 test_30 改用内置账号 LEDGER_AUTH_MODE=local）
   env LEDGER_AI_BASE_URL="http://127.0.0.1:${LLM_PORT}/v1" LEDGER_AI_MODEL=mock-model LEDGER_AI_STREAM=0 \

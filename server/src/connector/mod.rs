@@ -859,6 +859,7 @@ pub async fn start(state: &AppState, id: &str, trigger: &str) -> AppResult<Strin
     };
     let st = state.clone();
     let rid = run_id.clone();
+    let trigger_by = trigger.to_string();
     tokio::spawn(async move {
         let cid = c.id.clone();
         let name = c.name.clone();
@@ -900,11 +901,28 @@ pub async fn start(state: &AppState, id: &str, trigger: &str) -> AppResult<Strin
                 "DELETE FROM ledger_connector_run WHERE connector_id = ? AND id NOT IN (SELECT id FROM ledger_connector_run WHERE connector_id = ? ORDER BY started_at DESC, id DESC LIMIT ?)",
                 params![cid, cid, KEEP_RUNS],
             )?;
-            Ok(())
+            // 第一次同步时才新建出数据集：重新读一下目标
+            let dataset_id = load_one(&conn, &cid).ok().and_then(|s| s.target.dataset_id);
+            let target = dataset_id.clone();
+            crate::webhook::emit_with(
+                &conn,
+                &st.webhooks,
+                "connector.synced",
+                None,
+                serde_json::json!({
+                    "connectorId": cid, "name": name, "runId": rid, "trigger": trigger_by, "status": status, "message": message, "datasetId": dataset_id,
+                    "rowsRead": tally.rows_read, "inserted": tally.inserted, "updated": tally.updated, "skipped": tally.skipped, "replaced": tally.replaced,
+                }),
+            );
+            Ok(target)
         });
-        if let Err(e) = finish {
-            tracing::error!("记录同步结果失败：{e:#}");
-        }
+        let synced_dataset = match finish {
+            Ok(d) => d,
+            Err(e) => {
+                tracing::error!("记录同步结果失败：{e:#}");
+                None
+            }
+        };
         if let Ok(mut r) = st.connectors.running.lock() {
             r.remove(&cid);
         }
@@ -912,6 +930,10 @@ pub async fn start(state: &AppState, id: &str, trigger: &str) -> AppResult<Strin
         if status == "success" {
             // 先重算依赖它的 SQL 查询，再推送（推送内容可能用到查询结果）
             crate::sqlq::on_connector_synced(&st, &cid);
+            // 也算「目标数据集有新数据」
+            if let Some(d) = synced_dataset {
+                crate::sqlq::on_data_changed(&st, &d);
+            }
         }
     });
     Ok(run_id)

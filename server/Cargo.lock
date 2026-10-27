@@ -1055,6 +1055,7 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-subscriber",
+ "zip 8.6.0",
 ]
 
 [[package]]

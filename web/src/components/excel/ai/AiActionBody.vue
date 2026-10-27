@@ -35,6 +35,11 @@ const detail = computed(() => {
       return t('数据集「{0}」· {1}', [p.datasetName, p.preview?.note ?? ''])
     case 'dataset_save':
       return [p.purpose, p.preview?.note].filter(Boolean).join(' · ')
+    case 'clean':
+    case 'validation':
+      return t('数据集「{0}」· {1}', [p.datasetName, p.preview?.note ?? ''])
+    case 'window':
+      return p.preview?.note ?? ''
   }
   return ''
 })

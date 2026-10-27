@@ -39,6 +39,8 @@ export type ReportSchedule
     | { kind: 'weekly', weekday: number, at: string }
     | { kind: 'monthly', day: number, at: string }
     | { kind: 'after_sync', connectorId: string }
+    /** 某个数据集有新数据后：导入、数据连接同步、外部文件有变化、SQL 查询重算写入 */
+    | { kind: 'after_data', datasetId: string }
 
 export interface ChannelResult {
   channelId: string
@@ -50,7 +52,7 @@ export interface ChannelResult {
 export interface ReportRun {
   id: string
   reportId: string
-  trigger: 'manual' | 'schedule' | 'after_sync'
+  trigger: 'manual' | 'schedule' | 'after_sync' | 'after_data'
   status: 'running' | 'success' | 'partial' | 'failed'
   startedAt: string
   finishedAt: string | null

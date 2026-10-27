@@ -103,8 +103,16 @@ while True:
 check("每个账号最多 20 个", made == 20 and s == 400 and "最多 20" in msg((s, r)), (made, s, r))
 
 # ── 审计 ──
-s, r = call("GET", "/ledger/audit?action=%E8%AE%BF%E9%97%AE%E4%BB%A4%E7%89%8C&size=50", ADMIN)
-items = r["data"]["items"] if s == 200 and isinstance(r["data"], dict) and "items" in r["data"] else []
+# 审计是后台批量写入的（攒最多 2 秒再写）：等到两条都写进去，最多 10 秒
+def audit_items():
+    s, r = call("GET", "/ledger/audit?action=%E8%AE%BF%E9%97%AE%E4%BB%A4%E7%89%8C&size=50", ADMIN)
+    return s, r, (r["data"]["items"] if s == 200 and isinstance(r["data"], dict) and "items" in r["data"] else [])
+for _ in range(20):
+    s, r, items = audit_items()
+    text = json.dumps(items, ensure_ascii=False)
+    if "创建访问令牌" in text and "吊销访问令牌" in text:
+        break
+    time.sleep(0.5)
 check("创建 / 吊销令牌进入操作审计", any("创建访问令牌" in json.dumps(i, ensure_ascii=False) for i in items) and any("吊销访问令牌" in json.dumps(i, ensure_ascii=False) for i in items), (s, str(r)[:300]))
 
 finish()

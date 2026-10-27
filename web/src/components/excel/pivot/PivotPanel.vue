@@ -82,7 +82,7 @@ function normalize() {
 /** 空白透视表上给几个一键起步的组合：按店铺 / 渠道这类分类看金额，按月看走势 */
 const suggestions = computed(() => {
   const cols = dataset.value?.columns ?? []
-  const measure = cols.find(c => c.kind === 'money') ?? cols.find(c => c.kind === 'number')
+  const measure = cols.find(c => c.kind === 'money') ?? cols.find(c => isNumeric(c.kind))
   const texts = cols.filter(c => c.kind === 'text').slice(0, 2)
   const date = cols.find(c => c.kind === 'datetime')
   const out: { label: string, apply: () => void }[] = []

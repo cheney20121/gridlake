@@ -100,6 +100,7 @@ fn kind_static(kind: &str) -> &'static str {
         "money" => "money",
         "datetime" => "datetime",
         "id" => "id",
+        "integer" => "integer",
         "number" | "percent" => "number",
         _ => "text",
     }
@@ -129,7 +130,7 @@ fn build(def: &SummaryDef, source: &DatasetDef) -> AppResult<Built> {
     for f in &def.rows {
         let (expr, name) = pivot::dim_sql(source, f)?;
         let col = source.columns.iter().find(|c| c.key == f.column || c.title == f.column);
-        let kind = if f.granularity.as_deref().is_some_and(|g| !g.is_empty()) { "text" } else { col.map(|c| c.kind).unwrap_or("text") };
+        let kind = if f.granularity.as_deref().is_some_and(|g| !g.is_empty()) { "text" } else { col.map(|c| c.kind).filter(|k| *k != "boolean").unwrap_or("text") };
         push(name.clone(), kind, &mut columns)?;
         dims.push((expr, name));
     }
@@ -200,6 +201,7 @@ pub fn dataset_def(id: String, name: String, def: SummaryDef, source: &DatasetDe
         scope_sig: String::new(),
         view: None,
         summary: Some(def),
+        external: None,
     })
 }
 

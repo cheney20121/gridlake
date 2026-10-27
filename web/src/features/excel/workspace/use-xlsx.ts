@@ -104,8 +104,12 @@ export function useXlsx(options: {
       const dropped = [r.unsupported.images && t('图片 {0} 张', [r.unsupported.images]), ...f.skipped.slice(0, 5).map(escapeHtml), r.definedNames?.skipped.length && t('命名区域「{0}」{1}（指向多个区域、未导入的页签或重名）', [r.definedNames.skipped.slice(0, 3).map(escapeHtml).join('」「'), r.definedNames.skipped.length > 3 ? t(' 等 {0} 个', [r.definedNames.skipped.length]) : ''])].filter(Boolean)
       if (dropped.length)
         lines.push(t('<span style="color:#6B7280">未能导入：{0}{1}</span>', [dropped.join('、'), f.skipped.length > 5 ? t(' 等 {0} 项', [f.skipped.length]) : '']))
-      if (r.unknownFunctions)
-        lines.push(t('<span style="color:#B91C1C">{0} 个公式使用了当前不支持的函数（显示 #NAME?）</span>', [r.unknownFunctions]))
+      if (r.unknownFunctions) {
+        const names = r.unknownFunctionNames ?? []
+        lines.push(names.length
+          ? t('<span style="color:#B91C1C">{0} 个公式使用了当前不支持的函数（显示 #NAME?）：{1}</span>', [r.unknownFunctions, escapeHtml(names.slice(0, 8).join('、') + (names.length > 8 ? t(' 等 {0} 个', [names.length]) : ''))])
+          : t('<span style="color:#B91C1C">{0} 个公式使用了当前不支持的函数（显示 #NAME?）</span>', [r.unknownFunctions]))
+      }
       await ElMessageBox.alert(lines.join('<br>') || t('文件中没有可导入的页签'), t('已导入「{0}」', [escapeHtml(file.name)]), {
         dangerouslyUseHTMLString: true,
         confirmButtonText: t('知道了'),

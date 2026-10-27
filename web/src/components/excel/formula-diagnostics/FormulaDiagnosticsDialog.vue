@@ -5,6 +5,7 @@ import type { DiagnosticsReport, FormulaError, FormulaGroup } from '@/features/e
 import { computed, ref, watch } from 'vue'
 import { datasetFormulaStats } from '@/features/excel/formula/dataset-functions'
 import { analyzeFormulas, measureRecalc } from '@/features/excel/formula/diagnostics'
+import { functionProblems } from '@/features/excel/formula/function-check'
 import { importRangeStats } from '@/features/excel/formula/import-range'
 import { cellName } from '@/features/excel/writeback/input-table'
 import { t } from '@/i18n'
@@ -88,6 +89,14 @@ const ERROR_HINT: Record<string, string> = {
 }
 
 function hint(e: FormulaError) {
+  // #NAME?：先看是不是用了不支持的函数（点名并给出原因 / 替代），其次才是拼错
+  if (e.value.startsWith('#NAME?')) {
+    const p = functionProblems(e.formula)
+    if (p.unsupported.length)
+      return t('不支持的函数 {0}：{1}', [p.unsupported[0]!.name, p.unsupported[0]!.reason])
+    if (p.unknown.length)
+      return t('不认识的函数 {0}（拼错了？）', [p.unknown.join('、')])
+  }
   // 平台函数返回的「#说明」本身就是原因，不再重复
   const k = Object.keys(ERROR_HINT).find(x => e.value.startsWith(x))
   return k ? ERROR_HINT[k] : ''

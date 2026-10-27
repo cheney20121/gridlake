@@ -41,6 +41,8 @@ pub struct Db {
     pub auth: crate::auth::Auth,
     /// 数据范围（行级权限）规则缓存
     pub scope: crate::scope::ScopeStore,
+    /// 事件 Webhook 的发送队列唤醒信号与订阅缓存
+    pub webhooks: crate::webhook::Hub,
 }
 
 /// 重计算的并发闸门。DuckDB 每个重查询都会吃满全部 CPU 核并占用大块内存，几个一起跑时内存峰值叠加（亿级数据实测可到 6 GB 以上），
@@ -156,6 +158,7 @@ impl Db {
             tmp_dir,
             auth: crate::auth::Auth::new(config)?,
             scope: crate::scope::ScopeStore::default(),
+            webhooks: crate::webhook::Hub::default(),
         })
     }
 

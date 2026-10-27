@@ -181,6 +181,7 @@ const form = reactive<SaveForm>({
   scheduleKind: 'manual',
   at: '06:00',
   connectorId: '',
+  triggerDatasetId: '',
 })
 
 async function openSave(asNew = false) {
@@ -201,6 +202,7 @@ async function openSave(asNew = false) {
     scheduleKind: c?.schedule.kind ?? 'manual',
     at: c?.schedule.kind === 'daily' ? c.schedule.at : '06:00',
     connectorId: c?.schedule.kind === 'after_sync' ? c.schedule.connectorId : '',
+    triggerDatasetId: c?.schedule.kind === 'after_data' ? c.schedule.datasetId : '',
   })
   if (asNew)
     current.value = null
@@ -215,7 +217,13 @@ async function save() {
     return ElMessage.warning(t('请填写数据集名称'))
   if (form.scheduleKind === 'after_sync' && !form.connectorId)
     return ElMessage.warning(t('请选择数据连接'))
-  const schedule: SqlSchedule = form.scheduleKind === 'daily' ? { kind: 'daily', at: form.at } : form.scheduleKind === 'after_sync' ? { kind: 'after_sync', connectorId: form.connectorId } : { kind: 'manual' }
+  if (form.scheduleKind === 'after_data' && !form.triggerDatasetId)
+    return ElMessage.warning(t('请选择数据集'))
+  const schedule: SqlSchedule = form.scheduleKind === 'daily'
+    ? { kind: 'daily', at: form.at }
+    : form.scheduleKind === 'after_sync'
+      ? { kind: 'after_sync', connectorId: form.connectorId }
+      : form.scheduleKind === 'after_data' ? { kind: 'after_data', datasetId: form.triggerDatasetId } : { kind: 'manual' }
   // 只提交与自动推断不同的类型
   const kinds = Object.fromEntries(Object.entries(form.kinds).filter(([n, k]) => result.value?.columns.find(c => c.name === n)?.kind !== k))
   const input = {
@@ -339,6 +347,6 @@ async function remove(sq: SavedQuery) {
     </div>
 
     <ParamInstanceDialog v-model:visible="instanceVisible" :query="current" @created="(q: SavedQuery) => { loadQueries(); emit('datasetsChanged', q.datasetId ?? undefined) }" />
-    <SaveQueryDialog v-model:visible="saveVisible" v-model:form="form" :current="current" :connectors="connectors" :saving="saving" @save="save" />
+    <SaveQueryDialog v-model:visible="saveVisible" v-model:form="form" :current="current" :connectors="connectors" :datasets="datasets" :saving="saving" @save="save" />
   </el-dialog>
 </template>

@@ -4,7 +4,7 @@ import request from '@/utils/request'
 /** SQL 查询：对数据集写只读 SQL，结果可另存为数据集并按计划重算 */
 const url = (path: string) => `${LEDGER_BASE}/api/ledger/sql${path}`
 
-export type SqlColumnKind = 'text' | 'id' | 'number' | 'money' | 'datetime'
+export type SqlColumnKind = 'text' | 'id' | 'integer' | 'number' | 'money' | 'datetime' | 'boolean'
 
 export interface SqlColumn {
   name: string
@@ -24,6 +24,8 @@ export type SqlSchedule
   = | { kind: 'manual' }
     | { kind: 'daily', at: string }
     | { kind: 'after_sync', connectorId: string }
+    /** 某个数据集有新数据后（导入、数据连接同步、外部文件有变化）；SQL 查询写入的数据集不会再触发别的查询 */
+    | { kind: 'after_data', datasetId: string }
 
 export type ParamKind = 'text' | 'number' | 'date'
 

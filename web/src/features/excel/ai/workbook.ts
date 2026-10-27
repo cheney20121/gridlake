@@ -2,12 +2,14 @@ import type { FUniver } from '@univerjs/core/facade'
 import type { DatasetSavePayload, DatasetSaveUndo } from './workbook-dataset'
 import type { ColumnFormatPayload, ColumnFormatUndo, TableCreatePayload, TableCreateUndo, TableViewPayload, TableViewUndo } from './workbook-table'
 import type { AiAction, AiContext } from '@/api/ai'
-import type { DatasetColumnKind } from '@/api/dataset'
+import type { CleanOp, DatasetColumnKind, ValidationRule, WindowSpec } from '@/api/dataset'
 import type { ChartSpec } from '@/features/excel/chart/types'
 import type { PivotSpec } from '@/features/excel/pivot/pivot-sheet'
-import { addCalcApi, removeCalcApi } from '@/api/dataset'
+import { addCalcApi, applyCleanApi, createWindowApi, getValidationApi, lastCleanApi, removeCalcApi, saveValidationApi, undoCleanApi } from '@/api/dataset'
 import { colName } from '@/features/excel/chart/chart-defaults'
 import { insertChart, newChartId, removeChart } from '@/features/excel/chart/chart-manager'
+import { currentDatasetView } from '@/features/excel/dataset/active-view'
+import { markDataChanged } from '@/features/excel/dataset/data-changes'
 import { createPivotSheet, getPivotSpec, refreshPivot } from '@/features/excel/pivot/pivot-sheet'
 import { t } from '@/i18n'
 import { applyDatasetSave, undoDatasetSave } from './workbook-dataset'
@@ -24,6 +26,13 @@ const MAX_ROWS = 20
 const MAX_COLS = 10
 
 export function collectContext(api: FUniver | null | undefined): AiContext {
+  // 数据集页面在前台：带上正在看的数据集与筛选；工作表、选区被盖在后面，不带（工作簿里的数据表仍可调整）
+  const view = currentDatasetView()
+  if (view) {
+    const { id: _, ...dataset } = view
+    const tables = collectTableContext(api)
+    return tables.length ? { dataset, tables } : { dataset }
+  }
   const sheet = api?.getActiveWorkbook()?.getActiveSheet()
   if (!sheet)
     return {}
@@ -72,6 +81,8 @@ export type UndoStep
     | ColumnFormatUndo
     | TableCreateUndo
     | DatasetSaveUndo
+    | { kind: 'clean', datasetId: string, datasetName: string, summary: string, at: string | null }
+    | { kind: 'validation', datasetId: string, datasetName: string, previous: ValidationRule[], applied: ValidationRule[] }
     | { kind: 'plan', steps: UndoStep[] }
 
 export interface Applied {
@@ -80,7 +91,7 @@ export interface Applied {
   undo: UndoStep
 }
 
-const KIND_NAME: Record<string, string> = { pivot: t('透视表'), chart: t('图表'), formula: t('公式'), calc: t('计算列'), table_view: t('数据表视图'), column_format: t('列样式'), table_create: t('新建数据表'), dataset_save: t('另存数据集') }
+const KIND_NAME: Record<string, string> = { pivot: t('透视表'), chart: t('图表'), formula: t('公式'), calc: t('计算列'), table_view: t('数据表视图'), column_format: t('列样式'), table_create: t('新建数据表'), dataset_save: t('另存数据集'), clean: t('数据清洗'), window: t('窗口计算'), validation: t('校验规则') }
 
 async function applyOne(api: FUniver, kind: string, p: Record<string, any>, onDatasetsChanged: () => void, operator?: string): Promise<Applied> {
   switch (kind) {
@@ -129,6 +140,48 @@ async function applyOne(api: FUniver, kind: string, p: Record<string, any>, onDa
       return applyTableCreate(api, p as TableCreatePayload)
     case 'dataset_save':
       return applyDatasetSave(p as DatasetSavePayload, onDatasetsChanged, operator)
+    case 'clean': {
+      // 删除行再确认一次（应用按钮旁边没有预览之外的提示）
+      if (p.deletes) {
+        const ok = await ElMessageBox.confirm(t('将从「{0}」删除 {1} 行（{2}），之后可以撤销。继续？', [p.datasetName, Number(p.affected).toLocaleString(), p.summary]), t('删除行'), { type: 'warning', confirmButtonText: t('删除') }).then(() => true, () => false)
+        if (!ok)
+          throw new Error(t('已取消'))
+      }
+      const r = await applyCleanApi(p.datasetId, p.op as CleanOp)
+      // 记下是哪一次清洗：服务端只能撤销最近一次，撤销前要确认最近一次还是它
+      const last = await lastCleanApi(p.datasetId).catch(() => null)
+      markDataChanged(p.datasetId)
+      onDatasetsChanged()
+      return {
+        message: r.deletes
+          ? t('已清洗「{0}」：{1}，删除 {2} 行', [p.datasetName, r.summary, r.affected.toLocaleString()])
+          : t('已清洗「{0}」：{1}，修改 {2} 行', [p.datasetName, r.summary, r.affected.toLocaleString()]),
+        undo: { kind: 'clean', datasetId: p.datasetId, datasetName: p.datasetName, summary: r.summary, at: last?.createdAt ?? null },
+      }
+    }
+    case 'validation': {
+      // 与「数据校验」对话框同一个接口：保存规则并立即检查；撤销时恢复原来的规则
+      const v = await saveValidationApi(p.datasetId, p.rules as ValidationRule[])
+      onDatasetsChanged()
+      const failed = v.report?.failed ?? 0
+      return {
+        message: failed
+          ? t('已给「{0}」保存 {1} 条校验规则，{2} 条有不合格的行', [p.datasetName, v.rules.length, failed])
+          : t('已给「{0}」保存 {1} 条校验规则，全部通过', [p.datasetName, v.rules.length]),
+        undo: { kind: 'validation', datasetId: p.datasetId, datasetName: p.datasetName, previous: (p.previous ?? []) as ValidationRule[], applied: v.rules },
+      }
+    }
+    case 'window': {
+      // 与「更多 → 窗口计算」同一个接口：保存为 SQL 查询并另存为数据集，源数据更新后自动重算；撤销与另存数据集相同
+      const q = await createWindowApi(p.datasetId, { ...(p.spec as WindowSpec), name: p.name, autoRefresh: true })
+      if (!q.datasetId)
+        throw new Error(t('数据集没有创建成功'))
+      onDatasetsChanged()
+      return {
+        message: t('已用窗口计算生成数据集「{0}」{1}', [p.name, q.lastRows != null ? t('（{0} 行）', [q.lastRows.toLocaleString()]) : '']),
+        undo: { kind: 'dataset_save', queryId: q.id, datasetId: q.datasetId, name: p.name },
+      }
+    }
   }
   throw new Error(t('不支持的建议类型：{0}', [kind]))
 }
@@ -216,5 +269,27 @@ export async function undoApplied(api: FUniver, undo: UndoStep, onDatasetsChange
       return undoTableCreate(api, undo)
     case 'dataset_save':
       return undoDatasetSave(undo, onDatasetsChanged, operator)
+    case 'clean': {
+      // 服务端只能撤销最近一次、且之后没有别的改动的清洗：最近一次已经不是这次（之后又清洗过），或之后数据又变了，
+      // 都报错说明原因，建议保持「已应用」
+      const last = await lastCleanApi(undo.datasetId)
+      if (!last || last.summary !== undo.summary || (undo.at && last.createdAt !== undo.at))
+        throw new Error(t('「{0}」之后又做过别的清洗，只能撤销最近一次', [undo.datasetName]))
+      if (!last.canUndo)
+        throw new Error(last.reason || t('不能撤销'))
+      await undoCleanApi(undo.datasetId)
+      markDataChanged(undo.datasetId)
+      onDatasetsChanged()
+      return t('已撤销对「{0}」的清洗（{1}）', [undo.datasetName, undo.summary])
+    }
+    case 'validation': {
+      // 之后在对话框里又改过规则：不覆盖别人的修改
+      const now = await getValidationApi(undo.datasetId)
+      if (JSON.stringify(now.rules) !== JSON.stringify(undo.applied))
+        throw new Error(t('「{0}」的校验规则之后又改过，没有撤销', [undo.datasetName]))
+      await saveValidationApi(undo.datasetId, undo.previous)
+      onDatasetsChanged()
+      return t('已恢复「{0}」原来的校验规则（{1} 条）', [undo.datasetName, undo.previous.length])
+    }
   }
 }

@@ -4,7 +4,7 @@
 //!   `gridlake mcp-bridge` 或 `npx mcp-remote` 转接
 //! - 访问控制：必须带令牌（Authorization: Bearer）；没有任何有效令牌时整个接口不可用。令牌只保存 SHA-256 摘要，
 //!   可限定能访问的数据集、是否允许 SQL；每次调用记审计日志
-//! - 工具全部只读：数据集列表 / 结构 / 取值、汇总查询、两期对比、SQL、仪表盘列表与当前指标。
+//! - 工具全部只读：数据集列表 / 结构 / 取值、汇总查询、两期对比、数据概况、SQL、仪表盘列表与当前指标。
 //!   新建透视表、写公式等会改工作簿的能力不对外开放（外部客户端没有人工确认环节）
 
 pub mod bridge;
@@ -228,7 +228,7 @@ pub fn logs(conn: &Connection, limit: i64) -> AppResult<Vec<LogView>> {
 // ── 工具 ──────────────────────────────────────────────
 
 /// 复用 AI 助手的只读工具
-const SHARED_TOOLS: [&str; 6] = ["describe_dataset", "column_values", "query_data", "compare_periods", "find_anomalies", "run_sql"];
+const SHARED_TOOLS: [&str; 7] = ["describe_dataset", "column_values", "query_data", "compare_periods", "find_anomalies", "profile_dataset", "run_sql"];
 
 fn tool_list(caller: &Caller) -> Vec<Json> {
     let mut out = vec![json!({
@@ -250,6 +250,7 @@ fn tool_list(caller: &Caller) -> Vec<Json> {
             "query_data" => "汇总查询",
             "compare_periods" => "两期对比归因",
             "find_anomalies" => "异常发现",
+            "profile_dataset" => "数据概况",
             _ => "SQL 查询",
         };
         out.push(json!({ "name": name, "title": title, "description": f["description"], "inputSchema": f["parameters"], "annotations": { "readOnlyHint": true } }));
@@ -289,7 +290,7 @@ fn list_datasets(conn: &Connection, caller: &Caller) -> AppResult<String> {
             .def
             .columns
             .iter()
-            .map(|c| format!("{}({})", c.title, match c.kind { "money" => "金额", "number" => "数值", "datetime" => "日期时间", "id" => "编号", _ => "文本" }))
+            .map(|c| format!("{}({})", c.title, crate::kinds::label(c.kind)))
             .collect();
         out.push_str(&format!("- 「{}」{} 行：{}\n", d.def.name, d.row_count, cols.join("、")));
     }
@@ -416,7 +417,7 @@ fn rpc_result(id: Json, result: Json) -> Json {
     json!({ "jsonrpc": "2.0", "id": id, "result": result })
 }
 
-const INSTRUCTIONS: &str = "Gridlake 电商财务数据平台（只读）。先用 list_datasets 了解有哪些数据集与列，再用 query_data（分组汇总）、compare_periods（两期对比归因）或 run_sql（复杂计算）查询；用 list_dashboards / read_dashboard 读取老板看板等仪表盘的当前指标。所有数字都应来自工具结果。";
+const INSTRUCTIONS: &str = "Gridlake 电商财务数据平台（只读）。先用 list_datasets 了解有哪些数据集与列，再用 query_data（分组汇总）、compare_periods（两期对比归因）或 run_sql（复杂计算）查询，用 profile_dataset 检查数据质量（空值、不同值、认不出的日期）；用 list_dashboards / read_dashboard 读取老板看板等仪表盘的当前指标。所有数字都应来自工具结果。";
 
 /// 处理一条 JSON-RPC 消息；通知（没有 id）返回 None
 pub fn handle(conn: &Connection, caller: &Caller, msg: &Json, client: Option<&str>) -> Option<Json> {
@@ -484,7 +485,8 @@ mod tests {
         let names = |c: &Caller| tool_list(c).iter().map(|t| t["name"].as_str().unwrap().to_string()).collect::<Vec<_>>();
         let all = names(&caller(true));
         assert!(all.contains(&"run_sql".to_string()) && all.contains(&"read_dashboard".to_string()) && all.contains(&"list_datasets".to_string()));
-        assert!(!all.iter().any(|n| n.starts_with("create_") || n == "write_formula" || n == "add_calc_column"));
+        assert!(all.contains(&"profile_dataset".to_string()));
+        assert!(!all.iter().any(|n| n.starts_with("create_") || n.starts_with("propose_") || n == "write_formula" || n == "add_calc_column"));
         assert!(!names(&caller(false)).contains(&"run_sql".to_string()));
         for t in tool_list(&caller(true)) {
             assert_eq!(t["inputSchema"]["type"], "object");

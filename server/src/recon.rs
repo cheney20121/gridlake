@@ -113,6 +113,7 @@ pub fn dataset_def(id: String, name: String) -> DatasetDef {
         scope_sig: String::new(),
         view: None,
         summary: None,
+        external: None,
     }
 }
 
@@ -136,7 +137,7 @@ fn check_side(defs: &[DatasetDef], s: &Side, which: &str) -> AppResult<(Side, Da
         return Err(AppError::bad("金额方向只能是 1（原样）或 -1（取反）"));
     }
     let amount = find_col(&ds, &s.amount)?;
-    if !matches!(amount.kind, "money" | "number") {
+    if !crate::kinds::is_numeric(amount.kind) {
         return Err(AppError::bad(format!("{which}的金额列「{}」不是数值列", amount.title)));
     }
     let date = match s.date.as_deref().map(str::trim).filter(|x| !x.is_empty()) {

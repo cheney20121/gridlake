@@ -15,7 +15,8 @@ axum = { version = "0.8", features = ["multipart"] }
 calamine = { version = "0.26", features = ["dates"] }
 chrono = { version = "0.4.45", default-features = false, features = ["std", "clock"] }
 csv = "1.4.0"
-duckdb = { version = "1", features = ["bundled"] }
+# json / parquet 扩展静态编进程序：SQL 检查要用 json，Parquet 导入要用 parquet；不编进来时 DuckDB 会在运行时联网下载，离线部署直接不可用
+duckdb = { version = "1", features = ["bundled", "json", "parquet"] }
 encoding_rs = "0.8"
 hmac = "0.12"
 lettre = { version = "0.11", default-features = false, features = ["builder", "smtp-transport", "tokio1", "tokio1-rustls-tls", "file-transport", "hostname"] }
@@ -33,6 +34,8 @@ tokio-util = { version = "0.7.19", features = ["io"] }
 tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6", features = ["cors", "trace", "fs", "compression-gzip"] }
 tracing = "0.1"
+# 改写导出的 xlsx（rust_xlsxwriter 常量内存模式不写行的分级），与 rust_xlsxwriter 用的同一个版本
+zip = { version = "8", default-features = false, features = ["deflate"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
 [profile.dev.package.duckdb]

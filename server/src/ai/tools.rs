@@ -97,6 +97,78 @@ fn dataset_param() -> Json {
     json!({ "type": "string", "description": "数据集名称或 ID" })
 }
 
+/// 数据概况、数据清洗、窗口计算（单独一个 json!：放进上面的大数组会超出宏展开深度）
+fn data_tool_definitions() -> Json {
+    json!([
+        {
+            "type": "function",
+            "function": {
+                "name": "profile_dataset",
+                "description": "数据概况（数据质量体检）：一次扫描列出每一列的空值个数、只有空白的个数、不同值个数、最小 / 最大值、数值列的合计 / 平均 / 中位数 / 零和负数个数、日期列里认不出的写法个数，并列出可能的问题。用户问「这张表的数据有没有问题 / 数据质量怎么样 / 哪些列缺数据」或要清洗数据前先调用它",
+                "parameters": { "type": "object", "properties": { "dataset": dataset_param(), "filters": filters_schema(), "columns": { "type": "array", "items": { "type": "string" }, "description": "只看这些列（不填看全部列）" } }, "required": ["dataset"] }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "propose_clean",
+                "description": "建议对数据表做一次数据清洗（直接修改数据集里的数据，用户看过预览、确认后才执行，执行后可以撤销最近一次）。op：dedupe 删除重复行（columns 这些列都相同的只留最先导入的一行，不填为全部列）/ trim 去掉首尾空白（含全角空格，columns 不填为全部文本列）/ replace 查找替换（column、find、replace；whole=true 整格等于才替换，否则替换每一处，统一「北京」「北京市」这类写法时用 whole）/ fill 填充空值（column；value 填固定值，或 down=true 用上一行的值向下填充）/ delete_rows 删除筛选出的行（必须给 filters）。一次只做一种清洗；先用 profile_dataset、column_values 找出问题和准确写法。只能用于导入的数据表（不能用于关联视图、外部数据集），只有数据集所有者或管理员能执行",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "dataset": dataset_param(),
+                        "op": { "type": "string", "enum": ["dedupe", "trim", "replace", "fill", "delete_rows"] },
+                        "columns": { "type": "array", "items": { "type": "string" }, "description": "dedupe / trim 的列" },
+                        "column": { "type": "string", "description": "replace / fill 的列" },
+                        "find": { "type": "string" },
+                        "replace": { "type": "string", "description": "替换成（空字符串即清空）" },
+                        "whole": { "type": "boolean" },
+                        "value": { "type": "string", "description": "fill 填的值" },
+                        "down": { "type": "boolean", "description": "fill 用上一行的值向下填充" },
+                        "filters": filters_schema()
+                    },
+                    "required": ["dataset", "op"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "propose_validation",
+                "description": "建议给数据集设校验规则（用户看过每条规则现在有几行不合格、确认后才保存；之后每次导入、同步后自动检查，可以只看不合格的行）。rules 不填时按数据本身的样子自动推荐（手机号 / 邮箱 / 身份证格式、编号不能重复、差不多都填了的列必填、取值很少的列只能是这几个值、金额数量不小于 0）。rules 的每一项：column 列名，kind：required 必填 / unique 不能重复 / range 取值范围（min、max，数值列写数字，日期列写 2026-01-01，只写一端也行）/ format 格式（format：phone、email、date、digits、idcard，或 regex 加 pattern 整格匹配）/ allowed 只能是这几个值（values）。默认加在已有规则后面，replace=true 时替换全部已有规则。只有数据集所有者或管理员能保存",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "dataset": dataset_param(),
+                        "rules": { "type": "array", "items": { "type": "object", "properties": { "column": { "type": "string" }, "kind": { "type": "string", "enum": ["required", "unique", "range", "format", "allowed"] }, "min": {}, "max": {}, "format": { "type": "string", "enum": ["phone", "email", "date", "digits", "idcard", "regex"] }, "pattern": { "type": "string" }, "values": { "type": "array", "items": { "type": "string" } } }, "required": ["column", "kind"] }, "description": "不填为自动推荐" },
+                        "replace": { "type": "boolean", "description": "替换全部已有规则（默认加在后面）" }
+                    },
+                    "required": ["dataset"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "create_window_dataset",
+                "description": "建议用窗口计算生成一个新数据集（用户确认后创建；源数据集更新后自动重算）：在每一行旁边加累计、排名、和上一行比、移动平均、组内合计 / 占比等列，或每组只留前 N 行。用户要「每家店铺销售额最高的 10 天」「每个商品的累计销量」「环比变化率序列」并想保留结果时用；只是回答一个数字用 query_data / run_sql。calcs 的 func：running_sum 累计 / row_number 序号 / rank 排名（大的在前）/ rank_asc 排名（小的在前）/ prev 上一行的值 / diff 与上一行的差 / pct_change 较上一行的变化率 / moving_avg 移动平均（rows 行，默认 7）/ group_sum 组内合计 / group_avg 组内平均 / group_count 组内行数 / share 占组内合计的比例；除 row_number、group_count 外都要 column（数值列）。累计、序号、排名、上一行、移动平均、topN 需要 orderBy",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "dataset": dataset_param(),
+                        "name": { "type": "string", "description": "新数据集名称，如「各店铺销售额前 10 天」" },
+                        "calcs": { "type": "array", "minItems": 1, "items": { "type": "object", "properties": { "func": { "type": "string", "enum": ["running_sum", "row_number", "rank", "rank_asc", "prev", "diff", "pct_change", "moving_avg", "group_sum", "group_avg", "group_count", "share"] }, "column": { "type": ["string", "null"] }, "name": { "type": "string", "description": "新列名" }, "rows": { "type": "integer" } }, "required": ["func", "name"] } },
+                        "partitionBy": { "type": "array", "items": { "type": "string" }, "description": "分组列（不填为整个数据集一组）" },
+                        "orderBy": { "type": "array", "items": { "type": "object", "properties": { "column": { "type": "string" }, "desc": { "type": "boolean" } }, "required": ["column"] }, "description": "组内顺序" },
+                        "topN": { "type": "integer", "description": "每组只保留按 orderBy 排在前面的 N 行" }
+                    },
+                    "required": ["dataset", "name", "calcs"]
+                }
+            }
+        }
+    ])
+}
+
 pub fn definitions() -> Json {
     let query_props = json!({
         "dataset": dataset_param(),
@@ -108,7 +180,7 @@ pub fn definitions() -> Json {
         "top": { "type": "integer", "description": "只保留第一个行字段按第一个值排名的前 N 项" },
         "calcItems": { "type": "array", "description": "计算项：在某个行 / 列字段的取值之间做运算，新增一个取值（如列字段「单据类型」里新增「期末」= [入库] - [出库]）。与 values 里的计算值（agg: calc，在值之间运算）不同。公式对每个值、每个格子分别计算，引用该字段下已有的取值；不能与 top 或占比 / 同比 / 环比同时用", "items": { "type": "object", "properties": { "field": { "type": "string", "description": "行或列字段的列名" }, "name": { "type": "string", "description": "新取值的名称，如「期末」" }, "formula": { "type": "string", "description": "如 [入库] - [出库]" } }, "required": ["field", "name", "formula"] } }
     });
-    json!([
+    let mut list = json!([
         {
             "type": "function",
             "function": {
@@ -246,7 +318,7 @@ pub fn definitions() -> Json {
             "type": "function",
             "function": {
                 "name": "add_calc_column",
-                "description": "建议给数据集加一个计算列（用户确认后添加，之后透视 / 图表 / 公式都能用）。语法：=[列A]-[列B]、=ROUND([佣金]/[订单实付应结],4)、=IF([动账方向]=\"入账\",[动账金额],-[动账金额])、=LEFT([下单时间],7)；函数 ROUND ABS IF IFNULL MAX MIN LEFT RIGHT MID LEN UPPER LOWER TRIM YEAR MONTH DAY",
+                "description": "建议给数据集加一个计算列（用户确认后添加，之后透视 / 图表 / 公式都能用）。语法：=[列A]-[列B]、=ROUND([佣金]/[订单实付应结],4)、=IF([动账方向]=\"入账\",[动账金额],-[动账金额])、=LEFT([下单时间],7)；函数 ROUND ABS IF IFNULL MAX MIN LEFT RIGHT MID LEN UPPER LOWER TRIM YEAR MONTH DAY；拆分 / 合并文本：SPLITPART([收货地址],\"-\",2) 取第 2 段（负数从后往前数）、TEXTBEFORE / TEXTAFTER([列],\"-\",N) 第 N 个分隔符之前 / 之后、FIND(\"-\",[列])、SUBSTITUTE([列],\"旧\",\"新\")、CONCAT([省],[市])、TEXTJOIN(\"-\",TRUE,[省],[市],[区])（TRUE 忽略空值）。用户要「把一列拆成几列」时每一段各加一个计算列（多段用 propose_plan 一次加完），「把几列合成一列」用 TEXTJOIN；不修改原数据，之后新导入的行也会自动拆好",
                 "parameters": {
                     "type": "object",
                     "properties": { "dataset": dataset_param(), "name": { "type": "string", "description": "新列名" }, "formula": { "type": "string" }, "kind": { "type": "string", "enum": ["money", "number", "text", "datetime"], "description": "结果类型（可不填，自动推断）" } },
@@ -341,7 +413,11 @@ pub fn definitions() -> Json {
                 }
             }
         }
-    ])
+    ]);
+    if let (Some(a), Json::Array(more)) = (list.as_array_mut(), data_tool_definitions()) {
+        a.extend(more);
+    }
+    list
 }
 
 // ── 辅助 ──
@@ -366,13 +442,7 @@ fn check_col(def: &DatasetDef, c: &str) -> AppResult<()> {
 }
 
 fn kind_label(k: &str) -> &'static str {
-    match k {
-        "money" => "金额",
-        "number" => "数值",
-        "datetime" => "日期时间",
-        "id" => "编号",
-        _ => "文本",
-    }
+    crate::kinds::label(k)
 }
 
 fn num(v: Option<f64>, kind: &str) -> String {
@@ -664,6 +734,10 @@ pub fn execute_scoped(conn: &Connection, name: &str, args: &str, scope: Option<&
         "create_data_table" => create_data_table(conn, &catalog, args),
         "save_query_as_dataset" => save_query_as_dataset(conn, &catalog, args, scope),
         "run_sql" => run_sql(conn, args, scope),
+        "profile_dataset" => profile_dataset(conn, &catalog, args),
+        "propose_clean" => propose_clean(conn, &catalog, args),
+        "propose_validation" => propose_validation(conn, &catalog, args),
+        "create_window_dataset" => create_window_dataset(conn, &catalog, args),
         other => Err(AppError::bad(format!("没有工具 {other}"))),
     };
     match r {
@@ -1330,7 +1404,7 @@ struct ViewPreview {
 
 /// 命中行数、总行数与前 6 行；有筛选 / 搜索却一行都没命中时报错，让模型去核对筛选值的写法
 fn view_preview(conn: &Connection, def: &DatasetDef, v: &View) -> AppResult<ViewPreview> {
-    let spec = QuerySpec { filters: v.filters.clone().unwrap_or_default(), keyword: v.keyword.clone().filter(|k| !k.is_empty()), sort: v.sort.clone().unwrap_or_default(), rule: None };
+    let spec = QuerySpec { filters: v.filters.clone().unwrap_or_default(), keyword: v.keyword.clone().filter(|k| !k.is_empty()), sort: v.sort.clone().unwrap_or_default(), rule: None, violation: None };
     let shown: Vec<&dataset::ColumnDef> = match v.fields.as_ref().filter(|f| !f.is_empty()) {
         Some(fs) => fs.iter().filter_map(|t| def.columns.iter().find(|x| &x.title == t)).collect(),
         None => def.columns.iter().take(8).collect(),
@@ -1444,7 +1518,7 @@ fn json_text(v: &Json) -> Option<String> {
 
 /// 校验一条条件格式规则并整理成界面使用的写法（列类型要与运算匹配、颜色只能是十六进制）
 fn check_rule(col: &dataset::ColumnDef, n: usize, r: &RuleArg) -> AppResult<Json> {
-    let numeric = matches!(col.kind, "money" | "number");
+    let numeric = crate::kinds::is_numeric(col.kind);
     let bad = |m: String| AppError::bad(format!("第 {n} 条规则：{m}"));
     let mut out = serde_json::Map::new();
     out.insert("op".into(), json!(r.op));
@@ -1581,7 +1655,7 @@ fn set_column_format(conn: &Connection, catalog: &[DatasetDef], args: &str) -> A
     if a.num_fmt.is_none() && a.rules.is_none() {
         return Err(AppError::bad("没有要设置的内容：numFmt / rules 至少给一项"));
     }
-    let numeric = matches!(col.kind, "money" | "number");
+    let numeric = crate::kinds::is_numeric(col.kind);
     if let Some(f) = a.num_fmt.as_deref() {
         if !NUM_FMTS.contains(&f) {
             return Err(AppError::bad(format!("没有数字格式「{f}」，可用：{}", NUM_FMTS.join(" / "))));
@@ -1723,6 +1797,280 @@ fn save_query_as_dataset(conn: &Connection, catalog: &[DatasetDef], args: &str, 
     Ok(o)
 }
 
+// ── 数据概况、数据清洗、窗口计算 ──
+
+#[derive(Deserialize)]
+struct ProfileArg {
+    dataset: String,
+    #[serde(default)]
+    filters: Vec<Filter>,
+    #[serde(default)]
+    columns: Option<Vec<String>>,
+}
+
+fn pct(n: i64, total: i64) -> String {
+    if total == 0 { "0".into() } else { format!("{}（{:.1}%）", group_digits(n), n as f64 * 100.0 / total as f64) }
+}
+
+fn profile_dataset(conn: &Connection, catalog: &[DatasetDef], args: &str) -> AppResult<Outcome> {
+    let a: ProfileArg = parse(args)?;
+    let def = resolve(catalog, &a.dataset)?;
+    let filters = normalize_filters(&def, a.filters)?;
+    let filtered = !filters.is_empty();
+    let req = crate::profile::ProfileRequest { spec: QuerySpec { filters, ..Default::default() }, columns: a.columns };
+    let p = crate::profile::overview(conn, &def.id, &req)?;
+    let header: Vec<String> = ["列", "类型", "空值", "不同值", "最小", "最大", "其他"].map(String::from).to_vec();
+    let mut rows = Vec::new();
+    let mut issues = Vec::new();
+    for c in &p.columns {
+        let mut other = Vec::new();
+        if let Some(s) = c.sum {
+            other.push(format!("合计 {}，平均 {}，中位数 {}", num(Some(s), ""), num(c.mean, ""), num(c.median, "")));
+        }
+        if let Some(n) = c.zeros.filter(|n| *n > 0) {
+            other.push(format!("零 {}", group_digits(n)));
+        }
+        if let Some(n) = c.negatives.filter(|n| *n > 0) {
+            other.push(format!("负数 {}", group_digits(n)));
+        }
+        if let Some(n) = c.trues {
+            other.push(format!("是 {}", group_digits(n)));
+        }
+        if let Some(n) = c.blanks.filter(|n| *n > 0) {
+            other.push(format!("只有空白 {}", group_digits(n)));
+            issues.push(format!("「{}」有 {} 个只有空白的格子（可 trim 变成空值）", c.title, group_digits(n)));
+        }
+        if let Some(n) = c.invalid.filter(|n| *n > 0) {
+            other.push(format!("认不出的日期 {}", group_digits(n)));
+            issues.push(format!("「{}」有 {} 个认不出的日期写法", c.title, group_digits(n)));
+        }
+        if c.nulls > 0 && c.nulls * 5 >= p.rows {
+            issues.push(format!("「{}」空值较多：{}", c.title, pct(c.nulls, p.rows)));
+        }
+        if c.non_null > 0 && c.distinct == 1 && p.rows > 1 {
+            issues.push(format!("「{}」所有非空值都相同", c.title));
+        }
+        let distinct = if c.distinct_exact { group_digits(c.distinct) } else { format!("约 {}", group_digits(c.distinct)) };
+        rows.push(vec![c.title.clone(), kind_label(c.kind).to_string(), pct(c.nulls, p.rows), distinct, cell_text(&c.min), cell_text(&c.max), other.join("；")]);
+    }
+    let scope = if filtered { "（按筛选）" } else { "" };
+    let mut content = format!("数据集「{}」{scope}共 {} 行，{} 列：
+{}", def.name, group_digits(p.rows), p.columns.len(), render_table(&header, &rows, ""));
+    content.push_str(&if issues.is_empty() { "
+
+没有发现明显的问题（重复行要用 propose_clean 的 dedupe 预览才知道）".to_string() } else { format!("
+
+可能的问题：
+- {}", issues.join("
+- ")) });
+    Ok(Outcome::ok(content, format!("查看「{}」的数据概况（{} 行 × {} 列）", def.name, group_digits(p.rows), p.columns.len())))
+}
+
+/// 清洗建议的参数：dataset + 与清洗接口相同的 op 字段；delete_rows 的条件写在 filters 里
+fn clean_op(def: &DatasetDef, args: &str) -> AppResult<crate::clean::CleanOp> {
+    let mut v: Json = parse(args)?;
+    let obj = v.as_object_mut().ok_or_else(|| AppError::bad("参数应为对象"))?;
+    obj.remove("dataset");
+    let filters: Vec<Filter> = match obj.remove("filters") {
+        Some(f) if !f.is_null() => serde_json::from_value(f).map_err(|e| AppError::bad(format!("filters 格式不正确：{e}")))?,
+        _ => vec![],
+    };
+    if obj.get("op").and_then(Json::as_str) == Some("delete_rows") {
+        if filters.is_empty() {
+            return Err(AppError::bad("delete_rows 要给 filters（删除哪些行）"));
+        }
+        let filters: Vec<Filter> = normalize_filters(def, filters)?.into_iter().map(|f| filter_with_key(def, f)).collect();
+        obj.insert("spec".into(), serde_json::to_value(QuerySpec { filters, ..Default::default() })?);
+    }
+    serde_json::from_value(v).map_err(|e| AppError::bad(format!("清洗参数不正确：{e}")))
+}
+
+fn no_restricted(what: &str) -> AppResult<()> {
+    if crate::scope::restricted_now() {
+        return Err(AppError::bad(format!("当前用户的数据范围受限，不能{what}")));
+    }
+    Ok(())
+}
+
+fn propose_clean(conn: &Connection, catalog: &[DatasetDef], args: &str) -> AppResult<Outcome> {
+    #[derive(Deserialize)]
+    struct Head {
+        dataset: String,
+    }
+    let head: Head = parse(args)?;
+    let def = resolve(catalog, &head.dataset)?;
+    no_restricted("清洗数据")?;
+    let op = clean_op(&def, args)?;
+    let p = crate::clean::preview(conn, &def.id, &op)?;
+    if p.affected == 0 {
+        return Ok(Outcome::ok(format!("「{}」：{}——没有需要处理的行，不用清洗", def.name, p.summary), format!("「{}」没有需要清洗的行", def.name)));
+    }
+    let verb = if p.deletes { "删除" } else { "修改" };
+    let mut header = vec![String::new()];
+    header.extend(p.columns.iter().cloned());
+    let mut rows = Vec::new();
+    for s in &p.samples {
+        let line = |label: &str, vals: &[Json]| std::iter::once(label.to_string()).chain(vals.iter().map(cell_text)).collect::<Vec<_>>();
+        match &s.after {
+            Some(after) => {
+                rows.push(line("改前", &s.before));
+                rows.push(line("改后", after));
+            }
+            None => rows.push(line("删除", &s.before)),
+        }
+    }
+    let note = format!("{} 行中将{verb} {} 行；执行后可以撤销（只能撤销最近一次）", group_digits(p.rows), group_digits(p.affected));
+    let title = format!("清洗「{}」：{}", def.name, p.summary);
+    let action = json!({
+        "kind": "clean",
+        "title": title,
+        "datasetId": def.id,
+        "datasetName": def.name,
+        "op": op,
+        "summary": p.summary,
+        "affected": p.affected,
+        "deletes": p.deletes,
+        "preview": preview_json(header.clone(), rows.clone(), note.clone()),
+    });
+    let mut o = Outcome::ok(
+        format!("已生成数据清洗建议「{title}」，{note}，等待用户确认（确认后才会修改数据）。样例：
+{}", render_table(&header, &rows.iter().take(10).cloned().collect::<Vec<_>>(), "")),
+        format!("建议{verb}「{}」的 {} 行", def.name, group_digits(p.affected)),
+    );
+    o.action = Some(action);
+    Ok(o)
+}
+
+fn propose_validation(conn: &Connection, catalog: &[DatasetDef], args: &str) -> AppResult<Outcome> {
+    #[derive(Deserialize)]
+    struct Arg {
+        dataset: String,
+        #[serde(default)]
+        rules: Option<Vec<crate::validation::Rule>>,
+        #[serde(default)]
+        replace: bool,
+    }
+    let a: Arg = parse(args)?;
+    let def = resolve(catalog, &a.dataset)?;
+    no_restricted("设置校验规则")?;
+    let previous = crate::validation::rules_of(conn, &def.id)?;
+    // 没给规则：按数据自动推荐，原因一起给模型
+    let (proposed, reasons): (Vec<crate::validation::Rule>, Vec<String>) = match a.rules.filter(|r| !r.is_empty()) {
+        Some(r) => {
+            let n = r.len();
+            (r, vec![String::new(); n])
+        }
+        None => crate::validation::suggest(conn, &def.id)?.suggestions.into_iter().map(|s| (s.rule, s.reason)).unzip(),
+    };
+    if proposed.is_empty() {
+        return Ok(Outcome::ok(format!("「{}」没有可推荐的校验规则（数据太少，或者该设的规则都已经有了）", def.name), format!("「{}」没有可推荐的规则", def.name)));
+    }
+    let (proposed, report) = crate::validation::preview(conn, &def, proposed)?;
+    // 加在已有规则后面：已经有的一模一样的规则不重复加
+    let mut rules = if a.replace { Vec::new() } else { previous.clone() };
+    let mut added = 0;
+    for r in &proposed {
+        if !rules.contains(r) {
+            rules.push(r.clone());
+            added += 1;
+        }
+    }
+    if added == 0 && !a.replace {
+        return Ok(Outcome::ok(format!("「{}」已经有这些规则了", def.name), format!("「{}」已经有这些规则了", def.name)));
+    }
+    let header = vec!["规则".to_string(), "不合格的行".to_string(), "样例".to_string(), "原因".to_string()];
+    let rows: Vec<Vec<String>> = report
+        .results
+        .iter()
+        .zip(&reasons)
+        .map(|(r, why)| vec![r.label.clone(), group_digits(r.violations), r.samples.iter().map(|s| if s.is_empty() { "（空）".to_string() } else { format!("「{s}」") }).collect::<Vec<_>>().join("、"), why.clone()])
+        .collect();
+    let failing = report.results.iter().filter(|r| r.violations > 0).count();
+    let note = format!(
+        "{} 行中 {} 行至少有一项不合格；{}{} 条规则，保存后每次导入、同步后自动检查",
+        group_digits(report.rows),
+        group_digits(report.bad_rows),
+        if a.replace { "替换已有规则，共 " } else { "新增 " },
+        if a.replace { rules.len() } else { added }
+    );
+    let title = format!("给「{}」设 {} 条校验规则", def.name, proposed.len());
+    let action = json!({
+        "kind": "validation",
+        "title": title,
+        "datasetId": def.id,
+        "datasetName": def.name,
+        "rules": rules,
+        "previous": previous,
+        "failed": failing,
+        "badRows": report.bad_rows,
+        "preview": preview_json(header.clone(), rows.clone(), note.clone()),
+    });
+    let mut o = Outcome::ok(
+        format!("已生成校验规则建议「{title}」，{note}，等待用户确认（确认后才保存）：\n{}", render_table(&header, &rows, "")),
+        format!("建议给「{}」设 {} 条校验规则（{} 条现在有不合格的行）", def.name, proposed.len(), failing),
+    );
+    o.action = Some(action);
+    Ok(o)
+}
+
+#[derive(Deserialize)]
+struct WindowArg {
+    dataset: String,
+    name: String,
+    #[serde(flatten)]
+    spec: crate::window::WindowSpec,
+}
+
+fn create_window_dataset(conn: &Connection, catalog: &[DatasetDef], args: &str) -> AppResult<Outcome> {
+    let a: WindowArg = parse(args)?;
+    let def = resolve(catalog, &a.dataset)?;
+    no_restricted("生成数据集")?;
+    let name = a.name.trim().to_string();
+    if name.is_empty() {
+        return Err(AppError::bad("请给新数据集起个名字（name）"));
+    }
+    if name.chars().count() > MAX_DATASET_NAME {
+        return Err(AppError::bad(format!("数据集名称最长 {MAX_DATASET_NAME} 个字（当前 {} 个）", name.chars().count())));
+    }
+    if catalog.iter().any(|d| d.name == name) {
+        return Err(AppError::bad(format!("已有名为「{name}」的数据集，请换一个名字")));
+    }
+    let p = crate::window::preview(conn, &def.id, &a.spec)?;
+    // 预览只列分组、顺序和新算出的列，免得表太宽
+    let title_of = |k: &str| def.columns.iter().find(|c| c.key == k || c.title == k).map(|c| c.title.clone()).unwrap_or_else(|| k.to_string());
+    let mut wanted: Vec<String> = a.spec.partition_by.iter().map(|k| title_of(k)).chain(a.spec.order_by.iter().map(|o| title_of(&o.column))).collect();
+    wanted.extend(a.spec.calcs.iter().map(|c| c.name.trim().to_string()));
+    wanted.dedup();
+    let idx: Vec<usize> = wanted.iter().filter_map(|w| p.result.columns.iter().position(|c| &c.name == w)).collect();
+    let header: Vec<String> = idx.iter().map(|&i| p.result.columns[i].name.clone()).collect();
+    let rows: Vec<Vec<String>> = p.result.rows.iter().take(12).map(|r| idx.iter().map(|&i| r.get(i).map(cell_text).unwrap_or_default()).collect()).collect();
+    let calcs = a.spec.calcs.iter().map(|c| c.name.trim()).collect::<Vec<_>>().join("、");
+    let note = format!("在「{}」上算 {calcs}；保存为 SQL 查询并另存为数据集，「{}」更新后自动重算", def.name, def.name);
+    let title = format!("窗口计算生成数据集「{name}」");
+    let mut spec: Json = parse(args)?;
+    if let Some(o) = spec.as_object_mut() {
+        o.remove("dataset");
+        o.remove("name");
+    }
+    let action = json!({
+        "kind": "window",
+        "title": title,
+        "datasetId": def.id,
+        "datasetName": def.name,
+        "name": name,
+        "spec": spec,
+        "sql": p.sql,
+        "preview": preview_json(header.clone(), rows.clone(), note.clone()),
+    });
+    let mut o = Outcome::ok(
+        format!("已生成窗口计算建议「{title}」，{note}，等待用户确认（确认后才会创建）。前几行预览：
+{}", render_table(&header, &rows, "")),
+        format!("建议用窗口计算生成数据集「{name}」"),
+    );
+    o.action = Some(action);
+    Ok(o)
+}
+
 #[derive(Deserialize)]
 struct SqlArg {
     sql: String,
@@ -1764,7 +2112,8 @@ mod tests {
     fn definitions_are_valid() {
         let d = definitions();
         let names: Vec<&str> = d.as_array().unwrap().iter().map(|t| t["function"]["name"].as_str().unwrap()).collect();
-        assert_eq!(names.len(), 15);
+        assert_eq!(names.len(), 19);
+        assert!(names.contains(&"profile_dataset") && names.contains(&"propose_clean") && names.contains(&"propose_validation") && names.contains(&"create_window_dataset"));
         assert!(names.contains(&"set_table_view") && names.contains(&"set_column_format") && names.contains(&"create_data_table") && names.contains(&"save_query_as_dataset"));
         for t in d.as_array().unwrap() {
             assert_eq!(t["function"]["parameters"]["type"], "object");

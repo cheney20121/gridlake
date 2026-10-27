@@ -10,6 +10,12 @@
 
 ![Pivot table over 2M rows, computed on the server and written into a normal sheet](docs/images/pivot.png)
 
+## Documentation
+
+- [Highlights](docs/highlights.en.md) — what makes Gridlake different, benchmarks, comparison with other tools
+- User manual and use cases are currently in Chinese: [用户手册](docs/用户手册.md), [应用场景](docs/应用场景.md)
+- Architecture, REST API and formula compatibility: [docs/](docs/README.md)
+
 ## Why
 
 - Excel stops at 1,048,576 rows.
@@ -36,11 +42,18 @@ Measured on 100M rows × 8 columns of synthetic order data (MacBook, 8 cores, 16
 ## Features
 
 - **Large datasets** — import CSV / Excel / Parquet / JSON; connect ClickHouse, MySQL / PostgreSQL, HTTP APIs; filter, sort, search, computed columns, joined views, trash.
+- **Subtotals** — group by a column with a subtotal row after each group (same functions as the totals row), even on tens of millions of rows.
+- **Totals row** — a footer showing each column's sum, average, median, earliest / latest, distinct count and more over all rows matching the current filters, computed on the server in one query.
+- **Split / merge columns** — split a column by a separator (with a preview of how many parts each row has) or join several columns into one, as computed columns that also apply to rows imported later.
+- **Validation rules** — required, unique, range, format (mobile number / email / regex…) and allowed values; re-checked after every import or sync, with one click to show only the failing rows.
+- **Data cleaning** — remove duplicate rows, trim whitespace, find and replace, fill empty values and delete filtered rows, with a before / after preview and undo for the last change.
+- **Window calculations** — running totals, ranks, previous-row comparisons, moving averages, group totals / shares and top N per group, computed over the whole table on the server into a new dataset that recomputes when the source updates.
+- **Column profiles** — for the current filters, one scan shows every column's empty values, distinct counts, ranges, mean / median and unrecognized dates; open a column for its histogram and most common values, and click a bar to filter by it (about 3 s on 10 million rows).
 - **Pivot tables** — computed on the server and written as normal sheets; calculated values and items, share / YoY / MoM, approximate quantiles, drill-down.
 - **Formula push-down** — `=SUMIFS(Orders[Amount], Orders[Shop], B2)` runs on the server; platform functions such as `DSUMIFS`; exported to native Excel formulas.
 - **SQL workbench** — read-only SQL (checked against a parser-based allow-list), typed parameters, save results as datasets, scheduled refresh.
 - **Dashboards** — slicers, KPI cards, linked charts, presentation mode.
-- **AI assistant** — bring your own OpenAI-compatible model; proposals are applied only after confirmation and can be undone; read-only MCP server for external AI clients.
+- **AI assistant** — bring your own OpenAI-compatible model; proposals are applied only after confirmation and can be undone; anomaly detection, data-quality checks, and cleaning / window-calculation proposals with a before / after preview; read-only MCP server for external AI clients.
 - **Collaboration & governance** — real-time editing, comments, four login modes, audit log, row-level data scope, approvals, in-app notifications.
 - **Scenario packs** — the project started as an e-commerce finance tool; that part (shop cash-flow import, month-end close and approval, balance reconciliation, bank reconciliation, operations analysis) is now an optional pack, `LEDGER_PACKS=ecommerce`. It is auto-enabled only when the database already holds ledger data; a fresh install is a plain, general-purpose spreadsheet platform.
 - **Multi-person data collection** — collection tasks: dozens of stores / departments fill in the same dataset, each only seeing and filling their own units (synced to data scope automatically), opened period by period, with a board showing who has and has not filled in.
@@ -49,6 +62,25 @@ Measured on 100M rows × 8 columns of synthetic order data (MacBook, 8 cores, 16
 - **Other** — xlsx import/export, templates, scheduled reports (WeCom / DingTalk / Feishu / email), version history, backups.
 
 ## Quick start
+
+**See it first** — download a release package, unpack it, and run:
+
+```bash
+bin/gridlake demo        # generates sample data and opens your browser a few seconds later
+```
+
+It generates 1 million orders (dated up to today), stock movements and receivables / payables, and builds three workbooks from the built-in templates — monthly operations, inventory, and AR / AP reconciliation — so slicers, pivots, charts and formulas work right away. Everything lives in a separate demo database (`~/.gridlake/demo.duckdb`); running it again just reopens it, `--reset` regenerates, and `--rows 10000000` tries a bigger one. Localhost only, no login.
+
+**Open a file on your own machine** — download a release package, unpack it, and run:
+
+```bash
+bin/gridlake open orders.parquet customers.csv   # opens your browser
+bin/gridlake open /data/orders/                  # every Parquet file below (Hive-style year=2026/ folders become columns)
+```
+
+Parquet files are **queried in place, not copied**; CSV / XLSX / JSON are imported (encoding, header row and column types detected). Data lives in a personal database at `~/.gridlake/open.duckdb`; opening the same file again refreshes it instead of creating a duplicate. It listens on localhost only and needs no login. Options: `--port`, `--db`, `--no-browser`.
+
+**Run the server (Docker):**
 
 ```bash
 git clone <this repository> && cd gridlake

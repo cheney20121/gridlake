@@ -15,6 +15,12 @@ describe('大数据表：单元格显示格式', () => {
     assert.equal(formatCell(null, col('money')), '')
     assert.equal(formatCell('', col('text')), '')
   })
+  it('整数加千分位不带小数，是否列显示是 / 否，超出安全整数的编号按文本原样显示', () => {
+    assert.equal(formatCell(1234567, col('integer')), '1,234,567')
+    assert.equal(formatCell(true, col('boolean')), '是')
+    assert.equal(formatCell(false, col('boolean')), '否')
+    assert.equal(formatCell('9007199254740993', col('integer')), '9007199254740993')
+  })
   it('列字母：A … Z、AA、AZ、BA、ZZ、AAA', () => {
     assert.deepEqual([0, 25, 26, 51, 52, 701, 702].map(columnLetter), ['A', 'Z', 'AA', 'AZ', 'BA', 'ZZ', 'AAA'])
   })
