@@ -181,6 +181,15 @@ export class Page {
         this.onPaused(msg.params)
         return
       }
+      if (msg.method === 'Page.javascriptDialogOpening') {
+        // 原生对话框会挡住页面（同一站点的其他标签页也一起卡住），Page.navigate、截图等命令都不再回应。
+        // 离开有未保存修改的编辑器时弹出的「确定离开」（beforeunload）是测试主动跳转，直接确认；
+        // 应用里不用 alert / confirm / prompt，出现了就记为错误，同样关掉免得卡住
+        if (msg.params.type !== 'beforeunload')
+          this.record(`原生对话框（${msg.params.type}）：${msg.params.message}`)
+        this.send('Page.handleJavaScriptDialog', { accept: true }).catch(() => {})
+        return
+      }
       if (msg.method === 'Network.requestWillBeSent') {
         this.requests.push(msg.params.request.url)
         return
