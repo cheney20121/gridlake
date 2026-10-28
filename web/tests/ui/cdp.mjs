@@ -24,12 +24,16 @@ export function findChrome() {
 }
 
 /** 浏览器级连接：发命令、收事件 */
+/** 单条命令最长等多久：页面卡死、Chrome 崩溃时命令不会有回应，不设上限的话 waitFor 的超时永远轮不到、整个测试挂住 */
+const COMMAND_TIMEOUT = 60_000
+
 class Connection {
   constructor(ws) {
     this.ws = ws
     this.nextId = 1
     this.pending = new Map()
     this.listeners = new Set()
+    this.closed = null
     ws.addEventListener('message', (ev) => {
       const msg = JSON.parse(ev.data)
       if (msg.id) {
@@ -37,18 +41,34 @@ class Connection {
         if (!p)
           return
         this.pending.delete(msg.id)
+        clearTimeout(p.timer)
         msg.error ? p.reject(new Error(`${p.method}: ${msg.error.message}`)) : p.resolve(msg.result)
       }
       else {
         for (const l of this.listeners) l(msg)
       }
     })
+    // 连接断了（Chrome 退出或崩溃）：还在等的命令全部失败，不再干等
+    ws.addEventListener('close', () => {
+      this.closed = new Error('与 Chrome 的连接已断开')
+      for (const p of this.pending.values()) {
+        clearTimeout(p.timer)
+        p.reject(new Error(`${p.method}: ${this.closed.message}`))
+      }
+      this.pending.clear()
+    })
   }
 
-  send(method, params = {}, sessionId) {
+  send(method, params = {}, sessionId, { timeout = COMMAND_TIMEOUT } = {}) {
+    if (this.closed)
+      return Promise.reject(new Error(`${method}: ${this.closed.message}`))
     const id = this.nextId++
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject, method })
+      const timer = setTimeout(() => {
+        this.pending.delete(id)
+        reject(new Error(`${method}: Chrome 在 ${timeout / 1000} 秒内没有回应`))
+      }, timeout)
+      this.pending.set(id, { resolve, reject, method, timer })
       this.ws.send(JSON.stringify({ id, method, params, sessionId }))
     })
   }
@@ -80,6 +100,10 @@ export async function launchChrome({ headless = true } = {}) {
   ]
   // Linux 上的 Chrome 不看 --lang，界面语言（navigator.language）取环境变量 LANGUAGE / LANG：固定成中文，测试不随本机语言变
   const proc = spawn(bin, args, { stdio: 'ignore', env: { ...process.env, LANGUAGE: 'zh_CN', LANG: 'zh_CN.UTF-8' } })
+  // 测试进程无论怎么结束（用例超时被取消、after 没来得及跑）都带走 Chrome，不留给下一个测试文件
+  const killOnExit = () => proc.kill('SIGKILL')
+  process.once('exit', killOnExit)
+  proc.once('exit', () => process.off('exit', killOnExit))
   const portFile = path.join(dir, 'DevToolsActivePort')
   let info = null
   for (let i = 0; i < 100 && !info; i++) {
@@ -113,14 +137,18 @@ export async function launchChrome({ headless = true } = {}) {
       return page
     },
     async close() {
+      const exited = proc.exitCode !== null || proc.signalCode !== null ? Promise.resolve() : new Promise(r => proc.once('exit', r))
       try {
-        await conn.send('Browser.close')
+        await conn.send('Browser.close', {}, undefined, { timeout: 5000 })
       }
       catch {}
       ws.close()
       proc.kill()
-      // 等 Chrome 真正退出再删临时目录（否则偶尔 ENOTEMPTY）；清理失败不应影响测试结果
-      await Promise.race([new Promise(r => proc.once('exit', r)), sleep(5000)])
+      // 等 Chrome 真正退出再删临时目录（否则偶尔 ENOTEMPTY）；没退出就强制结束。清理失败不应影响测试结果
+      if (await Promise.race([exited.then(() => true), sleep(5000).then(() => false)]) === false) {
+        proc.kill('SIGKILL')
+        await Promise.race([exited, sleep(2000)])
+      }
       try {
         fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
       }

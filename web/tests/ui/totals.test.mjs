@@ -29,7 +29,7 @@ describe('汇总行（界面）', { skip }, () => {
       await browser?.close()
     }
     finally {
-      services?.stop()
+      await services?.stop()
     }
   })
 
@@ -42,6 +42,8 @@ describe('汇总行（界面）', { skip }, () => {
       await page.goto(`${WEB}/excel?ds=${datasetId}&lang=zh-CN`)
       await page.waitFor(`document.body.innerText.includes('6 行')`, { timeout: 90_000, what: '打开数据表' })
       assert.equal(await page.eval(`!!document.querySelector('[data-testid="grid-footer"]')`), false, '默认不显示汇总行')
+      // 行数先出来，状态栏的「Σ 汇总行」按钮稍后才渲染
+      await page.waitFor(`!!document.querySelector('[data-testid="toggle-totals"]')`, { what: '汇总行开关' })
       await page.click('[data-testid="toggle-totals"]')
       await page.waitFor(`${cell('金额')} === '合计 140.00'`, { what: '金额列默认合计 140.00', timeout: 30_000 })
       assert.equal(await page.eval(cell('店铺')), '', '文本列默认不汇总')

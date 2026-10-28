@@ -4,6 +4,7 @@ import { Buffer } from 'node:buffer'
 import { spawn, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import http from 'node:http'
+import net from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
@@ -66,6 +67,58 @@ function startMockLlm() {
   return server
 }
 
+/** 端口是否空着（能在 127.0.0.1 上监听） */
+function portFree(port) {
+  return new Promise((resolve) => {
+    const srv = net.createServer()
+    srv.once('error', () => resolve(false))
+    srv.listen(port, '127.0.0.1', () => srv.close(() => resolve(true)))
+  })
+}
+
+/**
+ * 启动前确认测试端口都空着：上一个测试文件的服务还没退完就等一会儿；一直被占用就直接报错。
+ * 否则会连上残留的旧服务（旧数据库、旧前端），后面的用例成片莫名失败或挂住
+ */
+async function ensurePortsFree(ports, timeoutMs = 15_000) {
+  const end = Date.now() + timeoutMs
+  let busy = ports
+  while (true) {
+    busy = (await Promise.all(busy.map(async p => (await portFree(p)) ? null : p))).filter(Boolean)
+    if (!busy.length)
+      return
+    if (Date.now() > end)
+      throw new Error(`界面测试用的端口被占用：${busy.join('、')}。可能是上一次测试残留的进程（用 lsof -i :${busy[0]} 查看并结束），或设置 UITEST_PORT_OFFSET 换一组端口`)
+    await sleep(300)
+  }
+}
+
+/** 测试进程退出时还没停掉的服务（进程组）与临时目录：无论测试怎么结束（被取消、after 没跑到、Ctrl+C）都不留下占着端口的进程 */
+const live = new Set()
+const tmpDirs = new Set()
+function killGroup(p, signal) {
+  try {
+    process.kill(-p.pid, signal)
+  }
+  catch {
+    try {
+      p.kill(signal)
+    }
+    catch {}
+  }
+}
+process.once('exit', () => {
+  for (const p of live) killGroup(p, 'SIGKILL')
+  for (const d of tmpDirs) {
+    try {
+      fs.rmSync(d, { recursive: true, force: true })
+    }
+    catch {}
+  }
+})
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP'])
+  process.once(sig, () => process.exit(128 + os.constants.signals[sig]))
+
 async function waitHttp(url, timeoutMs, what) {
   const end = Date.now() + timeoutMs
   while (Date.now() < end) {
@@ -85,17 +138,24 @@ async function waitHttp(url, timeoutMs, what) {
 export async function startServices({ auth = 'gateway', packs = 'ecommerce', oidc = false, env: extraEnv = {} } = {}) {
   // UI_DB：指定一个现成的数据库（如 1 亿行压测库）供手动查看，退出时不删除；默认用临时目录
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ui-test-data-'))
+  tmpDirs.add(tmp)
   const dbPath = process.env.UI_DB || path.join(tmp, 'ledger.duckdb')
   const procs = []
   const logs = {}
   const start = (name, cmd, args, opts) => {
-    const p = spawn(cmd, args, { ...opts, stdio: ['ignore', 'pipe', 'pipe'] })
+    // detached：各自一个进程组，停的时候连同子进程（vite 的 esbuild 等）一起结束
+    const p = spawn(cmd, args, { ...opts, stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32' })
     logs[name] = ''
     p.stdout.on('data', d => (logs[name] += d))
     p.stderr.on('data', d => (logs[name] += d))
+    p.exited = new Promise(r => p.once('exit', r))
+    p.exited.then(() => live.delete(p))
+    live.add(p)
     procs.push(p)
     return p
   }
+
+  await ensurePortsFree([PORTS.gateway, PORTS.ledger, PORTS.web, PORTS.llm, PORTS.s3, ...(oidc ? [PORTS.oidc] : [])])
 
   // 表格服务：优先用环境变量 LEDGER_BIN，否则增量编译源码目录里的 debug 版
   let bin = process.env.LEDGER_BIN
@@ -145,11 +205,21 @@ export async function startServices({ auth = 'gateway', packs = 'ecommerce', oid
     env: { ...process.env, VITE_LEDGER_SERVER: `http://127.0.0.1:${PORTS.ledger}` },
   })
 
-  const stop = () => {
-    for (const p of procs) p.kill()
+  // 停掉全部服务并等它们真正退出（端口释放后下一个测试文件才能启动）；可重复调用
+  let stopping = null
+  const stop = () => stopping ??= (async () => {
+    const running = procs.filter(p => p.exitCode === null && p.signalCode === null)
+    for (const p of running) killGroup(p, 'SIGTERM')
+    llmServer.closeAllConnections?.()
     llmServer.close()
-    fs.rmSync(tmp, { recursive: true, force: true })
-  }
+    const all = Promise.all(running.map(p => p.exited))
+    if (await Promise.race([all.then(() => true), sleep(5000).then(() => false)]) === false) {
+      for (const p of running) killGroup(p, 'SIGKILL')
+      await Promise.race([all, sleep(5000)])
+    }
+    fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+    tmpDirs.delete(tmp)
+  })()
   try {
     await waitHttp(`http://127.0.0.1:${PORTS.gateway}/webconfig`, 15_000, '模拟网关')
     if (oidc)
@@ -158,7 +228,7 @@ export async function startServices({ auth = 'gateway', packs = 'ecommerce', oid
     await waitHttp(`${WEB}/`, 180_000, '前端开发服务器')
   }
   catch (e) {
-    stop()
+    await stop()
     throw new Error(`${e.message}\n--- 日志 ---\n${Object.entries(logs).map(([k, v]) => `[${k}] ${v.slice(-1200)}`).join('\n')}`)
   }
   return { stop, logs }

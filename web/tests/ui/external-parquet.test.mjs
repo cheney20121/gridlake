@@ -36,7 +36,7 @@ describe('外部数据集（界面）', { skip }, () => {
       await browser?.close()
     }
     finally {
-      services?.stop()
+      await services?.stop()
       fs.rmSync(inbox, { recursive: true, force: true })
     }
   })

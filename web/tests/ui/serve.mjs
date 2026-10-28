@@ -6,7 +6,7 @@ import process from 'node:process'
 import { api, startServices, TOKEN, WEB } from './infra.mjs'
 
 async function main() {
-  const services = await startServices()
+  await startServices()
   const ids = await api.registerUsers()
   const wb = await api.createWorkbook(TOKEN.alice, 'Alice 利润表')
   await api.createWorkbook(TOKEN.alice, '9 月销售看板')
@@ -25,10 +25,7 @@ async function main() {
   await api.bindDataset(orders, { column: '店铺' })
   await api.setScope(ids.Bob, ['A', 'B'])
   console.log(`就绪：${WEB}/excel?wb=${wb.id}（首页 ${WEB}/excel/home）`)
-  process.on('SIGINT', () => {
-    services.stop()
-    process.exit(0)
-  })
+  // Ctrl+C 退出时 infra.mjs 负责停掉服务、删掉临时数据
   await new Promise(() => {})
 }
 

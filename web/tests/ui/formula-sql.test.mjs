@@ -31,7 +31,7 @@ describe('SQL / SQLVALUE 公式（界面）', { skip }, () => {
       await browser?.close()
     }
     finally {
-      services?.stop()
+      await services?.stop()
     }
   })
 

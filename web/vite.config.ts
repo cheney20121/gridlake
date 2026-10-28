@@ -62,6 +62,13 @@ export default defineConfig(({ mode }: ConfigEnv): UserConfig => {
       __BUILD_TIME__: JSON.stringify(new Date(new Date().getTime() + 480 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19)),
     },
     base: appBase,
+    // 开发服务器启动时一次性预构建全部依赖：Element Plus 的组件与样式是按需自动引入的，扫描源码时看不到，
+    // 否则第一次打开某个页面才发现新依赖、重新预构建，已加载的模块返回 504（Outdated Optimize Dep）并整页刷新；
+    // 缓存为空的全新环境（如 CI）上界面测试因此成片失败
+    optimizeDeps: {
+      entries: ['index.html', 'src/**/*.vue'],
+      include: ['element-plus/es', 'element-plus/es/components/*/style/index'],
+    },
     server: {
       proxy: {
         // 店铺资金流水服务（gridlake，Rust + DuckDB）

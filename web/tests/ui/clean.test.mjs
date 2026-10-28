@@ -62,7 +62,7 @@ describe('数据清洗（界面）', { skip }, () => {
       await browser?.close()
     }
     finally {
-      services?.stop()
+      await services?.stop()
     }
   })
 

@@ -31,7 +31,7 @@ describe('AI 数据清洗 / 窗口计算建议（界面）', { skip }, () => {
       await browser?.close()
     }
     finally {
-      services?.stop()
+      await services?.stop()
     }
   })
 
