@@ -10,7 +10,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use duckdb::{Connection, params};
+use duckdb::{Connection, params, params_from_iter};
 use serde::{Deserialize, Serialize};
 
 use crate::tabular::{decode_text, parse_amount, parse_date_time, read_rows};
@@ -348,6 +348,11 @@ pub struct ImportOutcome {
     /// 新建时按样本推断的整数 / 是否列，全量数据里有放不下的值，已改成数值 / 文本列（列名）
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub widened: Vec<String>,
+    /// 不符合校验规则、按设置跳过没有导入的条数（数据集设置了「跳过不合格的行」时）
+    pub rejected: i64,
+    /// 每条规则拦下了几条
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub rejected_rules: Vec<crate::validation::ImportHit>,
     pub elapsed_ms: i64,
 }
 
@@ -535,11 +540,52 @@ pub fn commit(conn: &Connection, path: &Path, req: &CommitRequest, dir: &Path) -
             }
         };
 
-        let text_cols: Vec<String> = columns.iter().filter(|c| kinds::is_textual(&c.kind)).map(|c| ident(&c.title)).collect();
-        let search = if text_cols.is_empty() { "NULL".into() } else { format!("lower(concat_ws(' ', {}))", text_cols.join(", ")) };
+        let pk: Vec<String> = primary_key.iter().map(|k| ident(k)).collect();
         let col_list = columns.iter().map(|c| ident(&c.title)).collect::<Vec<_>>().join(", ");
         let select_list = exprs.iter().map(|(t, e, _)| format!("{e} AS {}", ident(t))).collect::<Vec<_>>().join(", ");
-        let pk: Vec<String> = primary_key.iter().map(|k| ident(k)).collect();
+
+        // 导入时拦截：数据集设了「跳过 / 拒绝不合格的行」时，按规则检查真正会写入的新数据（主键去重之后的）
+        let (rejected, rejected_rules) = match if req.mode == Mode::Create { None } else { crate::validation::import_gate(conn, &dataset_id)? } {
+            None => (0, vec![]),
+            Some((def, policy, rules)) => {
+                let converted = format!("SELECT s.__line, {select_list} FROM ds_staging s");
+                let pk_list = pk.join(", ");
+                let candidates = match (req.mode, pk.is_empty()) {
+                    (_, true) => converted,
+                    (Mode::Upsert, false) => format!("SELECT * FROM ({converted}) QUALIFY row_number() OVER (PARTITION BY {pk_list} ORDER BY __line DESC) = 1"),
+                    (Mode::Replace, false) => format!("SELECT * FROM ({converted}) QUALIFY row_number() OVER (PARTITION BY {pk_list} ORDER BY __line) = 1"),
+                    (_, false) => {
+                        let exists = pk.iter().map(|k| format!("d.{k} IS NOT DISTINCT FROM n.{k}")).collect::<Vec<_>>().join(" AND ");
+                        format!("SELECT * FROM (SELECT * FROM ({converted}) QUALIFY row_number() OVER (PARTITION BY {pk_list} ORDER BY __line) = 1) n WHERE NOT EXISTS (SELECT 1 FROM {table} d WHERE {exists})")
+                    }
+                };
+                conn.execute_batch(&format!("CREATE OR REPLACE TEMP TABLE ds_new AS {candidates}"))?;
+                // 「不能重复」的范围：替换时只有新数据；增量更新时去掉会被覆盖的旧行
+                let universe = match req.mode {
+                    Mode::Replace => "ds_new".to_string(),
+                    Mode::Upsert => {
+                        let matches = pk.iter().map(|k| format!("d.{k} IS NOT DISTINCT FROM n.{k}")).collect::<Vec<_>>().join(" AND ");
+                        format!("(SELECT {col_list} FROM {table} d WHERE NOT EXISTS (SELECT 1 FROM ds_new n WHERE {matches}) UNION ALL SELECT {col_list} FROM ds_new)")
+                    }
+                    _ => format!("(SELECT {col_list} FROM {table} UNION ALL SELECT {col_list} FROM ds_new)"),
+                };
+                let check = crate::validation::check_import(conn, &def, policy, &rules, "ds_new", &universe);
+                let result = match check {
+                    Ok(c) if c.bad > 0 && c.policy == crate::validation::OnImport::Reject => Err(crate::validation::reject_error(&name, &c)),
+                    Ok(c) if c.bad > 0 => conn
+                        .execute(&format!("DELETE FROM ds_staging WHERE __line IN (SELECT __line FROM ds_new WHERE {})", c.condition), params_from_iter(c.args.iter()))
+                        .map(|n| (n as i64, c.hits))
+                        .map_err(AppError::from),
+                    Ok(_) => Ok((0, vec![])),
+                    Err(e) => Err(e),
+                };
+                let _ = conn.execute_batch("DROP TABLE IF EXISTS ds_new");
+                result?
+            }
+        };
+
+        let text_cols: Vec<String> = columns.iter().filter(|c| kinds::is_textual(&c.kind)).map(|c| ident(&c.title)).collect();
+        let search = if text_cols.is_empty() { "NULL".into() } else { format!("lower(concat_ws(' ', {}))", text_cols.join(", ")) };
 
         conn.execute_batch("BEGIN TRANSACTION")?;
         let written = (|| -> AppResult<(i64, i64, i64)> {
@@ -601,11 +647,13 @@ pub fn commit(conn: &Connection, path: &Path, req: &CommitRequest, dir: &Path) -
             name: name.clone(),
             rows_read,
             inserted,
-            skipped: rows_read - inserted - updated,
+            skipped: rows_read - inserted - updated - rejected,
             updated,
             replaced,
             invalid,
             widened,
+            rejected,
+            rejected_rules,
             elapsed_ms: started.elapsed().as_millis() as i64,
         })
     })();

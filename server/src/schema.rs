@@ -172,6 +172,7 @@ pub fn migrate_sql() -> String {
          ALTER TABLE ledger_collect ADD COLUMN IF NOT EXISTS reviewer_name VARCHAR;
          ALTER TABLE ledger_collect ADD COLUMN IF NOT EXISTS remind_channels VARCHAR;
          ALTER TABLE ledger_collect_period ADD COLUMN IF NOT EXISTS deadline VARCHAR;
+         ALTER TABLE ledger_validation ADD COLUMN IF NOT EXISTS on_import VARCHAR;
          INSERT INTO ledger_shop (name)
            SELECT DISTINCT shop FROM ledger_detail d WHERE NOT EXISTS (SELECT 1 FROM ledger_shop s WHERE s.name = d.shop);",
         search_text_sql()

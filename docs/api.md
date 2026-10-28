@@ -133,7 +133,7 @@
 | POST | `/api/ledger/datasets/{id}/untrash` | 从回收站恢复 | 数据集所有者或管理员 | ✗ | 恢复数据集 |
 | GET | `/api/ledger/datasets/{id}/usage` | 使用情况：引用它的工作簿 / 模板 / 视图 / SQL / 连接 / 推送，近 30 天访问次数 | 登录用户 | ✗ |  |
 | GET | `/api/ledger/datasets/{id}/validation` | 数据校验规则与最近一次检查结果 | 登录用户 | ✓ |  |
-| PUT | `/api/ledger/datasets/{id}/validation` | { rules: [{ column, kind: required / unique / range / format / allowed, … }] }  保存校验规则并立即检查 | 数据集所有者或管理员 | ✗ | 设置数据校验规则 |
+| PUT | `/api/ledger/datasets/{id}/validation` | { rules: [{ column, kind: required / unique / range / format / allowed, … }], onImport?: check / skip / reject }  保存校验规则并立即检查 | 数据集所有者或管理员 | ✗ | 设置数据校验规则 |
 | POST | `/api/ledger/datasets/{id}/validation/check` | 按规则重新检查（数据范围受限的用户只检查自己能看到的行） | 登录用户 | ✓ |  |
 | GET | `/api/ledger/datasets/{id}/validation/suggest` | 推荐校验规则：按数据本身的样子（格式、取值、空值、重复）推荐，附原因和不合格的行数；不保存 | 登录用户 | ✓ |  |
 | POST | `/api/ledger/datasets/{id}/window` | { calcs, partitionBy?, orderBy?, topN?, name, autoRefresh? } 窗口计算：保存为 SQL 查询并另存为新数据集（默认源数据集更新后自动重算），返回保存的查询 | 登录用户 | ✗ | 窗口计算生成数据集 |

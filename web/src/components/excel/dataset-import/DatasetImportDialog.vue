@@ -442,6 +442,12 @@ const sizeText = (n: number) => n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Mat
       <div v-for="x in outcome.invalid" :key="x.column" class="text-[#92400E]">
         {{ $t('「{0}」有 {1} 个值与列类型不符，已按空值入库', [x.column, x.count.toLocaleString()]) }}
       </div>
+      <div v-if="outcome.rejected" class="text-[#92400E]" data-testid="import-rejected">
+        {{ $t('{0} 条数据不符合校验规则，按设置跳过没有导入：', [outcome.rejected.toLocaleString()]) }}
+        <span v-for="(h, i) in outcome.rejectedRules ?? []" :key="i">
+          {{ i ? '；' : '' }}{{ $t('{0} {1} 条（第 {2} 条数据）', [h.label, h.count.toLocaleString(), h.lines.join('、') + (h.count > h.lines.length ? $t(' 等') : '')]) }}
+        </span>
+      </div>
       <div v-if="outcome.widened?.length" class="text-[#92400E]">
         {{ $t('「{0}」在样本之后出现了小数或其他写法，已改为数值 / 文本列，没有丢数据', [outcome.widened.join('、')]) }}
       </div>

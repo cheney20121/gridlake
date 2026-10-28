@@ -44,6 +44,36 @@ pub enum Check {
     Allowed { values: Vec<String> },
 }
 
+/// 导入、同步时遇到不合格的行怎么办
+#[derive(Deserialize, Serialize, Clone, Copy, Debug, PartialEq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum OnImport {
+    /// 照常导入，导入后检查、在数据表上提示（默认）
+    #[default]
+    Check,
+    /// 不合格的行不导入，其余照常导入
+    Skip,
+    /// 有不合格的行就整批不导入
+    Reject,
+}
+
+impl OnImport {
+    fn as_str(self) -> &'static str {
+        match self {
+            OnImport::Check => "check",
+            OnImport::Skip => "skip",
+            OnImport::Reject => "reject",
+        }
+    }
+    fn parse(s: Option<&str>) -> Self {
+        match s {
+            Some("skip") => OnImport::Skip,
+            Some("reject") => OnImport::Reject,
+            _ => OnImport::Check,
+        }
+    }
+}
+
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Rule {
@@ -105,6 +135,11 @@ fn blank(col: &ColumnDef, c: &str) -> String {
 
 /// 不合格的行的条件（数据表不加别名）与参数
 pub fn violation_sql(def: &DatasetDef, rule: &Rule) -> AppResult<(String, Vec<Value>)> {
+    violation_sql_in(def, rule, &def.table)
+}
+
+/// 同上，「不能重复」在 universe（FROM 子句里的一张表或子查询）里数重复：导入前检查新数据时，universe 是已有数据加上新数据
+fn violation_sql_in(def: &DatasetDef, rule: &Rule, universe: &str) -> AppResult<(String, Vec<Value>)> {
     let col = dataset::find_column(def, &rule.column)?;
     let c = format!("({})", dataset::column_sql(col));
     let empty = blank(col, &c);
@@ -114,7 +149,7 @@ pub fn violation_sql(def: &DatasetDef, rule: &Rule) -> AppResult<(String, Vec<Va
         Check::Unique => {
             let v = format!("({})", dataset::column_sql(col));
             let inner_blank = blank(col, &v);
-            (format!("(NOT {empty} AND {c} IN (SELECT {v} FROM {} __u WHERE NOT {inner_blank} GROUP BY {v} HAVING count(*) > 1))", def.table), vec![])
+            (format!("(NOT {empty} AND {c} IN (SELECT {v} FROM {} __u WHERE NOT {inner_blank} GROUP BY {v} HAVING count(*) > 1))", universe), vec![])
         }
         Check::Range { min, max } => {
             let numeric = kinds::is_numeric(col.kind);
@@ -222,6 +257,8 @@ pub struct Report {
 #[serde(rename_all = "camelCase")]
 pub struct Validation {
     pub rules: Vec<Rule>,
+    /// 导入、同步时遇到不合格的行：check 照常导入 / skip 跳过这些行 / reject 整批不导入
+    pub on_import: OnImport,
     /// 最近一次检查的结果（规则改过、数据变过后会重新检查）
     pub report: Option<Report>,
     pub updated_by: Option<String>,
@@ -238,23 +275,25 @@ pub struct Summary {
     pub checked_at: Option<String>,
 }
 
-fn load(conn: &Connection, id: &str) -> AppResult<Option<(Vec<Rule>, Option<Report>, Option<String>, Option<String>)>> {
-    let row: Option<(String, Option<String>, Option<String>, Option<String>)> = conn
+type Stored = (Vec<Rule>, Option<Report>, Option<String>, Option<String>, OnImport);
+
+fn load(conn: &Connection, id: &str) -> AppResult<Option<Stored>> {
+    let row: Option<(String, Option<String>, Option<String>, Option<String>, Option<String>)> = conn
         .query_row(
-            "SELECT rules, report, updated_by, strftime(updated_at, '%Y-%m-%d %H:%M:%S') FROM ledger_validation WHERE dataset_id = ?",
+            "SELECT rules, report, updated_by, strftime(updated_at, '%Y-%m-%d %H:%M:%S'), on_import FROM ledger_validation WHERE dataset_id = ?",
             params![id],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
         )
         .ok();
-    let Some((rules, report, by, at)) = row else { return Ok(None) };
-    Ok(Some((serde_json::from_str(&rules)?, report.and_then(|r| serde_json::from_str(&r).ok()), by, at)))
+    let Some((rules, report, by, at, on_import)) = row else { return Ok(None) };
+    Ok(Some((serde_json::from_str(&rules)?, report.and_then(|r| serde_json::from_str(&r).ok()), by, at, OnImport::parse(on_import.as_deref()))))
 }
 
 pub fn get(conn: &Connection, id: &str) -> AppResult<Validation> {
     let def = dataset::dataset(conn, id)?;
     Ok(match load(conn, &def.id)? {
-        Some((rules, report, updated_by, updated_at)) => Validation { rules, report, updated_by, updated_at },
-        None => Validation { rules: vec![], report: None, updated_by: None, updated_at: None },
+        Some((rules, report, updated_by, updated_at, on_import)) => Validation { rules, on_import, report, updated_by, updated_at },
+        None => Validation { rules: vec![], on_import: OnImport::Check, report: None, updated_by: None, updated_at: None },
     })
 }
 
@@ -349,15 +388,20 @@ pub fn rules_of(conn: &Connection, id: &str) -> AppResult<Vec<Rule>> {
 }
 
 /// 保存规则并立即检查一遍
-pub fn save(conn: &Connection, id: &str, rules: Vec<Rule>, user: &CurrentUser) -> AppResult<Validation> {
+/// on_import 为 None 时保留原来的设置
+pub fn save(conn: &Connection, id: &str, rules: Vec<Rule>, on_import: Option<OnImport>, user: &CurrentUser) -> AppResult<Validation> {
     let def = dataset::dataset(conn, id)?;
     let rules = normalize(&def, rules);
     check_rules(conn, &def, &rules)?;
+    let on_import = match on_import {
+        Some(x) => x,
+        None => load(conn, &def.id)?.map(|x| x.4).unwrap_or_default(),
+    };
     let operator = if user.name.is_empty() { None } else { Some(user.name.clone()) };
     conn.execute(
-        "INSERT INTO ledger_validation (dataset_id, rules, report, updated_by, updated_at) VALUES (?, ?, NULL, ?, CAST(? AS TIMESTAMP))
-         ON CONFLICT (dataset_id) DO UPDATE SET rules = excluded.rules, report = NULL, updated_by = excluded.updated_by, updated_at = excluded.updated_at",
-        params![def.id, serde_json::to_string(&rules)?, operator, now_local()],
+        "INSERT INTO ledger_validation (dataset_id, rules, report, updated_by, updated_at, on_import) VALUES (?, ?, NULL, ?, CAST(? AS TIMESTAMP), ?)
+         ON CONFLICT (dataset_id) DO UPDATE SET rules = excluded.rules, report = NULL, updated_by = excluded.updated_by, updated_at = excluded.updated_at, on_import = excluded.on_import",
+        params![def.id, serde_json::to_string(&rules)?, operator, now_local(), on_import.as_str()],
     )?;
     if !rules.is_empty() && def.scope_sig.is_empty() {
         let report = run(conn, &def, &rules)?;
@@ -392,6 +436,88 @@ pub fn recheck(conn: &Connection, id: &str) -> AppResult<Option<(DatasetDef, Rep
     let report = run(conn, &def, &rules)?;
     store_report(conn, id, &report)?;
     Ok(Some((def, report)))
+}
+
+// ── 导入时拦截：导入、同步写入之前，按规则检查新数据 ──────────────
+
+/// 一条规则拦下的新数据
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportHit {
+    pub label: String,
+    pub count: i64,
+    /// 前几条不合格的是第几条数据（文件里表头之后、跳过空行，从 1 数）
+    pub lines: Vec<i64>,
+}
+
+/// 导入前的检查结果
+pub struct ImportCheck {
+    pub policy: OnImport,
+    /// 至少违反一条规则的新数据条数
+    pub bad: i64,
+    pub hits: Vec<ImportHit>,
+    /// 不合格的新数据的条件（在 new_table 上用），跳过时用它删掉
+    pub condition: String,
+    pub args: Vec<Value>,
+}
+
+/// 这个数据集导入时要不要拦：设置为跳过 / 拒绝、且有规则时返回（数据集定义, 设置, 规则）。
+/// 计算列上的规则不在导入前检查（计算列可能引用别的表），照常在导入后检查
+pub fn import_gate(conn: &Connection, id: &str) -> AppResult<Option<(DatasetDef, OnImport, Vec<Rule>)>> {
+    let Some((rules, .., policy)) = load(conn, id)? else { return Ok(None) };
+    if policy == OnImport::Check {
+        return Ok(None);
+    }
+    let def = dataset::dataset(conn, id)?;
+    let rules: Vec<Rule> = rules.into_iter().filter(|r| dataset::find_column(&def, &r.column).is_ok_and(|c| !c.computed)).collect();
+    if rules.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some((def, policy, rules)))
+}
+
+/// 按规则检查 new_table 里的新数据（有 __line 列和数据集的各列）；「不能重复」在 universe（已有数据 + 新数据）里数
+pub fn check_import(conn: &Connection, def: &DatasetDef, policy: OnImport, rules: &[Rule], new_table: &str, universe: &str) -> AppResult<ImportCheck> {
+    let mut conds = Vec::new();
+    let mut all_args = Vec::new();
+    let mut hits = Vec::new();
+    for r in rules {
+        let (c, a) = violation_sql_in(def, r, universe)?;
+        let (count, lines): (i64, Vec<i64>) = conn.query_row(
+            &format!("SELECT count(*), COALESCE(list(__line ORDER BY __line)[1:{SAMPLES}], []) FROM {new_table} WHERE {c}"),
+            params_from_iter(a.iter()),
+            |row| {
+                let lines: Vec<i64> = match row.get::<_, duckdb::types::Value>(1)? {
+                    duckdb::types::Value::List(v) => v.into_iter().filter_map(|x| if let duckdb::types::Value::BigInt(n) = x { Some(n) } else { None }).collect(),
+                    _ => vec![],
+                };
+                Ok((row.get(0)?, lines))
+            },
+        )?;
+        if count > 0 {
+            hits.push(ImportHit { label: label(r), count, lines });
+        }
+        conds.push(c);
+        all_args.extend(a);
+    }
+    let condition = if conds.is_empty() { "FALSE".to_string() } else { format!("({})", conds.join(" OR ")) };
+    let bad: i64 = if hits.is_empty() { 0 } else { conn.query_row(&format!("SELECT count(*) FROM {new_table} WHERE {condition}"), params_from_iter(all_args.iter()), |r| r.get(0))? };
+    Ok(ImportCheck { policy, bad, hits, condition, args: all_args })
+}
+
+/// 拒绝导入的错误：每条规则拦下几条、是第几条数据
+pub fn reject_error(dataset: &str, check: &ImportCheck) -> AppError {
+    let details = check
+        .hits
+        .iter()
+        .map(|h| {
+            let lines = h.lines.iter().map(i64::to_string).collect::<Vec<_>>().join("、");
+            let more = if h.count > h.lines.len() as i64 { " 等" } else { "" };
+            format!("{} {} 条（第 {lines}{more} 条数据）", h.label, h.count)
+        })
+        .collect::<Vec<_>>()
+        .join("；");
+    AppError::bad(format!("有 {} 条数据不符合「{dataset}」的校验规则，按设置整批没有导入：{details}", check.bad))
 }
 
 /// 数据集彻底删除时清掉它的规则

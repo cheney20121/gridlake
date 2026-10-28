@@ -5153,8 +5153,8 @@
         "tags": [
           "数据集（导入、取数、透视、公式下推）"
         ],
-        "summary": "{ rules: [] } 保存校验规则并立即检查",
-        "description": "{ rules: [{ column, kind: required / unique / range / format / allowed, … }] }  保存校验规则并立即检查",
+        "summary": "{ rules: [], onImport?: check / skip / reject } 保存校验规则并立即检查",
+        "description": "{ rules: [{ column, kind: required / unique / range / format / allowed, … }], onImport?: check / skip / reject }  保存校验规则并立即检查",
         "operationId": "put_ledger_datasets_by_id_validation",
         "x-permission": "数据集所有者或管理员",
         "x-restricted-users": false,
@@ -11239,6 +11239,14 @@
           "name"
         ]
       },
+      "OnImport": {
+        "type": "string",
+        "enum": [
+          "check",
+          "skip",
+          "reject"
+        ]
+      },
       "Op": {
         "type": "string",
         "enum": [
@@ -12591,6 +12599,14 @@
             "items": {
               "$ref": "#/components/schemas/Rule"
             }
+          },
+          "onImport": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OnImport"
+              }
+            ],
+            "description": "导入、同步时遇到不合格的行：check / skip / reject；不填保留原来的设置"
           }
         },
         "required": [

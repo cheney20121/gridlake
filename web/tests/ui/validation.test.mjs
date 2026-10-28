@@ -143,6 +143,13 @@ describe('数据校验（界面）', { skip }, () => {
       await page.click('[data-testid="validation-save"]')
       await page.waitFor(`${report}.includes('共 30 行，5 行至少有一项不合格（4 条规则不通过）')`, { what: '检查结果', timeout: 30_000 })
       assert.equal((await api.call('GET', `/ledger/datasets/${membersId}/validation`, TOKEN.alice)).data.rules.length, 5)
+      // 导入时拦截：选「跳过这些行」，和规则一起保存
+      await page.click('[data-testid="on-import-skip"]')
+      await page.waitFor(`document.querySelector('[data-testid="validation-save"]')?.disabled === false`, { what: '改了设置可以保存' })
+      await page.click('[data-testid="validation-save"]')
+      // 保存中按钮也是 disabled（loading）：等 loading 结束
+      await page.waitFor(`(() => { const b = document.querySelector('[data-testid="validation-save"]'); return b?.disabled === true && !b.classList.contains('is-loading') })()`, { what: '保存完成', timeout: 30_000 })
+      assert.equal((await api.call('GET', `/ledger/datasets/${membersId}/validation`, TOKEN.alice)).data.onImport, 'skip')
       assert.deepEqual(page.errors.filter(e => !ALLOWED.some(re => re.test(e))), [], '没有控制台报错')
     }
     catch (e) {

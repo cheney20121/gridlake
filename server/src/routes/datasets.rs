@@ -275,7 +275,7 @@ pub async fn dataset_import_commit(State(db): State<AppState>, Extension(user): 
         Some(&actor),
         serde_json::json!({
             "datasetId": result.dataset_id, "name": result.name, "source": "import", "mode": mode, "fileName": file_name,
-            "rowsRead": result.rows_read, "inserted": result.inserted, "updated": result.updated, "replaced": result.replaced, "skipped": result.skipped,
+            "rowsRead": result.rows_read, "inserted": result.inserted, "updated": result.updated, "replaced": result.replaced, "skipped": result.skipped, "rejected": result.rejected,
         }),
     );
     if !created {
@@ -339,14 +339,18 @@ pub async fn validation_get(State(db): State<AppState>, Path(id): Path<String>) 
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ValidationBody {
     pub rules: Vec<crate::validation::Rule>,
+    /// 导入、同步时遇到不合格的行：check / skip / reject；不填保留原来的设置
+    #[serde(default)]
+    pub on_import: Option<crate::validation::OnImport>,
 }
 
-/// PUT /api/ledger/datasets/{id}/validation  { rules: [{ column, kind: required / unique / range / format / allowed, … }] }  保存校验规则并立即检查
+/// PUT /api/ledger/datasets/{id}/validation  { rules: [{ column, kind: required / unique / range / format / allowed, … }], onImport?: check / skip / reject }  保存校验规则并立即检查
 pub async fn validation_save(State(db): State<AppState>, Extension(user): Extension<CurrentUser>, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Envelope<crate::validation::Validation>>> {
     let req: ValidationBody = parse_json(&body)?;
-    Ok(ok(blocking_heavy(&db, move |conn| crate::validation::save(conn, &id, req.rules, &user)).await?))
+    Ok(ok(blocking_heavy(&db, move |conn| crate::validation::save(conn, &id, req.rules, req.on_import, &user)).await?))
 }
 
 /// GET /api/ledger/datasets/{id}/validation/suggest  推荐校验规则：按数据本身的样子（格式、取值、空值、重复）推荐，附原因和不合格的行数；不保存

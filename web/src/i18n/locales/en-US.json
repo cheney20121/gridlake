@@ -3289,5 +3289,13 @@
   "已给「{0}」保存 {1} 条校验规则，{2} 条有不合格的行": "Saved {1} validation rules for “{0}”; {2} of them have failing rows",
   "已给「{0}」保存 {1} 条校验规则，全部通过": "Saved {1} validation rules for “{0}”; all rows pass",
   "「{0}」的校验规则之后又改过，没有撤销": "The validation rules of “{0}” were changed afterwards, so nothing was undone",
-  "已恢复「{0}」原来的校验规则（{1} 条）": "Restored the previous validation rules of “{0}” ({1})"
+  "已恢复「{0}」原来的校验规则（{1} 条）": "Restored the previous validation rules of “{0}” ({1})",
+  "导入、同步时发现不合格的行：": "When imported or synced rows fail the rules:",
+  "照常导入，之后提示": "Import anyway and flag them",
+  "跳过这些行": "Skip those rows",
+  "整批不导入": "Reject the whole batch",
+  "文件导入和数据连接同步时生效；计算列上的规则仍在导入后检查": "Applies to file imports and data connection syncs; rules on computed columns are still checked after import",
+  "{0} 条数据不符合校验规则，按设置跳过没有导入：": "{0} records failed the validation rules and were skipped per the import setting: ",
+  "{0} {1} 条（第 {2} 条数据）": "{0}: {1} (record {2})",
+  " 等": " and more"
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { DatasetInfo, DatasetValidation, ValidationReport, ValidationRule, ValidationSuggestion } from '@/api/dataset'
+import type { DatasetInfo, DatasetValidation, OnImport, ValidationReport, ValidationRule, ValidationSuggestion } from '@/api/dataset'
 import type { DraftRule } from '@/features/excel/dataset/validation-rules'
 import { computed, ref, watch } from 'vue'
 import { checkValidationApi, getValidationApi, saveValidationApi, suggestValidationApi } from '@/api/dataset'
@@ -33,7 +33,10 @@ const saving = ref(false)
 const checking = ref(false)
 /** 上一次保存（或读取）时的规则：草稿和它不一样就是改过了 */
 const savedJson = ref('[]')
-const dirty = computed(() => JSON.stringify(drafts.value.map(toRule)) !== savedJson.value)
+/** 导入、同步时遇到不合格的行怎么办（和规则一起保存） */
+const onImport = ref<OnImport>('check')
+const savedOnImport = ref<OnImport>('check')
+const dirty = computed(() => JSON.stringify(drafts.value.map(toRule)) !== savedJson.value || onImport.value !== savedOnImport.value)
 
 const columns = computed(() => props.dataset.columns.filter(c => c.key !== '__contribution'))
 const kindOf = (title: string) => props.dataset.columns.find(c => c.title === title)?.kind
@@ -45,6 +48,7 @@ async function load() {
     drafts.value = data.value.rules.map(fromRule)
     report.value = data.value.report
     savedJson.value = JSON.stringify(data.value.rules.map(r => toRule(fromRule(r))))
+    onImport.value = savedOnImport.value = data.value.onImport ?? 'check'
   }
   catch (e) {
     ElMessage.error(errorText(e))
@@ -98,10 +102,11 @@ watch(() => props.visible, (v) => {
 async function save() {
   saving.value = true
   try {
-    data.value = await saveValidationApi(props.dataset.id, drafts.value.map(toRule))
+    data.value = await saveValidationApi(props.dataset.id, drafts.value.map(toRule), onImport.value)
     report.value = data.value.report
     drafts.value = data.value.rules.map(fromRule)
     savedJson.value = JSON.stringify(data.value.rules.map(r => toRule(fromRule(r))))
+    onImport.value = savedOnImport.value = data.value.onImport ?? 'check'
     ElMessage.success(report.value?.failed ? t('已保存：{0} 条规则有不合格的行', [report.value.failed]) : drafts.value.length ? t('已保存：全部通过') : t('已清空校验规则'))
     emit('changed')
   }
@@ -196,6 +201,22 @@ function only(rule: ValidationRule, label: string) {
             </el-button>
           </div>
         </div>
+      </div>
+
+      <div v-if="drafts.length" class="flex flex-wrap items-center gap-x-3 gap-y-1" data-testid="on-import">
+        <span class="text-gray-600">{{ $t('导入、同步时发现不合格的行：') }}</span>
+        <el-radio-group v-model="onImport" size="small" :disabled="!canEdit">
+          <el-radio value="check">
+            {{ $t('照常导入，之后提示') }}
+          </el-radio>
+          <el-radio value="skip" data-testid="on-import-skip">
+            {{ $t('跳过这些行') }}
+          </el-radio>
+          <el-radio value="reject" data-testid="on-import-reject">
+            {{ $t('整批不导入') }}
+          </el-radio>
+        </el-radio-group>
+        <span v-if="onImport !== 'check'" class="text-xs text-gray-400">{{ $t('文件导入和数据连接同步时生效；计算列上的规则仍在导入后检查') }}</span>
       </div>
 
       <div v-if="report" class="rounded border border-[#e5e7eb] border-solid px-3 py-2" data-testid="validation-report">

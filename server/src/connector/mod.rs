@@ -827,6 +827,10 @@ impl Tally {
         for i in &o.invalid {
             self.notes.push(format!("「{}」有 {} 个值无法识别为数字，按空值导入", i.column, i.count));
         }
+        if o.rejected > 0 {
+            let rules = o.rejected_rules.iter().map(|h| format!("{} {} 条", h.label, h.count)).collect::<Vec<_>>().join("、");
+            self.notes.push(format!("{} 条数据不符合校验规则，按设置跳过没有导入（{rules}）", o.rejected));
+        }
     }
 }
 

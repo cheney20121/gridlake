@@ -97,8 +97,12 @@ export interface ValidationReport {
   elapsedMs: number
 }
 
+/** 导入、同步时遇到不合格的行：照常导入（之后提示）/ 跳过这些行 / 整批不导入 */
+export type OnImport = 'check' | 'skip' | 'reject'
+
 export interface DatasetValidation {
   rules: ValidationRule[]
+  onImport: OnImport
   report: ValidationReport | null
   updatedBy: string | null
   updatedAt: string | null
@@ -116,8 +120,8 @@ export function getValidationApi(datasetId: string) {
 }
 
 /** 保存规则并立即检查 */
-export function saveValidationApi(datasetId: string, rules: ValidationRule[]) {
-  return request<DatasetValidation>({ url: url(`/${datasetId}/validation`), method: 'put', data: { rules }, timeout: 5 * 60 * 1000 })
+export function saveValidationApi(datasetId: string, rules: ValidationRule[], onImport?: OnImport) {
+  return request<DatasetValidation>({ url: url(`/${datasetId}/validation`), method: 'put', data: { rules, onImport }, timeout: 5 * 60 * 1000 })
 }
 
 /** 推荐的一条校验规则：为什么推荐，按它现在有几行不合格 */
@@ -434,6 +438,9 @@ export interface ImportOutcome {
   invalid: { column: string, count: number }[]
   /** 新建时按样本推断的整数 / 是否列，全量数据里有放不下的值，已改成数值 / 文本列 */
   widened?: string[]
+  /** 不符合校验规则、按设置跳过没有导入的条数，以及每条规则拦下几条（第几条数据） */
+  rejected: number
+  rejectedRules?: { label: string, count: number, lines: number[] }[]
   elapsedMs: number
 }
 

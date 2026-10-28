@@ -962,5 +962,6 @@
   "写 Excel 失败：{0}": "Failed to write the Excel file: {0}",
   "分类汇总最多 {0} 级": "Subtotals can have at most {0} levels",
   "「{0}」已经是一级分类汇总了": "“{0}” is already a subtotal level",
-  "「{0}」的组合超过 {1} 种，分类汇总看不过来：请少分一级，或先筛选缩小范围": "“{0}” has more than {1} combinations, too many to subtotal: use fewer levels or filter first"
+  "「{0}」的组合超过 {1} 种，分类汇总看不过来：请少分一级，或先筛选缩小范围": "“{0}” has more than {1} combinations, too many to subtotal: use fewer levels or filter first",
+  "有 {0} 条数据不符合「{1}」的校验规则，按设置整批没有导入：{2}": "{0} records break the validation rules of “{1}”, so per the import setting nothing was imported: {2}"
 }
