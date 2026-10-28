@@ -103,6 +103,10 @@ describe('在线表格编辑器（界面）', { skip }, () => {
     }
     catch (e) {
       await page.screenshot(path.join(ARTIFACTS, `${name}.png`)).catch(() => {})
+      // CI 上的截图不一定方便看：把打开着的对话框文字与服务端日志的末尾附进错误信息，日志里就能看出卡在哪
+      const dialogs = await page.eval(`[...document.querySelectorAll('.ec-dialog')].filter(d => d.offsetParent).map(d => d.innerText.replace(/\\s+/g, ' ').slice(0, 800)).join('\\n')`).catch(() => '')
+      const health = await fetch(`${API}/health`).then(r => r.text()).catch(err => err.message)
+      e.message += `\n--- 打开着的对话框 ---\n${dialogs || '（无）'}\n--- 表格服务 /health ---\n${health}\n--- 表格服务日志（末尾）---\n${services.logs.ledger.slice(-3000)}`
       throw e
     }
     finally {
