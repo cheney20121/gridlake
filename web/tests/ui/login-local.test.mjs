@@ -43,7 +43,7 @@ describe('内置账号登录（界面）', { skip }, () => {
       await browser?.close()
     }
     finally {
-      services?.stop()
+      await services?.stop()
     }
   })
 

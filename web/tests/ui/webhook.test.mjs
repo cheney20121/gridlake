@@ -40,7 +40,7 @@ describe('事件 Webhook（界面）', { skip }, () => {
       await browser?.close()
     }
     finally {
-      services?.stop()
+      await services?.stop()
       receiver?.close()
     }
   })

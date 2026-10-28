@@ -55,6 +55,11 @@ watch(() => props.visible, (v) => {
   else
     token++
 })
+// 打开时数据集列表可能还没加载完（扫描了空列表，显示「没有发现」）：列表变了就按新列表重新扫描
+watch(() => props.datasets.map(d => d.id).join(','), () => {
+  if (props.visible)
+    run()
+})
 
 const progress = computed(() => entries.value.filter(e => e.state === 'done' || e.state === 'error').length)
 const scanning = computed(() => entries.value.some(e => e.state === 'pending' || e.state === 'running'))

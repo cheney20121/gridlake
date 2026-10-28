@@ -70,7 +70,7 @@ describe('数据校验（界面）', { skip }, () => {
       await browser?.close()
     }
     finally {
-      services?.stop()
+      await services?.stop()
     }
   })
 

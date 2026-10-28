@@ -33,7 +33,7 @@ describe('数据概况（界面）', { skip }, () => {
       await browser?.close()
     }
     finally {
-      services?.stop()
+      await services?.stop()
     }
   })
 

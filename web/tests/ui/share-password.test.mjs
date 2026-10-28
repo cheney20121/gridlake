@@ -32,7 +32,7 @@ describe('带访问密码的分享链接（界面）', { skip }, () => {
       await browser?.close()
     }
     finally {
-      services?.stop()
+      await services?.stop()
     }
   })
 

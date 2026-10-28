@@ -27,7 +27,7 @@ describe('界面语言（界面）', { skip }, () => {
       await browser?.close()
     }
     finally {
-      services?.stop()
+      await services?.stop()
     }
   })
 

@@ -42,7 +42,7 @@ describe('要求两步验证（界面）', { skip }, () => {
       await browser?.close()
     }
     finally {
-      services?.stop()
+      await services?.stop()
     }
   })
 

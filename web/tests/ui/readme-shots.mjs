@@ -56,7 +56,7 @@ async function main() {
     }
   }
   finally {
-    services.stop()
+    await services.stop()
   }
 }
 

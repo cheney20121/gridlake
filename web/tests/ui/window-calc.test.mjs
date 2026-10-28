@@ -56,7 +56,7 @@ describe('窗口计算（界面）', { skip }, () => {
       await browser?.close()
     }
     finally {
-      services?.stop()
+      await services?.stop()
     }
   })
 
