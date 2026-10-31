@@ -71,7 +71,7 @@
     "eslint": "^9.39.2",
     "eslint-plugin-vue": "~10.6.2",
     "jiti": "^2.6.1",
-    "npm-run-all2": "^8.0.4",
+    "npm-run-all2": "^9.0.4",
     "sass": "^1.97.2",
     "typescript": "~5.9.3",
     "unocss": "^66.5.12",
