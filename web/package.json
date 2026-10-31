@@ -38,7 +38,7 @@
     "@vueuse/core": "^14.2.0",
     "axios": "^1.20.0",
     "dayjs": "^1.11.21",
-    "echarts": "^5",
+    "echarts": "^6",
     "element-plus": "^2.13.1",
     "exceljs": "4.4.0",
     "grid-layout-plus": "^1.1.1",
