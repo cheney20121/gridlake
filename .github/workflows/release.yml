@@ -54,7 +54,7 @@ jobs:
             export CXXFLAGS="-isystem ${sdk}/usr/include/c++/v1"
           fi
           ./deploy/package.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: package-${{ matrix.name }}
           path: |
@@ -97,7 +97,7 @@ jobs:
           mkdir -p /tmp/digests
           digest="${{ steps.build.outputs.digest }}"
           touch "/tmp/digests/${digest#sha256:}"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: digests-${{ matrix.os }}
           path: /tmp/digests/*
