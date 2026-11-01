@@ -16,7 +16,7 @@ RUN node_modules/.bin/vite build --outDir /out/web --emptyOutDir \
  && find /out/web -type f \( -name '*.js' -o -name '*.css' -o -name '*.html' -o -name '*.svg' -o -name '*.json' -o -name '*.wasm' \) \
       -size +1k ! -path '*/config/*' -exec gzip -k -9 -f {} \;
 
-FROM rust:1.98-bookworm AS server
+FROM rust:1.99-bookworm AS server
 ARG CARGO_REGISTRY=
 WORKDIR /src
 COPY server/ ./
